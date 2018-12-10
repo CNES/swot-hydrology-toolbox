@@ -1,0 +1,6 @@
+*.pyc
+*.swp
+*.idea*
+test/river_and_lake/output/
+test/leman/
+test/river_and_lake/output_complex/

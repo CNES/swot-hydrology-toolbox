@@ -1,0 +1,7 @@
+*.pyc
+<<<<<<< HEAD
+=======
+*.swp
+/lib_geoloc
+.idea
+>>>>>>> master

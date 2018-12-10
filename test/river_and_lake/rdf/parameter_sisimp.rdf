@@ -1,0 +1,50 @@
+Run directory for orbits = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/orbit
+Shapefile path = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/data/river_and_lake
+Output directory = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/simu
+
+
+!### Noise and error files 
+Noise file path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt
+roll_file_name = /work/ALT/swot/swotpub/SWOT_Simulator_data/input_data/large_scale_sim_scene/data_sim_roll_v1.nc
+
+
+!### Orbit parameters: 
+!3 options =
+!Multiple orbit = yes (default) => all orbit files in Orbit directory will be processed
+!Multiple orbit = no => set the Orbit to a correct number found in the Orbit directory; only this orbit file will be processed
+!Multiple orbit = passplan => orbit files will be processed according to passplan.txt file (generated if passplan = yes in select_orbit.rdf)
+Multiple orbit = passplan !=no/yes/passplan
+Orbit = 266
+
+!### Simulation parameters
+Swath width = 120000.
+NR cross track = 10000.
+Sensor wavelength = 0.0084
+Range sampling = 0.75 !by default
+Number of pixels in range = 3117 !3117 (10-60km) or 3500 (extended swath 5-65km)
+Orbit jitter = 1000
+Cycle duration (sec) = 1802645.8059698
+Water flag = 4
+Dark water = no
+
+!### Constant height model parameters(applied everywhere) 
+Height model A = 0.
+Height model t0 = 47076
+Height model period (days) = 365.25
+
+
+!### Complex height model parameters (applied for big lake > Height model min area) 
+Height model = reference_height   !optionnal argument : polynomial or gaussian
+Height name = ref_height
+Height model min area = 100.     ! (ha) (optionnal argument to add complex 2D height model)
+Height model stdv = 0.2        !(optionnal argument to add complex 2D height model for gaussian height model)
+
+!### Error parameters
+Height bias std = 0.1
+Noise multiplier factor = 0.5 !1/sqrt(Nl) where Nl is 4*1.66
+Geolocalisation improvement = no !yes (no cross-track noise applied) or no
+
+!### Other parameters
+random seed = 1234567891.000000
+Create shapefile = yes !yes or no (works only with real pixel cloud option)
+Create dummy pixc vec river file = yes !yes (L2_HR_PIXC_VEC_RIVER product associated to PixC files) or no (works only with real pixel cloud option)

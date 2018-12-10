@@ -1,0 +1,22 @@
+!***** ONLY NEEDED FOR STAND-ALONE VERSION *****
+Output directory = D:\\Utilisateurs\\pottierc\\Documents\\workspace_qgis\\sisimp_tests_unitaires\\FT3_Cas3\\4_lake_sp_pc
+Cycle = 0 !Must be filled out
+Orbit = 60 !Must be filled out
+!***********************************************
+
+South latitude (deg) = -90
+North latitude (deg) = 90
+
+LAKE_TILE directory = D:\\Utilisateurs\\pottierc\\Documents\\workspace_qgis\\sisimp_tests_unitaires\\FT3_Cas3\\3_lake_tile
+
+Lake a priori database = D:\\Utilisateurs\\pottierc\\Documents\\01_SWOT\\ADT\\WG10_HydroProducts\\Support\\2016-2018\\Fournitures\\lake_db\\lake_db_france_20170905\\priordb_lakes_france.shp
+Min size for lake = 1.0 !In ha
+Improve geolocation = 1 !0=no 1=yes
+Hull computation = 2 !0=convex hull 1=concav hull Delaunay Triangulation 2=concav hull radar vectorisation ; =0 if imp geoloc=0
+
+!Big lakes parameters for improved geoloc; used only if imp geoloc=0
+Geoloc biglake min size = 5000 !In ha; if None, disable biglake model
+Geoloc biglake grid spacing = 4000 !In m
+Geoloc biglake grid resolution = 8000 !In m
+
+Produce shp = 1 !0=no 1=yes; to also produce PIXC_VEC as shapefiles ; =0 if imp geoloc=0
