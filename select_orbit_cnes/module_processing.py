@@ -30,6 +30,8 @@ class Processing(object):
             context(str) : The path to the module execution context
         """
         print("[select_orbit_cnes] == INIT ==")
+        print("[select_orbit_cnes] Parameter file = %s" % parameter_file)
+        print("[select_orbit_cnes] Output directory = %s" % output_directory)
         
         self.parameter_file = parameter_file
         self.output_directory = output_directory
