@@ -1,8 +1,8 @@
 import netCDF4 as nc
 import numpy as np
 import os
-import ogr, osr
 from scipy.interpolate import LinearNDInterpolator
+from scipy.spatial.distance import cdist
 
 __author__ = """Kevin Larnier """ \
              """<kevin.larnier@c-s.fr>"""
@@ -13,7 +13,7 @@ class TrueHeightModel():
     """ Class for application of true height to a sisimp pointcloud
     """
   
-    def __init__(self, trueheight_filename, pt_lat, pt_lon, pt_height, **kwargs):
+    def __init__(self, trueheight_filename, pt_lat, pt_lon, **kwargs):
         """ Initialize the class
         
             Arguments:
@@ -29,7 +29,7 @@ class TrueHeightModel():
                         'lon' : "longitude"}
         self.pt_lon = pt_lon
         self.pt_lat = pt_lat
-        self.pt_height = pt_height
+        self.pt_height = np.zeros(len(self.pt_lon))
 
         self.verbose = False
         
@@ -83,13 +83,27 @@ class TrueHeightModel():
         """
       
         if self.verbose:
-            print(" - Apply true height")
-          
-        th_points = np.stack((self.th_lon, self.th_lat), axis=1)
-        interpolator = LinearNDInterpolator(th_points, self.th_height)
+            print(" - Apply true height") 
+            
+        fillvalue = -9999.
         
+        # Vector of theoretical points
+        th_points = np.stack((self.th_lon, self.th_lat), axis=1)
+        interpolator = LinearNDInterpolator(th_points, self.th_height, fill_value=fillvalue)
+        
+        # Vector of simulated points
         pt_points = np.stack((self.pt_lon, self.pt_lat), axis=1)
         interpolated_height = interpolator(pt_points)
+        
+        # Specific processing when interpolation doesn't work => get height from nearest point
+        ind_pb = np.where(interpolated_height == fillvalue)[0]  # Get indices of problematic points
+        if len(ind_pb) != 0:
+            # Compute distance between problematic points and theoretical points
+            distances = cdist(th_points, pt_points[ind_pb], 'euclidean')
+            # Get indices of nearest theoratical points for each pb point
+            ind_min = np.argmin(distances, 0)  
+            # Replace non-interpolated heights by nearest heights 
+            interpolated_height[ind_pb] = self.th_height[ind_min]
         
         self.final_height = self.pt_height + interpolated_height
         
