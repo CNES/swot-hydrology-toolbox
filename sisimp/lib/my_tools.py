@@ -25,21 +25,26 @@ import shapely.geometry as geometry
 
 import lib.my_api as my_api
 from lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE, GEN_APPROX_RAD_EARTH
+        
 
-
-def testFile(IN_file):
-    '''
-    Test if full path in input is an existing file
+def testFile(IN_file, IN_extent=None):
+    """
+    Test if full path in input is an existing file and, optionnally, a file in the awaited format
     
     :param IN_file: input full path
     :type IN_file: string
-    '''
+    :param IN_extent: awaited format file (optionnal)
+    :type IN_extent: string
+    """
     
-    if ( os.path.exists(IN_file) ):
-        if ( os.path.isfile(IN_file) == False ):
-            my_api.exitWithError("ERROR = %s is not a file" % ( IN_file ))
+    if os.path.exists(IN_file):
+        if not os.path.isfile(IN_file):
+            my_api.exitWithError("ERROR = %s is not a file" % IN_file)
+        if IN_extent and not IN_file.endswith(IN_extent):
+            my_api.exitWithError("ERROR = %s must have the %s extent" % (IN_file, IN_extent))
     else:
-        my_api.exitWithError("ERROR = %s doesn't exist" % ( IN_file ))
+        my_api.exitWithError("ERROR = %s doesn't exist" % IN_file)
+        
         
 def testDir(IN_dir):
     '''

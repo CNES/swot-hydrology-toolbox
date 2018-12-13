@@ -293,7 +293,7 @@ if __name__ == '__main__':
     nb_pix_azimuth = 20
     
     # Test avec vrai PixC
-    pixc_file = "D:\\Utilisateurs\\pottierc\\Documents\\workspace_eclipse\\swot_py\\res\\sisimp_real_pixc\\outputs\\SWOT_L2_HR_PIXC_001_010_45N-L_main.nc"
+    pixc_file = os.path.join(os.getcwd(), "SWOT_L2_HR_PIXC_001_010_45N-L_main.nc")
     coord = my_nc.myNcReader(pixc_file)
     # Init PIXCVecRiver product
     my_pixc_vec = l2_hr_pixc_vec_river(coord.get_variable("azimuth_index"), \

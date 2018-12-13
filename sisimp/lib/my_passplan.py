@@ -121,7 +121,7 @@ class orbitPassplan(object):
 
 if __name__ == "__main__":
     
-    plan = orbitPassplan("C:\\Users\\pottierc\\Documents\\workspace_qgis\\sisimp_tests_unitaires\\FT2_Cas2\\1_select_orbit\\passplan.txt")
+    plan = orbitPassplan("passplan.txt")
     
     print("Number of pairs = %d" % len(plan.cycle_orbit_pairs))
     print("")

@@ -85,7 +85,7 @@ class myRdfReader(object):
 
 if __name__ == "__main__":
     
-    paramFile = "D:\\Utilisateurs\\pottierc\\Documents\\workspace_qgis\\sisimp_tests_unitaires\\FT2_Cas2\\3_lake_tile_pc\\parameter_lake_tile.rdf"
+    paramFile = "parameter_lake_tile.rdf"
     parameters = myRdfReader(paramFile)
         
     # Get working directories

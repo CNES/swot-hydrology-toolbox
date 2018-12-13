@@ -14,7 +14,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import numpy as np
 import os
 from osgeo import ogr, osr
-from datetime import datetime, timedelta
 
 import lib.my_api as my_api
 import lib.my_netcdf_file as my_nc
@@ -112,7 +111,7 @@ class l2_hr_pixc(object):
         + nb_nadir_pix(int) : number of pixels on the nadir track, i.e. pixels in time, ..., near_range vectors
         + pattern(str): filename pattern
         """
-        my_api.printInfo("[l2_hr_pixc] == INIT ==") 
+        my_api.printInfo("[proc_real_pixc] == INIT ==") 
         
         self.azimuth_index = IN_azimuth_index
         self.range_index = IN_range_index
@@ -170,7 +169,7 @@ class l2_hr_pixc(object):
         :param compress: parameter the define to compress or not the file
         :type compress: boolean
         """
-        my_api.printInfo("[l2_hr_pixc] == write_pixc_file : %s ==" % IN_output_file) 
+        my_api.printInfo("[proc_real_pixc] == write_pixc_file : %s ==" % IN_output_file) 
     
         data = my_nc.myNcWriter(IN_output_file)
         
@@ -388,11 +387,10 @@ class l2_hr_pixc(object):
         :param IN_pixc_file: PIXC full path
         :type IN_pixc_file: string
         """
-        my_api.printInfo("[l2_hr_pixc] == write_annotation_file : %s ==" % IN_output_file)
+        my_api.printInfo("[proc_real_pixc] == write_annotation_file : %s ==" % IN_output_file)
         
         f = open(IN_output_file, 'w')
         f.write("l2pixc file = %s\n" % IN_pixc_file)
-        f.write("true GDEM file = /work/ALT/swot/swotdev/desrochesd/swot-sds/run/camargue/output_simu/gdem-dem-camargue/cycle_0001_pass_0004_LeftSwath_nlcd50_darkWater_25m_CBE/gdem_truth.LeftSwath.nc")
         
         f.close()
 
@@ -403,7 +401,7 @@ class l2_hr_pixc(object):
         :param IN_output_file: output full path
         :type IN_output_file: string
         """
-        my_api.printInfo("[l2_hr_pixc] == write_pixc_asShp : %s ==" % IN_output_file) 
+        my_api.printInfo("[proc_real_pixc] == write_pixc_asShp : %s ==" % IN_output_file) 
         
         # 1 - Initialisation du fichier de sortie
         # 1.1 - Driver
@@ -473,7 +471,7 @@ class l2_hr_pixc(object):
         :param IN_output_file: output full path
         :type IN_output_file: string
         """
-        my_api.printInfo("[l2_hr_pixc] == write_tvp_asShp : %s ==" % IN_output_file) 
+        my_api.printInfo("[proc_real_pixc] == write_tvp_asShp : %s ==" % IN_output_file) 
     
         # 1 - Initialisation du fichier de sortie
         # 1.1 - Driver
@@ -521,7 +519,7 @@ class l2_hr_pixc(object):
             point.AddPoint(lng, lat)
             outFeature.SetGeometry(point)
             # 2.3 - On lui assigne les attributs
-            #~ outFeature.SetField(str('TIME'), float(t)) 
+            outFeature.SetField(str('TIME'), float(t)) 
             outFeature.SetField(str('LAT'), float(lat)) 
             outFeature.SetField(str('LONG'), float(lng)) 
             outFeature.SetField(str('ALTITUDE'), float(alt)) 
@@ -541,7 +539,7 @@ if __name__ == '__main__':
     noval = -999900000
 
     record = 10
-    azimuth_index = np.ones(record) + 50.
+    azimuth_index = np.arange(record)
     range_index = np.ones(record)+50.
     classification = np.ones(record)
     pixel_area = np.ones(record)+10.
@@ -561,6 +559,9 @@ if __name__ == '__main__':
     nadir_x = np.ones(record)*20.
     nadir_y = np.ones(record)*30.
     nadir_z = np.ones(record)*40.
+    nadir_vx = np.ones(record)*20.
+    nadir_vy = np.ones(record)*30.
+    nadir_vz = np.ones(record)*40.
     nadir_near_range = np.ones(record)*10.0
     
     cycle_num = 1
@@ -568,12 +569,18 @@ if __name__ == '__main__':
     tile_ref = "45N-L"
     nb_pix_range = 200
     nb_pix_azimuth = 20
+    mission_start_time = 0
+    cycle_duration = 21.0
+    azimuth_spacing = 21.875
+    range_spacing = 0.7
+    near_range = np.ones(record)*10.0
     
-    my_pixc = l2_hr_pixc(azimuth_index, range_index, classification, pixel_area, ambiguity_altitude, latitude, longitude, height, crosstrack, \
-                         nadir_time, nadir_latitude, nadir_longitude, nadir_altitude, nadir_heading, nadir_x, nadir_y, nadir_z, nadir_near_range, \
-                         cycle_num, pass_num, tile_ref, nb_pix_range, nb_pix_azimuth)
+    print("Current directory = %s" % os.getcwd()) 
     
-    my_pixc.write_main("D:\\Utilisateurs\\pottierc\\Documents\\workspace_eclipse\\swot_py\\res\\sisimp_real_pixc\\outputs\\", noval, True)
-    my_pixc.write_sensor("D:\\Utilisateurs\\pottierc\\Documents\\workspace_eclipse\\swot_py\\res\\sisimp_real_pixc\\outputs\\", noval, True)
-    my_pixc.write_main_asShp("D:\\Utilisateurs\\pottierc\\Documents\\workspace_eclipse\\swot_py\\res\\sisimp_real_pixc\\outputs\\")
-    my_pixc.write_sensor_asShp("D:\\Utilisateurs\\pottierc\\Documents\\workspace_eclipse\\swot_py\\res\\sisimp_real_pixc\\outputs\\")
+    my_pixc = l2_hr_pixc(azimuth_index, range_index, classification, pixel_area, latitude, longitude, height, crosstrack, \
+                 nadir_time, nadir_latitude, nadir_longitude, nadir_altitude, nadir_heading, nadir_x, nadir_y, nadir_z, nadir_vx, nadir_vy, nadir_vz, nadir_near_range, \
+                 mission_start_time, cycle_duration, cycle_num, pass_num, tile_ref, nb_pix_range, nb_pix_azimuth, azimuth_spacing, range_spacing, near_range)
+    my_pixc.write_main(os.getcwd(), noval, True)
+    my_pixc.write_sensor(os.getcwd(), noval, True)
+    my_pixc.write_main_asShp(os.getcwd())
+    my_pixc.write_sensor_asShp(os.getcwd())

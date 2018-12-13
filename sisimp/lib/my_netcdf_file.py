@@ -378,7 +378,7 @@ class myNcWriter():
 if __name__ == "__main__":
     
     '''
-    coord = myNcReader("D:\\Utilisateurs\\pottierc\\Documents\\workspace_eclipse\\swot_py\\res\\test.gdem_orbit_cycle_0001_pass_0059.nc")
+    coord = myNcReader("test.gdem_orbit_cycle_0001_pass_0059.nc")
     print(coord.printListDim())
     #print coord.printListAtt()
     #print coord.printListVar()
@@ -397,5 +397,5 @@ if __name__ == "__main__":
     print(z[0])
     '''
     
-    data = myNcWriter("C:\\Users\\pottierc\\Documents\\workspace_qgis\\sisimp_tests_unitaires\\FT2_Cas2\\2_sisimp_pc\\SWOT_L2_HR_PIXC_I_000_017_043N_L_20140101T133024_T_000.nc")
+    data = myNcWriter("SWOT_L2_HR_PIXC_I_000_017_043N_L_20140101T133024_T_000.nc")
     

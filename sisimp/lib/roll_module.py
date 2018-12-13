@@ -1,10 +1,6 @@
-import sys,os,shutil
+import netCDF4 as nc
 import numpy
 import scipy.interpolate
-import matplotlib.pylab as plt
-import netCDF4 as nc
-from scipy.interpolate import griddata
-import shutil
 
 
 deltat=0. # time lag to be applied if reference time or pass number is different from CNES reference. 
@@ -13,6 +9,7 @@ deltat=0. # time lag to be applied if reference time or pass number is different
 class Roll_module(object):
 
     def __init__(self, In_filename):
+        
         try:
             fid = nc.Dataset(In_filename, 'r')
         except:
@@ -25,8 +22,8 @@ class Roll_module(object):
         self.roll2_err=numpy.array(fid.variables['roll2_err'])
         self.roll1_cor=numpy.array(fid.variables['roll1_cor'])
         self.roll2_cor=numpy.array(fid.variables['roll2_cor'])
+        
         fid.close()
-
 
     def interpolate_roll_on_sensor_grid(self, sensor_time):
 
