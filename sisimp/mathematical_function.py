@@ -98,7 +98,7 @@ def calc_delta_sensor(IN_delta_h, IN_orbit_altitudes, IN_y):
     return IN_delta_h * IN_orbit_altitudes / IN_y
 
 
-def lonlat_from_azy(IN_az, IN_y, IN_lat_init, IN_lon_init, IN_heading_init):
+def lonlat_from_azy(IN_az, IN_y, IN_lat_init, IN_lon_init, IN_heading_init, IN_unit="rad"):
     """
     Convert coordinates from azimuth-y to lon-lat for a given track
 
@@ -106,6 +106,8 @@ def lonlat_from_azy(IN_az, IN_y, IN_lat_init, IN_lon_init, IN_heading_init):
     :type IN_az: 1D-array of float
     :param IN_y: crosstrack distance of given points
     :type IN_y: 1D-array of float
+    :param IN_unit: "rad" (default) ou "deg" to output coordinates in radians or degrees
+    :type IN_unit: string
 
     :return: OUT_lon = longitude of points
     :rtype: OUT_lon = 1D-array of float
@@ -120,7 +122,9 @@ def lonlat_from_azy(IN_az, IN_y, IN_lat_init, IN_lon_init, IN_heading_init):
     OUT_lat = linear_extrap(IN_az, np.arange(len(IN_lat_init)), IN_lat_init) + dv / GEN_APPROX_RAD_EARTH
     OUT_lon = linear_extrap(OUT_lat, IN_lat_init, IN_lon_init) + du / (GEN_APPROX_RAD_EARTH * np.cos(linear_extrap(IN_az, np.arange(len(IN_lat_init)), IN_lat_init)))
 
-    return OUT_lon, OUT_lat
+    if IN_unit == "deg":
+        return OUT_lon*RAD2DEG, OUT_lat*RAD2DEG  # Output in degrees
+    return OUT_lon, OUT_lat  # Output in radians
 
 
 def linear_extrap(IN_x, IN_xp, IN_yp):

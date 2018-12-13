@@ -9,7 +9,7 @@ Copyright (c) 2018 CNES. All rights reserved
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from osgeo import gdal, ogr
-from osgeo.gdalconst import GDT_Byte, GDT_Float32, GDT_Int16
+from osgeo.gdalconst import GDT_Float32
 
 import numpy as np
 import sys
@@ -139,9 +139,9 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
     :rtype OUT_height_data : 2D-array of int (height of each water body pixel)
     """
     if IN_pixc_vec_only:
-        my_api.printInfo("[sisimp] == compute_pixels_in_water / river polygons only ==")
+        my_api.printInfo("[write_polygons] == compute_pixels_in_water / river polygons only ==")
     else:
-        my_api.printInfo("[sisimp] == compute_pixels_in_water / all polygons ==")
+        my_api.printInfo("[write_polygons] == compute_pixels_in_water / all polygons ==")
 
     # 1 - Read the reprojected shapefile
     driver = ogr.GetDriverByName(str("ESRI Shapefile"))
@@ -211,7 +211,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     :param IN_orbit_number: orbit number
     :type IN_orbit_number: int
     """
-    my_api.printInfo("[sisimp] == write_water_pixels_realPixC ==")  
+    my_api.printInfo("[write_polygons] == write_water_pixels_realPixC ==")  
     
     ################################
     # Variables for PixC main file #
@@ -282,32 +282,28 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     angles = np.arccos(Hi/ri)  # Look angles
     pixel_area = IN_attributes.azimuth_spacing * IN_attributes.range_sampling / np.sin(angles)  # Pixel area
     
-    # 3 - Height model
-    # 3.1 - Compute theorical constant elevation for water pixels
-    elevation_tab = make_elevation_tab(az, IN_cycle_number, IN_attributes)
-    
-    # 3.2 - Build cross-track distance array
+    # 3 - Build cross-track distance array
     # Compute theorical cross-track distance for water pixels
     sign = [-1, 1][IN_swath.lower() == 'right']
     y = sign * np.sqrt((ri + Hi) * (ri - Hi) / (1. + Hi / GEN_APPROX_RAD_EARTH))
-
-    delta_y_elev = math_fct.calc_delta_sensor(elevation_tab, Hi, y)
+    lon, lat = math_fct.lonlat_from_azy(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init, IN_unit="deg")
     
-    lon, lat = math_fct.lonlat_from_azy(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
-    xp, yp, zp = llh2xyz(lon, lat, elevation_tab)
-    xs, ys, zs = llh2xyz(IN_attributes.lon[az], IN_attributes.lat[az], IN_attributes.alt[az])
-    x0, y0, z0 = llh2xyz(IN_attributes.lon[az], IN_attributes.lat[az], 0.*IN_attributes.alt[az])
-
-    ri_new = np.sqrt((xp-xs)**2+(yp-ys)**2+(zp-zs)**2)
-
-            
-    # 3.3 - Complex Height model
+    # 4 - Height model    
     ## TBD : Separate height model for each water body !!!
-    
     if size_of_tabs != 0.:
+        
+        # 4.1 - Constant elevation model
+        if IN_attributes.height_model is None:
+            # Compute theorical constant elevation for water pixels
+            elevation_tab = make_elevation_tab(az, IN_cycle_number, IN_attributes)
       
-        if IN_attributes.height_model == 'gaussian':
+        # 4.2 - Gaussian model
+        elif IN_attributes.height_model == 'gaussian':
             
+            # Compute theorical constant elevation for water pixels
+            elevation_tab = make_elevation_tab(az, IN_cycle_number, IN_attributes)
+            
+            # Add gaussian model over big lakes
             for i in np.unique((IN_attributes.code[ind])):
                 indice=np.where(IN_attributes.code[ind]==i)
                 size_water_body = pixel_area[indice].sum()
@@ -322,8 +318,13 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                     height_water = height[indice_az, indice_r]
                     elevation_tab[indice] += height_water
 
-        if IN_attributes.height_model == 'polynomial':
+        # 4.3 - Polynomial model
+        elif IN_attributes.height_model == 'polynomial':
             
+            # Compute theorical constant elevation for water pixels
+            elevation_tab = make_elevation_tab(az, IN_cycle_number, IN_attributes)
+            
+            # Add polynomial model over big lakes
             for i in np.unique((IN_attributes.code[ind])):
                 indice=np.where(IN_attributes.code[ind]==i)
                 size_water_body = pixel_area[indice].sum()
@@ -340,31 +341,35 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                     X0, Y0 = X[k0], Y[k0]
                     height_water = height_model.generate_2d_profile_2nd_order_list(X0, Y0, X, Y, COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST)
                     elevation_tab[indice] += height_water
+
+        # 4.4 - Height given by an attribute in input shapefile
+        elif IN_attributes.height_model == "reference_height" and IN_attributes.height_model_a_tab is not None:
+            elevation_tab = height_flag
     
-        if IN_attributes.height_model == "reference_file" and IN_attributes.trueheight_file is not None:
-            # Process
-            # 3.4 - True height model from Kevin Larnier
+        # 4.5 - Height given in a dedicated file
+        elif IN_attributes.height_model == "reference_file" and IN_attributes.trueheight_file is not None:
+            # Process true height model from Kevin Larnier
             # TDB : Add security for lat lon boundaries
             # TBD : Add specific model for 1D model (river)
-            true_height_model_inst = true_height_model.TrueHeightModel(IN_attributes.trueheight_file, lat, lon, elevation_tab, verbose=True)
+            true_height_model_inst = true_height_model.TrueHeightModel(IN_attributes.trueheight_file, lat, lon, verbose=True)
             true_height_model_inst.apply_model()
             elevation_tab = true_height_model_inst.final_height
-
-        if IN_attributes.height_model == "reference_height" and IN_attributes.height_model_a_tab is not None:
-            elevation_tab = height_flag
-
-    else:
-        my_api.printInfo("No complex height model applied")
     
+    # Update positions
+    xp, yp, zp = llh2xyz(lon, lat, elevation_tab)
+    xs, ys, zs = llh2xyz(IN_attributes.lon[az], IN_attributes.lat[az], IN_attributes.alt[az])
+    x0, y0, z0 = llh2xyz(IN_attributes.lon[az], IN_attributes.lat[az], 0.*IN_attributes.alt[az])
 
+    ri_new = np.sqrt((xp-xs)**2+(yp-ys)**2+(zp-zs)**2)
 
-    # 4 - Error model
+    # 5 - Error model
 
-    # 4.1 - Compute noise over height
+    # 5.1 - Compute noise over height
     delta_h = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std)
   
-    # 4.2 Add residual roll error
+    # 5.2 - Add residual roll error
     try:
+        
         roll = Roll_module(IN_attributes.roll_file)
         roll.interpolate_roll_on_sensor_grid(IN_attributes.orbit_time)
         
@@ -388,36 +393,30 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     except:
         my_api.printInfo("No roll error applied")
        
-    #~ delta_h = 0.
-       
-    # 4.3 - Compute final noisy heights (elevation + thermal noise + roll error + height model) 
+    # 5.3 - Compute final noisy heights (elevation + thermal noise + roll error + height model) 
     elevation_tab_noisy = elevation_tab + delta_h           
        
-    # 4.4 - Compute noise over geolocation
+    # 5.4 - Compute noise over geolocation
     #~ delta_y = math_fct.calc_delta_sensor(delta_h, Hi, y, ri)
     delta_y = math_fct.calc_delta_sensor(delta_h, Hi, y)
     
-    # 4.5 - Add noise over geolocation if asked
+    # 5.5 - Add noise over geolocation if asked
     if IN_attributes.geolocalisation_improvement in ['no', 'non', 'not', 'false', 'nope']:
         my_api.printInfo("Add noise to cross track")
         y_noisy = y + delta_y
     else:
         my_api.printInfo("Geolocalisation improvement")
-        y_noisy = y            
-    # 5 - Build geolocation arrays
-    # 5.1 - With no noise
+        y_noisy = y   
+         
+    # 6 - Build geolocation arrays
+    # 6.1 - With no noise
     lon, lat = math_fct.lonlat_from_azy(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init) 
     lon *= RAD2DEG
     lat *= RAD2DEG
-
-
-
-    # 5.2 - Noisy
+    # 6.2 - Noisy
     lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, y_noisy, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
     lon_noisy *= RAD2DEG  # Conversion in degrees
     lat_noisy *= RAD2DEG  # Conversion in degrees
-
-       
 
     # 7 - Build velocity arrays
     nb_pix_nadir = IN_attributes.x.size  # Nb pixels at nadir
@@ -433,10 +432,10 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     for indp in range(1, nb_pix_nadir-1):
         vx[indp], vy[indp], vz[indp] = [(IN_attributes.x[indp+1] - IN_attributes.x[indp-1]), (IN_attributes.y[indp+1] - IN_attributes.y[indp-1]), (IN_attributes.z[indp+1] - IN_attributes.z[indp-1])] / (IN_attributes.orbit_time[indp+1] - IN_attributes.orbit_time[indp-1])
  
- 
+    # 8 - Compute noisy geolocation and height
     complex_latlon_noise = False
     if (size_of_tabs != 0.) & (complex_latlon_noise == True):
-        print("Complex latlon noise applied from improved geoloc module")
+        my_api.printInfo("Complex latlon noise applied from improved geoloc module")
         p_final, p_final_llh, h_mu, (iter_grad,nfev_minimize_scalar) = pointcloud_height_geoloc_vect(np.transpose(np.array([xp, yp, zp])), elevation_tab,
                                                    np.transpose(np.array([xs, ys, zs])), np.transpose(np.array([vx[az], vy[az], vz[az]])), 
                                             ri_new, elevation_tab_noisy, 
@@ -447,11 +446,9 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                                             max_iter_grad=1, height_goal = 1.e-3, safe_flag=True)
      
         xp_noisy_bis, yp_noisy_bis, zp_noisy_bis = p_final[:,0], p_final[:,1], p_final[:,2]
-        
         ri_noisy_bis = np.sqrt((xp_noisy_bis-xs)**2+(yp_noisy_bis-ys)**2+(zp_noisy_bis-zs)**2)
         lon_noisy, lat_noisy, elevation_tab_noisy = xyz2llh(xp_noisy_bis, yp_noisy_bis, zp_noisy_bis)
     else:
-        
         lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, y_noisy, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
         lon_noisy *= RAD2DEG  # Conversion in degrees
         lat_noisy *= RAD2DEG  # Conversion in degrees 
@@ -519,7 +516,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])
                 
                 # Write main file
-                print(IN_attributes.sisimp_filenames.pixc_file+".nc")
                 my_pixc.write_pixc_file(IN_attributes.sisimp_filenames.pixc_file+".nc", None, True)
                 
                 # Write annotation file
@@ -569,7 +565,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes):
     :return OUT_swath_polygons
     :rtype OUT_swath_polygons
     """
-    my_api.printInfo("[sisimp] == reproject_shapefile ==")
+    my_api.printInfo("[write_polygons] == reproject_shapefile ==")
 
     # 1 - Make swath polygons
     swath_polygon = make_swath_polygon(IN_swath, IN_attributes)
@@ -580,9 +576,14 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes):
     da_shapefile = IN_driver.Open(IN_filename, 0)  # 0 = read only
     layer = da_shapefile.GetLayer()
     layer.SetSpatialFilter(swath_polygon)
+    nb_features = layer.GetFeatureCount()
     
-    my_api.printInfo(str("There are " + str(layer.GetFeatureCount()) + " features in " + IN_filename))
+    my_api.printInfo("There are %d feature(s) crossing %s swath" % (nb_features, IN_swath))
     sys.stdout.flush()
+    
+    # Exit if no feature to deal with
+    if nb_features == 0:
+        return None, IN_attributes
     
     # 3 - Create the output shapefile
     swath_t = '%s_swath' % IN_swath
@@ -666,6 +667,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes):
                 # Add the output feature to the output layer
                 layerout.CreateFeature(feature_out)
     IN_attributes.swath_polygons = OUT_swath_polygons
+    
     return OUT_filename, IN_attributes
 
 
