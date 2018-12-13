@@ -37,7 +37,7 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     :param OUT_attributes
     :type OUT_attributes
     """
-    my_api.printInfo("[sisimp] == read_orbit ==")
+    my_api.printInfo("[sisimp_function] == read_orbit ==")
     my_api.printInfo("Orbit file = %s" % IN_filename)
 
     OUT_attributes = IN_attributes
@@ -111,7 +111,7 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
     :param OUT_swath_polygons
     :type OUT_swath_polygons
     """
-    my_api.printInfo("[sisimp] == make_pixel_cloud ==")
+    my_api.printInfo("[sisimp_function] == make_pixel_cloud ==")
     my_api.printInfo(str("> Working on the " + IN_side_name + " swath"))
 
     swath = IN_side_name
@@ -120,6 +120,10 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
     fshp = IN_attributes.shapefile_path + ".shp"
     driver = ogr.GetDriverByName(str("ESRI Shapefile"))
     fshp_reproj, IN_attributes = write_poly.reproject_shapefile(fshp, swath, driver, IN_attributes)
+    
+    if fshp_reproj is None:  # No water body crossing the swath => stop process
+        my_api.printInfo("No output data file to write")
+        return IN_attributes
     
     # 2 - Compute the intersection between the radar grid and the water bodies
     water_pixels, IN_attributes.height_model_a_tab,  IN_attributes.code = write_poly.compute_pixels_in_water(fshp_reproj, False, IN_attributes)
@@ -132,7 +136,11 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
     driver.DeleteDataSource(fshp_reproj)
 
     # 4 - Convert water pixels in lon-lat and output them
-    write_poly.write_water_pixels_realPixC(water_pixels, swath, IN_cycle_number, IN_orbit_number, IN_attributes)
+    nb_water_pixels = np.count_nonzero(water_pixels) 
+    if nb_water_pixels == 0:
+        my_api.printInfo("Nb water pixels = 0 -> No output data file to write")
+    else:
+        write_poly.write_water_pixels_realPixC(water_pixels, swath, IN_cycle_number, IN_orbit_number, IN_attributes)
 
     return IN_attributes
 
@@ -144,7 +152,7 @@ def write_swath_polygons(IN_attributes):
     :param IN_attributes
     :type IN_attributes
     """
-    my_api.printInfo("[l2_hr_pixc] == write_swath_polygons : %s ==" % IN_attributes.sisimp_filenames.footprint_file) 
+    my_api.printInfo("[sisimp_function] == write_swath_polygons : %s ==" % IN_attributes.sisimp_filenames.footprint_file) 
 
     shpDriver = ogr.GetDriverByName(str("ESRI Shapefile"))
 
