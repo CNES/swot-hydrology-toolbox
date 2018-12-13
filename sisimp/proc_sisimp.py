@@ -67,6 +67,11 @@ if __name__ == '__main__':
     my_api.printInfo("")
     my_api.printInfo(timer.stop())
     
+    # Close logger
+    if args.logfile:
+        my_api.closeLogger()
+    
+    
     print("")
     print(timer.stop())
     print("===== sisimp = END =====")
