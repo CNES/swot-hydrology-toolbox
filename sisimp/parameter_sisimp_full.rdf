@@ -6,13 +6,13 @@ Output directory = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/simu
 Noise file path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt
 roll_file_name = /work/ALT/swot/swotpub/SWOT_Simulator_data/input_data/large_scale_sim_scene/data_sim_roll_v1.nc
 
-!### Orbit parameters: 
+!### Orbit parameters
 !3 options =
 !Multiple orbit = yes (default) => all orbit files in Orbit directory will be processed
 !Multiple orbit = no => set the Orbit to a correct number found in the Orbit directory; only this orbit file will be processed
 !Multiple orbit = passplan => orbit files will be processed according to passplan.txt file (generated if passplan = yes in select_orbit.rdf)
 Multiple orbit = no !=no/yes/passplan
-Orbit = 266
+Orbit = 267
 
 !### Simulation parameters
 Swath width = 120000.
@@ -21,28 +21,42 @@ Sensor wavelength = 0.0084
 Range sampling = 0.75 !by default
 Number of pixels in range = 3117 !3117 (10-60km) or 3500 (extended swath 5-65km)
 Orbit jitter = 1000
-Cycle duration (sec) = 1802645.8059698
 Water flag = 4
-
-!### Constant height model parameters(applied everywhere) 
-Height model A = 0.
-Height model t0 = 47076
-Height model period (days) = 365.25
-
-!### Complex height model parameters (applied for big lake > Height model min area) 
-Height model = polynomial    !optionnal argument : polynomial or gaussian
-Height model min area = 100.     ! (ha) (optionnal argument to add complex 2D height model)
-Height model stdv = 0.2        !(optionnal argument to add complex 2D height model for gaussian height model)
-
-!### True height file
-True height file = /work/ALT/swot/swotdev/desrochesd/swot-sds/sisimp/lib/true_height_model_river_and_lake.nc
 
 !### Error parameters
 Height bias std = 0.1
 Noise multiplier factor = 0.5 !1/sqrt(Nl) where Nl is 4
 Geolocalisation improvement = no !yes (no cross-track noise applied) or no
 
+!### Dark water parameters
+Dark water = no !yes (dark water simulation is executed) or no
+!Scale factor dw = 2.0  !correlation length of simulated dark water areas (float)
+!Dark water percentage = 10  !probability of total dark water simulated (int between 0 and 100)
+!Dark water flag = 24  !classification flag for detected dark water (usually 24)
+!Dark water seed = 1234567891  !int seed to be used for reproducible dark water simulations
 
 !### Files in output
 Create shapefile = yes !Produce output files also as shapefiles
 Create dummy pixc vec river file = yes !Produce L2_HR_PIXCVecRiver product associated to PixC files
+
+
+!== Height ==
+
+!### Option 1 - Constant height model, uniform over each water body; height varies sinusoidally with time
+!Specific option: [Height model A = 0.] & [!Height model] => no height applied, height in output onlyt contains errors
+!### Constant height model parameters (same height for each water body) 
+Constant height model A = 0.  !=0 to disable
+Constant height model t0 = 47076
+Constant height model period (days) = 365.25
+!### Complex 2D height model parameters (2D variations added for lakes > [Height model min area]) 
+!Height model = gaussian    !=polynomial or gaussian; if disabled, only constant height model
+!Height 2d model min area = 100.     !(ha) min area of water bodies on which to add complex 2D height model (default=100.)
+!Height 2d model stdv = 0.2        !stdv for gaussian model (ie Height model = gaussian)
+
+!### Option 2 - Height is given from a specific attribute in the shapefile of water bodies
+!Height model = reference_height
+!Height shp attribute name = ref_height     !Name of the attribute (default=HEIGHT)
+
+!### Option 3 - Height is given in a NetCDF file
+!Height model = reference_file
+!True height file = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/data/true_height_model_river_and_lake.nc

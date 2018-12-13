@@ -4,7 +4,6 @@ Output directory = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/simu
 
 !### Noise and error files 
 Noise file path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt
-roll_file_name = /work/ALT/swot/swotpub/SWOT_Simulator_data/input_data/large_scale_sim_scene/data_sim_roll_v1.nc
 
 !### Orbit parameters: 
 !3 options =
@@ -12,9 +11,8 @@ roll_file_name = /work/ALT/swot/swotpub/SWOT_Simulator_data/input_data/large_sca
 !Multiple orbit = no => set the Orbit to a correct number found in the Orbit directory; only this orbit file will be processed
 !Multiple orbit = passplan => orbit files will be processed according to passplan.txt file (generated if passplan = yes in select_orbit.rdf)
 Multiple orbit = no !=no/yes/passplan
-Orbit = 266
+Orbit = 267
 
 !### Files in output
 Create shapefile = yes !Produce output files also as shapefiles
 Create dummy pixc vec river file = yes !Produce L2_HR_PIXCVecRiver product associated to PixC files
-
