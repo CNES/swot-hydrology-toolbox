@@ -156,4 +156,3 @@ Constant height model period (days) = 365.25
 In particular:
 * There are 3 options to set the height of the water bodies (cf. above)
 * ___Dark water___ can be set to simulate dark water over portions of water bodies (cf. above)
-* Dark water seed = int seed to be used for reproducible dark water simulations
