@@ -84,13 +84,20 @@ class PixelCloudVec(object):
         # 1 - Retrieve needed information from complementary pixel cloud file
         pixc_vec_river = my_nc.myNcReader(IN_pixc_vec)
         # 1.1 - Number of records
-        self.nb_water_pix = pixc_vec_river.getDimValue("record")
+        try:
+            self.nb_water_pix = pixc_vec_river.getDimValue("points")  
+        except:
+            print("SWOT_hydrology_toolobox version, use record instead of points, to be corrected")
+            self.nb_water_pix = pixc_vec_river.getDimValue("record")
+
         # 1.2 - Global attributes
         self.cycle_num = pixc_vec_river.getAttValue("cycle_number")
         self.pass_num = pixc_vec_river.getAttValue("pass_number")
-        self.tile_ref = pixc_vec_river.getAttValue("tile_ref")
-        self.nb_pix_range = pixc_vec_river.getAttValue("nr_pixels")
-        self.nb_pix_azimuth = pixc_vec_river.getAttValue("nr_lines")
+        self.tile_ref = pixc_vec_river.getAttValue("tile_name")
+        
+        shape = pixc_vec_river.getAttValue("interferogram_shape")
+        self.nb_pix_azimuth = int(shape.split(",")[0])
+        self.nb_pix_range = int((shape.split(",")[1]).split("(")[0])
         
         # Retrieve others if there are river pixels
         if self.nb_water_pix != 0:
@@ -252,7 +259,8 @@ class PixelCloudVec(object):
         data.add_variable_attribute('height_vectorproc', 'units', 'm')
         data.fill_variable('height_vectorproc', self.height_vectorproc)
         
-        data.add_variable('river_lake_other_tag', str, 'record', IN_fill_value="", IN_compress=compress)
+        #~ data.add_variable('river_lake_other_tag', str, 'record', IN_fill_value="", IN_compress=compress)
+        #~ print("self.tag=", self.tag)
         #~ data.fill_variable('river_lake_other_tag', self.tag)
         
         data.add_global_attribute('producer', my_var2.PRODUCER)
@@ -392,7 +400,7 @@ def computeImpGeoloc(IN_productType, IN_objPixc, IN_indices, IN_height):
     nadir_vy = IN_objPixc.nadir_vy[IN_indices]
     nadir_vz = IN_objPixc.nadir_vz[IN_indices]
     # 1.4 - Get distance from satellite to target point
-    ri = IN_objPixc.near_range[IN_indices] + IN_objPixc.range_idx[IN_indices] * my_var.GEN_RANGE_SPACING
+    ri = IN_objPixc.near_range + IN_objPixc.range_idx[IN_indices] * my_var.GEN_RANGE_SPACING
     
     # 2 - Use Damien's algo
     # 2.1 - Init output vectors

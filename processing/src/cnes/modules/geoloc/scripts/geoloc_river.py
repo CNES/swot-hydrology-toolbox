@@ -301,30 +301,6 @@ class GeolocRiver(object):
         self.OUT_lat_corr = lat[msk==1]
         self.OUT_lon_corr = lon[msk==1]
         self.OUT_height_corr = height[msk==1]
-        """
-        import pylab as pl
-        pl.figure()
-        pl.imshow(s_image,aspect='auto',interpolation='none')
-        pl.colorbar()
-        pl.title('s_image')
-        pl.figure()
-        pl.imshow(H_new,aspect='auto',interpolation='none')
-        pl.colorbar()
-        pl.title('H_new')
-        pl.figure()
-        pl.imshow(height,aspect='auto',interpolation='none')
-        pl.colorbar()
-        pl.title('height')
-        pl.figure()
-        pl.imshow(lat,aspect='auto',interpolation='none')
-        pl.colorbar()
-        pl.title('lat')
-        pl.figure()
-        pl.imshow(lon,aspect='auto',interpolation='none')
-        pl.colorbar()
-        pl.title('lon')
-        pl.show()
-        """
 
     def taylor_improved_geoloc(self):
         nb_pix = self.pixcvec.height.size
@@ -407,9 +383,9 @@ def geoloc_river(pixc, pixcvec, sensor, rivertile, fit_heights_per_reach, interp
         
         return (geolocriver.OUT_lat_corr, geolocriver.OUT_lon_corr, geolocriver.OUT_height_corr)
 
-def get_pixc_index(pixc_azimuth_idx,pixc_range_idx,pixcvec):
+def get_pixc_index(pixc_azimuth_idx,pixc_range_idx,pixcvec, pixc):
     # make a 2d slant image array
-    arr2d = np.zeros((pixcvec.nr_lines,pixcvec.nr_pixels))
+    arr2d = np.zeros((pixc.nr_lines,pixc.nr_pixels))
     # assign different value to the pixels that are in the pixcvec vs only pixc
     arr2d[pixc_azimuth_idx,pixc_range_idx] = 1
     arr2d[pixcvec.azimuth_idx,pixcvec.range_idx] = 2
@@ -449,7 +425,7 @@ def main():
 
     # get the pixc_index
     pixc_index = get_pixc_index(
-        objPixc.azimuth_idx,objPixc.range_idx,objPixcvec)
+        objPixc.azimuth_idx,objPixc.range_idx,objPixcvec, objPixc)
     
     # Write outputs
 

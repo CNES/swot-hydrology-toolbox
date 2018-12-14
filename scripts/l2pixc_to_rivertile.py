@@ -268,36 +268,24 @@ def main():
                            "reach_index", 
                            "azimuth_index", 
                            "range_index"]
-            node_vars = ["h_n_ave", 
-                         "h_a_ave",
-                         "h_n_std", 
-                         "h_a_std",
-                         "area",
-                         "nobs",
-                         "nobs_h",
-                         "w_area",
-                         "w_std",
-                         "w_ptp",
-                         "node_indx", 
-                         "reach_indx", 
-                         "reach_idx",
-                         "xtrack",
-                         "x_prior",
-                         "y_prior",
-                         "x",
-                         "y",
-                         "s"]
-            reach_vars = ["reach_idx","w_area_ave","h_no","slp_no","area","length"]
+            node_vars = ["time", 
+                         "height",
+                         "width", 
+                         "area_total",    
+                         "node_id", 
+                         "reach_id", 
+                         ]
+            reach_vars = ["reach_id","width","height","slope","area_total"]
             # write node shape file
             cnes.modules.geoloc.lib.pixc_to_shp.pixc_to_shp(
                 output_riverobs, 
                 output_riverobs.replace(".nc","_node.shp"), 
-                "lat", "lon", node_vars, group_name="nodes")
+                "latitude", "longitude", node_vars, group_name="nodes")
             # write reach shape file
             cnes.modules.geoloc.lib.pixc_to_shp.pixc_to_shp(
                 output_riverobs, 
                 output_riverobs.replace(".nc","_reach.shp"), 
-                "lat_min", "lon_min", reach_vars, group_name="reaches")
+                "p_latitud", "p_longitud", reach_vars, group_name="reaches")
             # write pixcvec shape file
             cnes.modules.geoloc.lib.pixc_to_shp.pixc_to_shp(
                 output_pixcvec, 

@@ -376,13 +376,13 @@ class Processing(object):
             my_api.printInfo("[lakeSPProcessing] 4 - Merging shapefiles to get LakeSP product %s..." % os.path.basename(self.lake_sp_filenames.lake_sp_file))
             # 4.1 - Merging Right and Left SP layers
             my_api.printDebug("[lakeSPProcessing] > Merging right and left SP layers...")
-            dataSource_sp1, layer_sp = my_shp.merge2Layers(self.objLake_SP_R.layer, self.objLake_SP_L.layer)
+            dataSource_sp1, layer_sp = my_shp.merge_2_layers(self.objLake_SP_R.layer, self.objLake_SP_L.layer)
             # 4.2 - Merge SP layer with shapefiles retrieved from PGE_LakeTile
             my_api.printDebug("[lakeSPProcessing] > Merging SP layer with shapefiles retrieved from PGE_LakeTile...")
-            dataSource_sp2, layer_sp = my_shp.mergeMemLayerWithShp(self.lake_tile_shp_file_path_list[curContinent], layer_sp)
+            dataSource_sp2, layer_sp = my_shp.merge_mem_layer_with_shp(self.lake_tile_shp_file_path_list[curContinent], layer_sp)
             # 4.3 - Write LakeSP shapefile product
             my_api.printDebug("[lakeSPProcessing] > Writing L2_HR_LakeSP shapefile = %s" % os.path.basename(self.lake_sp_filenames.lake_sp_file))
-            my_shp.writeMemLayer_asShp(layer_sp, self.lake_sp_filenames.lake_sp_file)
+            my_shp.write_mem_layer_as_shp(layer_sp, self.lake_sp_filenames.lake_sp_file)
             # 4.4 - Write XML metadatafile for shapefile
             if self.objPixc_SP_R.pass_num != 0:
                 self.objLake_SP_R.writeMetadataFile("%s.xml" % self.lake_sp_filenames.lake_sp_file)

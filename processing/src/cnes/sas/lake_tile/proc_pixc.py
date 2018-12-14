@@ -102,16 +102,18 @@ class PixelCloud(object):
         pixc_group = pixc_reader.content.groups['pixel_cloud']
         sensor_group = pixc_reader.content.groups['tvp']
         
+        
+        shape = pixc_reader.getAttValue("interferogram_shape", IN_group=pixc_group)
         # 1.1 - Number of pixels in range dimension
-        self.nb_pix_range = int(pixc_reader.getAttValue("nr_pixels", IN_group=pixc_group))
+        self.nb_pix_range = int((shape.split(",")[1]).split("(")[0])
         # 1.2 - Number of pixels in azimuth dimension
-        self.nb_pix_azimuth = int(pixc_reader.getAttValue("nr_lines", IN_group=pixc_group))
+        self.nb_pix_azimuth  = int(shape.split(",")[0])
         # 1.3 - Cycle number
-        self.cycle_num = int(pixc_reader.getAttValue("cycle_number", IN_group=pixc_group))
+        self.cycle_num = int(pixc_reader.getAttValue("cycle_number"))
         # 1.4 - Pass number
-        self.pass_num = int(pixc_reader.getAttValue("pass_number", IN_group=pixc_group))
+        self.pass_num = int(pixc_reader.getAttValue("pass_number"))
         # 1.5 - Tile reference
-        self.tile_ref = pixc_reader.getAttValue("tile_ref", IN_group=pixc_group)
+        self.tile_ref = pixc_reader.getAttValue("tile_name")
         # 1.6 - Classification flag
         self.origin_classif = pixc_reader.getVarValue("classification", IN_group=pixc_group)
         # 1.7 - Range indices of water pixels
@@ -124,14 +126,14 @@ class PixelCloud(object):
         # 1.10 - Continent overflown
         # Create polygon of tile from global attributes
         ring = ogr.Geometry(ogr.wkbLinearRing)
-        ring.AddPoint(float(pixc_reader.getAttValue("inner_first_lon", IN_group=pixc_group)), float(pixc_reader.getAttValue("inner_first_lat", IN_group=pixc_group)))
-        ring.AddPoint(float(pixc_reader.getAttValue("outer_first_lon", IN_group=pixc_group)), float(pixc_reader.getAttValue("outer_first_lat", IN_group=pixc_group)))
-        ring.AddPoint(float(pixc_reader.getAttValue("outer_last_lon", IN_group=pixc_group)), float(pixc_reader.getAttValue("outer_last_lat", IN_group=pixc_group)))
-        ring.AddPoint(float(pixc_reader.getAttValue("inner_last_lon", IN_group=pixc_group)), float(pixc_reader.getAttValue("inner_last_lat", IN_group=pixc_group)))
-        ring.AddPoint(float(pixc_reader.getAttValue("inner_first_lon", IN_group=pixc_group)), float(pixc_reader.getAttValue("inner_first_lat", IN_group=pixc_group)))
+        ring.AddPoint(float(pixc_reader.getAttValue("inner_first_longitude")), float(pixc_reader.getAttValue("inner_first_latitude")))
+        ring.AddPoint(float(pixc_reader.getAttValue("outer_first_longitude")), float(pixc_reader.getAttValue("outer_first_latitude")))
+        ring.AddPoint(float(pixc_reader.getAttValue("outer_last_longitude")), float(pixc_reader.getAttValue("outer_last_latitude")))
+        ring.AddPoint(float(pixc_reader.getAttValue("inner_last_longitude")), float(pixc_reader.getAttValue("inner_last_latitude")))
+        ring.AddPoint(float(pixc_reader.getAttValue("inner_first_longitude")), float(pixc_reader.getAttValue("inner_first_latitude")))
         self.tile_poly = ogr.Geometry(ogr.wkbPolygon)
         self.tile_poly.AddGeometry(ring)
-        self.continent = my_basins.linkPolyToContinent(self.tile_poly)
+        self.continent = my_basins.link_poly_to_continent(self.tile_poly)
                 
         # 2 - Get indices corresponding to input classification flags
         # 2.1 - Flag rejected pixels in a specific way
@@ -253,16 +255,18 @@ class PixelCloud(object):
             self.nadir_vz = pixc_reader.getVarValue("vz", IN_group=sensor_group)[nadir_idx]
             # Near range distance at each nadir point 
             # ***** TODO: A MODIFIER quand décidé
-            try:
-                self.near_range = pixc_reader.getVarValue("near_range", IN_group=sensor_group)[nadir_idx]
-            except KeyError:
-                try:
-                    self.near_range = pixc_reader.getAttValue("near_range", IN_group=sensor_group) * np.ones(np.shape(self.nadir_x))[nadir_idx]
-                except AttributeError:
-                    try:
-                        self.near_range = pixc_reader.getVarValue("near_range", IN_group=pixc_group)[nadir_idx]
-                    except KeyError:
-                        self.near_range = pixc_reader.getAttValue("near_range", IN_group=pixc_group) * np.ones(np.shape(self.nadir_x))[nadir_idx]
+            
+            
+            #~ try:
+            self.near_range = pixc_reader.getAttValue("near_range")
+            #~ except KeyError:
+                #~ try:
+                    #~ self.near_range = pixc_reader.getAttValue("near_range", IN_group=sensor_group) * np.ones(np.shape(self.nadir_x))[nadir_idx]
+                #~ except AttributeError:
+                    #~ try:
+                        #~ self.near_range = pixc_reader.getVarValue("near_range", IN_group=pixc_group)[nadir_idx]
+                    #~ except KeyError:
+                        #~ self.near_range = pixc_reader.getAttValue("near_range", IN_group=pixc_group) * np.ones(np.shape(self.nadir_x))[nadir_idx]
                     
         # 4.8 - Close file
         pixc_reader.close()
@@ -529,9 +533,8 @@ class PixelCloud(object):
                 data.fill_variable('nadir_vy', self.nadir_vy[self.edge_idx])
                 data.add_variable('nadir_vz', np.float64, 'record', IN_fill_value=np.float(noval), IN_compress=compress)
                 data.fill_variable('nadir_vz', self.nadir_vz[self.edge_idx])
-                data.add_variable('nadir_near_range', np.float64, 'record', IN_fill_value=np.float(noval), IN_compress=compress)
-                data.fill_variable('nadir_near_range', self.near_range[self.edge_idx])
-
+                
+        data.add_global_attribute('nadir_near_range', self.near_range)
         data.add_global_attribute('producer', my_var.PRODUCER)
         data.add_global_attribute('creation_date', str(datetime.datetime.now()))
         data.add_global_attribute('cycle_number', self.cycle_num)

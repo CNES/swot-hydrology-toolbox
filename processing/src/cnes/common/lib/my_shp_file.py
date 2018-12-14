@@ -16,118 +16,120 @@ from osgeo import ogr, osr
 import cnes.common.lib.my_api as my_api
 
 
-def mergeMemLayerWithShp(IN_listShp, IN_layer):
+def merge_mem_layer_with_shp(in_list_shp, in_layer):
     """
-    This function merges shapefiles listed in IN_listShp with the layer IN_layer (typically LakeTile shp with LakeSP memory layer).
+    This function merges shapefiles listed in in_list_shp with the layer in_layer (typically LakeTile shp with LakeSP memory layer).
     All polygons in all shapefiles are copied in the current layer. All fields are copied.
 
-    :param IN_listShp: list of shapefiles full path
-    :type IN_listShp: list of string
-    :param IN_layer: layer in which to merge all objects
-    :type IN_layer: OGRlayer
+    :param in_list_shp: list of shapefiles full path
+    :type in_list_shp: list of string
+    :param in_layer: layer in which to merge all objects
+    :type in_layer: OGRlayer
     
-    :return OUT_dataSource: data source of output layer
-    :rtype OUT_dataSource: OGRdataSource
-    :return OUT_layer: output layer
-    :rtype OUT_layer: OGRlayer
+    :return out_data_source: data source of output layer
+    :rtype out_data_source: OGRdata_source
+    :return out_layer: output layer
+    :rtype out_layer: OGRlayer
     """
-    my_api.printDebug("[LakeProduct] == mergeMemLayerWithShp ==")
+    my_api.printDebug("[LakeProduct] == merge_mem_layer_with_shp ==")
 
     # 1 - Create memory data source
-    memDriver = ogr.GetDriverByName(str('MEMORY'))  # Memory driver
-    OUT_dataSource = memDriver.CreateDataSource('memData')
+    mem_driver = ogr.GetDriverByName(str('MEMORY'))  # Memory driver
+    out_data_source = mem_driver.CreateDataSource('memData')
 
     # 2 - Copy input layer to memory layer
-    OUT_layer = OUT_dataSource.CopyLayer(IN_layer, str('tmp'))
+    out_layer = out_data_source.CopyLayer(in_layer, str('tmp'))
 
     # 3 - For each input shapefile
-    for curShp in IN_listShp:
-        my_api.printDebug("[LakeProduct] > Adding %s" % os.path.basename(curShp))
+    for cur_shp in in_list_shp:
+        my_api.printDebug("[LakeProduct] > Adding %s" % os.path.basename(cur_shp))
 
         # 3.1 - Open the shapefile and get layer
-        shpDriver = ogr.GetDriverByName(str('ESRI Shapefile'))  # Shapefile driver
-        cur_dataSource = shpDriver.Open(curShp, 0)  # Open in reading mode
-        cur_layer = cur_dataSource.GetLayer()  # Get the layer
+        shp_driver = ogr.GetDriverByName(str('ESRI Shapefile'))  # Shapefile driver
+        cur_data_source = shp_driver.Open(cur_shp, 0)  # Open in reading mode
+        cur_layer = cur_data_source.GetLayer()  # Get the layer
 
         # 3.2 - Merge layer into output layer
-        OUT_dataSource, OUT_layer = merge2Layers(OUT_layer, cur_layer)
+        out_data_source, out_layer = merge_2_layers(out_layer, cur_layer)
 
         # 3.3 - Close layer
-        cur_dataSource.Destroy()
+        cur_data_source.Destroy()
 
-    return OUT_dataSource, OUT_layer
+    return out_data_source, out_layer
 
 
-def merge2Layers(IN_layer1, IN_layer2):
+def merge_2_layers(in_layer1, in_layer2):
     """
     Merge 2 memory layers
     
-    :param IN_layer1: first layer
-    :type IN_layer1: OGRlayer
-    :param IN_layer2: second layer
-    :type IN_layer2: OGRlayer
+    :param in_layer1: first layer
+    :type in_layer1: OGRlayer
+    :param in_layer2: second layer
+    :type in_layer2: OGRlayer
     
-    :return OUT_dataSource: data source of output layer
-    :rtype OUT_dataSource: OGRdataSource
-    :return OUT_layer: output layer
-    :rtype OUT_layer: OGRlayer
+    :return out_data_source: data source of output layer
+    :rtype out_data_source: OGRdata_source
+    :return out_layer: output layer
+    :rtype out_layer: OGRlayer
     """
     my_api.printDebug("[LakeProduct] == mergeLayerRL ==")
 
     # 1 - Get layer definitions
-    layerDefn1 = IN_layer1.GetLayerDefn()
-    layerDefn2 = IN_layer2.GetLayerDefn()
+    layer_defn1 = in_layer1.GetLayerDefn()
+    layer_defn2 = in_layer2.GetLayerDefn()
 
-    # 2 - Check if layer definition of IN_layer1 and IN_layer2 are equal
-    fields_name_1 = [layerDefn1.GetFieldDefn(i).GetName() for i in range(layerDefn1.GetFieldCount())]
-    fields_name_2 = [layerDefn2.GetFieldDefn(i).GetName() for i in range(layerDefn2.GetFieldCount())]
+    # 2 - Check if layer definition of in_layer1 and in_layer2 are equal
+    fields_name_1 = [layer_defn1.GetFieldDefn(i).GetName() for i in range(layer_defn1.GetFieldCount())]
+    print(fields_name_1)
+    fields_name_2 = [layer_defn2.GetFieldDefn(i).GetName() for i in range(layer_defn2.GetFieldCount())]
+    print(fields_name_2)
     if fields_name_1 != fields_name_2:
-        my_api.exitWithError("[LakeProduct] ERROR = fields of layer %s and layer %s are not identical" % (layerDefn1.GetName(), layerDefn2.GetName()))
+        my_api.exitWithError("[LakeProduct] ERROR = fields of layer %s and layer %s are not identical" % (layer_defn1.GetName(), layer_defn2.GetName()))
 
     # 3 - Create output memory driver and data source
-    memDriver = ogr.GetDriverByName(str('MEMORY'))  # Memory driver
-    OUT_dataSource = memDriver.CreateDataSource('memData')
+    mem_driver = ogr.GetDriverByName(str('MEMORY'))  # Memory driver
+    out_data_source = mem_driver.CreateDataSource('memData')
 
     # 4 - Projection
     srs = osr.SpatialReference()
     srs.ImportFromEPSG(4326)  # WGS84
 
     # 5 - Create output layer
-    OUT_layer = OUT_dataSource.CreateLayer(str('tmp'), srs, geom_type=ogr.wkbMultiPolygon)
+    out_layer = out_data_source.CreateLayer(str('tmp'), srs, geom_type=ogr.wkbMultiPolygon)
 
     # 6 - Init output layer fields
-    for i in range(layerDefn1.GetFieldCount()):
-        idField = layerDefn1.GetFieldDefn(i)
-        OUT_layer.CreateField(idField)
+    for i in range(layer_defn1.GetFieldCount()):
+        id_field = layer_defn1.GetFieldDefn(i)
+        out_layer.CreateField(id_field)
 
-    # 7 - Add IN_layer1 and IN_layer2 to the output layer
-    IN_layer1.Update(IN_layer2, OUT_layer)
+    # 7 - Add in_layer1 and in_layer2 to the output layer
+    in_layer1.Update(in_layer2, out_layer)
 
-    return OUT_dataSource, OUT_layer
+    return out_data_source, out_layer
 
 
-def writeMemLayer_asShp(IN_mem_layer, IN_shp_filename):
+def write_mem_layer_as_shp(in_mem_layer, in_shp_filename):
     """
-    Write memory layer IN_mem_layer into a shapefile
+    Write memory layer in_mem_layer into a shapefile
     
-    :param IN_mem_layer: memory layer
-    :type IN_mem_layer: ogr.Layer
-    :param IN_shp_filename: shapefile full path
-    :type IN_shp_filename: string
+    :param in_mem_layer: memory layer
+    :type in_mem_layer: ogr.Layer
+    :param in_shp_filename: shapefile full path
+    :type in_shp_filename: string
     """
     
-    shpDriver = ogr.GetDriverByName(str('ESRI Shapefile'))  # Driver for shapefiles
+    shp_driver = ogr.GetDriverByName(str('ESRI Shapefile'))  # Driver for shapefiles
     
     # 1 - Delete output file if already exists
-    if os.path.exists(IN_shp_filename):
-        shpDriver.DeleteDataSource(IN_shp_filename)
+    if os.path.exists(in_shp_filename):
+        shp_driver.DeleteDataSource(in_shp_filename)
         
     # 2 - Create output file
-    dataSource = shpDriver.CreateDataSource(IN_shp_filename)
+    data_source = shp_driver.CreateDataSource(in_shp_filename)
     
     # 3 - Copy memory layer to output 
-    layer_name = os.path.basename(IN_shp_filename).split(".")[0]
-    dataSource.CopyLayer(IN_mem_layer, str(layer_name))
+    layer_name = os.path.basename(in_shp_filename).split(".")[0]
+    data_source.CopyLayer(in_mem_layer, str(layer_name))
     
     # 4 - Close output file
-    dataSource.Destroy()
+    data_source.Destroy()

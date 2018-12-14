@@ -11,7 +11,7 @@ roll_file_name = /work/ALT/swot/swotpub/SWOT_Simulator_data/input_data/large_sca
 !Multiple orbit = yes (default) => all orbit files in Orbit directory will be processed
 !Multiple orbit = no => set the Orbit to a correct number found in the Orbit directory; only this orbit file will be processed
 !Multiple orbit = passplan => orbit files will be processed according to passplan.txt file (generated if passplan = yes in select_orbit.rdf)
-Multiple orbit = no !=no/yes/passplan
+Multiple orbit = passplan !=no/yes/passplan
 Orbit = 267
 
 !### Simulation parameters

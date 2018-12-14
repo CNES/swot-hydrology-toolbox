@@ -15,139 +15,133 @@
 # FIN-HISTORIQUE
 # ======================================================
 
-import sys
-import os
-import os.path
-import shutil
-import logging
 import unittest
 import numpy
 
-from osgeo import ogr, osr
 import cnes.common.serviceError as serviceError
 import cnes.common.lib_lake.locnes_variables as locnes_variables
 import cnes.common.lib.my_hull as my_hull
 
-def prepare_data(inputData):
-  """
-      This function convert POLYGON into list of value for assert
-  """
-  outputData=list(map(float, inputData.replace("POLYGON ((","").replace("))","").replace(", "," ").replace(","," ").split(' ')))
-  return outputData
+def prepare_data(input_data):
+    """
+        This function convert POLYGON into list of value for assert
+    """
+    output_data = list(map(float, input_data.replace("POLYGON ((", "").replace("))", "").replace(", ", " ").replace(",", " ").split(' ')))
+    return output_data
 
 
 class TestMyHull(unittest.TestCase):
-  """
-      class for unitary test of my_hull module
-  """
-  def test_computeLakeBoundaries(self):
     """
-        unitary test for computeLakeBoundaries
+        class for unitary test of my_hull module
     """
+    def test_compute_lake_boundaries(self):
+        """
+            unitary test for compute_lake_boundaries
+        """
 
-    # Prepare input data
-    nb_pix_range = 3117
-    vLong = numpy.array(list(map(float, open("../data/imp_lon", "r").read().replace(" \n","").split(' '))))
-    vLat = numpy.array(list(map(float, open("../data/imp_lat", "r").read().replace(" \n","").split(' '))))
-    vRange = numpy.array(list(map(int, open("../data/range_idx", "r").read().replace(" \n","").split(' '))))
-    vAzimuth = numpy.array(list(map(int, open("../data/azimuth_idx", "r").read().replace(" \n","").split(' '))))
-    
-    retour = my_hull.computeLakeBoundaries(vLong, vLat, vRange, vAzimuth, nb_pix_range)
-   
-    ref = open("../data/polygon_computeLakeBoundaries", "r").read().replace("\n","")
-    self.assertAlmostEqual(prepare_data(str(retour)), prepare_data(ref), places=8)
+        # Prepare input data
+        nb_pix_range = 3117
+        v_long = numpy.array(list(map(float, open("../data/imp_lon", "r").read().replace(" \n", "").split(' '))))
+        v_lat = numpy.array(list(map(float, open("../data/imp_lat", "r").read().replace(" \n", "").split(' '))))
+        v_range = numpy.array(list(map(int, open("../data/range_idx", "r").read().replace(" \n", "").split(' '))))
+        v_azimuth = numpy.array(list(map(int, open("../data/azimuth_idx", "r").read().replace(" \n", "").split(' '))))
 
-    # Test bad HULL_METHOD
-    locnes_variables.HULL_METHOD = 12
-    with self.assertRaises(serviceError.ProcessingError):
-       objet = my_hull.computeLakeBoundaries(vLong, vLat, vRange, vAzimuth, nb_pix_range)
+        retour = my_hull.compute_lake_boundaries(v_long, v_lat, v_range, v_azimuth, nb_pix_range)
 
-  def test_alpha_shape(self):
-    """
-        unitary test for alpha_shape
-    """
+        ref = open("../data/polygon_computeLakeBoundaries", "r").read().replace("\n", "")
+        self.assertAlmostEqual(prepare_data(str(retour)), prepare_data(ref), places=8)
 
-    # Prepare input data
-    nb_pix_range = 3117
-    vLong = numpy.array(list(map(float, open("../data/imp_lon", "r").read().replace(" \n","").split(' '))))
-    vLat = numpy.array(list(map(float, open("../data/imp_lat", "r").read().replace(" \n","").split(' '))))
-    vRange = numpy.array(list(map(int, open("../data/range_idx", "r").read().replace(" \n","").split(' '))))
-    coords = numpy.zeros((vLong.size, 2))
-    coords[:, 0] = vLong
-    coords[:, 1] = vLat
-    alpha = (2000 + 2000 * vRange / nb_pix_range).astype('int')
+        # Test bad HULL_METHOD
+        locnes_variables.HULL_METHOD = 12
+        with self.assertRaises(serviceError.ProcessingError):
+            my_hull.compute_lake_boundaries(v_long, v_lat, v_range, v_azimuth, nb_pix_range)
 
-    # call function
-    retour = my_hull.alpha_shape(coords, alpha)
-    # get ref data
-    ref = open("../data/polygon_alpha_shape", "r").read().replace("\n","")
-    # assert
-    self.assertAlmostEqual(prepare_data(str(retour)), prepare_data(ref), places=8)
+    def test_alpha_shape(self):
+        """
+            unitary test for alpha_shape
+        """
 
-  def test_getConcavHull_bis(self):
-    """
-        unitary test for getConcavHull_bis
-    """
+        # Prepare input data
+        nb_pix_range = 3117
+        v_long = numpy.array(list(map(float, open("../data/imp_lon", "r").read().replace(" \n", "").split(' '))))
+        v_lat = numpy.array(list(map(float, open("../data/imp_lat", "r").read().replace(" \n", "").split(' '))))
+        v_range = numpy.array(list(map(int, open("../data/range_idx", "r").read().replace(" \n", "").split(' '))))
+        coords = numpy.zeros((v_long.size, 2))
+        coords[:, 0] = v_long
+        coords[:, 1] = v_lat
+        alpha = (2000 + 2000 * v_range / nb_pix_range).astype('int')
 
-    # Prepare input data
-    vLong = numpy.array(list(map(float, open("../data/imp_lon", "r").read().replace(" \n","").split(' '))))
-    vLat = numpy.array(list(map(float, open("../data/imp_lat", "r").read().replace(" \n","").split(' '))))
-    coords = numpy.zeros((vLong.size, 2))
-    coords[:, 0] = vLong
-    coords[:, 1] = vLat
+        # call function
+        retour = my_hull.alpha_shape(coords, alpha)
+        # get ref data
+        ref = open("../data/polygon_alpha_shape", "r").read().replace("\n", "")
+        # assert
+        self.assertAlmostEqual(prepare_data(str(retour)), prepare_data(ref), places=8)
 
-    # call function
-    retour = my_hull.getConcavHull_bis(coords)
-    # get ref data
-    ref = open("../data/polygon_concavHullBis", "r").read().replace("\n","")
-    # assert
-    self.assertAlmostEqual(prepare_data(str(retour)), prepare_data(ref), places=8)
+    def test_get_concav_hull_bis(self):
+        """
+            unitary test for get_concav_hull_bis
+        """
 
-  def test_getConcaveHullFromRadarVectorisation(self):
-    """
-        unitary test for getConcaveHullFromRadarVectorisation
-    """
+        # Prepare input data
+        v_long = numpy.array(list(map(float, open("../data/imp_lon", "r").read().replace(" \n", "").split(' '))))
+        v_lat = numpy.array(list(map(float, open("../data/imp_lat", "r").read().replace(" \n", "").split(' '))))
+        coords = numpy.zeros((v_long.size, 2))
+        coords[:, 0] = v_long
+        coords[:, 1] = v_lat
 
-    # Prepare input data
-    vLong = numpy.array(list(map(float, open("../data/imp_lon", "r").read().replace(" \n","").split(' '))))
-    vLat = numpy.array(list(map(float, open("../data/imp_lat", "r").read().replace(" \n","").split(' '))))
-    vRange = numpy.array(list(map(int, open("../data/range_idx", "r").read().replace(" \n","").split(' '))))
-    vAzimuth = numpy.array(list(map(int, open("../data/azimuth_idx", "r").read().replace(" \n","").split(' '))))
+        # call function
+        retour = my_hull.get_concav_hull_bis(coords)
+        # get ref data
+        ref = open("../data/polygon_concavHullBis", "r").read().replace("\n", "")
+        # assert
+        self.assertAlmostEqual(prepare_data(str(retour)), prepare_data(ref), places=8)
 
-    # call function
-    retour = my_hull.getConcaveHullFromRadarVectorisation(vRange, vAzimuth, vLong, vLat)
-    # get ref data
-    ref = open("../data/polygon_concavHullFromRadarVectorisation", "r").read().replace("\n","")
-    # assert
-    self.assertAlmostEqual(prepare_data(str(retour)), prepare_data(ref), places=8)
+    def test_get_concave_hull_from_radar_vectorisation(self):
+        """
+            unitary test for get_concave_hull_from_radar_vectorisation
+        """
 
-  def test_getCircumRatio(self):
-    """
-        unitary test for getCircumRatio
-    """
+        # Prepare input data
+        v_long = numpy.array(list(map(float, open("../data/imp_lon", "r").read().replace(" \n", "").split(' '))))
+        v_lat = numpy.array(list(map(float, open("../data/imp_lat", "r").read().replace(" \n", "").split(' '))))
+        v_range = numpy.array(list(map(int, open("../data/range_idx", "r").read().replace(" \n", "").split(' '))))
+        v_azimuth = numpy.array(list(map(int, open("../data/azimuth_idx", "r").read().replace(" \n", "").split(' '))))
 
-    # Prepare input data
-    pa = (1.0, 40.0)
-    pb = (3.0, 40.0)
-    pc = (1.0, 20.0)
+        # call function
+        retour = my_hull.get_concave_hull_from_radar_vectorisation(v_range, v_azimuth, v_long, v_lat)
+        # get ref data
+        ref = open("../data/polygon_concavHullFromRadarVectorisation", "r").read().replace("\n", "")
+        # assert
+        self.assertAlmostEqual(prepare_data(str(retour)), prepare_data(ref), places=8)
 
-    # call function
-    retour = my_hull.getCircumRatio(pa, pb, pc)
-    # assert
-    self.assertAlmostEqual(retour, 10.04987562, places=8)
+    def test_get_circum_ratio(self):
+        """
+            unitary test for get_circum_ratio
+        """
 
-  def test_getMaxSegment(self):
-    """
-        unitary test for getMaxSegment
-    """
+        # Prepare input data
+        point_a = (1.0, 40.0)
+        point_b = (3.0, 40.0)
+        point_c = (1.0, 20.0)
 
-    # Prepare input data
-    pa = (1.0, 40.0)
-    pb = (3.0, 40.0)
-    pc = (1.0, 20.0)
+        # call function
+        retour = my_hull.get_circum_ratio(point_a, point_b, point_c)
+        # assert
+        self.assertAlmostEqual(retour, 10.04987562, places=8)
 
-    # call function
-    retour = my_hull.getMaxSegment(pa, pb, pc)
-    # assert
-    self.assertAlmostEqual(retour, 20.09975124, places=8)
+    def test_get_max_segment(self):
+        """
+            unitary test for get_max_segment
+        """
+
+        # Prepare input data
+        point_a = (1.0, 40.0)
+        point_b = (3.0, 40.0)
+        point_c = (1.0, 20.0)
+
+        # call function
+        retour = my_hull.get_max_segment(point_a, point_b, point_c)
+        # assert
+        self.assertAlmostEqual(retour, 20.09975124, places=8)
 

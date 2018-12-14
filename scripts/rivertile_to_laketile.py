@@ -121,13 +121,13 @@ def main():
 	    # Read pixc file attributes and format with leading zeros
 	    with Dataset(ann_cfg["pixc file"], "r") as pixc_dataset:
 	                
-	        cycle_number = "{:03d}".format(pixc_dataset.groups['pixel_cloud'].getncattr("cycle_number"))
-	        pass_number = "{:03d}".format(pixc_dataset.groups['pixel_cloud'].getncattr("pass_number"))
-	        tile_number = pixc_dataset.groups['pixel_cloud'].getncattr("tile_ref")
+	        cycle_number = "{:03d}".format(pixc_dataset.getncattr("cycle_number"))
+	        pass_number = "{:03d}".format(pixc_dataset.getncattr("pass_number"))
+	        tile_number = pixc_dataset.getncattr("tile_name")
 	        try:
-	            mission_start_time = pixc_dataset.groups['pixel_cloud'].getncattr("mission_start_time")
+	            mission_start_time = pixc_dataset.getncattr("mission_start_time")
 	        except : 
-	            mission_start_time = pixc_dataset.groups['pixel_cloud'].getncattr("start_time")
+	            mission_start_time = pixc_dataset.getncattr("start_time")
 	            
 	    # Read config from config repository by default, or from the script arguments
 	    parameter_laketile = args["parameter_laketile"]

@@ -189,7 +189,7 @@ class Processing(object):
 
         # 1 - Write LakeTile shapefile
         my_api.printInfo("[lakeTileProcessing] 1 - Writing LakeTile memory layer to shapefile...")
-        my_shp.writeMemLayer_asShp(self.objLake.layer, self.lake_tile_filenames.lake_tile_shp_file)
+        my_shp.write_mem_layer_as_shp(self.objLake.layer, self.lake_tile_filenames.lake_tile_shp_file)
         self.objLake.dataSource.Destroy()  # Close memory layer
         my_api.printInfo("")
         # Write XML metadatafile for shapefile

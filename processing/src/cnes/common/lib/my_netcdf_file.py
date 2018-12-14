@@ -333,7 +333,7 @@ class myNcWriter(object):
             cur_content = IN_group
 
         if IN_varname in cur_content.variables:
-            self.content.variables[IN_varname].setncattr(IN_attname, IN_value)
+            cur_content.variables[IN_varname].setncattr(IN_attname, IN_value)
         else:
             exit("[my_netcdf_file/add_variable_attribute] Could not add variable attribute ; %s variable does not exist" % IN_varname)
 
