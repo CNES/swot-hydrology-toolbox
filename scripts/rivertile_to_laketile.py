@@ -121,11 +121,11 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cy
 def main():
     """When run as a script"""
     parser = argparse.ArgumentParser()
-    parser.add_argument('river_annotation_file', type=str)
-    parser.add_argument('output_dir', type=str)
-    parser.add_argument('--parameter_laketile', default=None, type=str)
+    parser.add_argument('river_annotation_file', help="river annotation file (output from l2pixc_to_rivertile) or directory", type=str)
+    parser.add_argument('output_dir', help="output directory", type=str)
+    parser.add_argument('--parameter_laketile', help="param file, if variables diff from default", default=None, type=str)
     parser.add_argument("--nogdem",
-        help="If true, don't call riverobs with gdem",
+        help="if true, don't call riverobs with gdem",
         nargs='?', type=bool, default=False, const=True)
     args = vars(parser.parse_args())
 

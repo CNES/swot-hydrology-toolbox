@@ -1,6 +1,6 @@
 # l2pixc_to_rivertile
 ## Purpose
-This program convert one or more tiles of pixel cloud into as many as river product(s).
+This program converts one or more tiles of pixel cloud into as many as river product(s).
 
 ## Run the software
 ```
@@ -24,7 +24,7 @@ optional arguments:
   -f, --force           force overwrite existing outputs; default is to quit
 ```
 In particular:
-* ___l2pixc_annotation_file___ is an output of the large scale simulator software (sisimp) or the hr_simulator_to_pixel_cloud.py tool; its pattern is like: ```pixc_annotation_<ccc>_<ppp>_<ttt-t>``` where ___ccc___ is the cycle number over 3 digits, ___ppp___ is the pass number over 3 digits and ___ttt-t___ is the tile reference (ex: 45N-R for the tile of 1° of latitude at nadir, starting at 45° North, Right swath); it is a key-value file, containing at least: ```l2pixc file = <full_path_to_pixc_file```
+* ___l2pixc_annotation_file___ is an output of the large scale simulator (sisimp) or the hr_simulator_to_pixel_cloud.py tool; its pattern is like: ```pixc_annotation_<ccc>_<ppp>_<ttt-t>``` where ___ccc___ is the cycle number over 3 digits, ___ppp___ is the pass number over 3 digits and ___ttt-t___ is the tile reference (ex: 45N-R for the tile of 1° of latitude at nadir, starting at 45° North, Right swath); it is a key-value file, containing at least: ```l2pixc file = <full_path_to_pixc_file>```
 * ___riverobs_path___ is the full path to RiverObs software; if not filled, the software uses the environment variable named "RIVEROBS"
 
 ### Parameter file
@@ -106,3 +106,93 @@ pixc file = <full_path_to_pixc_file>
 gdem pixc file = None
 pixcvec file = <full_path_to_pixcvec_file>
 ```
+
+# rivertile_to_laketile
+## Purpose
+This program computes a LakeTile product from a PIXC (pixel cloud) file (output from large scale simulator sisimp or hr_simulator_to_pixel_cloud.py program) and its associated PIXCVecRiver (output from l2pixc_to_rivertile.py program) on the same tile.
+
+## Run the software
+```
+usage: rivertile_to_laketile.py [-h] [--parameter_laketile PARAMETER_LAKETILE]
+                                [--nogdem [NOGDEM]]
+                                river_annotation_file output_dir
+
+positional arguments:
+  river_annotation_file
+                        river annotation file (output from
+                        l2pixc_to_rivertile) or directory
+  output_dir            output directory
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --parameter_laketile PARAMETER_LAKETILE
+                        param file, if variables diff from default
+  --nogdem [NOGDEM]     if true, don't call riverobs with gdem
+```
+In particular:
+* ___river_annotation_file___ is an output of the rivertile_to_laketile.py program; its pattern is like: ```river-annotation_<ccc>_<ppp>_<ttt-t>``` where ___ccc___ is the cycle number over 3 digits, ___ppp___ is the pass number over 3 digits and ___ttt-t___ is the tile reference (ex: 45N-R for the tile of 1° of latitude at nadir, starting at 45° North, Right swath); it is a key-value file, containing: 
+
+```
+pixc file = <full_path_to_pixc_file>
+gdem pixc file = None
+pixcvec file = <full_path_to_pixcvec_file>
+```
+It may also be a directory containing several river annotation files.
+
+
+### Parameter file
+The ```parameter_laketile``` parameter file is in ConfigParser format and must contain the following:
+```
+[PATHS]
+PIXC file = REPLACE_ME
+PIXCVecRiver file = REPLACE_ME
+Output directory = REPLACE_ME
+
+[OPTIONS]
+# To also produce LakeTile_edge and LakeTile_pixcvec as shapefiles (=True); else=False (default)
+Produce shp = True
+# Verbose level; =DEBUG or =INFO
+Verbose level = DEBUG
+# Generate log file in the output directory (=True) or print on screen (=False; default)
+Log file = False
+
+[CONFIG_OVERWRITE]
+
+# Lake a priori database
+LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20170905_France/priordb_lakes_france.shp
+# Lake identifier attribute name in the database
+LAKE_DB_ID = basin_id
+# Shapefile with polygons of continents
+CONTINENT_FILE = /work/ALT/swot/swotpub/BD/major_basins/FAO/major_hydrobasins.shp
+
+# Water flag: 3=water near land edge  4=interior water
+FLAG_WATER = 3;4
+# Dark water flag: 23=darkwater near land  24=interior dark water
+FLAG_DARK = 23;24
+# Layover flag
+FLAG_LAYOVER = 12;13;14
+
+# Min size for a lake to generate a lake product (=polygone + attributes) for it
+MIN_SIZE = 1.0  # In ha
+
+# To improve PixC golocation (=True) or not (=False)
+IMP_GEOLOC = True
+
+# Method to compute lake boundary or polygon hull
+# 0=convex hull 1=concav hull (1.0=with alpha param (default) 1.1=without) 2=concav hull radar vectorisation
+HULL_METHOD = 1.0
+
+# Maximal standard deviation of height inside a lake
+STD_HEIGHT_MAX = 10
+
+# Big lakes parameters for improved geoloc; used only if imp geoloc=1
+BIGLAKE_MODEL = polynomial
+BIGLAKE_MIN_SIZE = 5000
+BIGLAKE_GRID_SPACING = 4000
+BIGLAKE_GRID_RES = 8000
+
+```
+[CONFIG_OVERWRITE] section is optional and may not contain all these variables (or they can be commented). Therefore, the default values will be used (see [LOCNES README file](https://gitlab.cnes.fr/swot/swotCNES/tree/develop/src/cnes/sas/lake_tile) for more info).
+
+## Output files
+See dedicated [LOCNES README file](https://gitlab.cnes.fr/swot/swotCNES/tree/develop/src/cnes/sas/lake_tile).
