@@ -192,7 +192,7 @@ BIGLAKE_GRID_SPACING = 4000
 BIGLAKE_GRID_RES = 8000
 
 ```
-[CONFIG_OVERWRITE] section is optional and may not contain all these variables (or they can be commented). Therefore, the default values will be used (see [LOCNES README file](https://gitlab.cnes.fr/swot/swotCNES/tree/develop/src/cnes/sas/lake_tile) for more info).
+[CONFIG_OVERWRITE] section is optional and may not contain all these variables (or they can be commented). Therefore, the default values will be used (see [LOCNES README file](https://gitlab.cnes.fr/swotdev/swot-hydro-toolbox/tree/develop/processing/src/cnes/sas/lake_tile) for more info).
 
 ## Output files
-See dedicated [LOCNES README file](https://gitlab.cnes.fr/swot/swotCNES/tree/develop/src/cnes/sas/lake_tile).
+See dedicated [LOCNES README file](https://gitlab.cnes.fr/swotdev/swot-hydro-toolbox/tree/develop/processing/src/cnes/sas/lake_tile).
