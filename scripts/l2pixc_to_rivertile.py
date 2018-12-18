@@ -117,11 +117,14 @@ def make_pixc_from_gdem(gdem_file, pixc_file, out_file, subsample_factor=2):
 
 def make_tail_proc_path(annotation_file, output_dir, suffix):
     "Clone the tail of proc directory structure"
-
-    dir_parts = os.path.dirname(abspath(annotation_file)).split(os.path.sep)
-    tail_dir = join(output_dir, dir_parts[-2], dir_parts[-1])
+    
+    # Create run directory
+    tail_dir = join(output_dir, os.path.basename(annotation_file).split(".")[0])
+    
+    # Form output directory full path
     river_dir = join(tail_dir, suffix)
 
+    # Create output directory if doesn't exist
     if not os.path.isdir(river_dir):
         os.makedirs(river_dir)
 
