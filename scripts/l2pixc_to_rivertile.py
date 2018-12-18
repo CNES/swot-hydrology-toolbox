@@ -18,6 +18,7 @@ import netCDF4 as nc
 import numpy as np
 import os
 import subprocess
+import sys
 
 import my_rdf
 import cnes.modules.geoloc.lib.pixc_to_shp 
@@ -115,6 +116,15 @@ def make_pixc_from_gdem(gdem_file, pixc_file, out_file, subsample_factor=2):
 
 
 #######################################
+    
+
+def execute(cmd):
+    with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, bufsize=1, universal_newlines=True) as p:
+        for line in p.stdout:
+            print(line, end='') # process line here
+
+    if p.returncode != 0:
+        raise subprocess.CalledProcessError(p.returncode, p.args)
 
 
 def main():
@@ -260,7 +270,8 @@ def main():
                                          os.path.abspath(args['parameter_riverobs']))
         # Excute command
         print ("> executing:", cmd) 
-        subprocess.check_call(cmd, shell=True)
+        #subprocess.check_call(cmd, shell=True)
+        execute(cmd)
         print("== Execution OK")
         print()
     
