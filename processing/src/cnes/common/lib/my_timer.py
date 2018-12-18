@@ -7,7 +7,11 @@
 
 .. moduleauthor:: Claire POTTIER - CNES DCT/SI/TR
 
-Copyright (c) 2016 CNES. All rights reserved.
+This file is part of the SWOT Hydrology Toolbox
+ Copyright (C) 2018 Centre National d’Etudes Spatiales
+ This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+
+
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
  

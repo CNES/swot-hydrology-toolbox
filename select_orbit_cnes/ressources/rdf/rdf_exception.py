@@ -6,7 +6,11 @@
 .. moduleauthor: Capgemini
 
     $Id: rdf_exception.py 1465 2016-07-01 10:05:12Z nestival $
-    Copyright (c) 2016 CNES/LEGOS/CTOH. All rights reserved.
+This file is part of the SWOT Hydrology Toolbox
+ Copyright (C) 2018 Centre National d’Etudes Spatiales
+ This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+
+
 """
 
 from __future__ import unicode_literals

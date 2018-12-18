@@ -16,7 +16,11 @@
 .. todo:: lors du lien avec la BD, màj champs DELTA_S, DS_UNC (avec calculs Jeff) et AREA_EST (plus tard)
 .. todo:: pk le prior id est en NULL italique + foncé alors que les autres champs non remplis sont en NULL droit et pâle ?
 
-Copyright (c) 2017 CNES. All rights reserved.
+This file is part of the SWOT Hydrology Toolbox
+ Copyright (C) 2018 Centre National d’Etudes Spatiales
+ This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+
+
 """
 from __future__ import absolute_import, division, print_function, unicode_literals 
 

@@ -1,3 +1,10 @@
+'''
+ This file is part of the SWOT Hydrology Toolbox
+ Copyright (C) 2018 Centre National d’Etudes Spatiales
+ This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+'''
+
+
 import cnes.modules.geoloc.lib.pixel_cloud as pixel_cloud
 import cnes.modules.geoloc.lib.pixel_cloud_SGE as pixel_cloud_sge
 import cnes.modules.geoloc.lib.sensor_SGE as sensor_sge
