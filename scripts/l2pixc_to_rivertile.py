@@ -122,17 +122,17 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('l2pixc_annotation_file', help="PixC annotation file", type=str)
     parser.add_argument('output_dir', help="output directory", type=str)
-    parser.add_argument('parameter_riverobs', help="Param file for RiverObs", type=str)
+    parser.add_argument('parameter_riverobs', help="param file for RiverObs", type=str)
     parser.add_argument('--riverobs_path', help="full path to RiverObs software (if not in os.environ)", type=str)
     parser.add_argument("--nogdem", 
-        help="If true, don't call riverobs with gdem", 
+        help="if true, don't call riverobs with gdem", 
         nargs='?', type=bool, default=False, const=True)
     parser.add_argument("--noshp", 
-        help="If true, don't produce shapefiles", 
+        help="if true, don't produce shapefiles", 
         nargs='?', type=bool, default=False, const=True)
     parser.add_argument(
         '-f', '--force', action='store_true', dest='force', default=False,
-        help='Force overwrite existing outputs; default is to quit')
+        help='force overwrite existing outputs; default is to quit')
     args = vars(parser.parse_args())
 
     print("===== l2pixc_to_rivertile = BEGIN =====")
