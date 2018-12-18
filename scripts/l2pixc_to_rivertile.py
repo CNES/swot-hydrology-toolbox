@@ -17,7 +17,6 @@ import glob
 import netCDF4 as nc
 import numpy as np
 import os
-from os.path import join, abspath
 import subprocess
 
 import my_rdf
@@ -115,22 +114,6 @@ def make_pixc_from_gdem(gdem_file, pixc_file, out_file, subsample_factor=2):
     pixc.to_ncfile(out_name,out_path)
 
 
-def make_tail_proc_path(annotation_file, output_dir, suffix):
-    "Clone the tail of proc directory structure"
-    
-    # Create run directory
-    tail_dir = join(output_dir, os.path.basename(annotation_file).split(".")[0])
-    
-    # Form output directory full path
-    river_dir = join(tail_dir, suffix)
-
-    # Create output directory if doesn't exist
-    if not os.path.isdir(river_dir):
-        os.makedirs(river_dir)
-
-    return abspath(tail_dir), abspath(river_dir)
-
-
 #######################################
 
 
@@ -188,15 +171,20 @@ def main():
             #~ os.path.abspath(args['l2pixc_annotation_file']), comment='!')
     
         # Clone the tail of proc directory structure
-        tail_dir, river_dir      = make_tail_proc_path(pixc_ann_file, args['output_dir'], 'pixc')
-        tail_dir, river_dir_gdem = make_tail_proc_path(pixc_ann_file, args['output_dir'], 'gdem')
+        river_dir      = os.path.join(args['output_dir'], 'pixc')
+        if not os.path.isdir(river_dir):
+            os.makedirs(river_dir)
+        if not args['nogdem']:
+            river_dir_gdem = os.path.join(args['output_dir'], 'gdem')
+            if not os.path.isdir(river_dir_gdem):
+                os.makedirs(river_dir_gdem)
     
         # Prepare args for l2pixc_to_rivertile.py
         # File path
         pixc_file = os.path.abspath(ann_cfg['l2pixc file'])
         output_riverobs = os.path.join(river_dir, "rivertile_" + num_cycle + "_" + num_orbit + "_" + lat_tile + ".nc")
         output_pixcvec = os.path.join(river_dir, "pixcvec_" + num_cycle + "_" + num_orbit + "_" + lat_tile + ".nc")
-        river_ann_file = os.path.join(tail_dir,'river-annotation_' + num_cycle + '_' + num_orbit + '_' + lat_tile + '.rdf')
+        river_ann_file = os.path.join(args['output_dir'],'river-annotation_' + num_cycle + '_' + num_orbit + '_' + lat_tile + '.rdf')
         # Specific cases
         output_riverobs_gdem = None
         output_pixcvec_gdem = None
