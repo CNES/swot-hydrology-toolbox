@@ -1,11 +1,4 @@
 # -*- coding: utf8 -*-
-'''
- This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
-'''
-
-
 """
 .. module processing.py
     :synopsis: Basic processing class to run in simulations
@@ -13,6 +6,10 @@
     
 .. moduleauthor: Capgemini
 
+ This file is part of the SWOT Hydrology Toolbox
+ Copyright (C) 2018 Centre National d’Etudes Spatiales
+ This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+ 
     $Id: module_processing.py 1093 2015-04-23 09:50:42Z nestival $
 """
 
