@@ -91,7 +91,7 @@ class PixelCloudVec(object):
         try:
             self.nb_water_pix = pixc_vec_river.getDimValue("points")  
         except:
-            print("SWOT_hydrology_toolobox version, use record instead of points, to be corrected")
+            print("SWOT_hydrology_toolbox version, use record instead of points, to be corrected")
             self.nb_water_pix = pixc_vec_river.getDimValue("record")
 
         # 1.2 - Global attributes
