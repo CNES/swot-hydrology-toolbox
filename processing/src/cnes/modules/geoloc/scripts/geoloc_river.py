@@ -243,7 +243,7 @@ def geoloc_river(pixc, pixcvec, sensor, rivertile, fit_heights_per_reach, interp
         if fit_heights_per_reach:
             geolocriver.fit_node_heights()
         geolocriver.estimate_pixvec_height_for_geoloc(interpolate_pixc_between_nodes)
-        geolocriver.apply_improved_geoloc(method=method)
+        geolocriver.apply_improved_geoloc()
         
         return (geolocriver.OUT_lat_corr, geolocriver.OUT_lon_corr, geolocriver.OUT_height_corr)
 
