@@ -5,56 +5,65 @@
  This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 '''
 
-
-
-import os
-import glob
-from os.path import join, abspath
-import sys
-import subprocess
-from netCDF4 import Dataset
 import argparse
-import numpy as np
-import cnes.modules.geoloc.lib.pixc_to_shp
-import my_rdf
-import csv
 import configparser as cfg
+import glob
+from netCDF4 import Dataset
+import os
+from os.path import join, abspath
+import subprocess
+import sys
 
-def make_tail_proc_path(annotation_file, output_dir, suffix):
-    "Clone the tail of proc directory structure"
+import my_rdf
 
-    dir_parts = os.path.dirname(abspath(annotation_file)).split(os.path.sep)
-    tail_dir = join(output_dir, dir_parts[-2], dir_parts[-1])
-    river_dir = join(tail_dir, suffix)
 
-    if not os.path.isdir(river_dir):
-        os.makedirs(river_dir)
-
-    return abspath(tail_dir), abspath(river_dir)
-    
-
-def make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, mission_start_time):
+def make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time):
     """ Makes symlinks to pixc with the right name for locnes input """
 
     def swot_symlink(target, name):
-        stop_date_time = mission_start_time
         crid = "Dx0000"
         product_counter = "01"
-        outname = name.format(cycle_number, pass_number, tile_number, mission_start_time, stop_date_time, crid, product_counter)
+        outname = name.format(cycle_number, pass_number, tile_number, start_time, stop_time, crid, product_counter)
         outpath = join(links_dir, outname)
         if os.path.islink(outpath): # Overwrite if existing
             print("Overwritting existing {}".format(outpath))
             os.remove(outpath)
-        os.symlink(target, outpath)
-        return outpath
+        try:
+            os.symlink(target, outpath)
+            flag_rename = False
+        except:
+            outpath = os.path.join(os.path.dirname(target), outname)
+            os.rename(target, outpath)
+            flag_rename = True
+            print("symlink impossible => change filename [%s] to [%s]" % (target, outpath))
+            print()
+        return outpath, flag_rename
 
-    pixcname = swot_symlink(pixc_file, "SWOT_L2_HR_PIXC_{}_{}_{}_{}_{}_{}_{}.nc")
-    pixcvecname = swot_symlink(pixcvec_file, "SWOT_L2_HR_PIXCVecRiver_{}_{}_{}_{}_{}_{}_{}.nc")
-    return pixcname, pixcvecname
+    flag_rename_pixc = False
+    if not os.path.basename(pixc_file).startswith("SWOT_L2_HR_PIXC"):
+        pixcname, flag_rename_pixc = swot_symlink(pixc_file, "SWOT_L2_HR_PIXC_{}_{}_{}_{}_{}_{}_{}.nc")
+    else:
+        pixcname = pixc_file
+    
+    flag_rename_pixcvec = False
+    if not os.path.basename(pixcvec_file).startswith("SWOT_L2_HR_PIXCVecRiver"):
+        pixcvecname, flag_rename_pixcvec = swot_symlink(pixcvec_file, "SWOT_L2_HR_PIXCVecRiver_{}_{}_{}_{}_{}_{}_{}.nc")
+    else:
+        pixcvecname = pixcvec_file
+    
+    return pixcname, flag_rename_pixc, pixcvecname, flag_rename_pixcvec
+
+
+def execute(cmd):
+    with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, bufsize=1, universal_newlines=True) as p:
+        for line in p.stdout:
+            print(line, end='') # process line here
+
+    if p.returncode != 0:
+        raise subprocess.CalledProcessError(p.returncode, p.args)
     
 
-def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, mission_start_time, force_disable_improved_geolocation=False):
-
+def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time):
 
     config = cfg.ConfigParser()
     config.read(parameter_laketile)
@@ -64,15 +73,12 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cy
     if not os.path.isdir(links_dir):
         os.makedirs(links_dir)
 
-    pixcname, pixcvecname = make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, mission_start_time)
+    pixcname, flag_rename_pixc, pixcvecname, flag_rename_pixcvec = make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time)
 
     # Fill missing values in pge_lake_tile rdf file
     config.set('PATHS', "PIXC file", pixcname)
     config.set('PATHS', "PIXCVecRiver file", pixcvecname)
     config.set('PATHS', "Output directory", lake_dir)
-
-    if force_disable_improved_geolocation:
-        config.set('OPTIONS', 'Improve geolocation', 0)
         
     # Write the parameter file
     laketile_cfg = join(lake_dir, "laketile.cfg")
@@ -81,69 +87,117 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cy
         config.write(cfg_file)
 
     # Call pge_lake_tile
-    pge_lake_tile = join(os.environ['SWOT_HYDROLOGY_TOOLBOX'], 'processing', 'src', 'cnes', 'sas', 'lake_tile', 'pge_lake_tile.py')
-    subprocess.check_call([pge_lake_tile, laketile_cfg, '-shp'])
+    # Path to top of toolbox
+    try:
+        tbx_path = os.environ['SWOT_HYDROLOGY_TOOLBOX']
+    except:
+        tbx_path = os.getcwd().replace(os.sep+"scripts", "")
+    # Build LOCNES/lake_tile main lib
+    pge_lake_tile = join(tbx_path, 'processing', 'src', 'cnes', 'sas', 'lake_tile', 'pge_lake_tile.py')
+    # Build command
+    cmd = "{} {} -shp".format(pge_lake_tile, laketile_cfg)
+    print ("> executing:", cmd) 
+    print()
+    #subprocess.check_call(cmd, shell=True)
+    execute(cmd)
+    print()
+    print("== Execution OK")
+    print()
+        
+    # Rename to old input filenames if files had been renamed
+    if flag_rename_pixc:
+        print("Get back to old PixC filename [%s] to [%s]" % (pixcname, pixc_file))
+        print()
+        os.rename(pixcname, pixc_file)
+    if flag_rename_pixcvec:
+        print("Get back to old PIXCVecRiver filename [%s] to [%s]" % (pixcvecname, pixcvec_file))
+        print()
+        os.rename(pixcvecname, pixcvec_file)
+
+
+#######################################
+
 
 def main():
     """When run as a script"""
     parser = argparse.ArgumentParser()
     parser.add_argument('river_annotation_file', type=str)
     parser.add_argument('output_dir', type=str)
-
-    parser.add_argument('--parameter_laketile', default= None, type=str)
+    parser.add_argument('--parameter_laketile', default=None, type=str)
     parser.add_argument("--nogdem",
         help="If true, don't call riverobs with gdem",
         nargs='?', type=bool, default=False, const=True)
-    parser.add_argument(
-        '-f', '--force', action='store_true', dest='force', default=False,
-        help='Force overwrite existing outputs; default is to quit')
     args = vars(parser.parse_args())
+
+    print("===== rivertile_to_laketile = BEGIN =====")
+    print("")
 
     # unit or multi river annotation file test
     if os.path.isfile(args['river_annotation_file']):
         river_files = glob.glob(args['river_annotation_file'])
-        print(river_files)
     else:
         river_files = glob.glob(os.path.join(args['river_annotation_file'], "*.rdf"))
-
-    print(river_files, args['river_annotation_file'])
-    for river_annotation in river_files:
+    # Print on console
+    if len(river_files) == 0:
+        print("> NO river annotation file to deal with")
+    else:
+        print("> %d river annotation file(s) to deal with" % len(river_files))
+    print()
+    print()
     
-	    # Load annotation file
-	    print(river_annotation)
-	    ann_rdf = my_rdf.myRdfReader(os.path.abspath(river_annotation))
-	    ann_cfg = ann_rdf.parameters
+    for river_annotation in river_files:
+        
+        print(">>>>> Dealing with river annotation file %s <<<<<" % river_annotation)
+        print()
+    
+        # Load annotation file
+        ann_rdf = my_rdf.myRdfReader(os.path.abspath(river_annotation))
+        ann_cfg = ann_rdf.parameters
 	
-	    # Clone the tail of proc directory structure
-	    tail_dir, lake_dir_pixc = make_tail_proc_path(river_annotation, args['output_dir'], 'pixc')
+        # Prepare args for pge_lake_tile.py
+        pixc_file    = abspath(ann_cfg['pixc file'])
+        print(". PixC file = %s" % pixc_file)
+        pixcvec_file = abspath(ann_cfg['pixcvec file'])
+        print(". PIXCVecRiver file = %s" % pixcvec_file)
 	
-	    if os.path.exists(lake_dir_pixc) and not args["force"]:
-	        print("Output lake directory exists. Stopping (use -f to force).")
-	        return
-	
-	    # Prepare args for pge_lake_tile.py
-	    pixc_file    = abspath(ann_cfg['pixc file'])
-	    pixcvec_file = abspath(ann_cfg['pixcvec file'])
-	
-	    # Read pixc file attributes and format with leading zeros
-	    with Dataset(ann_cfg["pixc file"], "r") as pixc_dataset:
+        # Read pixc file attributes and format with leading zeros
+        with Dataset(ann_cfg["pixc file"], "r") as pixc_dataset:
 	                
-	        cycle_number = "{:03d}".format(pixc_dataset.getncattr("cycle_number"))
-	        pass_number = "{:03d}".format(pixc_dataset.getncattr("pass_number"))
-	        tile_number = pixc_dataset.getncattr("tile_name")
-	        try:
-	            mission_start_time = pixc_dataset.getncattr("mission_start_time")
-	        except : 
-	            mission_start_time = pixc_dataset.getncattr("start_time")
-	            
-	    # Read config from config repository by default, or from the script arguments
-	    parameter_laketile = args["parameter_laketile"]
+            cycle_number = "{:03d}".format(pixc_dataset.getncattr("cycle_number"))
+            pass_number = "{:03d}".format(pixc_dataset.getncattr("pass_number"))
+            tile_number = pixc_dataset.getncattr("tile_name")
+            try:
+                start_time = pixc_dataset.getncattr("start_time")
+            except: 
+                start_time = "YYYYMMDDThhmmss"
+            try:
+                stop_time = pixc_dataset.getncattr("stop_time")
+            except: 
+                stop_time = "YYYYMMDDThhmmss"
+            
+            print(". Cycle number = %s" % cycle_number)
+            print(". Orbit number = %s" % pass_number)
+            print(". Tile ref = %s" % tile_number)
+            print(". Start time = %s" % start_time)
+            print(". Stop time = %s" % stop_time)
+            
+        print()
+        	            
+        # Read config from config repository by default, or from the script arguments
+        parameter_laketile = args["parameter_laketile"]
 	
-	    print(cycle_number, pass_number, tile_number, mission_start_time)
-	    call_pge_lake_tile(parameter_laketile, lake_dir_pixc,
-	                       ann_cfg["pixc file"], ann_cfg["pixcvec file"],
-	                       cycle_number, pass_number, tile_number, mission_start_time)
+        call_pge_lake_tile(parameter_laketile, args['output_dir'],
+                           ann_cfg["pixc file"], ann_cfg["pixcvec file"],
+                           cycle_number, pass_number, tile_number, start_time, stop_time)
+        
+        print()
+        print()
+
+    print("===== rivertile_to_laketile = END =====")
+
+
+#######################################
+
 
 if __name__ == "__main__":
     main()
-
