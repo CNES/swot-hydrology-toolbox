@@ -12,17 +12,17 @@ Author (s): Brent Williams
 
 Modified version of processRiverVectors.py written originally by Alex Fore.
 '''
+import argparse
+import glob
+import netCDF4 as nc
+import numpy as np
 import os
 from os.path import join, abspath
-import sys
-import glob
 import subprocess
-import re
-import netCDF4 as nc
-import argparse
-import numpy as np
+
 import my_rdf
 import cnes.modules.geoloc.lib.pixc_to_shp 
+
 
 def write_annotation_file(ann_file, 
                           pixc_file,
@@ -39,6 +39,7 @@ def write_annotation_file(ann_file,
     if pixcvec_file_gdem is not None:
         f.write("pixcvec file from gdem = %s\n"%pixcvec_file_gdem)
     f.close()
+
 
 def make_pixc_from_gdem(gdem_file, pixc_file, out_file, subsample_factor=2):
     """
@@ -113,6 +114,7 @@ def make_pixc_from_gdem(gdem_file, pixc_file, out_file, subsample_factor=2):
     print ("to path:",out_path)
     pixc.to_ncfile(out_name,out_path)
 
+
 def make_tail_proc_path(annotation_file, output_dir, suffix):
     "Clone the tail of proc directory structure"
 
@@ -125,12 +127,17 @@ def make_tail_proc_path(annotation_file, output_dir, suffix):
 
     return abspath(tail_dir), abspath(river_dir)
 
+
+#######################################
+
+
 def main():
     """When run as a script"""
     parser = argparse.ArgumentParser()
-    parser.add_argument('l2pixc_annotation_file', type=str)
-    parser.add_argument('output_dir', type=str)
-    parser.add_argument('--parameter_riverobs', default= None, type=str)
+    parser.add_argument('l2pixc_annotation_file', help="PixC annotation file", type=str)
+    parser.add_argument('output_dir', help="output directory", type=str)
+    parser.add_argument('parameter_riverobs', help="Param file for RiverObs", type=str)
+    parser.add_argument('--riverobs_path', help="full path to RiverObs software (if not in os.environ)", type=str)
     parser.add_argument("--nogdem", 
         help="If true, don't call riverobs with gdem", 
         nargs='?', type=bool, default=False, const=True)
@@ -142,6 +149,9 @@ def main():
         help='Force overwrite existing outputs; default is to quit')
     args = vars(parser.parse_args())
 
+    print("===== l2pixc_to_rivertile = BEGIN =====")
+    print("")
+
     # Load rdf files
     if os.path.isfile(args['l2pixc_annotation_file']):
         # Unite file case
@@ -149,15 +159,27 @@ def main():
     else:
         # multi files case
         rdf_files = glob.glob(os.path.join(args['l2pixc_annotation_file'],"*.rdf"))
+    if len(rdf_files) == 0:
+        print("> NO PixC annotation file to deal with")
+    else:
+        print("> %d PixC annotation file(s) to deal with" % len(rdf_files))
+    print()
    
     for pixc_ann_file in rdf_files:
-        # Get value of orbit cycle, orbit number and latitude tile coordinates
-        pixc_num = re.findall("([0-9]+)", pixc_ann_file)
-        num_cycle = pixc_num[0]
-        num_orbit = pixc_num[1]
-        lat_tile = pixc_num[2]
+        
+        print("> Dealing with PixC annotation file %s" % pixc_ann_file)
+        
+        # Open and read RDF file
         rdf = my_rdf.myRdfReader(os.path.abspath(pixc_ann_file))
         ann_cfg = rdf.parameters
+        
+        # Get value of orbit cycle, orbit number and latitude tile coordinates
+        pixc_ann_split = os.path.basename(pixc_ann_file).split(".")[0].split("_")
+        num_cycle = pixc_ann_split[2]
+        num_orbit = pixc_ann_split[3]
+        lat_tile = pixc_ann_split[4]
+        print("Cycle number = %s - Orbit number = %s - Tile ref = %s" % (num_cycle, num_orbit, lat_tile))
+        print()
         
         #~ ann_cfg = rdf.parse(
             #~ os.path.abspath(args['l2pixc_annotation_file']), comment='!')
@@ -167,31 +189,33 @@ def main():
         tail_dir, river_dir_gdem = make_tail_proc_path(pixc_ann_file, args['output_dir'], 'gdem')
     
         # Prepare args for l2pixc_to_rivertile.py
+        # File path
         pixc_file = os.path.abspath(ann_cfg['l2pixc file'])
         output_riverobs = os.path.join(river_dir, "rivertile_" + num_cycle + "_" + num_orbit + "_" + lat_tile + ".nc")
         output_pixcvec = os.path.join(river_dir, "pixcvec_" + num_cycle + "_" + num_orbit + "_" + lat_tile + ".nc")
         river_ann_file = os.path.join(tail_dir,'river-annotation_' + num_cycle + '_' + num_orbit + '_' + lat_tile + '.rdf')
-    
+        # Specific cases
         output_riverobs_gdem = None
         output_pixcvec_gdem = None
         gdem_pixc = None
-        if args['nogdem']:
+        if args['nogdem']:  # No GDEM option set
             if (not args['force'] and
                 os.path.isfile(output_riverobs) and
-                os.path.isfile(output_pixcvec)):
+                os.path.isfile(output_pixcvec)):  # No force option set and output files already exist
+                    print("--> Output files already exist; EXIT")
                     return
         else:
+            
+            # Output files
             output_riverobs_gdem = os.path.join(river_dir_gdem, "rivertile_" + num_cycle + "_" + num_orbit + "_" + lat_tile + ".nc")
             output_pixcvec_gdem = os.path.join(river_dir_gdem, "pixcvec_" + num_cycle + "_" + num_orbit + "_" + lat_tile + ".nc")
             if (not args['force'] and
                 os.path.isfile(output_riverobs) and
                 os.path.isfile(output_pixcvec)):
-                    print("return")
+                    print("--> Output files already exist; EXIT")
                     return
     
-        #~ cfg = rdf.parse(os.path.abspath(args['parameter_riverobs']), comment='!')
-    
-        if not args["nogdem"]:
+            # PixC GDEM output file
             gdem_pixc = os.path.join(river_dir_gdem,'pixel_cloud_gdem' + num_cycle + '-' + num_orbit + '_' + lat_tile + '.nc')
             print(ann_cfg['true GDEM file'])
             make_pixc_from_gdem(
@@ -199,8 +223,6 @@ def main():
                 pixc_file,
                 gdem_pixc,
                 subsample_factor=2)
-    
-    
     
         # check to see if need a different prior river database file 
         # (NA,EU only handled) 
@@ -230,16 +252,26 @@ def main():
         #~ cfg.tofile(cfg_file)
     
         # Make rivertile sas with pixelcloud
+        # Path to RiverObs
+        if args['riverobs_path'] is not None:
+            path_to_riverobs = args['riverobs_path']
+        else:
+            path_to_riverobs = os.environ['RIVEROBS']
+        # Build RiverObs main lib
         prog_name = os.path.join(
-            os.environ['RIVEROBS'],
+            path_to_riverobs,
             'src','bin','swot_pixc2rivertile.py')
+        # Build command
         cmd = "{} {} {} {} {}".format(prog_name,
                                          pixc_file,
                                          output_riverobs,
                                          output_pixcvec,
                                          os.path.abspath(args['parameter_riverobs']))
-        print ("executing:",cmd) 
+        # Excute command
+        print ("> executing:", cmd) 
         subprocess.check_call(cmd, shell=True)
+        print("== Execution OK")
+        print()
     
         # run processing for pixel-cloud-ised gdem
         #~ if not args["nogdem"]:
@@ -265,8 +297,9 @@ def main():
             #~ subprocess.check_call(cmd, shell=True)
     
     
-        # make the desired shape files
+        # Make the desired shape files
         if not args["noshp"]:
+            print("> Converting .nc files to shapefiles...")
             pixcvec_vars = ["height_vectorproc", 
                            "node_index", 
                            "reach_index", 
@@ -277,26 +310,30 @@ def main():
                          "width", 
                          "area_total",    
                          "node_id", 
-                         "reach_id", 
-                         ]
+                         "reach_id"]
             reach_vars = ["reach_id","width","height","slope","area_total"]
+            
             # write node shape file
+            print(". Node shapefile")
             cnes.modules.geoloc.lib.pixc_to_shp.pixc_to_shp(
                 output_riverobs, 
                 output_riverobs.replace(".nc","_node.shp"), 
                 "latitude", "longitude", node_vars, group_name="nodes")
+            
             # write reach shape file
+            print(". Reach shapefile")
             cnes.modules.geoloc.lib.pixc_to_shp.pixc_to_shp(
                 output_riverobs, 
                 output_riverobs.replace(".nc","_reach.shp"), 
                 "p_latitud", "p_longitud", reach_vars, group_name="reaches")
+            
             # write pixcvec shape file
+            print(". PIXCVec shapefile")
             cnes.modules.geoloc.lib.pixc_to_shp.pixc_to_shp(
                 output_pixcvec, 
                 output_pixcvec.replace(".nc",".shp"), 
                 "latitude_vectorproc", "longitude_vectorproc", 
                 pixcvec_vars, group_name=None)
-    
     
             #~ if not args['nogdem']:
                 #~ # write gdem node shape file
@@ -316,7 +353,6 @@ def main():
                     #~ "latitude_vectorproc", "longitude_vectorproc", 
                     #~ pixcvec_vars, group_name=None)
     
-    
         # write annotation file(s)
         write_annotation_file(
             river_ann_file, 
@@ -325,6 +361,12 @@ def main():
             output_pixcvec,  
             output_pixcvec_gdem)
 
+    print("")
+    print("===== l2pixc_to_rivertile = END =====")
+
+
+#######################################
+
+
 if __name__ == "__main__":
     main()
-
