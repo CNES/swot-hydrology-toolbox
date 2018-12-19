@@ -181,7 +181,7 @@ def main():
             #~ os.path.abspath(args['l2pixc_annotation_file']), comment='!')
     
         # Clone the tail of proc directory structure
-        river_dir      = os.path.join(args['output_dir'], 'pixc')
+        river_dir = os.path.abspath(os.path.join(args['output_dir'], 'pixc'))
         if not os.path.isdir(river_dir):
             os.makedirs(river_dir)
         if not args['nogdem']:
@@ -356,6 +356,8 @@ def main():
                     #~ pixcvec_vars, group_name=None)
     
         # write annotation file(s)
+        
+        
         write_annotation_file(
             river_ann_file, 
             pixc_file,
