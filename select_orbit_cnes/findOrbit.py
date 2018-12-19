@@ -44,13 +44,13 @@ class findOrbit(object):
         polygon_ref = box(self.south_lat, self.west_lon, self.north_lat, self.east_lon)
         
         # Find all files in this directory
-        for orbit_file in os.listdir(orbit_directory):
+        for orbit_file in os.listdir(os.path.expandvars(orbit_directory)):
             
             if ~os.path.isdir(orbit_file):
                 index_over_dem = []
 
                 # Open orbit file
-                data_orbit = Dataset(os.path.join(orbit_directory, orbit_file))
+                data_orbit = Dataset(os.path.join(os.path.expandvars(orbit_directory), orbit_file))
                 lat= data_orbit.variables['latitude'][:]
                 lon= data_orbit.variables['longitude'][:]
 
