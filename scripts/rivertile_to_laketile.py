@@ -123,7 +123,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('river_annotation_file', help="river annotation file (output from l2pixc_to_rivertile) or directory", type=str)
     parser.add_argument('output_dir', help="output directory", type=str)
-    parser.add_argument('--parameter_laketile', help="param file, if variables diff from default", default=None, type=str)
+    parser.add_argument('parameter_laketile', help="parameter file", type=str)
     parser.add_argument("--nogdem",
         help="if true, don't call riverobs with gdem",
         nargs='?', type=bool, default=False, const=True)

@@ -1,0 +1,51 @@
+SWOT Hydrology Toolbox.
+Copyright (C) 2018 Centre National d'Etudes Spatiales
+This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+
+SWOT Hydrology Toolbox uses part or the totality of the following software (version indicated in requirements.txt):
+
+RiverObs (https://github.com/SWOTAlgorithms/RiverObs), distributed under licence BSD 3 clauses (https://github.com/SWOTAlgorithms/RiverObs/blob/develop/LICENSE.md)
+
+HDF (https://www.hdfgroup.org/solutions/hdf5/), distributed under licence HDF (https://bitbucket.hdfgroup.org/projects/HDFFV/repos/hdf5/browse/COPYING)
+
+LibSpatialIndex (http://libspatialindex.github.io/), distributed under licence MIT (https://github.com/libspatialindex/libspatialindex/blob/master/COPYING)
+
+GDAL (https://www.gdal.org/), distributed under licence X11/MIT (http://trac.osgeo.org/gdal/wiki/FAQGeneral#WhatlicensedoesGDALOGRuse)
+
+NetCDF-C (https://github.com/Unidata/netcdf-c), distributed under licence "MIT-like" (https://www.unidata.ucar.edu/software/netcdf/docs/copyright.html)
+
+Dask (https://dask.org/), distributed under licence BSD 3 clauses (https://github.com/dask/dask/blob/master/LICENSE.txt)
+
+Matplotlib (https://matplotlib.org/), distributed under specific licence derived from PSF (https://matplotlib.org/users/license.html)
+
+Scipy (https://www.scipy.org/), distributed under licence BSD 3 clauses (https://github.com/scipy/scipy/blob/master/LICENSE.txt)
+
+Numpy (http://www.numpy.org/), distributed under licence BSD 3 clauses (http://www.numpy.org/license.html)
+
+Fiona (https://github.com/Toblerity/Fiona), distributed under licence BSD 3 clauses (https://github.com/Toblerity/Fiona/blob/master/LICENSE.txt)
+
+GeoPandas (http://geopandas.org/), distributed under licence BSD 3 clauses (https://github.com/geopandas/geopandas/blob/master/LICENSE.txt)
+
+Mahotas (https://mahotas.readthedocs.io/), distributed under licence derived from MIT (https://github.com/luispedro/mahotas/blob/master/COPYING)
+
+NetCDF4-Python (http://unidata.github.io/netcdf4-python/), distributed under licence "MIT-like (https://github.com/Unidata/netcdf4-python/blob/master/COPYING)
+
+Shapely (https://github.com/Toblerity/Shapely), distributed under licence BSD 3 clauses (https://github.com/Toblerity/Shapely/blob/master/LICENSE.txt)
+
+Utm (https://pypi.org/project/utm/), distributed under licence MIT (https://github.com/Turbo87/utm/blob/master/LICENSE)
+
+Xarray (http://xarray.pydata.org/), distributed under licence  Apache v2.0 (http://xarray.pydata.org/en/stable/#license)
+
+lxml (https://lxml.de/), distributed under licence BSD 3 clauses (https://github.com/lxml/lxml/blob/master/doc/licenses/BSD.txt)
+
+scikit-image (https://scikit-image.org/), distributed under licence BSD 3 clauses (https://scikit-image.org/docs/dev/license.html)
+
+scikit-learn (https://scikit-learn.org/), distributed under licence BSD 3 clauses (https://github.com/scikit-learn/scikit-learn/blob/master/COPYING)
+
+PyProj (https://github.com/jswhit/pyproj), distributed under licence MIT (https://github.com/jswhit/pyproj/blob/master/LICENSE)
+
+PROJ.4 (https://proj4.org/), distributed under licence MIT (https://proj4.org/about.html#license)
+
+PySAL (http://pysal.org/), distributed under licence BSD 3 clauses (https://github.com/pysal/pysal/blob/master/LICENSE.txt)
+
+

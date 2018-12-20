@@ -21,7 +21,9 @@ import subprocess
 import sys
 
 import my_rdf
-import cnes.modules.geoloc.lib.pixc_to_shp 
+import cnes.modules.geoloc.lib.pixc_to_shp
+
+from cnes.sas.lib import base_classes
 
 
 def write_annotation_file(ann_file, 
@@ -181,7 +183,7 @@ def main():
             #~ os.path.abspath(args['l2pixc_annotation_file']), comment='!')
     
         # Clone the tail of proc directory structure
-        river_dir      = os.path.join(args['output_dir'], 'pixc')
+        river_dir = os.path.abspath(os.path.join(args['output_dir'], 'pixc'))
         if not os.path.isdir(river_dir):
             os.makedirs(river_dir)
         if not args['nogdem']:
@@ -356,6 +358,8 @@ def main():
                     #~ pixcvec_vars, group_name=None)
     
         # write annotation file(s)
+        
+        
         write_annotation_file(
             river_ann_file, 
             pixc_file,
