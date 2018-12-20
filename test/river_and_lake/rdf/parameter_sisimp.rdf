@@ -25,7 +25,16 @@ Number of pixels in range = 3117 !3117 (10-60km) or 3500 (extended swath 5-65km)
 Orbit jitter = 1000
 Cycle duration (sec) = 1802645.8059698
 Water flag = 4
-Dark water = no
+
+!### Dark water
+Dark water = yes
+Scale factor dw = 0.1
+Dark water percentage = 5
+Dark water flag = 24
+!Dark water seed = 12345678
+Scale factor non detected dw = 2
+Dark water detected percentage = 90
+Dark water detected noise factor = 4
 
 !### Constant height model parameters(applied everywhere) 
 Height model A = 0.
@@ -34,7 +43,7 @@ Height model period (days) = 365.25
 
 
 !### Complex height model parameters (applied for big lake > Height model min area) 
-Height model = reference_height   !optionnal argument : polynomial or gaussian
+Height model = gaussian   !optionnal argument : polynomial or gaussian or reference_height
 Height name = ref_height
 Height model min area = 100.     ! (ha) (optionnal argument to add complex 2D height model)
 Height model stdv = 0.2        !(optionnal argument to add complex 2D height model for gaussian height model)
