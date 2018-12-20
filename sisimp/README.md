@@ -37,6 +37,9 @@ Options for Dark Water simulation are :
 * Dark water percentage = int (between 0 and 100) probability of total dark water simulated
 * Dark water flag = classification flag for detected dark water (usually 24)
 * Dark water seed = int seed to be used for reproducible dark water simulations
+* Scale factor non detected dw =  float to parameterize the correlation length of simulated non detected dark water areas
+* Dark water detected percentage = int (between 0 and 100) percentage of detected dark water
+* Dark water detected noise factor = float noise factor for dark water pixels height simulation
 >>>>>>> origin/dark_water
 
 # Run

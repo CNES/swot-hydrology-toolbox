@@ -25,7 +25,8 @@ from write_polygons import orbitAttributes
 from lib.my_variables import SWATH_WIDTH, NR_CROSS_TRACK, SENSOR_WAVELENGTH, NB_PIX_RANGE, ORBIT_JITTER, HEIGHT_MODEL_A, \
         HEIGHT_MODEL_t0, HEIGHT_MODEL_PERIOD, HEIGHT_MODEL_MIN_AREA, HEIGHT_BIAS_STD, NOISE_MULTIPLIER_FACTOR, RANGE_SAMPLING, \
         WATER_FLAG, MULTIPLE_ORBIT, COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST, GEOLOCATION_IMPROVEMENT, \
-        FACT_ECHELLE, HEIGHT_MODEL, HEIGHT_MODEL_STDV, GEN_APPROX_RAD_EARTH, RAD2DEG, DEG2RAD, FACT_ECHELLE_DW, DW_PERCENT, DARKWATER_FLAG
+        FACT_ECHELLE, HEIGHT_MODEL, HEIGHT_MODEL_STDV, GEN_APPROX_RAD_EARTH, RAD2DEG, DEG2RAD, FACT_ECHELLE_DW, DW_PERCENT, DARKWATER_FLAG, \
+        SCALE_FACTOR_NON_DETECTED_DW, DW_DETECTED_PERCENT, DW_DETECTED_NOISE_FACTOR
 
 def read_parameter(IN_rdf_reader, IN_instrument_name, IN_instrument_default_value, read_type):
     try:
@@ -143,6 +144,12 @@ class Processing(object):
             self.my_attributes.dw_pourcent = read_parameter(parameters, "Dark water percentage",DW_PERCENT,float)
             self.my_attributes.darkwater_flag = read_parameter(parameters, "Dark water flag", DARKWATER_FLAG, float)
             self.my_attributes.dw_seed=read_parameter(parameters, "Dark water seed", None, float)
+            self.my_attributes.scale_factor_non_detected_dw = read_parameter(parameters, "Scale factor non detected dw", SCALE_FACTOR_NON_DETECTED_DW,float)
+            self.my_attributes.dw_detected_percent = read_parameter(parameters, "Dark water detected percentage", DW_DETECTED_PERCENT, float)
+            self.my_attributes.dw_detected_noise_factor = read_parameter(parameters, "Dark water detected noise factor", DW_DETECTED_NOISE_FACTOR, float)
+
+
+
             # Water flag
             self.my_attributes.water_flag = read_parameter(parameters, "Water flag", WATER_FLAG, float)
 
@@ -182,7 +189,9 @@ class Processing(object):
         
         try:
             self.my_attributes.noise_height = np.loadtxt(os.path.expandvars(parameters.getValue("Noise file path")), skiprows=1)
-            self.my_attributes.noise_height[:, 1] = self.my_attributes.noise_multiplier_factor * self.my_attributes.noise_height[:, 1]                
+            self.my_attributes.noise_height[:, 1] = self.my_attributes.noise_multiplier_factor * self.my_attributes.noise_height[:, 1]
+            self.my_attributes.dw_detected_noise_height = np.loadtxt(os.path.expandvars(parameters.getValue("Noise file path")), skiprows=1)
+            self.my_attributes.dw_detected_noise_height[:,1]=self.my_attributes.dw_detected_noise_factor*self.my_attributes.noise_height[:,1]
         #~ try:
             #~ file_list = os.listdir(os.path.abspath(os.path.dirname(__file__)))
             #~ for file in file_list:
