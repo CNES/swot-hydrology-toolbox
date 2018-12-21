@@ -23,7 +23,7 @@ import pyproj
 
 import lib.my_api as my_api
 
-from lib.my_variables import COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST, FACT_ECHELLE, RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH, FACT_ECHELLE_DW, DW_PERCENT
+from lib.my_variables import COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST, FACT_ECHELLE, RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
 
 import lib.height_model as height_model
 import lib.true_height_model as true_height_model
@@ -82,6 +82,9 @@ class orbitAttributes:
         self.dw_pourcent = None
         self.dw_seed = None
         self.darkwater_flag = None
+        self.scale_factor_non_detected_dw = None
+        self.dw_detected_percent = None
+        self.dw_detected_noise_factor = None
 
         # 1.5 - Water flag
         self.water_flag = None
@@ -105,7 +108,9 @@ class orbitAttributes:
         self.compute_pixc_vec_river = None  # Flag for PIXCVecRiver file computation
         self.near_range = None
         self.swath_polygons = {}  # Dictionnary for storing swath polygons
-    
+        
+        self.dw_detected_noise_height = None # dw detected noise tab
+
         # 3.1 - From orbit file
         self.azimuth_spacing = None  # Azimuth spacing
         self.lon = None
@@ -249,26 +254,34 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             indice_az = np.array(ind[1]-azmin)
 
             ## Randomly classify or erase dark water regions
-            ### Randomly erase DW regions in DW mask and river_flag
-            dw_mask, river_flag =dark_water.dark_water_randomerase(dw_mask,river_flag,[indice_az,indice_r],IN_attributes.dw_seed)
+            ### Randomly erase DW regions in DW mask
+            dw_mask = dark_water.dark_water_non_detected_simulation(dw_mask,IN_attributes.scale_factor_non_detected_dw,IN_attributes.dw_detected_percent,IN_attributes.dw_seed)
+            #reshape dark_water to water extent
+            dw_mask=dw_mask[indice_az,indice_r]
             ### Update IN_water_pixels with the deleted water pixels
-            IN_water_pixels[ind]=river_flag
-
-            ## Update size of tabs etc... because water pixels were deleted
-            size_of_tabs = np.count_nonzero(IN_water_pixels)
-            my_api.printInfo(str("Nb water pixels: %d" % size_of_tabs))
-            ind = np.nonzero(IN_water_pixels)
-            r, az = [ind[0], ind[1]]
-            river_flag = IN_water_pixels[ind]
-            
+            # check if dw pixels are deleted = dw_mask pixels set to 2
+            if np.where(dw_mask==2)[0].size > 0:
+                my_api.printInfo(str("Nb detected dark water pixels : %d" % np.where(dw_mask==1)[0].size ))
+                my_api.printInfo(str("Nb non detected dark water pixels : %d" % np.where(dw_mask==2)[0].size ))
+                ### Update river_flag and IN_water_pixels with the deleted water pixels
+                river_flag[np.where(dw_mask==2)]=0
+                IN_water_pixels[ind]=river_flag
+                # delete the corresponding pixels in the dw mask to update indices values
+                dw_mask=np.delete(dw_mask,np.where(dw_mask==2))
+                ## Update size of tabs etc... because water pixels were deleted
+                size_of_tabs = np.count_nonzero(IN_water_pixels)
+                my_api.printInfo(str("Nb water pixels: %d" % size_of_tabs))
+                ind = np.nonzero(IN_water_pixels)
+                r, az = [ind[0], ind[1]]
+                river_flag = IN_water_pixels[ind]
             ###  Build the classification array with water flag Dark_water flag
-            # initialize the classification array with water
             classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag  # Classification as water
             #locate DW pixels
             dark_water_loc = np.where(dw_mask==1)
-            my_api.printInfo(str("Nb Dark water pixels detected: %d" % np.count_nonzero(dw_mask)))
             #update classification value for dark water pixels with DW flag
             classification_tab[dark_water_loc]= IN_attributes.darkwater_flag
+        else :
+            classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag
     else :
         classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag
         my_api.printInfo(str("No Dark Water will be simulated"))
@@ -368,10 +381,21 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
 
     # 5 - Error model
 
-    # 5.1 - Compute noise over height
-    delta_h = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std)
-  
-    # 5.2 - Add residual roll error
+
+    # 4.1 - Compute noise over height
+    if IN_attributes.dark_water.lower() == "yes" :
+        delta_h=np.zeros(elevation_tab.shape)
+        water_pixels=np.where(classification_tab==IN_attributes.water_flag)
+        dw_pixels=np.where(classification_tab==IN_attributes.darkwater_flag)
+        delta_h[water_pixels]=math_fct.calc_delta_h(angles[water_pixels],IN_attributes.noise_height,IN_attributes.height_bias_std)
+        delta_h[dw_pixels]=math_fct.calc_delta_h(angles[dw_pixels],IN_attributes.dw_detected_noise_height,IN_attributes.height_bias_std)
+        #delta_h = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std)
+        #~ print('delta_h[water_pixels]',delta_h[water_pixels])
+        #~ print('delta_h[dw_pixels]',delta_h[dw_pixels])
+    else : 
+        delta_h = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std)
+
+    # 4.2 Add residual roll error
     try:
         
         roll = Roll_module(IN_attributes.roll_file)

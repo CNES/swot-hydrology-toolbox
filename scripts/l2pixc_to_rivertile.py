@@ -227,33 +227,6 @@ def main():
                 gdem_pixc,
                 subsample_factor=2)
     
-        # check to see if need a different prior river database file 
-        # (NA,EU only handled) 
-        
-        #~ if float(param_rdf.getValue('lonmin')) > 0:
-            #~ print ('assuming european river databse')
-            #~ riv_db_name = cfg['shape_file_root']
-            #~ riv_db_name = riv_db_name.replace('NA_reaches','EU_reaches')
-            #~ riv_db_name = riv_db_name.replace(
-                #~ 'grdc_revised','grdc_below60N_revised')
-            #~ cfg['shape_file_root'] = riv_db_name
-            #~ estimate_swot_river_gdem_cfg['shape_file_root'] = riv_db_name
-    
-    
-        # this is for if we want to run estimate_swot_river.py on the 2D gdem (not the pixel cloud gdem)
-        #~ if not args["nogdem"]:
-            #~ estimate_swot_river_gdem_cfg.tofile(os.path.join(river_dir_gdem, "estimate_swot_river.rdf"))
-    
-        # setup to process with the sas
-        # write out the config
-        #~ cfg_file = os.path.join(river_dir, "rivertile.rdf")
-        #~ # replace filenames with the ones that they will be replaced by in the sas
-        #~ cfg['l2_file'] = pixc_file
-        #~ cfg['fout_reach'] = output_riverobs
-        #~ cfg['fout_node'] = output_riverobs
-        #~ cfg['fout_index'] = output_pixcvec
-        #~ cfg.tofile(cfg_file)
-    
         # Make rivertile sas with pixelcloud
         # Path to RiverObs
         if args['riverobs_path'] is not None:

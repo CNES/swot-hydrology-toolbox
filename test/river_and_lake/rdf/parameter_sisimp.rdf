@@ -23,17 +23,22 @@ Number of pixels in range = 3117 !3117 (10-60km) or 3500 (extended swath 5-65km)
 Orbit jitter = 1000
 Water flag = 4
 
+!### Dark water
+Dark water = yes
+Scale factor dw = 0.1
+Dark water percentage = 5
+Dark water flag = 24
+!Dark water seed = 12345678
+Scale factor non detected dw = 2
+Dark water detected percentage = 90
+Dark water detected noise factor = 4
+
+
 !### Error parameters
 Height bias std = 0.1
 Noise multiplier factor = 0.5 !1/sqrt(Nl) where Nl is 4
 Geolocalisation improvement = no !yes (no cross-track noise applied) or no
 
-!### Dark water parameters
-Dark water = no !yes (dark water simulation is executed) or no
-!Scale factor dw = 2.0  !correlation length of simulated dark water areas (float)
-!Dark water percentage = 10  !probability of total dark water simulated (int between 0 and 100)
-!Dark water flag = 24  !classification flag for detected dark water (usually 24)
-!Dark water seed = 1234567891  !int seed to be used for reproducible dark water simulations
 
 !### Files in output
 Create shapefile = yes !Produce output files also as shapefiles
