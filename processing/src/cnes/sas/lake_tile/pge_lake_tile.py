@@ -97,8 +97,8 @@ class Processing(object):
         # 2 - Retrieve orbit info from PIXC filename and compute output filenames
         my_api.printInfo("[lakeTileProcessing] > 2 - Retrieving tile infos from PIXC filename...")
         self.lake_tile_filenames = my_names.lakeTileFilenames(self.pixc_file, self.pixc_vec_river_file, self.output_dir)
-        my_api.printInfo("")  
-        
+        my_api.printInfo("")
+
         # 3 - Objects initialisation
         my_api.printInfo("[lakeTileProcessing] > 3 - Init and format intput objects...")
         my_api.printInfo("")
@@ -116,7 +116,7 @@ class Processing(object):
         # 3.3 - Reshape PIXCVec arrays
         my_api.printInfo("[lakeTileProcessing] > 3c - Reshape PIXCVecRiver arrays...")
         self.objPixcVec.reshape(self.objPixc)
-        my_api.printInfo("")   
+        my_api.printInfo("")
 
         # 4 - Retrieve lake Db layer
         my_api.printInfo("[lakeTileProcessing] > 4 - Retrieving lake database layer...")
@@ -130,7 +130,8 @@ class Processing(object):
                 elif type_db == "sqlite":  # SQLite format
                     self.objLakeDb = lake_db.LakeDb_sqlite(my_var.LAKE_DB, self.objPixc.tile_poly)
                 else:
-                    my_api.exitWithError("[lakeTileProcessing] Lake a priori database format (%s) is unknown: must be .shp or .sqlite" % type_db)
+                    my_api.exitWithError(
+                        "[lakeTileProcessing] Lake a priori database format (%s) is unknown: must be .shp or .sqlite" % type_db)
             else:
                 my_api.exitWithError("[lakeTileProcessing]   ERROR = %s doesn't exist" % my_var.LAKE_DB)
         my_api.printInfo("")
