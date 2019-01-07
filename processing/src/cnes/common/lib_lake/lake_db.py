@@ -183,7 +183,6 @@ class LakeDb_shp(object):
             
             # Compute closest prior lake of each point of pixel cloud
             OUT_pixc_vec_tag = [OUT_prior_id[computeIdxOfClosestPolygonFromPoint(Point(IN_lon[idx], IN_lat[idx]), prior_geom_list)] for idx in range(len(IN_lon))]
-
             # Sort OUT_prior_id by decreasing area intersection
             sorted_idx = sorted(range(len(area_intersection)), key=lambda k: area_intersection[k], reverse=True)
             OUT_prior_id = [OUT_prior_id[idx] for idx in sorted_idx]

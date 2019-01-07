@@ -455,11 +455,11 @@ class LakeProduct(object):
                 else:
                     self.obj_pixc_vec.tag[ind] += ";" + in_lake_id
         else:  
-            for ind in tmp_idx:
+            for indpixc, ind in enumerate(tmp_idx):
                 if self.obj_pixc_vec.tag[ind] == "":
-                    self.obj_pixc_vec.tag[ind] = pixc_vec_tag
+                    self.obj_pixc_vec.tag[ind] = pixc_vec_tag[indpixc]
                 else:
-                    self.obj_pixc_vec.tag[ind] += ";" + pixc_vec_tag
+                    self.obj_pixc_vec.tag[ind] += ";" + pixc_vec_tag[indpixc]
             out_feature.SetField(str("prior_id"), str(list_prior))
             
         # 3.3 - Mean date of observation
