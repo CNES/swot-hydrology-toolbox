@@ -35,7 +35,7 @@ ORBIT_JITTER = 1000  # Orbit jitter (m)
 MULTIPLE_ORBIT = 'yes'
 
 # Height model
-HEIGHT_MODEL = 'gaussian'   # polynomial / gaussian (default)
+HEIGHT_MODEL = None   # polynomial / gaussian (default)
 HEIGHT_MODEL_MIN_AREA = 100  # Optionnal argument to add complex 2D height model
 
 # Constant height model (always applied, set HEIGHT_MODEL_A to 0 to desactivate)
