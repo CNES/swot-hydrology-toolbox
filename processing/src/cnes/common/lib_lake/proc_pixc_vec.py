@@ -88,12 +88,7 @@ class PixelCloudVec(object):
         # 1 - Retrieve needed information from complementary pixel cloud file
         pixc_vec_river = my_nc.myNcReader(IN_pixc_vec)
         # 1.1 - Number of records
-        try:
-            self.nb_water_pix = pixc_vec_river.getDimValue("points")  
-        except:
-            print("SWOT_hydrology_toolbox version, use record instead of points, to be corrected")
-            self.nb_water_pix = pixc_vec_river.getDimValue("record")
-
+        self.nb_water_pix = pixc_vec_river.getDimValue("record")
         # 1.2 - Global attributes
         self.cycle_num = pixc_vec_river.getAttValue("cycle_number")
         self.pass_num = pixc_vec_river.getAttValue("pass_number")
@@ -263,9 +258,8 @@ class PixelCloudVec(object):
         data.add_variable_attribute('height_vectorproc', 'units', 'm')
         data.fill_variable('height_vectorproc', self.height_vectorproc)
         
-        #~ data.add_variable('river_lake_other_tag', str, 'record', IN_fill_value="", IN_compress=compress)
-        #~ print("self.tag=", self.tag)
-        #~ data.fill_variable('river_lake_other_tag', self.tag)
+        data.add_variable('river_lake_other_tag', str, 'record', IN_fill_value="", IN_compress=compress)
+        data.fill_variable('river_lake_other_tag', self.tag)
         
         data.add_global_attribute('producer', my_var2.PRODUCER)
         data.add_global_attribute('creation_date', str(datetime.datetime.now()))

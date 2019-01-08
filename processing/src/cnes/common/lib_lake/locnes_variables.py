@@ -20,7 +20,7 @@ import logging
 
 
 # Lake a priori database
-LAKE_DB = "/work/ALT/swot/swotpub/BD/BD_lakes/20180223_France/priordb_lakes_france.shp"
+LAKE_DB = "/work/ALT/swot/swotpub/BD/BD_lakes/20181002_EU/apriori_db_lakes_EU.shp"
 # Lake identifier attribute name in the database
 LAKE_DB_ID = "lake_id"
 

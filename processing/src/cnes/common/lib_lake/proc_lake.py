@@ -38,6 +38,7 @@ import cnes.common.lib.my_hull as my_hull
 import cnes.common.lib.my_tools as my_tools
 import cnes.common.lib_lake.locnes_variables as my_var
 import cnes.common.lib_lake.proc_pixc_vec as proc_pixc_vec
+import cnes.common.lib_lake.storage_change as storage_change
 
 
 class LakeProduct(object):
@@ -70,6 +71,7 @@ class LakeProduct(object):
         - dataSource / OGR_data_source: data source of the product shapefile
         - layer / OGRLayer: layer of the product shapefile
         - layer_defn / OGR_layer_definition: layer definition of the product shapefile
+        - uniq_prior_id / set: list of uniq prior identifiers linked to observed objects
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("[LakeProduct] == INIT ==")
@@ -94,6 +96,7 @@ class LakeProduct(object):
         self.dataSource = None  # Data source of the product shapefile
         self.layer = None  # Layer of the product shapefile
         self.layer_defn = None  # Layer definition of the product shapefile
+        self.uniq_prior_id = set()  # List of uniq prior identifiers linked to observed objects
         
         # Initialize lake product layer
         self.initProduct(in_layer_name)
@@ -148,8 +151,12 @@ class LakeProduct(object):
         # 3.10 - Average distance from polygon centroid to the satellite ground track
         self.addField_real('xtrk_dist', 13, 3)
         # 3.11 - Storage change and uncertainty
-        self.addField_real('delta_s', 13, 3)
-        self.addField_real('ds_u', 13, 3)
+        # Linear model
+        self.addField_real('delta_s_L', 13, 3)
+        self.addField_real('ds_L_u', 13, 3)
+        # Quadratic model
+        self.addField_real('delta_s_Q', 13, 3)
+        self.addField_real('ds_Q_u', 13, 3)
         # 3.12 - Dark water flag
         self.layer.CreateField(ogr.FieldDefn(str('f_dark'), ogr.OFTInteger))
         # 3.13 - Ice flag
@@ -380,6 +387,16 @@ class LakeProduct(object):
                 cpt_too_small += 1  # Increase counter of too small objects
         
         logger.info("> %d objects not processed because too small" % cpt_too_small)
+                
+        # 10 - Compute storage change
+        my_api.printInfo("")
+        nb_linked = len(self.uniq_prior_id)
+        if nb_linked == 0:
+            logger.info("[LakeProduct] NO object linked to a priori lake => NO storage change computed")
+        else:
+            logger.info("[LakeProduct] %d objects linked to a priori lake" % nb_linked)
+            logger.info("[LakeProduct] => Compute storage change")
+            self.computeStorageChange()
     
     def computeProduct(self, in_lake_id, in_indices, in_classif_dict, in_size, in_mean_height, in_imp_lon, in_imp_lat):
         """
@@ -449,19 +466,34 @@ class LakeProduct(object):
             tmp_idx = self.obj_pixc.selected_idx[in_indices]
 
         if list_prior is None:  # PIXCVec_tag = the id of the lake within the tile
+            # Update only PIXCVec_tag
             for ind in tmp_idx:
                 if self.obj_pixc_vec.tag[ind] == "":
                     self.obj_pixc_vec.tag[ind] = in_lake_id
                 else:
                     self.obj_pixc_vec.tag[ind] += ";" + in_lake_id
         else:  
-            for ind in tmp_idx:
-                if self.obj_pixc_vec.tag[ind] == "":
-                    self.obj_pixc_vec.tag[ind] = pixc_vec_tag
+            # Update PIXCVec_tag
+            for indpixc, ind in enumerate(tmp_idx):
+                if self.obj_pixc_vec.tag[ind] == "":   
+                    self.obj_pixc_vec.tag[ind] = pixc_vec_tag[indpixc]
                 else:
-                    self.obj_pixc_vec.tag[ind] += ";" + pixc_vec_tag
-            out_feature.SetField(str("prior_id"), str(list_prior))
+                    self.obj_pixc_vec.tag[ind] += ";" + pixc_vec_tag[indpixc]
+                out_feature.SetField(str("prior_id"), str(list_prior))
             
+            # Handle prior_id
+            if type(list_prior) == str:
+                out_feature.SetField(str("prior_id"), str(list_prior))  # Update SHP_prior_id
+                self.uniq_prior_id.add(str(list_prior))  # Update list of uniq values of prior IDs
+            else:
+                out_feature.SetField(str("prior_id"), str(';'.join(list_prior)))   # Update SHP_prior_id
+                for ind, p_id in enumerate(list_prior):
+                    self.uniq_prior_id.add(str(p_id))  # Update list of uniq values of prior IDs
+            
+                    
+
+
+
         # 3.3 - Mean date of observation
         #out_feature.SetField(str("time_day"), -9999)  # Time in UTC days
         #out_feature.SetField(str("time_sec"), -9999)  # Time in the day in UTC seconds
@@ -500,26 +532,22 @@ class LakeProduct(object):
         # 3.10 - Average distance from polygon centroid to the satellite ground track
         out_feature.SetField(str("xtrk_dist"), float(centroid_ct_dist))
         
-        # 3.11 - Storage change and uncertainty
-        #out_feature.SetField("delta_s", -9999.0)
-        #out_feature.SetField("ds_u", -9999.0)
-        
-        # 3.12 - Dark water flag
+        # 3.11 - Dark water flag
         if in_classif_dict["dark"] is not None:
             out_feature.SetField(str("f_dark"), 1)
         else:
             out_feature.SetField(str("f_dark"), 0)
-        # 3.13 - Ice flag
+        # 3.12 - Ice flag
         #out_feature.SetField(str("f_ice"), int(np.where(self.obj_pixc.ice_flag[in_indices] == 1)[0].size))
-        # 3.14 - Layover flag
+        # 3.13 - Layover flag
         if in_classif_dict["layover"] is not None:
             out_feature.SetField(str("f_layover"), 1)
         else:
             out_feature.SetField(str("f_layover"), 0)
-        # 3.15 - Quality indicator
+        # 3.14 - Quality indicator
         #out_feature.SetField("f_quality", -9999.0)
         
-        # 3.16 - Partial flag: =1 if the lake is partially covered by the swath, 0 otherwise
+        # 3.15 - Partial flag: =1 if the lake is partially covered by the swath, 0 otherwise
         range_idx = self.obj_pixc.range_idx[in_indices]
         nr_edge_pix = np.where(range_idx == 0)[0]
         fr_edge_pix = np.where(range_idx == self.obj_pixc.nb_pix_range-1)[0]
@@ -538,46 +566,106 @@ class LakeProduct(object):
         else:
             out_feature.SetField(str("f_partial"), 1)
             
-        # 3.17 - Quality of cross-over calibrations
+        # 3.16 - Quality of cross-over calibrations
         #out_feature.SetField("f_xovr_cal", -9999.0)
         
-        # 3.18 - Geoid model height
+        # 3.17 - Geoid model height
         #out_feature.SetField("geoid_hght", -9999.0)
-        # 3.19 - Earth tide
+        # 3.18 - Earth tide
         #out_feature.SetField("earth_tide", -9999.0)
-        # 3.20 - Pole tide
+        # 3.19 - Pole tide
         #out_feature.SetField("pole_tide", -9999.0)
-        # 3.21 - Earth tide
+        # 3.20 - Earth tide
         #out_feature.SetField("load_tide", -9999.0)
         
-        # 3.22 - Dry tropo corr
+        # 3.21 - Dry tropo corr
         #out_feature.SetField("c_dry_trop", -9999.0)
-        # 3.23 - Wet tropo corr
+        # 3.22 - Wet tropo corr
         #out_feature.SetField("c_wet_trop", -9999.0)
-        # 3.24 - Iono corr
+        # 3.23 - Iono corr
         #out_feature.SetField("c_iono", -9999.0)
         
-        # 3.25 - KaRIn measured backscatter averaged for lake
+        # 3.24 - KaRIn measured backscatter averaged for lake
         #out_feature.SetField("rdr_sigma0", -9999.0)
-        # 3.26 - KaRIn measured backscatter uncertainty for lake 
+        # 3.25 - KaRIn measured backscatter uncertainty for lake 
         #out_feature.SetField("rdr_sig0_u", -9999.0)
-        # 3.27 - KaRin instrument sigma0 calibration 
+        # 3.26 - KaRin instrument sigma0 calibration 
         #out_feature.SetField("sigma0_cal", -9999.0)
-        # 3.28 - sigma0 atmospheric correction within the swath from model data 
+        # 3.27 - sigma0 atmospheric correction within the swath from model data 
         #out_feature.SetField("c_sig0_atm", -9999.0)
-        # 3.29 - KaRIn correction from crossover cal processing evaluated for lake 
+        # 3.28 - KaRIn correction from crossover cal processing evaluated for lake 
         #out_feature.SetField("c_xovr_cal", -9999.0)
         
-        # 3.30 - Height correction from KaRIn orientation (attitude) determination
+        # 3.29 - Height correction from KaRIn orientation (attitude) determination
         #out_feature.SetField("c_kar_att", -9999.0)
-        # 3.31 - Overall instrument system height bias
+        # 3.30 - Overall instrument system height bias
         #out_feature.SetField("c_h_bias", -9999.0)
-        # 3.32 - KaRIn to s/c CG correction to height
+        # 3.31 - KaRIn to s/c CG correction to height
         #out_feature.SetField("c_sys_cg", -9999.0)
-        # 3.33 - Corrections on height deduced from instrument internal calibrations if applicable 
+        # 3.32 - Corrections on height deduced from instrument internal calibrations if applicable 
         #out_feature.SetField("c_intr_cal", -9999.0)
         
         return out_feature
+    
+    def computeStorageChange(self):
+        """
+        Compute storage change for all objects linked to lakes in a priori database
+        
+        Envisionned cases:
+        - 1 prior lake <=> 1 observed lake
+        - 1 prior lake <=> 2 or more observed lakes
+        - 1 observed lake <=> 2 or more prior lakes
+        - mixed lakes...
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        
+        for p_id in self.uniq_prior_id:
+            
+            logger.debug("Deal with prior lake %s" % p_id)
+            
+            # 1 - Get reference height and area
+            ref_height, ref_area = self.obj_lake_db.getRefValues(p_id)
+            
+            # 2 - Get observed lakes linked to this a priori lake
+            self.layer.SetAttributeFilter("prior_id LIKE '%{}%'".format(p_id))
+            
+            # 3 - Number of observed objects linked to this a priori lake
+            nb_obs_lake = self.layer.GetFeatureCount()
+            
+            # 4 - Process wrt to case
+            if nb_obs_lake == 1:  
+                
+                # Get lake feature and values
+                obs_lake = self.layer.GetNextFeature()
+                obs_height = obs_lake.GetField(str("height"))
+                obs_area = obs_lake.GetField(str("area_total"))
+                
+                if ";" in obs_lake.GetField(str("prior_id")):  # Case 1 observed lake <=> 2 or more prior lakes
+                    pass
+                    
+                else:  # Case 1 prior lake <=> 1 observed lake
+                    
+                    # Compute linear storage change
+                    stoc_val, stoc_u = storage_change.STOCC_linear(obs_height, obs_area, ref_height, ref_area)
+                    # Fill associated field
+                    if stoc_val is not None:
+                        obs_lake.SetField(str("delta_s_L"), stoc_val)
+                    if stoc_u is not None:
+                        obs_lake.SetField(str("ds_L_u"), stoc_u)
+                    
+                    # Compute quadratic storage change
+                    stoc_val, stoc_u = storage_change.STOCC_quadratic(obs_height, obs_area, ref_height, ref_area)
+                    # Fill associated field
+                    if stoc_val is not None:
+                        obs_lake.SetField(str("delta_s_Q"), stoc_val)
+                    if stoc_u is not None:
+                        obs_lake.SetField(str("ds_Q_u"), stoc_u)
+                
+            else:  # Case 1 prior lake <=> 2 or more observed lakes
+                pass
+        
+            self.layer.SetAttributeFilter(None)
+        
 
     # ----------------------------------------
     

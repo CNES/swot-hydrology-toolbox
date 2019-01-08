@@ -159,7 +159,7 @@ class Passplan(object):
 def pass_time(filename):
     """Return the relative pass time (wrt to the beginning of the cycle)"""
     ds = Dataset(filename,"r")
-    t = timedelta(seconds=ds.variables['time'][0])
+    t = timedelta(seconds=float(ds.variables['time'][0]))
     return t
 
 
