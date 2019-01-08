@@ -59,7 +59,7 @@ The repository __swot_hydrology_toolbox__ should be assignated to the __SWOT_HYD
 % git clone https://github.com/SWOTAlgorithms/RiverObs.git
 ```
 
-The repository __RiverObs__ be assignated to the __RIVEROBS__ variable.
+The repository __RiverObs__ should be assignated to the __RIVEROBS__ variable.
 
 ```bash
 % export RIVEROBS=your_installation_path/RiverObs
