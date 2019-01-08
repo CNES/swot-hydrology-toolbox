@@ -102,7 +102,7 @@ The dependencies of swot-hydrology-toolbox are:
 
 #### Setting up an conda environment
 
-To create an conda environment, execute :
+To create an conda environment, execute
 
 ```bash
 cd $SWOT_HYDROLOGY_TOOLBOX
