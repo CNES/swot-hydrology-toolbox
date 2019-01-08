@@ -14,7 +14,7 @@ SWOT (Surface Water and Ocean Topography) is an innovative radar altimetry satel
 * Give end-users access to the L2+ processing prototypes 
   * Validate methodology, propose improvements
 * As far as possible let the toolbox correspond directly to the processing prototypes that are evolving towards operational processing chains 
-  *Coded in high-level programming language (Python 3), for simple distribution, installation and use
+  * Coded in high-level programming language (Python 3), for simple distribution, installation and use
 
 ## Content 
 * SISIMP: Large scale simulator of L2_HR_PIXC products (with orbit selection tool)
