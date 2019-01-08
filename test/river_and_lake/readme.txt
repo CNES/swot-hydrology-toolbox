@@ -1,4 +1,4 @@
-How to run :
+How to run:
 
 ## Large Scale simulator
 python $SWOT_HYDROLOGY_TOOLBOX/select_orbit_cnes/select_orbit_cnes.py rdf/parameter_orbit.rdf output/orbit
