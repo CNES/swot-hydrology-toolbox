@@ -88,7 +88,11 @@ class PixelCloudVec(object):
         # 1 - Retrieve needed information from complementary pixel cloud file
         pixc_vec_river = my_nc.myNcReader(IN_pixc_vec)
         # 1.1 - Number of records
-        self.nb_water_pix = pixc_vec_river.getDimValue("record")
+        try:
+            self.nb_water_pix = pixc_vec_river.getDimValue("points")
+        except:
+            logger.info("Warning, using record instead of points for nb_water_pixels")
+            self.nb_water_pix = pixc_vec_river.getDimValue("record")
         # 1.2 - Global attributes
         self.cycle_num = pixc_vec_river.getAttValue("cycle_number")
         self.pass_num = pixc_vec_river.getAttValue("pass_number")
