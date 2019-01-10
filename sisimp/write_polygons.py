@@ -417,7 +417,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         my_api.printInfo("No roll error applied")
        
     # 5.3 - Compute final noisy heights (elevation + thermal noise + roll error + height model) 
-    
     elevation_tab_noisy = elevation_tab + delta_h           
        
     # 5.4 - Compute noise over geolocation
@@ -438,10 +437,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     lon, lat = math_fct.lonlat_from_azy(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init) 
     lon *= RAD2DEG
     lat *= RAD2DEG
-    # 6.2 - Noisy
-    lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, y_noisy, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
-    lon_noisy *= RAD2DEG  # Conversion in degrees
-    lat_noisy *= RAD2DEG  # Conversion in degrees
     
     # 7 - Build velocity arrays
     nb_pix_nadir = IN_attributes.x.size  # Nb pixels at nadir
@@ -463,7 +458,10 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # Convert nadir latitudes/longitudes in degrees
     nadir_lat_deg = IN_attributes.lat[1:-1] * RAD2DEG
     nadir_lon_deg = IN_attributes.lon[1:-1] * RAD2DEG
-    
+    nadir_x = IN_attributes.x[1:-1]
+    nadir_y = IN_attributes.y[1:-1]
+    nadir_z = IN_attributes.z[1:-1]
+        
     # Remove 1st and last values because just here for extrapolators (cf. read_orbit)
     nadir_alt = IN_attributes.alt[1:-1]
     nadir_heading = IN_attributes.heading[1:-1]
@@ -474,10 +472,11 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         
         # Update positions
         
-        p = project_array((np.vstack([lon, lat, elevation_tab])).T, srcp='latlon', dstp='geocent')
-        s = project_array((np.vstack([nadir_lon_deg[az], nadir_lat_deg[az], nadir_alt[az]])).T, srcp='latlon', dstp='geocent')
+        p = project_array((np.vstack([lat, lon, elevation_tab])).T, srcp='latlon', dstp='geocent')
+        s1 = project_array((np.vstack([nadir_lon_deg[az], nadir_lat_deg[az], nadir_alt[az]])).T, srcp='latlon', dstp='geocent')
+        s = np.transpose([nadir_x[az], nadir_y[az], nadir_z[az]])
 
-        #~ exit()
+
         ri_new = np.sqrt((p[:,0]-s[:,0])**2+(p[:,1]-s[:,1])**2+(p[:,2]-s[:,2])**2)
                                                    
         p_final, p_final_llh, h_mu, (iter_grad,nfev_minimize_scalar) = pointcloud_height_geoloc_vect(p, elevation_tab,
@@ -490,8 +489,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                                             max_iter_grad=1, height_goal = 1.e-3, safe_flag=True)
      
 
-        lon_noisy, lat_noisy, elevation_tab_noisy = p_final_llh[:,0], p_final_llh[:,1], p_final_llh[:,2]
-        
+        lat_noisy, lon_noisy, elevation_tab_noisy = p_final_llh[:,0], p_final_llh[:,1], p_final_llh[:,2]
+
     else:
         lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, y_noisy, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
         lon_noisy *= RAD2DEG  # Conversion in degrees
@@ -708,7 +707,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes):
     
     return OUT_filename, IN_attributes
 
-def project_array(coordinates, srcp='geocent', dstp='latlon'):
+def project_array(coordinates, srcp='latlon', dstp='geocent'):
     """
     Project a numpy (n,2) array in projection srcp to projection dstp
     Returns a numpy (n,2) array.
