@@ -25,6 +25,13 @@ SWOT (Surface Water and Ocean Topography) is an innovative radar altimetry satel
 * Tools for file format conversion etc.
 * Potentially other modules in the future (for ex. floodplain DEM generation)
 
+## Associated RiverObs version
+The RiverObs version compatible with the master branch of the swot-hydrology-toolbox is :
+
+commit d62ef35984ab227c0d78feff84bf762ee2121f4b
+Author: Alex Fore <alexander.fore@jpl.nasa.gov>
+Date:   Thu Jan 10 14:20:07 2019 -0800
+
 ## Caveats
 Although the large-scale simulator included in the toolbox provides fairly representative statistical errors, several simplifications or approximations are made:
 * Spherical Earth approximate geolocation equations (loss of accuracy at high latitudes, >60°)
