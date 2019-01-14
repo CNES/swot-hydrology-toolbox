@@ -349,11 +349,19 @@ class l2_hr_pixc(object):
         fill_vector_param(np.zeros(self.nb_water_pix), 'solid_earth_tide', self.nb_water_pix, data, group=pixc)
         data.add_variable('surface_type_flag', np.float64, 'points', np.float(noval), compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'surface_type_flag', self.nb_water_pix, data, group=pixc)
+        
+        # some new vars 11/01/2019
+        data.add_variable('iono_cor_gim_ka', np.float64, 'points', np.float(noval), compress, group=pixc)
+        fill_vector_param(np.zeros(self.nb_water_pix), 'surface_type_flag', self.nb_water_pix, data, group=pixc)     
+        data.add_variable('load_tide_sol1', np.float64, 'points', np.float(noval), compress, group=pixc)
+        fill_vector_param(np.zeros(self.nb_water_pix), 'surface_type_flag', self.nb_water_pix, data, group=pixc)        
      
  
         data.add_global_attribute('description', 'cloud of geolocated interferogram pixels', group=pixc)    
         data.add_global_attribute('interferogram_shape', str(self.nb_pix_azimuth)+', '+str(self.nb_pix_range)+' (azimuth, range)', group=pixc)    
         data.add_global_attribute('looks_to_efflooks', 1.75, group=pixc)    
+        data.add_global_attribute('interferogram_size_range', self.nb_pix_range, group=pixc)    
+
 
         
         # Group TVP
