@@ -63,3 +63,38 @@ def dark_water_randomerase(mask_dw, water_pixmatrix, taille_2D, seedvalue=None):
     #mask_regions=np.delete(mask_regions,np.where(np.isin(mask_regions, region_todelete)))
     
     return mask_dw, water_pixmatrix
+
+
+def dark_water_non_detected_simulation(mask_dw,fact_echelle_nondetected_dw,percent_detected_dw,seedvalue=None):
+    # label dark water regions
+    mask_regions=label(mask_dw)
+    region_list=[i for i in range(1,np.max(mask_regions+1))]
+
+    #initialize the array of non detected dark water mask
+    non_detected_dw_mask=np.zeros(mask_dw.shape)
+    #set the value to a number different from the generated 2D profile value
+    non_detected_dw_mask.fill(-999)
+    # test if at least one region is present
+    if len(region_list)>0 :
+        for i in region_list :
+            #Locate the pixels corresponding to the region i
+            region_ind = np.where(mask_regions==i)
+            # Get the bounding lines and columns of the region
+            minx, maxx, miny, maxy = min(region_ind[0]),max(region_ind[0]),min(region_ind[1]),max(region_ind[1])
+            size_x = maxx-minx+1
+            size_y=maxy-miny+1
+
+            #Simulate non detected dark water
+            profile_2d = height_model.generate_2d_profile_gaussian([size_x,size_y],0.,'Default',1,fact_echelle_nondetected_dw)
+            profile_2d[np.where(mask_regions[minx:maxx+1,miny:maxy+1]!=i)]=-999
+            non_detected_dw_mask[minx:maxx+1,miny:maxy+1]=profile_2d
+        # Define the threshold value to keep the percentage of non_detected dark water inside detected dark_water regions
+        threshold_value=np.percentile(non_detected_dw_mask[np.where(non_detected_dw_mask>-999)],percent_detected_dw)
+        ind_inf_threshold=np.where(non_detected_dw_mask<=threshold_value)
+        non_detected_dw_mask[np.where(non_detected_dw_mask>threshold_value)]=1
+        non_detected_dw_mask[ind_inf_threshold]=0
+        mask_dw=mask_dw+non_detected_dw_mask
+        non_detected_dw_mask = None 
+        mask_regions= None
+
+    return mask_dw

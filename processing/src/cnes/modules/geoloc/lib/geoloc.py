@@ -205,20 +205,24 @@ def pointcloud_height_geoloc(p_noisy, h_noisy,
             plt.axhline(hofmu(mu_0)[0], c='g', ls='--')
             plt.legend()
             #plt.ylim([0,.2**2])
-            
-    p_final_llh = convert_ecef2llh(p_mu[0], p_mu[1], p_mu[2], GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
-    #~ p_noisy_llh = convert_ecef2llh(p_noisy[0], p_noisy[1], p_noisy[2], GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
-    #~ print(p_noisy_llh[0], p_final_llh[0], p_noisy_llh[1], p_final_llh[1], p_noisy_llh[2], p_final_llh[2])
+
+
+    def project_array(coordinates, srcp='geocent', dstp='latlon'):
+        """
+        Project a numpy (n,2) array in projection srcp to projection dstp
+        Returns a numpy (n,2) array.
+        """
+        p1 = pyproj.Proj(proj=srcp, datum='WGS84')
+        p2 = pyproj.Proj(proj=dstp, datum='WGS84')
+        fx, fy, fz = pyproj.transform(p1, p2, coordinates[0], coordinates[1], coordinates[2])
+        # Re-create (n,2) coordinates
+        # Inversion of lat and lon !
+        return [fy, fx, fz]
+
+    p_final_llh = project_array(p_mu)
     
+
     return p_mu, p_final_llh, h_mu, (iter_grad,nfev_minimize_scalar)
-
-
-
-
-
-
-
-
 
 
 def pointcloud_height_geoloc_vect(p_noisy, h_noisy,
@@ -390,6 +394,37 @@ def pointcloud_height_geoloc_vect(p_noisy, h_noisy,
 
 
 
+def pointcloud_height_geoloc_novect(p_noisy, h_noisy,
+                                               s, vs, 
+                                        R_target, h_target, 
+                                        recompute_Doppler=False, 
+                                        #if False uses 0 Doppler, else the value computed from p, s, vs
+                                        recompute_R=False,
+                                        verbose = False,
+                                        max_iter_grad=1, height_goal = 1.e-3, safe_flag=True):
+                                            
+    p_final_llh = np.zeros([len(h_target),3],np.double)
+    p_mu = np.zeros([len(h_target),3],np.double)
+    h_mu = np.zeros(len(h_target),np.double)
+    
+ 
+    for i in range(len(h_noisy)):
+        p_mu0, p_final_llh0, h_mu0, (iter_grad,nfev_minimize_scalar) = pointcloud_height_geoloc(p_noisy[i], h_noisy[i],
+                                                                    s[i], vs[i], 
+                                                                    R_target[i], h_target[i], 
+                                                                    recompute_Doppler=recompute_Doppler, 
+                                                                    #if False uses 0 Doppler, else the value computed from p, s, vs
+                                                                    recompute_R=recompute_R,
+                                                                    verbose = verbose,
+                                                                    max_iter_grad=max_iter_grad, height_goal = height_goal, safe_flag=safe_flag)
+                                                                    
+        p_mu[i] = p_mu0
+        p_final_llh[i] = p_final_llh0
+        h_mu[i] = h_mu0
+            
+ 
+  
+    return p_mu, p_final_llh, h_mu, (0,0)
 
 
 

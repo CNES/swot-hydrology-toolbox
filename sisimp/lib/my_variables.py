@@ -35,7 +35,7 @@ ORBIT_JITTER = 1000  # Orbit jitter (m)
 MULTIPLE_ORBIT = 'yes'
 
 # Height model
-HEIGHT_MODEL = 'gaussian'   # polynomial / gaussian (default)
+HEIGHT_MODEL = None   # polynomial / gaussian (default)
 HEIGHT_MODEL_MIN_AREA = 100  # Optionnal argument to add complex 2D height model
 
 # Constant height model (always applied, set HEIGHT_MODEL_A to 0 to desactivate)
@@ -51,14 +51,18 @@ COEFF_Y = 5.e-5
 COEFF_XY = 0.
 COEFF_CST = 0.
 
+
+# Dark water
+FACT_ECHELLE_DW = 2.
+DW_PERCENT = 10.
+DARKWATER_FLAG = 24
+SCALE_FACTOR_NON_DETECTED_DW = 0.2
+DW_DETECTED_PERCENT = 90
+DW_DETECTED_NOISE_FACTOR = 5
+
 # Gaussian parameter for gaussian model
 FACT_ECHELLE = 2.
 HEIGHT_MODEL_STDV = 0.1
-
-# Dark water
-FACT_ECHELLE_DW = 2.0  # Float to parameterize the correlation length of simulated dark water areas
-DW_PERCENT = 10  # Probability of total dark water simulated (int between 0 and 100)
-DARKWATER_FLAG = 24  # Classification flag for detected dark water (usually 24)
 
 ## Error models
 

@@ -23,7 +23,7 @@ import pyproj
 
 import lib.my_api as my_api
 
-from lib.my_variables import COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST, FACT_ECHELLE, RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH, FACT_ECHELLE_DW, DW_PERCENT
+from lib.my_variables import COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST, FACT_ECHELLE, RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
 
 import lib.height_model as height_model
 import lib.true_height_model as true_height_model
@@ -82,6 +82,9 @@ class orbitAttributes:
         self.dw_pourcent = None
         self.dw_seed = None
         self.darkwater_flag = None
+        self.scale_factor_non_detected_dw = None
+        self.dw_detected_percent = None
+        self.dw_detected_noise_factor = None
 
         # 1.5 - Water flag
         self.water_flag = None
@@ -105,7 +108,9 @@ class orbitAttributes:
         self.compute_pixc_vec_river = None  # Flag for PIXCVecRiver file computation
         self.near_range = None
         self.swath_polygons = {}  # Dictionnary for storing swath polygons
-    
+        
+        self.dw_detected_noise_height = None # dw detected noise tab
+
         # 3.1 - From orbit file
         self.azimuth_spacing = None  # Azimuth spacing
         self.lon = None
@@ -249,26 +254,34 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             indice_az = np.array(ind[1]-azmin)
 
             ## Randomly classify or erase dark water regions
-            ### Randomly erase DW regions in DW mask and river_flag
-            dw_mask, river_flag =dark_water.dark_water_randomerase(dw_mask,river_flag,[indice_az,indice_r],IN_attributes.dw_seed)
+            ### Randomly erase DW regions in DW mask
+            dw_mask = dark_water.dark_water_non_detected_simulation(dw_mask,IN_attributes.scale_factor_non_detected_dw,IN_attributes.dw_detected_percent,IN_attributes.dw_seed)
+            #reshape dark_water to water extent
+            dw_mask=dw_mask[indice_az,indice_r]
             ### Update IN_water_pixels with the deleted water pixels
-            IN_water_pixels[ind]=river_flag
-
-            ## Update size of tabs etc... because water pixels were deleted
-            size_of_tabs = np.count_nonzero(IN_water_pixels)
-            my_api.printInfo(str("Nb water pixels: %d" % size_of_tabs))
-            ind = np.nonzero(IN_water_pixels)
-            r, az = [ind[0], ind[1]]
-            river_flag = IN_water_pixels[ind]
-            
+            # check if dw pixels are deleted = dw_mask pixels set to 2
+            if np.where(dw_mask==2)[0].size > 0:
+                my_api.printInfo(str("Nb detected dark water pixels : %d" % np.where(dw_mask==1)[0].size ))
+                my_api.printInfo(str("Nb non detected dark water pixels : %d" % np.where(dw_mask==2)[0].size ))
+                ### Update river_flag and IN_water_pixels with the deleted water pixels
+                river_flag[np.where(dw_mask==2)]=0
+                IN_water_pixels[ind]=river_flag
+                # delete the corresponding pixels in the dw mask to update indices values
+                dw_mask=np.delete(dw_mask,np.where(dw_mask==2))
+                ## Update size of tabs etc... because water pixels were deleted
+                size_of_tabs = np.count_nonzero(IN_water_pixels)
+                my_api.printInfo(str("Nb water pixels: %d" % size_of_tabs))
+                ind = np.nonzero(IN_water_pixels)
+                r, az = [ind[0], ind[1]]
+                river_flag = IN_water_pixels[ind]
             ###  Build the classification array with water flag Dark_water flag
-            # initialize the classification array with water
             classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag  # Classification as water
             #locate DW pixels
             dark_water_loc = np.where(dw_mask==1)
-            my_api.printInfo(str("Nb Dark water pixels detected: %d" % np.count_nonzero(dw_mask)))
             #update classification value for dark water pixels with DW flag
             classification_tab[dark_water_loc]= IN_attributes.darkwater_flag
+        else :
+            classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag
     else :
         classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag
         my_api.printInfo(str("No Dark Water will be simulated"))
@@ -359,19 +372,25 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             true_height_model_inst.apply_model()
             elevation_tab = true_height_model_inst.final_height
     
-    # Update positions
-    xp, yp, zp = llh2xyz(lon, lat, elevation_tab)
-    xs, ys, zs = llh2xyz(IN_attributes.lon[az], IN_attributes.lat[az], IN_attributes.alt[az])
-    x0, y0, z0 = llh2xyz(IN_attributes.lon[az], IN_attributes.lat[az], 0.*IN_attributes.alt[az])
 
-    ri_new = np.sqrt((xp-xs)**2+(yp-ys)**2+(zp-zs)**2)
 
     # 5 - Error model
 
-    # 5.1 - Compute noise over height
-    delta_h = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std)
-  
-    # 5.2 - Add residual roll error
+
+    # 4.1 - Compute noise over height
+    if IN_attributes.dark_water.lower() == "yes" :
+        delta_h=np.zeros(elevation_tab.shape)
+        water_pixels=np.where(classification_tab==IN_attributes.water_flag)
+        dw_pixels=np.where(classification_tab==IN_attributes.darkwater_flag)
+        delta_h[water_pixels]=math_fct.calc_delta_h(angles[water_pixels],IN_attributes.noise_height,IN_attributes.height_bias_std)
+        delta_h[dw_pixels]=math_fct.calc_delta_h(angles[dw_pixels],IN_attributes.dw_detected_noise_height,IN_attributes.height_bias_std)
+        #delta_h = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std)
+        #~ print('delta_h[water_pixels]',delta_h[water_pixels])
+        #~ print('delta_h[dw_pixels]',delta_h[dw_pixels])
+    else : 
+        delta_h = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std)
+
+    # 4.2 Add residual roll error
     try:
         
         roll = Roll_module(IN_attributes.roll_file)
@@ -401,6 +420,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     elevation_tab_noisy = elevation_tab + delta_h           
        
     # 5.4 - Compute noise over geolocation
+    
     #~ delta_y = math_fct.calc_delta_sensor(delta_h, Hi, y, ri)
     delta_y = math_fct.calc_delta_sensor(delta_h, Hi, y)
     
@@ -417,11 +437,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     lon, lat = math_fct.lonlat_from_azy(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init) 
     lon *= RAD2DEG
     lat *= RAD2DEG
-    # 6.2 - Noisy
-    lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, y_noisy, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
-    lon_noisy *= RAD2DEG  # Conversion in degrees
-    lat_noisy *= RAD2DEG  # Conversion in degrees
-
+    
     # 7 - Build velocity arrays
     nb_pix_nadir = IN_attributes.x.size  # Nb pixels at nadir
     # Init velocity arrays
@@ -438,10 +454,33 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
  
     # 8 - Compute noisy geolocation and height
     complex_latlon_noise = False
+   
+    # Convert nadir latitudes/longitudes in degrees
+    nadir_lat_deg = IN_attributes.lat[1:-1] * RAD2DEG
+    nadir_lon_deg = IN_attributes.lon[1:-1] * RAD2DEG
+    nadir_x = IN_attributes.x[1:-1]
+    nadir_y = IN_attributes.y[1:-1]
+    nadir_z = IN_attributes.z[1:-1]
+        
+    # Remove 1st and last values because just here for extrapolators (cf. read_orbit)
+    nadir_alt = IN_attributes.alt[1:-1]
+    nadir_heading = IN_attributes.heading[1:-1]
+     
+    
     if (size_of_tabs != 0.) & (complex_latlon_noise == True):
         my_api.printInfo("Complex latlon noise applied from improved geoloc module")
-        p_final, p_final_llh, h_mu, (iter_grad,nfev_minimize_scalar) = pointcloud_height_geoloc_vect(np.transpose(np.array([xp, yp, zp])), elevation_tab,
-                                                   np.transpose(np.array([xs, ys, zs])), np.transpose(np.array([vx[az], vy[az], vz[az]])), 
+        
+        # Update positions
+        
+        p = project_array((np.vstack([lat, lon, elevation_tab])).T, srcp='latlon', dstp='geocent')
+        s1 = project_array((np.vstack([nadir_lon_deg[az], nadir_lat_deg[az], nadir_alt[az]])).T, srcp='latlon', dstp='geocent')
+        s = np.transpose([nadir_x[az], nadir_y[az], nadir_z[az]])
+
+
+        ri_new = np.sqrt((p[:,0]-s[:,0])**2+(p[:,1]-s[:,1])**2+(p[:,2]-s[:,2])**2)
+                                                   
+        p_final, p_final_llh, h_mu, (iter_grad,nfev_minimize_scalar) = pointcloud_height_geoloc_vect(p, elevation_tab,
+                                                   s, np.transpose(np.array([vx[az], vy[az], vz[az]])), 
                                             ri_new, elevation_tab_noisy, 
                                             recompute_Doppler=True, 
                                             #if False uses 0 Doppler, else the value computed from p, s, vs
@@ -449,9 +488,9 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                                             verbose = False,
                                             max_iter_grad=1, height_goal = 1.e-3, safe_flag=True)
      
-        xp_noisy_bis, yp_noisy_bis, zp_noisy_bis = p_final[:,0], p_final[:,1], p_final[:,2]
-        ri_noisy_bis = np.sqrt((xp_noisy_bis-xs)**2+(yp_noisy_bis-ys)**2+(zp_noisy_bis-zs)**2)
-        lon_noisy, lat_noisy, elevation_tab_noisy = xyz2llh(xp_noisy_bis, yp_noisy_bis, zp_noisy_bis)
+
+        lat_noisy, lon_noisy, elevation_tab_noisy = p_final_llh[:,0], p_final_llh[:,1], p_final_llh[:,2]
+
     else:
         lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, y_noisy, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
         lon_noisy *= RAD2DEG  # Conversion in degrees
@@ -462,13 +501,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # Write output files #
     ######################
 
-    # Convert nadir latitudes/longitudes in degrees
-    nadir_lat_deg = IN_attributes.lat[1:-1] * RAD2DEG
-    nadir_lon_deg = IN_attributes.lon[1:-1] * RAD2DEG
-    
-    # Remove 1st and last values because just here for extrapolators (cf. read_orbit)
-    nadir_alt = IN_attributes.alt[1:-1]
-    nadir_heading = IN_attributes.heading[1:-1]
+
     
     # Cut arrays in order to write real PixC files
     # Tiles correspond to 1deg of latitude at nadir
@@ -674,7 +707,18 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes):
     
     return OUT_filename, IN_attributes
 
-
+def project_array(coordinates, srcp='latlon', dstp='geocent'):
+    """
+    Project a numpy (n,2) array in projection srcp to projection dstp
+    Returns a numpy (n,2) array.
+    """
+    p1 = pyproj.Proj(proj=srcp, datum='WGS84')
+    p2 = pyproj.Proj(proj=dstp, datum='WGS84')
+    fx, fy, fz = pyproj.transform(p1, p2, coordinates[:,1], coordinates[:,0], coordinates[:,2])
+    # Re-create (n,2) coordinates
+    # Inversion of lat and lon !
+    return np.dstack([fx, fy, fz])[0]
+        
 def make_elevation_tab(IN_az, IN_cycle_number, IN_attributes):
     """
     Make the elevation array without noise 

@@ -1,0 +1,34 @@
+name: swot-env
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python==3.6.7
+  - numpy
+  - scipy
+  - matplotlib
+  - scikit-learn
+  - scikit-image
+  - lxml
+  - libnetcdf
+  - netcdf4
+  - gdal
+  - xarray
+  - dask
+  - distributed
+  - proj4
+  - pyproj
+  - jupyter
+  - notebook
+  - statsmodels
+  - pysal
+  - pandas
+  - pytables
+  - shapely
+  - fiona
+  - sphinx
+  - numpydoc
+  - rtree
+  - pip:
+    - mahotas
+    - utm
