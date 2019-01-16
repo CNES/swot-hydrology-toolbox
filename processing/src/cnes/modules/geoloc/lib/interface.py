@@ -32,12 +32,15 @@ class PixelCloud(object):
         self.near_range = pixc.near_range
         self.range_spacing = pixc.nominal_slant_range_spacing
         self.azimuth_spacing = 21.875
-        self.tile_ref = pixc.tile_number
+        self.tile_ref = pixc.tile_name
         
-        shape = attr_id.interferogram_shape
-        self.nr_lines = int(shape.split(",")[0])
-        self.nr_pixels = int((shape.split(",")[1]).split("(")[0])
-                
+        #~ shape = attr_id.interferogram_shape
+        #~ self.nr_lines = int(shape.split(",")[0])
+        #~ self.nr_pixels = int((shape.split(",")[1]).split("(")[0])
+
+        self.nr_lines = int(attr_id.interferogram_size_azimuth)
+        self.nr_pixels = int(attr_id.interferogram_size_range)
+                        
         pixc.close()
         return self
 

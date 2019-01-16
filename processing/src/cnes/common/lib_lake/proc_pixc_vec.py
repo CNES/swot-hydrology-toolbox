@@ -98,9 +98,12 @@ class PixelCloudVec(object):
         self.pass_num = pixc_vec_river.getAttValue("pass_number")
         self.tile_ref = pixc_vec_river.getAttValue("tile_name")
         
-        shape = pixc_vec_river.getAttValue("interferogram_shape")
-        self.nb_pix_azimuth = int(shape.split(",")[0])
-        self.nb_pix_range = int((shape.split(",")[1]).split("(")[0])
+        #~ shape = pixc_vec_river.getAttValue("interferogram_shape")
+        #~ self.nb_pix_azimuth = int(shape.split(",")[0])
+        #~ self.nb_pix_range = int((shape.split(",")[1]).split("(")[0])
+
+        self.nb_pix_azimuth = int(pixc_vec_river.getAttValue("interferogram_size_azimuth"))
+        self.nb_pix_range = int(pixc_vec_river.getAttValue("interferogram_size_range"))
         
         # Retrieve others if there are river pixels
         if self.nb_water_pix != 0:

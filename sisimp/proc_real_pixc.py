@@ -207,7 +207,10 @@ class l2_hr_pixc(object):
         data.add_global_attribute('nominal_slant_range_spacing', self.range_spacing)
         ### WARNING HERE, TO BE CHANGED       
         data.add_global_attribute('start_time', "20160101T024707")    
-        data.add_global_attribute('stop_time', "20160101T024713")    
+        data.add_global_attribute('stop_time', "20160101T024713")  
+        data.add_global_attribute('polarization', 'None')         
+        data.add_global_attribute('transmit_antenna', 'plus_y')
+        data.add_global_attribute('processing_beamwidth', 'None')
         ### WARNING HERE, TO BE CHANGED       
         data.add_global_attribute('ephemeris', "0LL")    
         data.add_global_attribute('yaw_flip', "0LL")    
@@ -274,8 +277,8 @@ class l2_hr_pixc(object):
         fill_vector_param(np.zeros(self.nb_water_pix), 'prior_water_prob', self.nb_water_pix, data, group=pixc)
         data.add_variable('bright_land_flag', np.float64, 'points', np.float(noval), compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'bright_land_flag', self.nb_water_pix, data, group=pixc)          
-        data.add_variable('layover_impact_flag', np.float64, 'points', np.float(noval), compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'layover_impact_flag', self.nb_water_pix, data, group=pixc)
+        data.add_variable('layover_impact', np.float64, 'points', np.float(noval), compress, group=pixc)
+        fill_vector_param(np.zeros(self.nb_water_pix), 'layover_impact', self.nb_water_pix, data, group=pixc)
         data.add_variable('num_rare_looks', np.float64, 'points', np.int(noval), compress, group=pixc)
         fill_vector_param(np.full(self.nb_water_pix, 7.), 'num_rare_looks', self.nb_water_pix, data, group=pixc)        
         data.add_variable('latitude', np.float64, 'points', np.float(noval), compress, group=pixc)
@@ -335,32 +338,31 @@ class l2_hr_pixc(object):
         fill_vector_param(np.zeros(self.nb_water_pix), 'model_dry_tropo_cor', self.nb_water_pix, data, group=pixc)
         data.add_variable('model_wet_tropo_cor', np.float64, 'points', np.float(noval), compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'model_wet_tropo_cor', self.nb_water_pix, data, group=pixc)
-        data.add_variable('model_iono_ka_cor', np.float64, 'points', np.float(noval), compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'model_iono_ka_cor', self.nb_water_pix, data, group=pixc)
+        data.add_variable('iono_cor_gim_ka', np.float64, 'points', np.float(noval), compress, group=pixc)
+        fill_vector_param(np.zeros(self.nb_water_pix), 'iono_cor_gim_ka', self.nb_water_pix, data, group=pixc)     
         data.add_variable('xover_height_cor', np.float64, 'points', np.float(noval), compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'xover_height_cor', self.nb_water_pix, data, group=pixc)
-        data.add_variable('loading_tide_sol1', np.float64, 'points', np.float(noval), compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'loading_tide_sol1', self.nb_water_pix, data, group=pixc)
-        data.add_variable('loading_tide_sol2', np.float64, 'points', np.float(noval), compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'loading_tide_sol2', self.nb_water_pix, data, group=pixc)
+        data.add_variable('load_tide_sol1', np.float64, 'points', np.float(noval), compress, group=pixc)
+        fill_vector_param(np.zeros(self.nb_water_pix), 'load_tide_sol1', self.nb_water_pix, data, group=pixc)
+        data.add_variable('load_tide_sol2', np.float64, 'points', np.float(noval), compress, group=pixc)
+        fill_vector_param(np.zeros(self.nb_water_pix), 'load_tide_sol2', self.nb_water_pix, data, group=pixc)
         data.add_variable('pole_tide', np.float64, 'points', np.float(noval), compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'pole_tide', self.nb_water_pix, data, group=pixc)
         data.add_variable('solid_earth_tide', np.float64, 'points', np.float(noval), compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'solid_earth_tide', self.nb_water_pix, data, group=pixc)
+        data.add_variable('geoid', np.float64, 'points', np.float(noval), compress, group=pixc)
+        fill_vector_param(np.zeros(self.nb_water_pix), 'geoid', self.nb_water_pix, data, group=pixc)
         data.add_variable('surface_type_flag', np.float64, 'points', np.float(noval), compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'surface_type_flag', self.nb_water_pix, data, group=pixc)
         
         # some new vars 11/01/2019
-        data.add_variable('iono_cor_gim_ka', np.float64, 'points', np.float(noval), compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'surface_type_flag', self.nb_water_pix, data, group=pixc)     
-        data.add_variable('load_tide_sol1', np.float64, 'points', np.float(noval), compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'surface_type_flag', self.nb_water_pix, data, group=pixc)        
+    
      
  
         data.add_global_attribute('description', 'cloud of geolocated interferogram pixels', group=pixc)    
-        data.add_global_attribute('interferogram_shape', str(self.nb_pix_azimuth)+', '+str(self.nb_pix_range)+' (azimuth, range)', group=pixc)    
-        data.add_global_attribute('looks_to_efflooks', 1.75, group=pixc)    
         data.add_global_attribute('interferogram_size_range', self.nb_pix_range, group=pixc)    
+        data.add_global_attribute('interferogram_size_azimuth', self.nb_pix_azimuth, group=pixc)    
+        data.add_global_attribute('looks_to_efflooks', 1.75, group=pixc)    
 
 
         
@@ -388,10 +390,13 @@ class l2_hr_pixc(object):
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'roll', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('pitch', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
         data.add_variable_attribute('pitch', 'units', 'degrees', group=sensor)
-        fill_vector_param(np.zeros(self.nb_nadir_pix), 'pitch', self.nb_nadir_pix, data, group=sensor)          
-        data.add_variable('heading', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
-        fill_vector_param(self.nadir_heading, 'heading', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable_attribute('heading', 'units', 'degrees', group=sensor)
+        fill_vector_param(np.zeros(self.nb_nadir_pix), 'pitch', self.nb_nadir_pix, data, group=sensor)  
+        data.add_variable('yaw', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable_attribute('yaw', 'units', 'degrees', group=sensor)
+        fill_vector_param(np.zeros(self.nb_nadir_pix), 'yaw', self.nb_nadir_pix, data, group=sensor)   
+        data.add_variable('velocity_heading', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        fill_vector_param(self.nadir_heading, 'velocity_heading', self.nb_nadir_pix, data, group=sensor)
+        data.add_variable_attribute('velocity_heading', 'units', 'degrees', group=sensor)
         
         
         data.add_variable('x', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
@@ -420,10 +425,8 @@ class l2_hr_pixc(object):
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'minus_y_antenna_y', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('minus_y_antenna_z', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'minus_y_antenna_z', self.nb_nadir_pix, data, group=sensor)
-
-                
-        data.add_variable('index_in_datatake', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
-        fill_vector_param(np.zeros(self.nb_nadir_pix), 'index_in_datatake', self.nb_nadir_pix, data, group=sensor) 
+        data.add_variable('record_counter', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        fill_vector_param(np.zeros(self.nb_nadir_pix), 'record_counter', self.nb_nadir_pix, data, group=sensor) 
         
         data.add_global_attribute('description', 'Time varying parameters group  including spacecraft attitude, position, velocity,  and antenna position information', group = sensor)    
  

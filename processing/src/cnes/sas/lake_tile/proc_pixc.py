@@ -106,12 +106,10 @@ class PixelCloud(object):
         pixc_group = pixc_reader.content.groups['pixel_cloud']
         sensor_group = pixc_reader.content.groups['tvp']
         
-        
-        shape = pixc_reader.getAttValue("interferogram_shape", IN_group=pixc_group)
-        # 1.1 - Number of pixels in range dimension
-        self.nb_pix_range = int((shape.split(",")[1]).split("(")[0])
+                # 1.1 - Number of pixels in range dimension
+        self.nb_pix_range = int(pixc_reader.getAttValue("interferogram_size_range", IN_group=pixc_group))
         # 1.2 - Number of pixels in azimuth dimension
-        self.nb_pix_azimuth  = int(shape.split(",")[0])
+        self.nb_pix_azimuth = int(pixc_reader.getAttValue("interferogram_size_azimuth", IN_group=pixc_group))
         # 1.3 - Cycle number
         self.cycle_num = int(pixc_reader.getAttValue("cycle_number"))
         # 1.4 - Pass number

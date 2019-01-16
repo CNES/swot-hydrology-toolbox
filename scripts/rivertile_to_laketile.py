@@ -63,7 +63,7 @@ def execute(cmd):
         raise subprocess.CalledProcessError(p.returncode, p.args)
     
 
-def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time):
+def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time, env=None):
 
     config = cfg.ConfigParser()
     config.read(parameter_laketile)
@@ -93,7 +93,14 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cy
     except:
         tbx_path = os.getcwd().replace(os.sep+"scripts", "")
     # Build LOCNES/lake_tile main lib
-    pge_lake_tile = join(tbx_path, 'processing', 'src', 'cnes', 'sas', 'lake_tile', 'pge_lake_tile.py')
+    
+    if (env == 'swotCNES'):
+        print("Switch to swotCNES env instead of swot-hydrology-toolbox processing")
+        pge_lake_tile = '/work/ALT/swot/swotdev/desrochesd/swot-sds/swotCNES/src/cnes/sas/lake_tile/pge_lake_tile.py'
+    else:
+        pge_lake_tile = join(tbx_path, 'processing', 'src', 'cnes', 'sas', 'lake_tile', 'pge_lake_tile.py')
+
+        
     # Build command
     cmd = "{} {} -shp".format(pge_lake_tile, laketile_cfg)
     print ("> executing:", cmd) 
@@ -124,11 +131,18 @@ def main():
     parser.add_argument('river_annotation_file', help="river annotation file (output from l2pixc_to_rivertile) or directory", type=str)
     parser.add_argument('output_dir', help="output directory", type=str)
     parser.add_argument('parameter_laketile', help="parameter file", type=str)
-    parser.add_argument("--nogdem",
-        help="if true, don't call riverobs with gdem",
-        nargs='?', type=bool, default=False, const=True)
+    parser.add_argument("--nogdem", help="if true, don't call riverobs with gdem", nargs='?', type=bool, default=False, const=True)
+    parser.add_argument(
+        '-swotCNES', action='store_true', dest='swotCNES', default=None,
+        help='only for CNES developer users, switch to swotCNES processing env')
+            
     args = vars(parser.parse_args())
-
+                  
+    if args['swotCNES']:    
+        env = 'swotCNES'
+    else:
+        env = None
+        
     print("===== rivertile_to_laketile = BEGIN =====")
     print("")
 
@@ -143,7 +157,7 @@ def main():
     else:
         print("> %d river annotation file(s) to deal with" % len(river_files))
     print()
-    print()
+
     
     for river_annotation in river_files:
         
@@ -188,7 +202,7 @@ def main():
 	
         call_pge_lake_tile(parameter_laketile, args['output_dir'],
                            ann_cfg["pixc file"], ann_cfg["pixcvec file"],
-                           cycle_number, pass_number, tile_number, start_time, stop_time)
+                           cycle_number, pass_number, tile_number, start_time, stop_time, env=env)
         
         print()
         print()
