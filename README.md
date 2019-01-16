@@ -9,7 +9,7 @@ This software is released under open source license LGPL v.3 and is distributed 
 SWOT (Surface Water and Ocean Topography) is an innovative radar altimetry satellite mission projected for launch in 2021, prepared jointly by NASA’s Jet Propulsion Laboratory (JPL) and Centre National d’Etudes Spatiales (CNES), with contributions from the UK Space Agency (UKSA) and the Canadian Space Agency (CSA). SWOT features a high-rate (HR) data mode for continental hydrology, and a low-rate (LR) data mode dedicated mainly to oceanography. For more information, refer to https://swot.cnes.fr/en/ or https://swot.jpl.nasa.gov/. 
 
 ## Objectives 
-* Provide open-source tools that, together with JPL’s RiverObs tool (https://github.com/SWOTAlgorithms/RiverObs.git), enable end-users to generate virtually all SWOT HR level-2 (L2) products with fairly realistic errors
+* Provide open-source tools that, together with JPL’s RiverObs tool (https://github.com/SWOTAlgorithms/RiverObs.git), enable end-users to generate virtually all SWOT HR level-2 (L2) products with relatively realistic errors
   * Get familiar with product content and formats, use the data to conduct studies...
 * Give end-users access to the L2+ processing prototypes 
   * Validate methodology, propose improvements
@@ -25,6 +25,13 @@ SWOT (Surface Water and Ocean Topography) is an innovative radar altimetry satel
 * Tools for file format conversion etc.
 * Potentially other modules in the future (for ex. floodplain DEM generation)
 
+## Associated RiverObs version
+The RiverObs version compatible with the master branch of the swot-hydrology-toolbox is :
+
+* commit d62ef35984ab227c0d78feff84bf762ee2121f4b
+* Author: Alex Fore <alexander.fore@jpl.nasa.gov>
+* Date:   Thu Jan 10 14:20:07 2019 -0800
+
 ## Caveats
 Although the large-scale simulator included in the toolbox provides fairly representative statistical errors, several simplifications or approximations are made:
 * Spherical Earth approximate geolocation equations (loss of accuracy at high latitudes, >60°)
@@ -36,8 +43,12 @@ Although the large-scale simulator included in the toolbox provides fairly repre
   * Spatially random correlated heights, and 2D polynomial model (with synthetic slopes)
   * Also possible to inject “true” heights from models (after simulation)
   * Random effective instrument noise added to height (and propagated to geolocation)
-* Perfect water detection (the ideal water mask is projected into radar geometry)
+* Idealized pixel cloud processing (i.e. water detection, phase unwrapping etc. are implicitly assumed to be perfect)
 * Some data fields are at this stage void (various flags, uncertainty indicators…)
+
+Products formats and algorithms:
+* The product formats are not et in their final version, but are regularly updated to reflect the current working definitions, and will evolve into the official product formats as and when these are defined.
+* The processing algorithms will also continue to evolve, as today's prototypes are progessively refined into operational software. 
 
 ## Installation procedure
 
