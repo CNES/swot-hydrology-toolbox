@@ -46,10 +46,8 @@ Although the large-scale simulator included in the toolbox provides fairly repre
 * Idealized pixel cloud processing (i.e. water detection, phase unwrapping etc. are implicitly assumed to be perfect)
 * Some data fields are at this stage void (various flags, uncertainty indicators…)
 
-Products formats:
+Products formats and algorithms:
 * The product formats are not et in their final version, but are regularly updated to reflect the current working definitions, and will evolve into the official product formats as and when these are defined.
-
-Algorithms:
 * The processing algorithms will also continue to evolve, as today's prototypes are progessively refined into operational software. 
 
 ## Installation procedure
