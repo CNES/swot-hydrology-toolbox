@@ -167,7 +167,8 @@ class l2_hr_pixc_vec_river(object):
         data.add_global_attribute('cycle_number', self.cycle_num)
         data.add_global_attribute('pass_number', np.int(self.pass_num))
         data.add_global_attribute('tile_name', self.tile_ref)
-        data.add_global_attribute('interferogram_shape', "%d, %d (azimuth, range)" % (self.nb_pix_azimuth, self.nb_pix_range))
+        data.add_global_attribute('interferogram_size_range', self.nb_pix_range)    
+        data.add_global_attribute('interferogram_size_azimuth', self.nb_pix_azimuth)   
         
         # 4 - Close output file
         data.close()
