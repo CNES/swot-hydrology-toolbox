@@ -23,7 +23,7 @@ import sys
 import my_rdf
 import cnes.modules.geoloc.lib.pixc_to_shp
 
-from cnes.sas.lib import base_classes
+#~ from cnes.sas.lib import base_classes
 
 
 def write_annotation_file(ann_file, 
