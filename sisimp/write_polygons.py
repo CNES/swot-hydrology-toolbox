@@ -511,6 +511,11 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         nadir_lat_max = int(np.max(nadir_lat_deg))
         nadir_lat_min = int(np.min(nadir_lat_deg))
 
+        tile_db = IN_attributes.tile_database
+        
+        print(tile_db[:,2:3])
+        exit()
+
         for cur_nadir_lat in range(nadir_lat_min, nadir_lat_max + 1):  # Loop on nadir latitude integer intervals
 
             my_api.printInfo("Dealing with latitudes >= %d AND < %d" % (cur_nadir_lat, cur_nadir_lat+1))
