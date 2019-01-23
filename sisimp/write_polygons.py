@@ -36,6 +36,7 @@ import proc_real_pixc
 import proc_real_pixc_vec_river
 
 import mathematical_function as math_fct
+from scipy.spatial import cKDTree
 
 
 class orbitAttributes:
@@ -512,16 +513,48 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         nadir_lat_min = int(np.min(nadir_lat_deg))
 
         tile_db = IN_attributes.tile_database
+        tile_db_orbit = tile_db[np.where(tile_db[:,0] == IN_orbit_number)[0],:]
         
-        print(tile_db[:,2:3])
-        exit()
+        nadir_lat_argmax = int(np.argmax(nadir_lat_deg))        
+        nadir_lat_argmin = int(np.argmin(nadir_lat_deg))
+        
+        nadir_lat_deg_max = nadir_lat_deg[nadir_lat_argmax]
+        nadir_lon_deg_max = nadir_lon_deg[nadir_lat_argmax]
 
-        for cur_nadir_lat in range(nadir_lat_min, nadir_lat_max + 1):  # Loop on nadir latitude integer intervals
+        nadir_lat_deg_min = nadir_lat_deg[nadir_lat_argmin]
+        nadir_lon_deg_min = nadir_lon_deg[nadir_lat_argmin]
+        
+        tree = cKDTree(tile_db_orbit[:,2:4])
+        
+        ind_max = tree.query([nadir_lat_deg_max, nadir_lon_deg_max])
+        ind_min = tree.query([nadir_lat_deg_min, nadir_lon_deg_min])
 
-            my_api.printInfo("Dealing with latitudes >= %d AND < %d" % (cur_nadir_lat, cur_nadir_lat+1))
+        tile_db_orbit_cropped = tile_db_orbit[min(ind_max[1], ind_min[1])-1:max(ind_max[1], ind_min[1])+2,:]
+        vect_lat_lon_db_cropped = np.zeros([tile_db_orbit_cropped.shape[0]-1,2])
+    
+        
+        for i in range(tile_db_orbit_cropped.shape[0]-1):
+            vect_lat_lon_db_cropped[i,0] = tile_db_orbit_cropped[i+1,2]-tile_db_orbit_cropped[i,2]
+            vect_lat_lon_db_cropped[i,1] = tile_db_orbit_cropped[i+1,3]-tile_db_orbit_cropped[i,3]
+        
+        
+        nb_az_traj = max(nadir_lat_argmax,nadir_lat_argmin)- min(nadir_lat_argmax,nadir_lat_argmin)+1
+        tile_values = np.zeros(nb_az_traj, int)
+        for i in range(min(nadir_lat_argmax,nadir_lat_argmin), max(nadir_lat_argmax,nadir_lat_argmin)+1):
+            dist = np.abs(((nadir_lat_deg[i]-tile_db_orbit_cropped[:-1,2])*vect_lat_lon_db_cropped[:,0] + (nadir_lon_deg[i]-tile_db_orbit_cropped[:-1,3])*vect_lat_lon_db_cropped[:,1])/np.sqrt(vect_lat_lon_db_cropped[:,0]**2+vect_lat_lon_db_cropped[:,1]**2))
+            tile_values[i] = tile_db_orbit_cropped[np.argmin(dist),1]
+
+        tile_list = np.unique(tile_values)
+        
+        for tile_number in tile_list:
+            ind_nadir_lat_tile_i = np.where(tile_values == tile_number)[0]
+            lat_start = min(nadir_lat_deg[ind_nadir_lat_tile_i[0]],  nadir_lat_deg[ind_nadir_lat_tile_i[-1]])
+            lat_end =  max(nadir_lat_deg[ind_nadir_lat_tile_i[0]],  nadir_lat_deg[ind_nadir_lat_tile_i[-1]])
+
+            my_api.printInfo("Dealing with latitudes >= %s AND < %s" % (lat_start, lat_end))
             
             # Get azimuth indices corresponding to this integer value of latitude
-            nadir_az = np.where(nadir_lat_deg.astype(int) == cur_nadir_lat)[0]
+            nadir_az = ind_nadir_lat_tile_i
             az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth indices vector
             my_api.printInfo("= %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
             
@@ -539,13 +572,13 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 
                 # Get output filename
                 # North / south lat flag
-                nord_or_south = ["S", "N"][cur_nadir_lat > 0]
+                nord_or_south = ["S", "N"][np.mean(nadir_lat_deg[ind_nadir_lat_tile_i]) > 0]
 
                 # Left / right swath flag
                 left_or_right = IN_swath.upper()[0]
                 
                 # General tile reference
-                tile_ref = str(abs(cur_nadir_lat)).zfill(2) + nord_or_south + "-" + left_or_right
+                tile_ref = str(tile_number) + nord_or_south + "-" + left_or_right
                 
                 # Init L2_HR_PIXC object
                 my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min, sub_r, classification_tab[az_indices], pixel_area[az_indices],
