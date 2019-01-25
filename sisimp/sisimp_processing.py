@@ -254,6 +254,15 @@ class Processing(object):
         except IOError:
             my_api.exitWithError("Noise file %s not found in the folder %s " % (noise_file_path, os.path.dirname(__file__)))
 
+
+        # Load the tile database file
+        noise_file_path = ""
+        try:
+            self.my_attributes.tile_database = np.loadtxt(os.path.expandvars(parameters.getValue("Tile database path")), skiprows=1)
+        except IOError:
+            my_api.exitWithError("Tile database not found ")
+            
+            
         # Orbit processing
         # For loop on orbit_file generated
         if self.my_attributes.multi_orbit_option == 'yes' or self.my_attributes.multi_orbit_option == 'passplan':
