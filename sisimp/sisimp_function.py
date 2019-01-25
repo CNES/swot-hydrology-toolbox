@@ -96,6 +96,15 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     OUT_attributes.alt = alt 
     OUT_attributes.heading = OUT_attributes.heading_init =  heading
    
+    OUT_attributes.cosphi_init = np.cos(lon)
+    OUT_attributes.sinphi_init = np.sin(lon)
+    OUT_attributes.costheta_init = np.cos(np.pi/2-lat)
+    OUT_attributes.sintheta_init = np.sin(np.pi/2-lat)
+    OUT_attributes.cospsi_init = np.cos(heading)
+    OUT_attributes.sinpsi_init = np.sin(heading)
+
+    OUT_attributes
+    
     return OUT_attributes
 
 
