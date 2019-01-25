@@ -102,7 +102,44 @@ def calc_delta_sensor(IN_delta_h, IN_orbit_altitudes, IN_y):
     return IN_delta_h * IN_orbit_altitudes / IN_y
 
 
-def lonlat_from_azy(IN_az, IN_y, IN_lat_init, IN_lon_init, IN_heading_init, IN_unit="rad"):
+def lonlat_from_azy(IN_az, IN_ri, IN_lat_init, IN_lon_init, IN_heading_init, IN_Alt, IN_swath, h=0,IN_unit="rad"):
+    """
+    Convert coordinates from azimuth-y to lon-lat for a given track
+
+    :param IN_az: azimuth coordinate of given points
+    :type IN_az: 1D-array of float
+    :param IN_y: crosstrack distance of given points
+    :type IN_y: 1D-array of float
+    :param IN_unit: "rad" (default) ou "deg" to output coordinates in radians or degrees
+    :type IN_unit: string
+
+    :return: OUT_lon = longitude of points
+    :rtype: OUT_lon = 1D-array of float
+    :return: OUT_lat = latitude of points
+    :rtype: OUT_lat = 1D-array of float
+    """
+
+    theta0 = np.pi/2 - IN_lat_init[IN_az]
+    phi0 = IN_lon_init[IN_az]
+    psi0 = IN_heading_init[IN_az]
+    
+    if IN_swath == 'Left':
+        sign = -1
+    else:
+        sign=1.
+        
+    mu = sign*np.arccos((IN_ri**2-((GEN_APPROX_RAD_EARTH+h)**2+(GEN_APPROX_RAD_EARTH+IN_Alt)**2))/(-2*(GEN_APPROX_RAD_EARTH +h)*(GEN_APPROX_RAD_EARTH+IN_Alt)))
+
+    Cx = (np.cos(mu)*np.sin(theta0)*np.cos(phi0) + np.sin(mu)*(np.sin(psi0)*np.cos(theta0)*np.cos(phi0)-np.cos(psi0)*np.sin(phi0)))
+    Cy = (np.cos(mu)*np.sin(theta0)*np.sin(phi0) + np.sin(mu)*(np.sin(psi0)*np.cos(theta0)*np.sin(phi0)+np.cos(psi0)*np.cos(phi0)))
+    Cz = (np.cos(mu)*np.cos(theta0) - np.sin(mu)*np.sin(psi0)*np.sin(theta0))
+    
+    OUT_lat = np.pi/2. - np.arccos(Cz)
+    OUT_lon = np.arctan(Cy/Cx)
+    
+    return OUT_lon, OUT_lat  # Output in radians
+
+def lonlat_from_azy_old(IN_az, IN_y, IN_lat_init, IN_lon_init, IN_heading_init, IN_unit="rad"):
     """
     Convert coordinates from azimuth-y to lon-lat for a given track
 

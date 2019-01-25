@@ -304,7 +304,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # Compute theorical cross-track distance for water pixels
     sign = [-1, 1][IN_swath.lower() == 'right']
     y = sign * np.sqrt((ri + Hi) * (ri - Hi) / (1. + Hi / GEN_APPROX_RAD_EARTH))
-    lon, lat = math_fct.lonlat_from_azy(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init, IN_unit="deg")
+    lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init, Hi , IN_swath, IN_unit="deg")
     
     # 4 - Height model    
     ## TBD : Separate height model for each water body !!!
@@ -435,7 +435,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
          
     # 6 - Build geolocation arrays
     # 6.1 - With no noise
-    lon, lat = math_fct.lonlat_from_azy(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init) 
+    lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init, Hi, IN_swath) 
     lon *= RAD2DEG
     lat *= RAD2DEG
     
@@ -493,7 +493,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         lat_noisy, lon_noisy, elevation_tab_noisy = p_final_llh[:,0], p_final_llh[:,1], p_final_llh[:,2]
 
     else:
-        lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, y_noisy, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
+        lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init, Hi, IN_swath, h=delta_h)
         lon_noisy *= RAD2DEG  # Conversion in degrees
         lat_noisy *= RAD2DEG  # Conversion in degrees 
         
@@ -576,6 +576,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
 
                 # Left / right swath flag
                 left_or_right = IN_swath.upper()[0]
+                
                 
                 # General tile reference
                 tile_ref = str(tile_number) + nord_or_south + "-" + left_or_right
@@ -787,9 +788,9 @@ def make_swath_polygon(IN_swath, IN_attributes):
     n = len(IN_attributes.lon_init) - 4
     az = np.arange(2, n + 2, 10)
     y = ymin * np.ones(len(az))
-    lon1, lat1 = math_fct.lonlat_from_azy(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
+    lon1, lat1 = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
     y = ymax * np.ones(len(az))
-    lon2, lat2 = math_fct.lonlat_from_azy(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
+    lon2, lat2 = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
     lonswath = np.concatenate((lon1, lon2[::-1]))
     latswath = np.concatenate((lat1, lat2[::-1]))
     lonswath *= RAD2DEG
@@ -805,6 +806,84 @@ def make_swath_polygon(IN_swath, IN_attributes):
 
     return swath_polygon
 
+def azr_from_lonlat(IN_lon, IN_lat, IN_attributes):
+    """
+    Convert coordinates from lon-lat to azimuth-range for a given track
+    
+    :param IN_lon: longitude of points
+    :type IN_lon: 1D-array of float
+    :param IN_lat: latitude of points
+    :type IN_lat: 1D-array of float
+    :param IN_attributes
+    :type IN_attributes
+    
+    :return OUT_az: azimuth coordinate of given points
+    :rtype OUT_az: 1D-array of float
+    :return OUT_r: range coordinate of given points
+    :rtype OUT_r: 1D-array of float
+    :return OUT_near_range
+    :rtype OUT_near_range
+    """
+           
+    # -----------
+    # Preparation
+    # -----------
+    nr = IN_attributes.nr_cross_track
+    dr = IN_attributes.range_sampling
+    daz = IN_attributes.azimuth_spacing
+    alt = IN_attributes.alt
+
+    # ---------------------------------------------------------
+    # Compute along-track (az) and across-track (y) coordinates
+    # ---------------------------------------------------------
+    # 1st iteration
+    du = GEN_APPROX_RAD_EARTH * np.cos(IN_lat) * (IN_lon - math_fct.linear_extrap(IN_lat, IN_attributes.lat_init, IN_attributes.lon_init))
+    lat0 = IN_lat + (du * np.sin(math_fct.linear_extrap(IN_lat, IN_attributes.lat_init, IN_attributes.heading_init)) * np.cos(math_fct.linear_extrap(IN_lat, IN_attributes.lat_init, IN_attributes.heading_init))) / GEN_APPROX_RAD_EARTH
+    psi = math_fct.linear_extrap(lat0, IN_attributes.lat_init, IN_attributes.heading_init)
+    y = du * np.cos(psi)  # eq (3)
+    OUT_azcoord = (math_fct.linear_extrap(lat0, IN_attributes.lat_init, np.arange(len(IN_attributes.lat_init))))
+    
+    lat_0, lon_0 = IN_attributes.lat_init, IN_attributes.lon_init
+    
+    nb_points = 50
+    gamma = np.zeros([len(IN_lat), nb_points])
+    beta = np.zeros([len(IN_lat), nb_points])
+        
+    for i in range(nb_points):
+        theta = np.pi/2. - IN_lat
+        theta_0 = np.pi/2. - lat_0[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
+        phi = IN_lon
+        phi_0 = lon_0[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
+        psi_0 = IN_attributes.heading_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
+        
+        gamma[:,i] = GEN_APPROX_RAD_EARTH*(np.sin(theta)*np.cos(phi)*(-np.cos(psi_0)*np.cos(theta_0)*np.cos(phi_0)-np.sin(psi_0)*np.sin(phi_0)) \
+                +np.sin(theta)*np.sin(phi)*(-np.cos(psi_0)*np.cos(theta_0)*np.sin(phi_0)+np.sin(psi_0)*np.cos(phi_0)) \
+                +np.cos(theta)*(np.cos(psi_0)*np.sin(theta_0)))
+                
+        beta[:,i]= GEN_APPROX_RAD_EARTH*(np.sin(theta)*np.cos(phi)*(np.sin(psi_0)*np.cos(theta_0)*np.cos(phi_0)-np.cos(psi_0)*np.sin(phi_0)) \
+                +np.sin(theta)*np.sin(phi)*(np.sin(psi_0)*np.cos(theta_0)*np.sin(phi_0)+np.cos(psi_0)*np.cos(phi_0)) \
+                +np.cos(theta)*(-np.sin(psi_0)*np.sin(theta_0)))
+                
+    ind = np.zeros(len(IN_lat), int)   
+    y = np.zeros(len(IN_lat), float)   
+             
+    for i in range(len(IN_lat)):
+        indice = np.argmin(np.abs(gamma[i,:]))
+        y[i] = beta[i, indice]
+        ind[i] = indice - int(nb_points/2)
+        #~ print(gamma[i,:], ind[i])
+    OUT_azcoord2 = OUT_azcoord  + ind
+    # Compute range coordinate (across track)
+    
+    H = alt[OUT_azcoord2.astype('i4')]
+    
+    r0 = np.sqrt((H + (nr ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + nr ** 2)
+    rr = np.sqrt((H + (y ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + y ** 2)  # eq (5b)
+    OUT_rcoord = (rr - r0) / dr  # eq (4)
+    OUT_near_range = r0
+    
+    return OUT_azcoord2, OUT_rcoord, OUT_near_range
+'''
 
 def azr_from_lonlat(IN_lon, IN_lat, IN_attributes):
     """
@@ -846,7 +925,7 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes):
     
     # Next iterations
     precision = 10
-    while precision >= 0.5:
+    while precision >= 5:
         du = GEN_APPROX_RAD_EARTH * (lon_prec - IN_lon) * np.cos(IN_lat)
         dv = GEN_APPROX_RAD_EARTH * (lat_prec - IN_lat)
         az = OUT_azcoord - (du * np.sin(psi) + dv * np.cos(psi)) / daz  
@@ -856,7 +935,7 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes):
         y = y - du * np.cos(psi) + dv * np.sin(psi)
         lon_prec, lat_prec = math_fct.lonlat_from_azy(OUT_azcoord, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
         precision = np.max(np.abs(OUT_azcoord - last_az))  # iterate until convergence
-        
+        #~ print((du * np.sin(psi) + dv * np.cos(psi)) / daz, precision)
     # Compute range coordinate (across track)
     H = alt[OUT_azcoord.astype('i4')]
     r0 = np.sqrt((H + (nr ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + nr ** 2)
@@ -866,7 +945,7 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes):
     OUT_near_range = r0
     
     return OUT_azcoord, OUT_rcoord, OUT_near_range
-
+'''
 
 def all_linear_rings(geom):
     """ Generator for all linear rings in a geometry """
