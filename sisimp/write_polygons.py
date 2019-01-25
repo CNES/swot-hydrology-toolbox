@@ -125,6 +125,12 @@ class orbitAttributes:
         self.x = None
         self.y = None
         self.z = None
+        self.cosphi_init = None
+        self.sinphi_init = None
+        self.costheta_init = None
+        self.sintheta_init = None
+        self.cospsi_init = None
+        self.sinpsi_init = None
 
 
 def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
@@ -708,6 +714,12 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes):
                 lon = points[0] * DEG2RAD
                 lat = points[1] * DEG2RAD
 
+                layerDefn = layer.GetLayerDefn()
+                for i in range(layerDefn.GetFieldCount()):
+                    # Test 'HEIGHT' parameter in input shapefile fields
+                    if layerDefn.GetFieldDefn(i).GetName() == IN_attributes.height_name:
+                        h = polygon_index.GetField(str(IN_attributes.height_name))
+                        
                 az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes)
                 range_tab = np.concatenate((range_tab, r), -1)
                 npoints = len(az)
@@ -832,7 +844,7 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes):
     dr = IN_attributes.range_sampling
     daz = IN_attributes.azimuth_spacing
     alt = IN_attributes.alt
-
+    
     # ---------------------------------------------------------
     # Compute along-track (az) and across-track (y) coordinates
     # ---------------------------------------------------------
@@ -853,16 +865,22 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes):
         theta = np.pi/2. - IN_lat
         theta_0 = np.pi/2. - lat_0[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
         phi = IN_lon
-        phi_0 = lon_0[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
-        psi_0 = IN_attributes.heading_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
         
-        gamma[:,i] = GEN_APPROX_RAD_EARTH*(np.sin(theta)*np.cos(phi)*(-np.cos(psi_0)*np.cos(theta_0)*np.cos(phi_0)-np.sin(psi_0)*np.sin(phi_0)) \
-                +np.sin(theta)*np.sin(phi)*(-np.cos(psi_0)*np.cos(theta_0)*np.sin(phi_0)+np.sin(psi_0)*np.cos(phi_0)) \
-                +np.cos(theta)*(np.cos(psi_0)*np.sin(theta_0)))
+        costheta_0 = IN_attributes.costheta_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
+        sintheta_0 = IN_attributes.sintheta_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
+        cosphi_0 = IN_attributes.cosphi_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
+        sinphi_0 = IN_attributes.sinphi_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
+        cospsi_0 = IN_attributes.cospsi_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
+        sinpsi_0 = IN_attributes.sinpsi_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
+
+        
+        gamma[:,i] = GEN_APPROX_RAD_EARTH*(np.sin(theta)*np.cos(phi)*(-cospsi_0*costheta_0*cosphi_0-sinpsi_0*sinphi_0) \
+                +np.sin(theta)*np.sin(phi)*(-cospsi_0*costheta_0*sinphi_0+sinphi_0*cosphi_0) \
+                +np.cos(theta)*(cospsi_0*sintheta_0))
                 
-        beta[:,i]= GEN_APPROX_RAD_EARTH*(np.sin(theta)*np.cos(phi)*(np.sin(psi_0)*np.cos(theta_0)*np.cos(phi_0)-np.cos(psi_0)*np.sin(phi_0)) \
-                +np.sin(theta)*np.sin(phi)*(np.sin(psi_0)*np.cos(theta_0)*np.sin(phi_0)+np.cos(psi_0)*np.cos(phi_0)) \
-                +np.cos(theta)*(-np.sin(psi_0)*np.sin(theta_0)))
+        beta[:,i]= GEN_APPROX_RAD_EARTH*(np.sin(theta)*np.cos(phi)*(sinpsi_0*costheta_0*cosphi_0-cospsi_0*sinphi_0) \
+                +np.sin(theta)*np.sin(phi)*(sinpsi_0*costheta_0*sinphi_0+cospsi_0*cosphi_0) \
+                +np.cos(theta)*(-sinpsi_0*sintheta_0))
                 
     ind = np.zeros(len(IN_lat), int)   
     y = np.zeros(len(IN_lat), float)   
@@ -871,7 +889,6 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes):
         indice = np.argmin(np.abs(gamma[i,:]))
         y[i] = beta[i, indice]
         ind[i] = indice - int(nb_points/2)
-        #~ print(gamma[i,:], ind[i])
     OUT_azcoord2 = OUT_azcoord  + ind
     # Compute range coordinate (across track)
     
