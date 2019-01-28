@@ -15,6 +15,7 @@ import numpy as np
 import os
 from osgeo import osr, ogr
 import re
+import zipfile
 
 import lib.my_api as my_api
 import lib.my_filenames as my_names
@@ -258,7 +259,9 @@ class Processing(object):
         # Load the tile database file
         noise_file_path = ""
         try:
-            self.my_attributes.tile_database = np.loadtxt(os.path.expandvars(parameters.getValue("Tile database path")), skiprows=1)
+            archive = zipfile.ZipFile(os.path.expandvars(parameters.getValue("Tile database path")), "r")
+            imgfile = archive.open("tiles_full.txt")
+            self.my_attributes.tile_database = np.loadtxt(imgfile, skiprows=1)
         except IOError:
             my_api.exitWithError("Tile database not found ")
             
