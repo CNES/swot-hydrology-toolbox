@@ -380,6 +380,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             elevation_tab = true_height_model_inst.final_height
     
 
+    print(elevation_tab)
 
     # 5 - Error model
 
@@ -391,9 +392,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         dw_pixels=np.where(classification_tab==IN_attributes.darkwater_flag)
         delta_h[water_pixels]=math_fct.calc_delta_h(angles[water_pixels],IN_attributes.noise_height,IN_attributes.height_bias_std)
         delta_h[dw_pixels]=math_fct.calc_delta_h(angles[dw_pixels],IN_attributes.dw_detected_noise_height,IN_attributes.height_bias_std)
-        #delta_h = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std)
-        #~ print('delta_h[water_pixels]',delta_h[water_pixels])
-        #~ print('delta_h[dw_pixels]',delta_h[dw_pixels])
     else : 
         delta_h = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std)
 
@@ -499,7 +497,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         lat_noisy, lon_noisy, elevation_tab_noisy = p_final_llh[:,0], p_final_llh[:,1], p_final_llh[:,2]
 
     else:
-        lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init, Hi, IN_swath, h=delta_h)
+        lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init, Hi, IN_swath, h = elevation_tab +delta_h)
         lon_noisy *= RAD2DEG  # Conversion in degrees
         lat_noisy *= RAD2DEG  # Conversion in degrees 
         
@@ -626,7 +624,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         my_api.printInfo("No output data file to write")   
 
 
-def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes):
+def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycle_number):
     """
     Read the water polygon shapefile and compute polygons in radar coordinates. 
     Save the reprojected polygons in a new shapefile and return its name.
@@ -715,12 +713,24 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes):
                 lat = points[1] * DEG2RAD
 
                 layerDefn = layer.GetLayerDefn()
-                for i in range(layerDefn.GetFieldCount()):
-                    # Test 'HEIGHT' parameter in input shapefile fields
-                    if layerDefn.GetFieldDefn(i).GetName() == IN_attributes.height_name:
-                        h = polygon_index.GetField(str(IN_attributes.height_name))
-                        
-                az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes)
+                
+                
+                heau = 0
+                
+                # Different height model to compute correct az, range depending on the "true" water level
+                if IN_attributes.height_model == None:
+                    orbit_time = math_fct.linear_extrap(lat, IN_attributes.lat_init[1:-1], IN_attributes.orbit_time)
+                    heau = np.mean(make_elevation_tab(orbit_time, IN_cycle_number, IN_attributes, mode = 'orbit_time'))
+                    
+                if IN_attributes.height_model == "reference_height":
+                    for i in range(layerDefn.GetFieldCount()):
+                        # Test 'HEIGHT' parameter in input shapefile fields
+                        if layerDefn.GetFieldDefn(i).GetName() == IN_attributes.height_name:
+                            h = polygon_index.GetField(str(IN_attributes.height_name))
+                            if h != None:
+                                heau = float(h)
+                                
+                az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, heau = heau)
                 range_tab = np.concatenate((range_tab, r), -1)
                 npoints = len(az)
                 if len(az) != len(lon):
@@ -770,7 +780,7 @@ def project_array(coordinates, srcp='latlon', dstp='geocent'):
     # Inversion of lat and lon !
     return np.dstack([fx, fy, fz])[0]
         
-def make_elevation_tab(IN_az, IN_cycle_number, IN_attributes):
+def make_elevation_tab(IN_tab, IN_cycle_number, IN_attributes, mode = 'az'):
     """
     Make the elevation array without noise 
     
@@ -784,8 +794,11 @@ def make_elevation_tab(IN_az, IN_cycle_number, IN_attributes):
     :return OUT_theorical_height: associated elevations
     :rtype OUT_theorical_height: 1D-array of float
     """
-    return IN_attributes.height_model_a * np.sin(2*np.pi * ((IN_attributes.orbit_time[IN_az] + IN_cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period) 
-
+    if mode == 'az':
+        return IN_attributes.height_model_a * np.sin(2*np.pi * ((IN_attributes.orbit_time[IN_tab] + IN_cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period) 
+    if mode == 'orbit_time':
+        return IN_attributes.height_model_a * np.sin(2*np.pi * ((IN_tab + IN_cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period) 
+        
 
 def make_swath_polygon(IN_swath, IN_attributes):
     """Make left of right swath polygon
@@ -818,7 +831,7 @@ def make_swath_polygon(IN_swath, IN_attributes):
 
     return swath_polygon
 
-def azr_from_lonlat(IN_lon, IN_lat, IN_attributes):
+def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau = 0.):
     """
     Convert coordinates from lon-lat to azimuth-range for a given track
     
@@ -874,11 +887,11 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes):
         sinpsi_0 = IN_attributes.sinpsi_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
 
         
-        gamma[:,i] = GEN_APPROX_RAD_EARTH*(np.sin(theta)*np.cos(phi)*(-cospsi_0*costheta_0*cosphi_0-sinpsi_0*sinphi_0) \
-                +np.sin(theta)*np.sin(phi)*(-cospsi_0*costheta_0*sinphi_0+sinphi_0*cosphi_0) \
+        gamma[:,i] = (GEN_APPROX_RAD_EARTH+heau)*(np.sin(theta)*np.cos(phi)*(-cospsi_0*costheta_0*cosphi_0-sinpsi_0*sinphi_0) \
+                +np.sin(theta)*np.sin(phi)*(-cospsi_0*costheta_0*sinphi_0+sinpsi_0*cosphi_0) \
                 +np.cos(theta)*(cospsi_0*sintheta_0))
                 
-        beta[:,i]= GEN_APPROX_RAD_EARTH*(np.sin(theta)*np.cos(phi)*(sinpsi_0*costheta_0*cosphi_0-cospsi_0*sinphi_0) \
+        beta[:,i]= (GEN_APPROX_RAD_EARTH+heau)*(np.sin(theta)*np.cos(phi)*(sinpsi_0*costheta_0*cosphi_0-cospsi_0*sinphi_0) \
                 +np.sin(theta)*np.sin(phi)*(sinpsi_0*costheta_0*sinphi_0+cospsi_0*cosphi_0) \
                 +np.cos(theta)*(-sinpsi_0*sintheta_0))
                 
@@ -895,7 +908,7 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes):
     H = alt[OUT_azcoord2.astype('i4')]
     
     r0 = np.sqrt((H + (nr ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + nr ** 2)
-    rr = np.sqrt((H + (y ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + y ** 2)  # eq (5b)
+    rr = np.sqrt((H-heau + (y ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + y ** 2)  # eq (5b)
     OUT_rcoord = (rr - r0) / dr  # eq (4)
     OUT_near_range = r0
     
