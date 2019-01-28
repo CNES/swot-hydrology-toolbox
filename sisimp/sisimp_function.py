@@ -132,7 +132,7 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
     # 1 - Reproject shapefile in radar coordinates
     fshp = IN_attributes.shapefile_path + ".shp"
     driver = ogr.GetDriverByName(str("ESRI Shapefile"))
-    fshp_reproj, IN_attributes = write_poly.reproject_shapefile(fshp, swath, driver, IN_attributes)
+    fshp_reproj, IN_attributes = write_poly.reproject_shapefile(fshp, swath, driver, IN_attributes, IN_cycle_number)
     
     if fshp_reproj is None:  # No water body crossing the swath => stop process
         my_api.printInfo("No output data file to write")
