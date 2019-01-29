@@ -91,11 +91,15 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     
     # !!! Do not forget that indices 0 and -1 correspond to fake values, just used for extrapolations
     # Variable name ended with _init will be use to linear_exptrap
+    
+    
+    
     OUT_attributes.lon = OUT_attributes.lon_init = lon 
     OUT_attributes.lat = OUT_attributes.lat_init = lat
     OUT_attributes.alt = alt 
     OUT_attributes.heading = OUT_attributes.heading_init =  heading
-   
+ 
+ 
     OUT_attributes.cosphi_init = np.cos(lon)
     OUT_attributes.sinphi_init = np.sin(lon)
     OUT_attributes.costheta_init = np.cos(np.pi/2-lat)
