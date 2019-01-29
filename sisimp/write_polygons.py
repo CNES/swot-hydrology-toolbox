@@ -310,7 +310,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # Compute theorical cross-track distance for water pixels
     sign = [-1, 1][IN_swath.lower() == 'right']
     y = sign * np.sqrt((ri + Hi) * (ri - Hi) / (1. + Hi / GEN_APPROX_RAD_EARTH))
-    lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init, Hi , IN_swath, IN_unit="deg")
+    lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg")
     
     # 4 - Height model    
     ## TBD : Separate height model for each water body !!!
@@ -380,8 +380,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             elevation_tab = true_height_model_inst.final_height
     
 
-    print(elevation_tab)
-
     # 5 - Error model
 
 
@@ -439,7 +437,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
          
     # 6 - Build geolocation arrays
     # 6.1 - With no noise
-    lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init, Hi, IN_swath) 
+    lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath) 
     lon *= RAD2DEG
     lat *= RAD2DEG
     
@@ -497,11 +495,11 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         lat_noisy, lon_noisy, elevation_tab_noisy = p_final_llh[:,0], p_final_llh[:,1], p_final_llh[:,2]
 
     else:
-        lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init, Hi, IN_swath, h = elevation_tab +delta_h)
+        lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, h = elevation_tab +delta_h)
         lon_noisy *= RAD2DEG  # Conversion in degrees
         lat_noisy *= RAD2DEG  # Conversion in degrees 
         
-         
+    
     ######################
     # Write output files #
     ######################
@@ -711,12 +709,11 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 points = np.transpose(np.array(ring.GetPoints()))
                 lon = points[0] * DEG2RAD
                 lat = points[1] * DEG2RAD
-
+               
                 layerDefn = layer.GetLayerDefn()
                 
                 
                 heau = 0
-                
                 # Different height model to compute correct az, range depending on the "true" water level
                 if IN_attributes.height_model == None:
                     orbit_time = math_fct.linear_extrap(lat, IN_attributes.lat_init[1:-1], IN_attributes.orbit_time)
@@ -913,69 +910,7 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau = 0.):
     OUT_near_range = r0
     
     return OUT_azcoord2, OUT_rcoord, OUT_near_range
-'''
 
-def azr_from_lonlat(IN_lon, IN_lat, IN_attributes):
-    """
-    Convert coordinates from lon-lat to azimuth-range for a given track
-    
-    :param IN_lon: longitude of points
-    :type IN_lon: 1D-array of float
-    :param IN_lat: latitude of points
-    :type IN_lat: 1D-array of float
-    :param IN_attributes
-    :type IN_attributes
-    
-    :return OUT_az: azimuth coordinate of given points
-    :rtype OUT_az: 1D-array of float
-    :return OUT_r: range coordinate of given points
-    :rtype OUT_r: 1D-array of float
-    :return OUT_near_range
-    :rtype OUT_near_range
-    """
-           
-    # -----------
-    # Preparation
-    # -----------
-    nr = IN_attributes.nr_cross_track
-    dr = IN_attributes.range_sampling
-    daz = IN_attributes.azimuth_spacing
-    alt = IN_attributes.alt
-
-    # ---------------------------------------------------------
-    # Compute along-track (az) and across-track (y) coordinates
-    # ---------------------------------------------------------
-    # 1st iteration
-    du = GEN_APPROX_RAD_EARTH * np.cos(IN_lat) * (IN_lon - math_fct.linear_extrap(IN_lat, IN_attributes.lat_init, IN_attributes.lon_init))
-    lat0 = IN_lat + (du * np.sin(math_fct.linear_extrap(IN_lat, IN_attributes.lat_init, IN_attributes.heading_init)) * np.cos(math_fct.linear_extrap(IN_lat, IN_attributes.lat_init, IN_attributes.heading_init))) / GEN_APPROX_RAD_EARTH
-    psi = math_fct.linear_extrap(lat0, IN_attributes.lat_init, IN_attributes.heading_init)
-    y = du * np.cos(psi)  # eq (3)
-    OUT_azcoord = math_fct.linear_extrap(lat0, IN_attributes.lat_init, np.arange(len(IN_attributes.lat_init)))
-    lon_prec, lat_prec = math_fct.lonlat_from_azy(OUT_azcoord, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
-    
-    # Next iterations
-    precision = 10
-    while precision >= 5:
-        du = GEN_APPROX_RAD_EARTH * (lon_prec - IN_lon) * np.cos(IN_lat)
-        dv = GEN_APPROX_RAD_EARTH * (lat_prec - IN_lat)
-        az = OUT_azcoord - (du * np.sin(psi) + dv * np.cos(psi)) / daz  
-        psi = math_fct.linear_extrap(az, np.arange(len(IN_attributes.lat_init)), IN_attributes.heading_init)
-        last_az = OUT_azcoord
-        OUT_azcoord = OUT_azcoord - (du * np.sin(psi) + dv * np.cos(psi)) / daz  
-        y = y - du * np.cos(psi) + dv * np.sin(psi)
-        lon_prec, lat_prec = math_fct.lonlat_from_azy(OUT_azcoord, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
-        precision = np.max(np.abs(OUT_azcoord - last_az))  # iterate until convergence
-        #~ print((du * np.sin(psi) + dv * np.cos(psi)) / daz, precision)
-    # Compute range coordinate (across track)
-    H = alt[OUT_azcoord.astype('i4')]
-    r0 = np.sqrt((H + (nr ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + nr ** 2)
-    OUT_rcoord = np.sqrt((H + (y ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + y ** 2)  # eq (5b)
-    OUT_rcoord = (OUT_rcoord - r0) / dr  # eq (4)
-    
-    OUT_near_range = r0
-    
-    return OUT_azcoord, OUT_rcoord, OUT_near_range
-'''
 
 def all_linear_rings(geom):
     """ Generator for all linear rings in a geometry """

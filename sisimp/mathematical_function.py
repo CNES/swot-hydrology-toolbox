@@ -102,7 +102,7 @@ def calc_delta_sensor(IN_delta_h, IN_orbit_altitudes, IN_y):
     return IN_delta_h * IN_orbit_altitudes / IN_y
 
 
-def lonlat_from_azy(IN_az, IN_ri, IN_lat_init, IN_lon_init, IN_heading_init, IN_Alt, IN_swath, h=0,IN_unit="rad"):
+def lonlat_from_azy(IN_az, IN_ri, IN_attributes, IN_swath, h=0, IN_unit="rad"):
     """
     Convert coordinates from azimuth-y to lon-lat for a given track
 
@@ -119,9 +119,18 @@ def lonlat_from_azy(IN_az, IN_ri, IN_lat_init, IN_lon_init, IN_heading_init, IN_
     :rtype: OUT_lat = 1D-array of float
     """
 
-    theta0 = np.pi/2 - IN_lat_init[IN_az]
-    phi0 = IN_lon_init[IN_az]
-    psi0 = IN_heading_init[IN_az]
+    lat0 = IN_attributes.lat[IN_az]
+    phi0 = IN_attributes.lon[IN_az]
+    psi0 = IN_attributes.heading_init[IN_az]
+    IN_Alt = IN_attributes.alt[IN_az]
+    theta0 = np.pi/2 - lat0
+    
+    costheta_0 = IN_attributes.costheta_init[IN_az]
+    sintheta_0 = IN_attributes.sintheta_init[IN_az]
+    cosphi_0 = IN_attributes.cosphi_init[IN_az]
+    sinphi_0 = IN_attributes.sinphi_init[IN_az]
+    cospsi_0 = IN_attributes.cospsi_init[IN_az]
+    sinpsi_0 = IN_attributes.sinpsi_init[IN_az]
     
     if IN_swath == 'Left':
         sign = -1
@@ -130,13 +139,46 @@ def lonlat_from_azy(IN_az, IN_ri, IN_lat_init, IN_lon_init, IN_heading_init, IN_
         
     mu = sign*np.arccos((IN_ri**2-((GEN_APPROX_RAD_EARTH+h)**2+(GEN_APPROX_RAD_EARTH+IN_Alt)**2))/(-2*(GEN_APPROX_RAD_EARTH +h)*(GEN_APPROX_RAD_EARTH+IN_Alt)))
 
-    Cx = (np.cos(mu)*np.sin(theta0)*np.cos(phi0) + np.sin(mu)*(np.sin(psi0)*np.cos(theta0)*np.cos(phi0)-np.cos(psi0)*np.sin(phi0)))
-    Cy = (np.cos(mu)*np.sin(theta0)*np.sin(phi0) + np.sin(mu)*(np.sin(psi0)*np.cos(theta0)*np.sin(phi0)+np.cos(psi0)*np.cos(phi0)))
-    Cz = (np.cos(mu)*np.cos(theta0) - np.sin(mu)*np.sin(psi0)*np.sin(theta0))
+    Cx = (np.cos(mu)*sintheta_0*cosphi_0 + np.sin(mu)*(sinpsi_0*costheta_0*cosphi_0-cospsi_0*sinphi_0))
+    Cy = (np.cos(mu)*sintheta_0*sinphi_0 + np.sin(mu)*(sinpsi_0*costheta_0*sinphi_0+cospsi_0*cosphi_0))
+    Cz = (np.cos(mu)*costheta_0 - np.sin(mu)*sinpsi_0*sintheta_0)
     
-    OUT_lat = np.pi/2. - np.arccos(Cz)
-    OUT_lon = np.arctan(Cy/Cx)
+    xp_yp_zp = np.where(np.logical_and(Cx > 0, np.logical_and(Cy > 0, Cz > 0)))
+    xp_yp_zm = np.where(np.logical_and(Cx > 0, np.logical_and( Cy > 0, Cz < 0)))
+    xp_ym_zp = np.where(np.logical_and(Cx > 0, np.logical_and( Cy < 0, Cz > 0)))
+    xm_yp_zp = np.where(np.logical_and(Cx < 0, np.logical_and( Cy > 0, Cz > 0)))
+    xp_ym_zm = np.where(np.logical_and(Cx > 0, np.logical_and( Cy < 0, Cz < 0)))
+    xm_ym_zp = np.where(np.logical_and(Cx < 0, np.logical_and( Cy < 0, Cz > 0)))
+    xm_yp_zm = np.where(np.logical_and(Cx < 0, np.logical_and( Cy > 0, Cz < 0)))
+    xm_ym_zm = np.where(np.logical_and(Cx < 0, np.logical_and( Cy < 0, Cz < 0)))
+
+    OUT_lat = np.zeros(len(mu), float)
+    OUT_lon = np.zeros(len(mu), float)
+     
+    OUT_lat[xp_yp_zp] = np.pi/2. - np.arccos(Cz[xp_yp_zp])
+    OUT_lon[xp_yp_zp] = np.arctan(Cy[xp_yp_zp]/Cx[xp_yp_zp])
+
+    OUT_lat[xp_yp_zm] = np.pi/2. - np.arccos(Cz[xp_yp_zm])
+    OUT_lon[xp_yp_zm] = np.arctan(Cy[xp_yp_zm]/Cx[xp_yp_zm]) 
     
+    OUT_lat[xp_ym_zp] = np.pi/2. - np.arccos(Cz[xp_ym_zp])
+    OUT_lon[xp_ym_zp] = np.arctan(Cy[xp_ym_zp]/Cx[xp_ym_zp])
+    
+    OUT_lat[xm_yp_zp] = np.pi/2. - np.arccos(Cz[xm_yp_zp])
+    OUT_lon[xm_yp_zp] = np.arctan(Cy[xm_yp_zp]/Cx[xm_yp_zp]) + np.pi
+    
+    OUT_lat[xp_ym_zm] = np.pi/2. - np.arccos(Cz[xp_ym_zm])
+    OUT_lon[xp_ym_zm] = np.arctan(Cy[xp_ym_zm]/Cx[xp_ym_zm])
+    
+    OUT_lat[xm_ym_zp] = np.pi/2. - np.arccos(Cz[xm_ym_zp])
+    OUT_lon[xm_ym_zp] = np.arctan(Cy[xm_ym_zp]/Cx[xm_ym_zp]) - np.pi
+    
+    OUT_lat[xm_yp_zm] = np.pi/2. - np.arccos(Cz[xm_yp_zm])
+    OUT_lon[xm_yp_zm] = np.arctan(Cy[xm_yp_zm]/Cx[xm_yp_zm]) + np.pi
+    
+    OUT_lat[xm_ym_zm] = np.pi/2. - np.arccos(Cz[xm_ym_zm])
+    OUT_lon[xm_ym_zm] = np.arctan(Cy[xm_ym_zm]/Cx[xm_ym_zm]) -np.pi/2.   
+
     return OUT_lon, OUT_lat  # Output in radians
 
 def lonlat_from_azy_old(IN_az, IN_y, IN_lat_init, IN_lon_init, IN_heading_init, IN_unit="rad"):
