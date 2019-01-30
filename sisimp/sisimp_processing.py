@@ -239,10 +239,7 @@ class Processing(object):
             field_names = [field.name for field in wb_layer.schema]
             if self.my_attributes.height_name not in field_names:
                 my_api.exitWithError("%s attribute not found in %s; reference_height model option can't be applied" % (self.my_attributes.height_name, self.my_attributes.shapefile_path+".shp"))
-        # self.my_attributes.compute_pixc_vec_river to True only if self.my_attributes.create_pixc_vec_river is True and RIV_FLAG field is here
-        self.my_attributes.compute_pixc_vec_river = False
-        if self.my_attributes.create_pixc_vec_river and (wb_layer.FindFieldIndex(str("RIV_FLAG"), True) != -1):
-            self.my_attributes.compute_pixc_vec_river = True
+
 
         # Load the noise tab
         noise_file_path = ""
@@ -325,6 +322,12 @@ class Processing(object):
         except Exception:
             self.my_attributes.create_pixc_vec_river = False
             my_api.printInfo("No Create dummy pixc vec river file parameter set, no L2_HR_PIXCVecRiver file will be created")
+
+        # self.my_attributes.compute_pixc_vec_river to True only if self.my_attributes.create_pixc_vec_river is True and RIV_FLAG field is here
+        self.my_attributes.compute_pixc_vec_river = False
+        if self.my_attributes.create_pixc_vec_river and (wb_layer.FindFieldIndex(str("RIV_FLAG"), True) != -1):
+            self.my_attributes.compute_pixc_vec_river = True
+
 
     def run_processing(self):
         """Main process, computations are done here"""
