@@ -16,6 +16,7 @@ from osgeo import gdal, ogr
 from osgeo.gdalconst import GDT_Float32
 
 import numpy as np
+import scipy
 import sys
 import os
 import utm 
@@ -34,6 +35,7 @@ from cnes.modules.geoloc.lib.geoloc import pointcloud_height_geoloc_vect
 import lib.dark_water_functions as dark_water
 import proc_real_pixc
 import proc_real_pixc_vec_river
+from lib.my_lacs import Constant_Lac, Reference_height_Lac, Gaussian_Lac
 
 import mathematical_function as math_fct
 from scipy.spatial import cKDTree
@@ -132,6 +134,8 @@ class orbitAttributes:
         self.cospsi_init = None
         self.sinpsi_init = None
 
+        # 4 - List of each water body
+        self.liste_lacs = None
 
 def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
     """
@@ -174,9 +178,11 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
     cover = np.zeros((ny, nx), dtype='float64')
     cover_height = np.zeros((ny, nx), dtype='float64')
     cover_code = np.zeros((ny, nx), dtype='float64')
+    cover_ind_lac = np.zeros((ny, nx), dtype='int')
+    
     # Create 2 raster band if heights value come from shapefile
     #~ nb_rasterBand = [1, 2][IN_attributes.height_model == "reference_height" or IN_attributes.height_model == "gaussian" or IN_attributes.height_model == "polynomial"]
-    nb_rasterBand = 3
+    nb_rasterBand = 4
 
     ds = gdal.GetDriverByName(str('MEM')).Create('', nx, ny, nb_rasterBand, GDT_Float32)
     ds.SetGeoTransform([-0.5, 1, 0, -0.5, 0, 1])
@@ -192,6 +198,7 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
     # Analyse value in shapefile
     OUT_height_data = None
     OUT_code_data = None
+    OUT_ind_lac_data = None
     
     if IN_attributes.height_model == "reference_height":
         ds.GetRasterBand(2).WriteArray(cover_height)
@@ -207,10 +214,17 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
         # Get height pixels in lon-lat
         OUT_code_data = ds.GetRasterBand(3).ReadAsArray().astype(int)
  
+    ds.GetRasterBand(4).WriteArray(cover_ind_lac)
+    gdal.RasterizeLayer(ds, [4], layer, None, options=["ATTRIBUTE=IND_LAC"])
+    OUT_ind_lac_data = ds.GetRasterBand(4).ReadAsArray().astype(int)
+    
     # Close the raster
     ds = None
  
-    return OUT_burn_data, OUT_height_data, OUT_code_data
+    for i in IN_attributes.liste_lacs:
+        i.compute_pixels_in_given_lac(OUT_ind_lac_data)
+        
+    return OUT_burn_data, OUT_height_data, OUT_code_data, OUT_ind_lac_data
 
 def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_orbit_number, IN_attributes):
     """
@@ -311,76 +325,13 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     sign = [-1, 1][IN_swath.lower() == 'right']
     y = sign * np.sqrt((ri + Hi) * (ri - Hi) / (1. + Hi / GEN_APPROX_RAD_EARTH))
     lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg")
-    
-    # 4 - Height model    
-    ## TBD : Separate height model for each water body !!!
-    if size_of_tabs != 0.:
-        
-        # 4.1 - Constant elevation model
-        if IN_attributes.height_model is None:
-            # Compute theorical constant elevation for water pixels
-            elevation_tab = make_elevation_tab(az, IN_cycle_number, IN_attributes)
-      
-        # 4.2 - Gaussian model
-        elif IN_attributes.height_model == 'gaussian':
-            
-            # Compute theorical constant elevation for water pixels
-            elevation_tab = make_elevation_tab(az, IN_cycle_number, IN_attributes)
-            
-            # Add gaussian model over big lakes
-            for i in np.unique((IN_attributes.code[ind])):
-                indice=np.where(IN_attributes.code[ind]==i)
-                size_water_body = pixel_area[indice].sum()
-                if size_water_body > IN_attributes.height_model_min_area*10000.:
-                    ### First height model : random field convoluted with gaussian
-                    my_api.printInfo(str("Gaussian model applied for big water body of size %d ha" % int(size_water_body/10000)))
-                    rmin, rmax, azmin, azmax = r[indice].min(), r[indice].max(), az[indice].min(), az[indice].max()
-                    taille_r, taille_az = rmax-rmin+1, azmax-azmin+1
-                    indice_az = np.array(az[indice]-azmin)
-                    indice_r = np.array(r[indice]-rmin)
-                    height = height_model.generate_2d_profile_gaussian([taille_az, taille_r], 0., "Default", IN_attributes.height_model_stdv, FACT_ECHELLE)
-                    height_water = height[indice_az, indice_r]
-                    elevation_tab[indice] += height_water
 
-        # 4.3 - Polynomial model
-        elif IN_attributes.height_model == 'polynomial':
-            
-            # Compute theorical constant elevation for water pixels
-            elevation_tab = make_elevation_tab(az, IN_cycle_number, IN_attributes)
-            
-            # Add polynomial model over big lakes
-            for i in np.unique((IN_attributes.code[ind])):
-                indice=np.where(IN_attributes.code[ind]==i)
-                size_water_body = pixel_area[indice].sum()
-                if size_water_body > IN_attributes.height_model_min_area*10000.:
-        
-                    ### Second height model : 2D polynomial model (center in x0, y0)
-                    my_api.printInfo(str("Polynomial model applied for big water body of size %d ha" % int(size_water_body/10000)))
-                    x_c, y_c, zone_number, zone_letter = utm.from_latlon(lat[0], lon[0])
-                    # Convert pixel cloud to UTM (zone of the centroid)
-                    latlon = pyproj.Proj(init="epsg:4326")
-                    utm_proj = pyproj.Proj("+proj=utm +zone={}{} +ellps=WGS84 +datum=WGS84 +units=m +no_defs".format(zone_number, zone_letter))
-                    X, Y = pyproj.transform(latlon, utm_proj, lon[indice], lat[indice])                    
-                    k0 = np.random.randint(len(indice[0]))
-                    X0, Y0 = X[k0], Y[k0]
-                    height_water = height_model.generate_2d_profile_2nd_order_list(X0, Y0, X, Y, COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST)
-                    elevation_tab[indice] += height_water
-
-        # 4.4 - Height given by an attribute in input shapefile
-        elif IN_attributes.height_model == "reference_height" and IN_attributes.height_model_a_tab is not None:
-            elevation_tab = height_flag
-    
-        # 4.5 - Height given in a dedicated file
-        elif IN_attributes.height_model == "reference_file" and IN_attributes.trueheight_file is not None:
-            # Process true height model from Kevin Larnier
-            # TDB : Add security for lat lon boundaries
-            # TBD : Add specific model for 1D model (river)
-            true_height_model_inst = true_height_model.TrueHeightModel(IN_attributes.trueheight_file, lat, lon, verbose=True)
-            true_height_model_inst.apply_model()
-            elevation_tab = true_height_model_inst.final_height
+    elevation_tab = np.zeros(len(az))
     
 
-    # 5 - Error model
+    for lac in IN_attributes.liste_lacs:
+        elevation_tab[lac.pixels] = (lac.compute_h)(lat[lac.pixels], lon[lac.pixels])
+        #~ elevation_tab[ind] = (IN_attributes.h_function[i])(np.array(lat[ind]),np.array(lon[ind]))
 
 
     # 4.1 - Compute noise over height
@@ -676,6 +627,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     layerout.CreateField(ogr.FieldDefn(str('RIV_FLAG'), ogr.OFTInteger))
     layerout.CreateField(ogr.FieldDefn(str('HEIGHT'), ogr.OFTReal))
     layerout.CreateField(ogr.FieldDefn(str('CODE'), ogr.OFTInteger64))
+    layerout.CreateField(ogr.FieldDefn(str('IND_LAC'), ogr.OFTInteger64))
 
     floutDefn = layerout.GetLayerDefn()
     feature_out = ogr.Feature(floutDefn)
@@ -683,8 +635,12 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     # 4 - Convert coordinates for each water body polygon
     range_tab = []
     OUT_near_range = None
-    for polygon_index in layer:
+    
+    heau = []
+    liste_lac = []
+    for ind, polygon_index in enumerate(layer):
         geom = polygon_index.GetGeometryRef()
+        area = geom.GetArea()
         
         if geom is not None:  # Test geom.IsValid() not necessary
             # 4.1 - Fill RIV_FLAG flag
@@ -712,27 +668,40 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                
                 layerDefn = layer.GetLayerDefn()
                 
+                lac = None
                 
-                heau = 0
-                # Different height model to compute correct az, range depending on the "true" water level
                 if IN_attributes.height_model == None:
-                    orbit_time = math_fct.linear_extrap(lat, IN_attributes.lat_init[1:-1], IN_attributes.orbit_time)
-                    heau = np.mean(make_elevation_tab(orbit_time, IN_cycle_number, IN_attributes, mode = 'orbit_time'))
-                    
-                if IN_attributes.height_model == "reference_height":
-                    for i in range(layerDefn.GetFieldCount()):
-                        # Test 'HEIGHT' parameter in input shapefile fields
-                        if layerDefn.GetFieldDefn(i).GetName() == IN_attributes.height_name:
-                            h = polygon_index.GetField(str(IN_attributes.height_name))
-                            if h != None:
-                                heau = float(h)
-                                
-                az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, heau = heau)
+                    lac = Constant_Lac(ind, IN_attributes, lat, IN_cycle_number)
+
+                if IN_attributes.height_model == 'reference_height':
+                    lac = Reference_Lac(ind, layerDefn, IN_attributes)
+                
+                if IN_attributes.height_model == 'gaussian': 
+                    if area > 10e-6:
+                        my_api.printInfo(str("Gaussian model applied for big water body of size %d ha" % area))
+                        lac = Gaussian_Lac(ind, IN_attributes, lat, lon, IN_cycle_number)
+                    else:
+                        lac = Constant_Lac(ind, IN_attributes, lat, IN_cycle_number)
+                        
+                if IN_attributes.height_model == 'polynomial': 
+                    if area > 10e-6:
+                        my_api.printInfo(str("Polynomial model applied for big water body of size %d ha" % area))
+                        lac = Gaussian_Lac(ind, IN_attributes, lat, lon, IN_cycle_number)
+                    else:
+                        lac = Constant_Lac(ind, IN_attributes, lat, IN_cycle_number)
+                
+                if IN_attributes.height_model == "reference_file":
+                    if IN_attributes.trueheight_file is not None:
+                        lac = Height_in_file_Lac(ind, IN_attributes)
+                    else:
+                        lac = Constant_Lac(ind, IN_attributes, lat, IN_cycle_number)
+                          
+                az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, heau = np.mean(lac.compute_h(lat, lon)))
+                
                 range_tab = np.concatenate((range_tab, r), -1)
                 npoints = len(az)
                 if len(az) != len(lon):
                     my_api.printDebug("Ignore polygons crossing the swath")
-                    exit()
                     continue  # Ignore polygons crossing the swath
                 for p in range(npoints):  # no fonction ring.SetPoints()
                     ring.SetPoint(p, az[p], r[p])
@@ -759,9 +728,15 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                         feature_out.SetField(str("CODE"),polygon_index.GetField("code"))
                 if not height_from_shp:
                     IN_attributes.height_model_a_tab = None
+                
+                feature_out.SetField(str("IND_LAC"),ind)
+                
                 # Add the output feature to the output layer
                 layerout.CreateFeature(feature_out)
+                liste_lac.append(lac)
+                
     IN_attributes.swath_polygons = OUT_swath_polygons
+    IN_attributes.liste_lacs = liste_lac
     
     return OUT_filename, IN_attributes
 
@@ -777,26 +752,7 @@ def project_array(coordinates, srcp='latlon', dstp='geocent'):
     # Inversion of lat and lon !
     return np.dstack([fx, fy, fz])[0]
         
-def make_elevation_tab(IN_tab, IN_cycle_number, IN_attributes, mode = 'az'):
-    """
-    Make the elevation array without noise 
-    
-    :param IN_az: the azimuth indices
-    :type IN_az: 1D-array of int 
-    :param IN_cycle_number: cycle number of the currently processed orbit
-    :type IN_cycle_number: int
-    :param IN_attributes
-    :type IN_attributes
-
-    :return OUT_theorical_height: associated elevations
-    :rtype OUT_theorical_height: 1D-array of float
-    """
-    if mode == 'az':
-        return IN_attributes.height_model_a * np.sin(2*np.pi * ((IN_attributes.orbit_time[IN_tab] + IN_cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period) 
-    if mode == 'orbit_time':
-        return IN_attributes.height_model_a * np.sin(2*np.pi * ((IN_tab + IN_cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period) 
         
-
 def make_swath_polygon(IN_swath, IN_attributes):
     """Make left of right swath polygon
     

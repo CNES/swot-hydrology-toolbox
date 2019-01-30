@@ -143,9 +143,10 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
         return IN_attributes
     
     # 2 - Compute the intersection between the radar grid and the water bodies
-    water_pixels, IN_attributes.height_model_a_tab,  IN_attributes.code = write_poly.compute_pixels_in_water(fshp_reproj, False, IN_attributes)
+    water_pixels, IN_attributes.height_model_a_tab,  IN_attributes.code, IN_attributes.ind_lac = write_poly.compute_pixels_in_water(fshp_reproj, False, IN_attributes)
+    
     if IN_attributes.create_pixc_vec_river:
-        water_pixels_river, height_model_a_river_only, code_a_river_only = write_poly.compute_pixels_in_water(fshp_reproj, True, IN_attributes)
+        water_pixels_river, height_model_a_river_only, code_a_river_only, ind_lac_a_river_only = write_poly.compute_pixels_in_water(fshp_reproj, True, IN_attributes)
         water_pixels = water_pixels + water_pixels_river  # Land=0 ; Lake and other=1 ; River=2
     my_api.printInfo("-> water_pixels : nb_lignes=%d nb_col=%d" % (water_pixels.shape[0], water_pixels.shape[1]))
     
@@ -158,7 +159,7 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
         my_api.printInfo("Nb water pixels = 0 -> No output data file to write")
     else:
         write_poly.write_water_pixels_realPixC(water_pixels, swath, IN_cycle_number, IN_orbit_number, IN_attributes)
-
+    
     return IN_attributes
 
 
