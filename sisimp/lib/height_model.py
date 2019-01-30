@@ -34,18 +34,20 @@ def generate_1d_profile(taille_1D, hmean, hdev, l, plot=False):
         plt.show()
 
 
-def generate_2d_profile_gaussian(taille_2D, hmean, size_filter, hdev, fact_echelle, plot=False):
+def generate_2d_profile_gaussian(taille_2D, hmean, size_filter, hdev, fact_echelle, plot=False, seed = None):
 
     if size_filter == "Default":
         a = int(taille_2D[0] * fact_echelle)
         b = int(taille_2D[1] * fact_echelle)
         size_filter=[a,b]
+        
+    np.random.seed(seed)
     h = (np.random.rand(taille_2D[0],taille_2D[1])-0.5)
 
     filter = gauss_filter(size_filter)
     
     h_corr = signal.convolve(h,filter,mode='same') + hmean
-    h_corr = h_corr * hdev/((abs(h_corr.min()) + h_corr.max())/2.)
+    h_corr = 2*h_corr/(np.abs(np.amin(h_corr))+np.abs(np.amax(h_corr))) * hdev
     
     if plot:
         plt.figure()

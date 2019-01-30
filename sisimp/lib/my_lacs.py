@@ -1,0 +1,152 @@
+import mathematical_function as math_fct
+import numpy as np
+import lib.my_api as my_api
+import lib.height_model as height_model
+import lib.true_height_model as true_height_model
+import scipy
+import time
+import pyproj
+
+class Lac:
+
+    def __init__(self, num):
+        
+        self.num = num
+        self.seed = int(str(time.time()).split('.')[1])
+
+    def compute_pixels_in_given_lac(self, OUT_ind_lac_data):
+        
+        self.pixels = np.where(OUT_ind_lac_data == self.num)[0]
+        
+class Constant_Lac(Lac):
+    
+    def __init__(self, num, IN_attributes, lat, IN_cycle_number):
+        Lac.__init__(self, num)
+        self.height_model_a = IN_attributes.height_model_a
+        self.lat_init = IN_attributes.lat_init[1:-1]
+        self.cycle_number = IN_cycle_number
+        self.cycle_duration = IN_attributes.cycle_duration
+        self.height_model_t0 = IN_attributes.height_model_t0
+        self.height_model_period = IN_attributes.height_model_period
+        self.orbit_time = IN_attributes.orbit_time
+        
+        
+        self.time = math_fct.linear_extrap(lat, self.lat_init, IN_attributes.orbit_time)
+        self.mode = 'orbit_time'
+        
+    def compute_h(self, lat, lon):
+    
+        if self.mode == 'orbit_time':
+            self.mode = 'az' 
+        if self.mode == 'az':
+            self.time = math_fct.linear_extrap(lat, self.lat_init, self.orbit_time)
+            
+        return self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period
+
+
+class Reference_height_Lac(Lac):
+    
+    def __init__(self, num, layer, IN_attributes):
+        Lac.__init__(self, num)
+        self.height_name = IN_attributes.height_name
+        self.height = 0.
+        for i in range(layer.GetFieldCount()):
+        # Test 'HEIGHT' parameter in input shapefile fields
+            if layerDefn.GetFieldDefn(i).GetName() == self.height_name:
+                self.height = polygon_index.GetField(str(self.height_name))
+            
+    def compute_h(self, lat, lon):
+        return self.height
+        
+class Gaussian_Lac(Lac):
+    
+    def __init__(self, num, IN_attributes, lat, lon, IN_cycle_number):
+        Lac.__init__(self, num)
+        self.height_model_a = IN_attributes.height_model_a
+        self.lat_init = IN_attributes.lat_init[1:-1]
+        self.cycle_number = IN_cycle_number
+        self.cycle_duration = IN_attributes.cycle_duration
+        self.height_model_t0 = IN_attributes.height_model_t0
+        self.height_model_period = IN_attributes.height_model_period
+        self.orbit_time = IN_attributes.orbit_time
+        
+        self.time = math_fct.linear_extrap(lat, self.lat_init, self.orbit_time)
+        self.mode = 'orbit_time'
+        
+        self.height_model_stdv = IN_attributes.height_model_stdv
+        self.dlon =  10e-6
+        self.dlat =  10e-6
+        
+                
+        lonmin, lonmax, latmin, latmax = lon.min(), lon.max(), lat.min(), lat.max()
+
+    
+        taille_lon, taille_lat = np.int((lonmax-lonmin)/self.dlon), np.int((latmax-latmin)/self.dlat)
+        height = height_model.generate_2d_profile_gaussian([taille_lon, taille_lat], 0., "Default", self.height_model_stdv, 1, seed = self.seed)
+
+        self.h_interp = scipy.interpolate.RectBivariateSpline(lonmin + self.dlon*np.arange(taille_lon), latmin + self.dlat*np.arange(taille_lat), height)
+        
+    def compute_h(self, lat, lon):
+    
+        if self.mode == 'orbit_time':
+            self.mode = 'az' 
+        if self.mode == 'az':
+            self.time = math_fct.linear_extrap(lat, self.lat_init, self.orbit_time)
+            
+        h0 =  np.mean(self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period)
+
+        return h0 + self.h_interp.ev(lat,lon)
+                
+class Polynomial_Lac(Lac):
+    
+    def __init__(self, num, IN_attributes, lat, lon, IN_cycle_number):
+        Lac.__init__(self, num)
+        self.height_model_a = IN_attributes.height_model_a
+        self.lat_init = IN_attributes.lat_init[1:-1]
+        self.cycle_number = IN_cycle_number
+        self.cycle_duration = IN_attributes.cycle_duration
+        self.height_model_t0 = IN_attributes.height_model_t0
+        self.height_model_period = IN_attributes.height_model_period
+        self.orbit_time = IN_attributes.orbit_time
+        
+        
+        self.time = math_fct.linear_extrap(lat, self.lat_init, IN_attributes.orbit_time)
+        self.mode = 'orbit_time'
+    
+        
+    def compute_h(self, lat, lon):
+    
+        if self.mode == 'orbit_time':
+            self.mode = 'az' 
+        if self.mode == 'az':
+            self.time = math_fct.linear_extrap(lat, self.lat_init, self.orbit_time)
+            
+        h0 = self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period
+
+
+        x_c, y_c, zone_number, zone_letter = utm.from_latlon(lat[0], lon[0])
+        # Convert pixel cloud to UTM (zone of the centroid)
+        latlon = pyproj.Proj(init="epsg:4326")
+        utm_proj = pyproj.Proj("+proj=utm +zone={}{} +ellps=WGS84 +datum=WGS84 +units=m +no_defs".format(zone_number, zone_letter))
+        X, Y = pyproj.transform(latlon, utm_proj, lon, lat)                    
+        k0 = np.random.randint(len(lat))
+        X0, Y0 = X[k0], Y[k0]
+        height_water = height_model.generate_2d_profile_2nd_order_list(X0, Y0, X, Y, COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST)
+        
+        return h0 + height_water
+
+class Height_in_file_Lac(Lac):
+    # Process true height model from Kevin Larnier
+    # TDB : Add security for lat lon boundaries
+    # TBD : Add specific model for 1D model (river)
+    def __init__(self, num, IN_attributes):
+        Lac.__init__(self, num)
+        self.height_name = IN_attributes.height_name
+        self.trueheight_file = IN_attributes.trueheight_file
+            
+    def compute_h(self, lat, lon):
+        true_height_model_inst = true_height_model.TrueHeightModel(self.trueheight_file, lat, lon, verbose=True)
+        true_height_model_inst.apply_model()
+        return true_height_model_inst.final_height
+                   
+                    
