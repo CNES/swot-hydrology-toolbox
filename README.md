@@ -12,7 +12,7 @@ SWOT (Surface Water and Ocean Topography) is an innovative radar altimetry satel
 * Provide open-source tools that, together with JPL’s RiverObs tool (https://github.com/SWOTAlgorithms/RiverObs.git), enable end-users to generate virtually all SWOT HR level-2 (L2) products with fairly (but not fully) representative characteristics (see section on caveats below)
   * Get familiar with product content and formats, use the data to conduct studies...
 * Give end-users access to the L2+ processing prototypes 
-  * Validate methodology, propose improvements
+  * Validate methodology, propose improvements...
 * As far as possible let the toolbox correspond directly to the processing prototypes that are evolving towards operational processing chains 
   * Coded in high-level programming language (Python 3), for simple distribution, installation and use
 
@@ -25,8 +25,7 @@ Note that both algorithms and products are still under development and will be u
 * LOCNES: Generation of L2_HR_LAKE* and L2_HR_PIXC_VEC products 
 * Improved geolocation library (used by RiverObs and LOCNES)
 * Module to generate L2_HR_RASTER products (under development, not yet included)
-* Overall script permitting to run all steps consecutively 
-* A test dataset showing how to configure and run simulation and processing
+* Overall script permitting to run all steps consecutively (with example dataset)
 * Tools for file format conversion etc.
 * Potentially other modules in the future (for ex. floodplain DEM generation)
 
@@ -52,9 +51,13 @@ Although the large-scale simulator included in the toolbox provides fairly repre
   * Random effective instrument noise added to height (and propagated to geolocation)
 * Idealized pixel cloud processing (i.e. water detection, phase unwrapping etc. are implicitly assumed to be perfect)
 
+```
+If a higher degree of realism is necessary to conduct a study, lower-level simulators and processors need to be employed. 
+These are not publicly available, but SWOT science team members can contact the SWOT algorithm development team for support. 
+```
 
 Products formats and algorithms:
-* The product formats are not et in their final version, but are regularly updated to reflect the current working definitions, and will evolve into the official product formats as and when these are defined. Some data fields are at this stage void (various flags, uncertainty indicators…).
+* The product formats are not yet in their final version, but are regularly updated to reflect the current working definitions, and will evolve into the official product formats as and when these are defined. Some data fields are at this stage void (various flags, uncertainty indicators…).
 * The processing algorithms will also continue to evolve, as today's prototypes are progessively refined into operational software. 
 
 ## Installation procedure
@@ -146,7 +149,7 @@ export PYTHONPATH=$SWOT_HYDROLOGY_TOOLBOX/processing/src/:$RIVEROBS/src:$PYTHONP
 
 An example dataset showing how to configure and run simulation and processing is available under /test.
 
-The needed input for the overall chain includes :
+The needed input for the overall chain include:
 * An orbit file (provided)
 * A water mask in shapefile format covering the area you want so simulate (see example under /test)
 * A river database in shapefile format (e.g. GRWL)
