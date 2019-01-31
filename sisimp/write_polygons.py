@@ -24,7 +24,7 @@ import pyproj
 
 import lib.my_api as my_api
 
-from lib.my_variables import COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST, FACT_ECHELLE, RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
+from lib.my_variables import RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
 
 import lib.height_model as height_model
 import lib.true_height_model as true_height_model
@@ -35,10 +35,11 @@ from cnes.modules.geoloc.lib.geoloc import pointcloud_height_geoloc_vect
 import lib.dark_water_functions as dark_water
 import proc_real_pixc
 import proc_real_pixc_vec_river
-from lib.my_lacs import Constant_Lac, Reference_height_Lac, Gaussian_Lac
+from lib.my_lacs import Constant_Lac, Reference_height_Lac, Gaussian_Lac, Polynomial_Lac, Height_in_file_Lac
 
 import mathematical_function as math_fct
 from scipy.spatial import cKDTree
+import matplotlib.pyplot as plt
 
 
 class orbitAttributes:
@@ -223,8 +224,7 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
  
     for i in IN_attributes.liste_lacs:
         i.compute_pixels_in_given_lac(OUT_ind_lac_data)
-        
-    return OUT_burn_data, OUT_height_data, OUT_code_data, OUT_ind_lac_data
+    return OUT_burn_data, OUT_height_data, OUT_code_data, OUT_ind_lac_data, IN_attributes
 
 def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_orbit_number, IN_attributes):
     """
@@ -324,16 +324,17 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # Compute theorical cross-track distance for water pixels
     sign = [-1, 1][IN_swath.lower() == 'right']
     y = sign * np.sqrt((ri + Hi) * (ri - Hi) / (1. + Hi / GEN_APPROX_RAD_EARTH))
-    lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg")
 
     elevation_tab = np.zeros(len(az))
-    
-
+        
     for lac in IN_attributes.liste_lacs:
-        elevation_tab[lac.pixels] = (lac.compute_h)(lat[lac.pixels], lon[lac.pixels])
-        #~ elevation_tab[ind] = (IN_attributes.h_function[i])(np.array(lat[ind]),np.array(lon[ind]))
+        
+        indice = np.where(np.logical_and(np.isin(r, lac.pixels[0]), np.isin(az, lac.pixels[1])))  # Get indices 1=lake and 2=river (remove 0=land)
 
-
+        lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h = lac.hmean)
+        elevation_tab[indice] = (lac.compute_h)(lat[indice], lon[indice])
+      
+      
     # 4.1 - Compute noise over height
     if IN_attributes.dark_water.lower() == "yes" :
         delta_h=np.zeros(elevation_tab.shape)
@@ -372,25 +373,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
        
     # 5.3 - Compute final noisy heights (elevation + thermal noise + roll error + height model) 
     elevation_tab_noisy = elevation_tab + delta_h           
-       
-    # 5.4 - Compute noise over geolocation
-    
-    #~ delta_y = math_fct.calc_delta_sensor(delta_h, Hi, y, ri)
-    delta_y = math_fct.calc_delta_sensor(delta_h, Hi, y)
-    
-    # 5.5 - Add noise over geolocation if asked
-    if IN_attributes.geolocalisation_improvement in ['no', 'non', 'not', 'false', 'nope']:
-        my_api.printInfo("Add noise to cross track")
-        y_noisy = y + delta_y
-    else:
-        my_api.printInfo("Geolocalisation improvement")
-        y_noisy = y   
-         
-    # 6 - Build geolocation arrays
-    # 6.1 - With no noise
-    lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath) 
-    lon *= RAD2DEG
-    lat *= RAD2DEG
     
     # 7 - Build velocity arrays
     nb_pix_nadir = IN_attributes.x.size  # Nb pixels at nadir
@@ -406,9 +388,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     for indp in range(1, nb_pix_nadir-1):
         vx[indp], vy[indp], vz[indp] = [(IN_attributes.x[indp+1] - IN_attributes.x[indp-1]), (IN_attributes.y[indp+1] - IN_attributes.y[indp-1]), (IN_attributes.z[indp+1] - IN_attributes.z[indp-1])] / (IN_attributes.orbit_time[indp+1] - IN_attributes.orbit_time[indp-1])
  
-    # 8 - Compute noisy geolocation and height
-    complex_latlon_noise = False
-   
+
     # Convert nadir latitudes/longitudes in degrees
     nadir_lat_deg = IN_attributes.lat[1:-1] * RAD2DEG
     nadir_lon_deg = IN_attributes.lon[1:-1] * RAD2DEG
@@ -420,35 +400,10 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     nadir_alt = IN_attributes.alt[1:-1]
     nadir_heading = IN_attributes.heading[1:-1]
      
-    
-    if (size_of_tabs != 0.) & (complex_latlon_noise == True):
-        my_api.printInfo("Complex latlon noise applied from improved geoloc module")
-        
-        # Update positions
-        
-        p = project_array((np.vstack([lat, lon, elevation_tab])).T, srcp='latlon', dstp='geocent')
-        s1 = project_array((np.vstack([nadir_lon_deg[az], nadir_lat_deg[az], nadir_alt[az]])).T, srcp='latlon', dstp='geocent')
-        s = np.transpose([nadir_x[az], nadir_y[az], nadir_z[az]])
-
-
-        ri_new = np.sqrt((p[:,0]-s[:,0])**2+(p[:,1]-s[:,1])**2+(p[:,2]-s[:,2])**2)
-                                                   
-        p_final, p_final_llh, h_mu, (iter_grad,nfev_minimize_scalar) = pointcloud_height_geoloc_vect(p, elevation_tab,
-                                                   s, np.transpose(np.array([vx[az], vy[az], vz[az]])), 
-                                            ri_new, elevation_tab_noisy, 
-                                            recompute_Doppler=True, 
-                                            #if False uses 0 Doppler, else the value computed from p, s, vs
-                                            recompute_R=True,
-                                            verbose = False,
-                                            max_iter_grad=1, height_goal = 1.e-3, safe_flag=True)
-     
-
-        lat_noisy, lon_noisy, elevation_tab_noisy = p_final_llh[:,0], p_final_llh[:,1], p_final_llh[:,2]
-
-    else:
-        lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, h = elevation_tab +delta_h)
-        lon_noisy *= RAD2DEG  # Conversion in degrees
-        lat_noisy *= RAD2DEG  # Conversion in degrees 
+ 
+    lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, h = elevation_tab +delta_h)
+    lon_noisy *= RAD2DEG  # Conversion in degrees
+    lat_noisy *= RAD2DEG  # Conversion in degrees 
         
     
     ######################
@@ -640,7 +595,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     liste_lac = []
     for ind, polygon_index in enumerate(layer):
         geom = polygon_index.GetGeometryRef()
-        area = geom.GetArea()
         
         if geom is not None:  # Test geom.IsValid() not necessary
             # 4.1 - Fill RIV_FLAG flag
@@ -666,37 +620,57 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 lon = points[0] * DEG2RAD
                 lat = points[1] * DEG2RAD
                
+               
+                x_c, y_c, zone_number, zone_letter = utm.from_latlon(lat[0], lon[0])
+                latlon = pyproj.Proj(init="epsg:4326")
+                utm_proj = pyproj.Proj("+proj=utm +zone={}{} +ellps=WGS84 +datum=WGS84 +units=m +no_defs".format(zone_number, zone_letter))
+                X, Y = pyproj.transform(latlon, utm_proj, lon, lat) 
+                
+                ring_xy = ogr.Geometry(ogr.wkbLinearRing)
+                for i in range(len(X)):
+                    ring_xy.AddPoint(X[i],Y[i])
+                poly_xy = ogr.Geometry(ogr.wkbPolygon)
+                poly_xy.AddGeometry(ring_xy)
+                area = poly_xy.GetArea()
+           
                 layerDefn = layer.GetLayerDefn()
                 
                 lac = None
                 
                 if IN_attributes.height_model == None:
-                    lac = Constant_Lac(ind, IN_attributes, lat, IN_cycle_number)
+                    lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
 
                 if IN_attributes.height_model == 'reference_height':
-                    lac = Reference_Lac(ind, layerDefn, IN_attributes)
+                    lac = Reference_Lac(ind+1, layerDefn, IN_attributes)
                 
                 if IN_attributes.height_model == 'gaussian': 
-                    if area > 10e-6:
-                        my_api.printInfo(str("Gaussian model applied for big water body of size %d ha" % area))
-                        lac = Gaussian_Lac(ind, IN_attributes, lat, lon, IN_cycle_number)
+                    if area > IN_attributes.height_model_min_area:
+                        print(ind+1)
+                        my_api.printInfo(str("Gaussian model applied for big water body of size %f ha" % area))
+                        lac = Gaussian_Lac(ind+1, IN_attributes, lat, lon, IN_cycle_number)
                     else:
-                        lac = Constant_Lac(ind, IN_attributes, lat, IN_cycle_number)
+                        lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
                         
                 if IN_attributes.height_model == 'polynomial': 
-                    if area > 10e-6:
-                        my_api.printInfo(str("Polynomial model applied for big water body of size %d ha" % area))
-                        lac = Gaussian_Lac(ind, IN_attributes, lat, lon, IN_cycle_number)
+                    if area > IN_attributes.height_model_min_area:
+                        my_api.printInfo(str("Polynomial model applied for big water body of size %f ha" % area))
+                        lac = Polynomial_Lac(ind+1, IN_attributes, lat, lon, IN_cycle_number)
                     else:
-                        lac = Constant_Lac(ind, IN_attributes, lat, IN_cycle_number)
+                        lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
                 
                 if IN_attributes.height_model == "reference_file":
                     if IN_attributes.trueheight_file is not None:
-                        lac = Height_in_file_Lac(ind, IN_attributes)
+                        lac = Height_in_file_Lac(ind+1, IN_attributes)
                     else:
-                        lac = Constant_Lac(ind, IN_attributes, lat, IN_cycle_number)
-                          
-                az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, heau = np.mean(lac.compute_h(lat, lon)))
+                        lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
+                        
+                lac.set_hmean(np.mean(lac.compute_h(lat, lon)))
+                
+                #~ plt.figure()
+                #~ plt.plot(lac.compute_h(lat, lon))
+                #~ plt.show()
+                
+                az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, heau = lac.hmean)
                 
                 range_tab = np.concatenate((range_tab, r), -1)
                 npoints = len(az)
@@ -729,7 +703,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 if not height_from_shp:
                     IN_attributes.height_model_a_tab = None
                 
-                feature_out.SetField(str("IND_LAC"),ind)
+                feature_out.SetField(str("IND_LAC"),ind+1)
                 
                 # Add the output feature to the output layer
                 layerout.CreateFeature(feature_out)

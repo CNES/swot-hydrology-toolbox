@@ -6,6 +6,10 @@ import lib.true_height_model as true_height_model
 import scipy
 import time
 import pyproj
+import utm
+
+from lib.my_variables import COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST, FACT_ECHELLE
+
 
 class Lac:
 
@@ -13,10 +17,12 @@ class Lac:
         
         self.num = num
         self.seed = int(str(time.time()).split('.')[1])
-
-    def compute_pixels_in_given_lac(self, OUT_ind_lac_data):
+        self.hmean = None
         
-        self.pixels = np.where(OUT_ind_lac_data == self.num)[0]
+    def compute_pixels_in_given_lac(self, OUT_ind_lac_data):
+        self.pixels = np.where(OUT_ind_lac_data == self.num)        
+    def set_hmean(self, hmean):
+        self.hmean = hmean
         
 class Constant_Lac(Lac):
     
@@ -36,10 +42,11 @@ class Constant_Lac(Lac):
         
     def compute_h(self, lat, lon):
     
-        if self.mode == 'orbit_time':
-            self.mode = 'az' 
         if self.mode == 'az':
             self.time = math_fct.linear_extrap(lat, self.lat_init, self.orbit_time)
+    
+        if self.mode == 'orbit_time':
+            self.mode = 'az' 
             
         return self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period
 
@@ -74,24 +81,28 @@ class Gaussian_Lac(Lac):
         self.mode = 'orbit_time'
         
         self.height_model_stdv = IN_attributes.height_model_stdv
-        self.dlon =  10e-6
-        self.dlat =  10e-6
+
+        self.dlon =  10e-7
+        self.dlat =  10e-7
         
                 
         lonmin, lonmax, latmin, latmax = lon.min(), lon.max(), lat.min(), lat.max()
 
-    
         taille_lon, taille_lat = np.int((lonmax-lonmin)/self.dlon), np.int((latmax-latmin)/self.dlat)
-        height = height_model.generate_2d_profile_gaussian([taille_lon, taille_lat], 0., "Default", self.height_model_stdv, 1, seed = self.seed)
-
-        self.h_interp = scipy.interpolate.RectBivariateSpline(lonmin + self.dlon*np.arange(taille_lon), latmin + self.dlat*np.arange(taille_lat), height)
+        
+        self.height = height_model.generate_2d_profile_gaussian(self.dlat, latmin, latmax, self.dlon, lonmin, lonmax, self.height_model_stdv, seed = self.seed)
+        
+        
+        print(self.height.shape, taille_lat, taille_lon)
+        self.h_interp = scipy.interpolate.RectBivariateSpline(latmin + self.dlat*np.arange(taille_lat),lonmin + self.dlon*np.arange(taille_lon),  self.height)
         
     def compute_h(self, lat, lon):
     
-        if self.mode == 'orbit_time':
-            self.mode = 'az' 
         if self.mode == 'az':
             self.time = math_fct.linear_extrap(lat, self.lat_init, self.orbit_time)
+    
+        if self.mode == 'orbit_time':
+            self.mode = 'az' 
             
         h0 =  np.mean(self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period)
 
@@ -109,29 +120,31 @@ class Polynomial_Lac(Lac):
         self.height_model_period = IN_attributes.height_model_period
         self.orbit_time = IN_attributes.orbit_time
         
-        
         self.time = math_fct.linear_extrap(lat, self.lat_init, IN_attributes.orbit_time)
         self.mode = 'orbit_time'
     
+        x_c, y_c, zone_number, zone_letter = utm.from_latlon(lat[0], lon[0])
+        # Convert pixel cloud to UTM (zone of the centroid)
+        self.latlon = pyproj.Proj(init="epsg:4326")
+        self.utm_proj = pyproj.Proj("+proj=utm +zone={}{} +ellps=WGS84 +datum=WGS84 +units=m +no_defs".format(zone_number, zone_letter))
+        X, Y = pyproj.transform(self.latlon, self.utm_proj, lon, lat)                    
+        k0 = np.random.randint(len(lat))
+        self.X0, self.Y0 = X[k0], Y[k0]
+        
         
     def compute_h(self, lat, lon):
     
-        if self.mode == 'orbit_time':
-            self.mode = 'az' 
+
         if self.mode == 'az':
             self.time = math_fct.linear_extrap(lat, self.lat_init, self.orbit_time)
-            
-        h0 = self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period
+    
+        if self.mode == 'orbit_time':
+            self.mode = 'az' 
+                        
+        h0 = np.mean(self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period)
 
-
-        x_c, y_c, zone_number, zone_letter = utm.from_latlon(lat[0], lon[0])
-        # Convert pixel cloud to UTM (zone of the centroid)
-        latlon = pyproj.Proj(init="epsg:4326")
-        utm_proj = pyproj.Proj("+proj=utm +zone={}{} +ellps=WGS84 +datum=WGS84 +units=m +no_defs".format(zone_number, zone_letter))
-        X, Y = pyproj.transform(latlon, utm_proj, lon, lat)                    
-        k0 = np.random.randint(len(lat))
-        X0, Y0 = X[k0], Y[k0]
-        height_water = height_model.generate_2d_profile_2nd_order_list(X0, Y0, X, Y, COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST)
+        X, Y = pyproj.transform(self.latlon, self.utm_proj, lon, lat)
+        height_water = height_model.generate_2d_profile_2nd_order_list(self.X0, self.Y0, X, Y, COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST)
         
         return h0 + height_water
 

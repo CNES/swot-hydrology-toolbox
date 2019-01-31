@@ -129,15 +129,9 @@ class Processing(object):
             self.my_attributes.nb_pix_range = read_parameter(parameters, "Number of pixels in range", NB_PIX_RANGE, int)
             self.my_attributes.orbit_jitter = read_parameter(parameters, "Orbit jitter", ORBIT_JITTER, float)
 
-            # Height model parameters
+            # Height model parameter
             self.my_attributes.height_model = read_parameter(parameters, "Height model", HEIGHT_MODEL, str)
-            self.my_attributes.height_name = read_parameter(parameters, "Height name", "HEIGHT", str)
-            self.my_attributes.height_model_a = read_parameter(parameters, "Height model A", HEIGHT_MODEL_A, float)
-            self.my_attributes.height_model_t0 = read_parameter(parameters, "Height model t0", HEIGHT_MODEL_t0, float)
-            self.my_attributes.height_model_period = read_parameter(parameters, "Height model period", HEIGHT_MODEL_PERIOD, float)
-            self.my_attributes.height_model_min_area = read_parameter(parameters, "Height model min area", HEIGHT_MODEL_MIN_AREA, float)
-            self.my_attributes.height_model_stdv = read_parameter(parameters, "Height model stdv", HEIGHT_MODEL_STDV, float)
-
+    
             # True height file
             try:
                 self.my_attributes.trueheight_file = parameters.getValue("True height file")
@@ -183,10 +177,10 @@ class Processing(object):
                     self.my_attributes.height_model_t0 = read_parameter(parameters, "Constant height model t0", HEIGHT_MODEL_t0, float)
                     self.my_attributes.height_model_period = read_parameter(parameters, "Constant height model period", HEIGHT_MODEL_PERIOD, float)
                     # Specific attributes
-                    self.my_attributes.height_model_min_area = read_parameter(parameters, "2d height model min area", HEIGHT_MODEL_MIN_AREA, float)
+                    self.my_attributes.height_model_min_area = read_parameter(parameters, "Height 2d model min area", HEIGHT_MODEL_MIN_AREA, float)
                     # Only for gaussian model
                     if self.my_attributes.height_model == "gaussian":
-                        self.my_attributes.height_model_stdv = read_parameter(parameters, "2d height model stdv", HEIGHT_MODEL_STDV, float)
+                        self.my_attributes.height_model_stdv = read_parameter(parameters, "Height 2d model stdv", HEIGHT_MODEL_STDV, float)
                     
                 elif self.my_attributes.height_model == "reference_height":
                     self.my_attributes.height_name = read_parameter(parameters, "Height shp attribute name", "HEIGHT", str)

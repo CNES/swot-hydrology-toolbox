@@ -33,8 +33,46 @@ def generate_1d_profile(taille_1D, hmean, hdev, l, plot=False):
         plt.plot(hh)
         plt.show()
 
+def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, height_model_stdv, plot=False, seed = None):
+    
+    Nx = int((latmax-latmin)/dlat)
+    Ny = int((lonmax-lonmin)/dlon)
 
-def generate_2d_profile_gaussian(taille_2D, hmean, size_filter, hdev, fact_echelle, plot=False, seed = None):
+    lx = 500*dlat
+    ly = 500*dlon
+    
+
+    np.random.seed(seed)
+    kx = np.fft.fftfreq(Nx, d=dlon)
+    ky = np.fft.rfftfreq(Ny, d=dlat)
+    
+    hij_real = np.random.normal(0., height_model_stdv/np.sqrt(2), (len(kx),len(ky)))
+    hij_imag = np.random.normal(0., height_model_stdv/np.sqrt(2), (len(kx),len(ky)))
+
+    hij = hij_real + 1j*hij_imag
+    
+    filterkx = np.where(np.abs(kx)>  1/lx, 0, 1)
+    filterky = np.where(np.abs(ky)>  1/ly, 0, 1)
+    
+    kxv, kyv = np.meshgrid(filterky,filterkx)
+        
+    hij = hij*kxv*kyv
+    
+    deltakx = 1/Nx/dlon
+    deltaky = 1/Ny/dlat
+        
+    h_corr = np.sqrt((Nx*Ny/(4*dlon*dlat/lx/ly)))*np.fft.irfft2(hij, s=(Nx,Ny))
+
+    if plot:
+        plt.figure()
+        plt.imshow(h_corr)
+        plt.show()
+        
+    return h_corr
+
+
+
+def generate_2d_profile_gaussian_old(taille_2D, hmean, size_filter, hdev, fact_echelle, plot=False, seed = None):
 
     if size_filter == "Default":
         a = int(taille_2D[0] * fact_echelle)
@@ -67,31 +105,7 @@ def gauss_filter(size_filter, plot=False):
     g = np.exp(-0.333*(x**2/float(sizex)+y**2/float(sizey)))
     return g/g.sum()
 
-'''
-def generate_2d_profile_2nd_order_list(size_x, size_y, x0, y0, a0, b0, c0, d0, e0, f0, plot=False):
-     
-    a = np.arange(size_x,dtype=float)
-    b = np.ones((1,size_x))
-    x=np.kron(a,b.transpose())
-    
-    a = np.arange(size_x,dtype=float)
-    b = np.ones((1,size_x))
-    y=np.kron(a,b.transpose()).transpose()
-    
-    X = x-x0
-    Y = y-y0
-    
-    h = a0*X**2 + b0*Y**2 + c0*X + d0*Y + e0*X*Y + f0 
-    
-    if plot:
-        print(h)
-        plt.figure()
-        plt.imshow(h)
-        plt.colorbar()
-        plt.show()
-         
-    return h
-'''
+
 
 def generate_2d_profile_2nd_order_list(x0, y0, x, y, a0, b0, c0, d0, e0, f0):
 
