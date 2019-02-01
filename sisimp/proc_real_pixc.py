@@ -354,7 +354,8 @@ class l2_hr_pixc(object):
         fill_vector_param(np.zeros(self.nb_water_pix), 'geoid', self.nb_water_pix, data, group=pixc)
         data.add_variable('surface_type_flag', np.float64, 'points', np.float(noval), compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'surface_type_flag', self.nb_water_pix, data, group=pixc)
-        
+        data.add_variable('pixc_qual', np.float64, 'points', np.float(noval), compress, group=pixc)
+        fill_vector_param(np.zeros(self.nb_water_pix), 'pixc_qual', self.nb_water_pix, data, group=pixc)        
         # some new vars 11/01/2019
     
      
@@ -427,7 +428,11 @@ class l2_hr_pixc(object):
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'minus_y_antenna_z', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('record_counter', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'record_counter', self.nb_nadir_pix, data, group=sensor) 
-        
+        data.add_variable('sc_event_flag', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        fill_vector_param(np.zeros(self.nb_nadir_pix), 'sc_event_flag', self.nb_nadir_pix, data, group=sensor) 
+        data.add_variable('tvp_qual', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        fill_vector_param(np.zeros(self.nb_nadir_pix), 'tvp_qual', self.nb_nadir_pix, data, group=sensor) 
+                
         data.add_global_attribute('description', 'Time varying parameters group  including spacecraft attitude, position, velocity,  and antenna position information', group = sensor)    
  
  
