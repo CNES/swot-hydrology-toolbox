@@ -196,9 +196,9 @@ class l2_hr_pixc(object):
         data.add_global_attribute('contact', 'None')
         data.add_global_attribute('cycle_number', self.cycle_num)
         data.add_global_attribute('pass_number', np.int(self.pass_num))
-        data.add_global_attribute('tile_name', self.tile_ref)
+        data.add_global_attribute('tile_number', int(self.tile_ref[0:-1]))
         data.add_global_attribute('swath_side', self.tile_ref[-1])
-        data.add_global_attribute('tile_number', self.tile_ref)
+        data.add_global_attribute('tile_name', "%03d_%03d%s" % (np.int(self.pass_num), int(self.tile_ref[0:-1]), self.tile_ref[-1]))
 
         data.add_global_attribute("wavelength", 0.008385803020979)
         ### WARNING HERE, TO BE CHANGED

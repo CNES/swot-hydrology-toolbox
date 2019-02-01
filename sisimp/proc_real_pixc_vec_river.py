@@ -166,7 +166,9 @@ class l2_hr_pixc_vec_river(object):
         data.add_global_attribute('repeat_cycle_period', self.cycle_duration)
         data.add_global_attribute('cycle_number', self.cycle_num)
         data.add_global_attribute('pass_number', np.int(self.pass_num))
-        data.add_global_attribute('tile_name', self.tile_ref)
+        data.add_global_attribute('tile_number', int(self.tile_ref[0:-1]))
+        data.add_global_attribute('swath_side', self.tile_ref[-1])
+        data.add_global_attribute('tile_name', "%03d_%03d%s" % (np.int(self.pass_num), int(self.tile_ref[0:-1]), self.tile_ref[-1]))
         data.add_global_attribute('interferogram_size_range', self.nb_pix_range)    
         data.add_global_attribute('interferogram_size_azimuth', self.nb_pix_azimuth)   
         
