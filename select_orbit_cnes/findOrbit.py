@@ -96,9 +96,9 @@ class findOrbit(object):
                     print("  Number of sampling point = %d" % nb_sampling_points)
 
                     # Cut valid files and save in new files
-                    pass_num = int(orbit_file.split('.')[0].split("_")[-1]) + 1  # Compute pass number wrt SWOT KMLs available on AVISO+
+                    pass_num = int(orbit_file.split('.')[0].split("_")[-1]) + 332  # Compute pass number wrt SWOT KMLs available on AVISO+ (sept2015-v2)
                     if pass_num > 584:
-                        pass_num = pass_num % 585 + 1
+                        pass_num -= 584
                     out_filename = file_prefix + "_cycle_0000_pass_%04d.nc" % pass_num
                     print("  Save as %s" % out_filename)
                     output_orbit_file = Dataset(out_filename, "w", format="NETCDF4")
