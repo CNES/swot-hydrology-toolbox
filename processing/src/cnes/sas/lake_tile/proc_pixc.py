@@ -26,7 +26,6 @@ from osgeo import ogr, osr
 from scipy import interpolate
 import logging
 
-import cnes.common.lib.my_api as my_api
 import cnes.common.lib.my_basins as my_basins
 import cnes.common.lib.my_netcdf_file as my_nc
 import cnes.common.lib.my_tools as my_tools
@@ -90,9 +89,8 @@ class PixelCloud(object):
             nb_edge_pix / int: number of pixels contained in objects at top/bottom edges
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("[PixelCloud] == INIT ==")
-        logger.info("[PixelCloud] L2_HR_PIXC file = %s" % IN_pixc_file)
-        TMP_print = "[PixelCloud] Keeping pixels with classification flags ="
+        logger.info("L2_HR_PIXC file = %s" % IN_pixc_file)
+        TMP_print = "Keeping pixels with classification flags ="
         if my_var.FLAG_WATER != "":
             TMP_print += " %s (WATER)" % my_var.FLAG_WATER
         if my_var.FLAG_DARK != "":
@@ -141,9 +139,9 @@ class PixelCloud(object):
         # 2.1 - Flag rejected pixels in a specific way
         TMP_classif = self.origin_classif  # Init temporary classif vector
         if IN_idx_reject is None:
-            logger.info("[PixelCloud] No pixel to be rejected")
+            logger.info("No pixel to be rejected")
         else:
-            logger.info("[PixelCloud] %d pixels to be rejected" % IN_idx_reject.size)
+            logger.info("%d pixels to be rejected" % IN_idx_reject.size)
             TMP_classif[IN_idx_reject] = 100  # Dummy value to ease selection hereafter
         # 2.2 - Build list of classification flags to keep
         TMP_flags = ""
@@ -163,7 +161,7 @@ class PixelCloud(object):
         self.selected_idx = None  # Init wanted indices vector
         for classif_flag in list_classif_flags:
             vInd = np.where(TMP_classif == int(classif_flag))[0]
-            logger.info("[PixelCloud] %d pixels with classification flag = %d" % (vInd.size, int(classif_flag)))
+            logger.info("%d pixels with classification flag = %d" % (vInd.size, int(classif_flag)))
             if vInd.size != 0:
                 if self.selected_idx is None:
                     self.selected_idx = vInd
@@ -173,7 +171,7 @@ class PixelCloud(object):
             self.nb_selected = 0
         else:
             self.nb_selected = self.selected_idx.size
-        logger.info("[PixelCloud] => %d pixels to keep" % self.nb_selected)
+        logger.info("=> %d pixels to keep" % self.nb_selected)
 
         # 3 - Keep PixC data only for selected pixels
         if self.nb_selected != 0:
@@ -207,13 +205,13 @@ class PixelCloud(object):
             # It will produced an ensemble unbiased estimate if the class mean cross sections are known.
             if IN_use_fractional_inundation is None:
 
-                logger.info("[PixelCloud] Fractional inundation not used")
+                logger.info("Fractional inundation not used")
                 # All water pixels are supposed inundated
                 self.fractional_inundation = None
                 self.inundated_area = self.pixel_area
 
             else:
-                logger.info("[PixelCloud] Fractional inundation used!")
+                logger.info("Fractional inundation used!")
 
                 # Get continuous classification (water fraction)
                 self.fractional_inundation = pixc_reader.getVarValue("continuous_classification", IN_group=pixc_group)[self.selected_idx]
@@ -230,7 +228,7 @@ class PixelCloud(object):
                 # Update it when use_fractional_inundation for class i is True
                 for i, k in enumerate(list_classif_flags):
                     if ast.literal_eval(use_fractional_inundation[i]):
-                        logger.info("[PixelCloud] use_fractional_inundation[{}]: {} for class: {}".format(i, use_fractional_inundation[i], k))
+                        logger.info("[use_fractional_inundation[{}]: {} for class: {}".format(i, use_fractional_inundation[i], k))
                         index = np.where(classif_idx == int(k))
                         self.inundated_area[index] = self.pixel_area[index] * self.fractional_inundation[index]
 
@@ -256,19 +254,7 @@ class PixelCloud(object):
             self.nadir_vy = pixc_reader.getVarValue("vy", IN_group=sensor_group)[nadir_idx]
             self.nadir_vz = pixc_reader.getVarValue("vz", IN_group=sensor_group)[nadir_idx]
             # Near range distance at each nadir point 
-            # ***** TODO: A MODIFIER quand décidé
-            
-            
-            #~ try:
             self.near_range = pixc_reader.getAttValue("near_range")
-            #~ except KeyError:
-                #~ try:
-                    #~ self.near_range = pixc_reader.getAttValue("near_range", IN_group=sensor_group) * np.ones(np.shape(self.nadir_x))[nadir_idx]
-                #~ except AttributeError:
-                    #~ try:
-                        #~ self.near_range = pixc_reader.getVarValue("near_range", IN_group=pixc_group)[nadir_idx]
-                    #~ except KeyError:
-                        #~ self.near_range = pixc_reader.getAttValue("near_range", IN_group=pixc_group) * np.ones(np.shape(self.nadir_x))[nadir_idx]
                     
         # 4.8 - Close file
         pixc_reader.close()
@@ -300,7 +286,7 @@ class PixelCloud(object):
         :rtype: 2D binary matrix of int 0/1
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("[PixelCloud] == computeWaterMask ==")
+        logger.info("- start -")
 
         return my_tools.computeBinMat(self.nb_pix_range, self.nb_pix_azimuth, self.range_idx, self.azimuth_idx)
 
@@ -309,7 +295,7 @@ class PixelCloud(object):
         Identify all separate entities in the water mask
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("[PixelCloud] == computeSeparateEntities ==")
+        logger.info("- start -")
 
         # 1 - Create the water mask
         water_mask = self.computeWaterMask()
@@ -344,7 +330,7 @@ class PixelCloud(object):
         Separate labels of lakes and new objects entirely inside the tile, from labels of objects at top or bottom of the tile
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("[PixelCloud] == computeObjInsideTile ==")
+        logger.info("- start -")
 
         # 1 - Identify objects at azimuth = 0
         idx_at_az_0 = np.where(self.azimuth_idx == 0)[0]
@@ -403,8 +389,7 @@ class PixelCloud(object):
         :type compress: boolean
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("[PixelCloud] == write_edge_file ==")
-        logger.info("[PixelCloud] Output L2_HR_LAKE_TILE edge file = %s" % IN_out_file)
+        logger.info("Output L2_HR_LAKE_TILE edge file = %s" % IN_out_file)
 
         # 1 - Open file in writing mode
         data = my_nc.myNcWriter(IN_out_file)
@@ -414,14 +399,14 @@ class PixelCloud(object):
 
         # 2 - Write file
         if self.nb_selected == 0:
-            logger.info("[PixelCloud] NO selected PixC => empty edge file generated")
+            logger.info("NO selected PixC => empty edge file generated")
             data.add_dimension('record', 0)
 
         else:
 
             if (self.nb_obj_at_top_edge + self.nb_obj_at_bottom_edge + self.nb_obj_at_both_edges) == 0:
                 logger.info(
-                    "[PixelCloud] No object at top/bottom edge of the PixC tile => empty edge file generated")
+                    "No object at top/bottom edge of the PixC tile => empty edge file generated")
                 data.add_dimension('record', 0)
 
             else:
@@ -575,8 +560,7 @@ class PixelCloud(object):
         :type IN_filename: string
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("[PixelCloud] == write_edge_file_asShp ==")
-        logger.info("[PixelCloud] Output L2_HR_LAKE_TILE edge shapefile = %s" % IN_filename)
+        logger.info("Output L2_HR_LAKE_TILE edge shapefile = %s" % IN_filename)
 
         # 1 - Initialisation du fichier de sortie
         # 1.1 - Driver

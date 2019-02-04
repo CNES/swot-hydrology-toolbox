@@ -24,7 +24,7 @@ import logging
 
 import cnes.common.lib.my_tools as my_tools
 import cnes.common.lib_lake.locnes_variables as my_var
-import cnes.common.serviceError as serviceError
+import cnes.common.service_error as service_error
 
 
 def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix_range):
@@ -70,8 +70,20 @@ def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix
         coords[:, 0] = in_v_long
         coords[:, 1] = in_v_lat
 
+        # ============================ HULL COMPUTATION FOR BIG LAKES ===========================
+        # ============================  TO CHANGE AS SOON AS POSSIBLE ===========================
+        # if the lake contains more than 500 000 pixels, the number of pixel is restricted to 500 000. Pixels are randomly selected.
+        nb_pix_max = 1e5
+        if nb_pix > nb_pix_max:
+            id_selected = np.random.randint(nb_pix, size=int(nb_pix_max))
+            logger.info("[my_hull] WARNING : the number of pixel of the lake is redcued to %d" %(nb_pix_max))
+            coords = coords[id_selected]
+
+        # =======================================================================================
+
+
         # 1.2 - Compute alpha shape
-        
+
         if my_var.HULL_METHOD == 1.1:  # Without alpha parameter
             concave_hull = get_concav_hull_bis(coords)
         else:  # With alpha parameter
@@ -89,7 +101,7 @@ def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix
 
     else:
         message = "Concave hull computation method not understood"
-        raise serviceError.ProcessingError(message, logger)
+        raise service_error.ProcessingError(message, logger)
 
     return retour
 
@@ -172,6 +184,7 @@ def get_circum_ratio(pa, pb, pc):
         area = math.sqrt(s * (s - a) * (s - b) * (s - c))
     except ValueError:
         circum_r = 1
+        return circum_r
 
     # Circumscribing circle radius
     if area != 0:

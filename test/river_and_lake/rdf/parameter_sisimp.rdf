@@ -13,7 +13,7 @@ Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip
 !Multiple orbit = no => set the Orbit to a correct number found in the Orbit directory; only this orbit file will be processed
 !Multiple orbit = passplan => orbit files will be processed according to passplan.txt file (generated if passplan = yes in select_orbit.rdf)
 Multiple orbit = passplan !=no/yes/passplan
-Orbit = 267
+!Orbit = 14
 
 !### Simulation parameters
 Swath width = 120000.
@@ -34,12 +34,10 @@ Scale factor non detected dw = 2
 Dark water detected percentage = 90
 Dark water detected noise factor = 4
 
-
 !### Error parameters
 Height bias std = 0.1
 Noise multiplier factor = 0.5 !1/sqrt(Nl) where Nl is 4
 Geolocalisation improvement = no !yes (no cross-track noise applied) or no
-
 
 !### Files in output
 Create shapefile = yes !Produce output files also as shapefiles

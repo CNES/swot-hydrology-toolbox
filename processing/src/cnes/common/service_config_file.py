@@ -22,14 +22,14 @@
 
 
 """
-   module:: serviceConfigFile.py
+   module:: service_config_file.py
     :synopsis: Manage the configuration file for SWOT
 """
 
 import sys
 import configparser
 from configparser import RawConfigParser
-import cnes.common.serviceError as serviceError
+import cnes.common.service_error as service_error
 
 # this is a pointer to the module object instance itself.
 THIS = sys.modules[__name__]
@@ -109,7 +109,7 @@ class ServiceConfigFile(RawConfigParser):
 
         except configparser.NoSectionError:
         # error section not exist
-            raise serviceError.ConfigFileError("Section '" + str(section)
+            raise service_error.ConfigFileError("Section '" + str(section)
                                                + "' is not in the configuration file")
         except configparser.NoOptionError:
             if val_defaut is not None:
@@ -120,12 +120,12 @@ class ServiceConfigFile(RawConfigParser):
                 # Error variable not exist
                 message = "mandatory variable '" + str(variable) +\
                 "' is missing in the configuration file"
-                raise serviceError.ParameterError(section, message)
+                raise service_error.ParameterError(section, message)
         except ValueError:
             # wrong type for variable
             message = "variable '" + str(variable) +\
             "' has a wrong type expected: " + str(var_type)
-            raise serviceError.ParameterError(section, message)
+            raise service_error.ParameterError(section, message)
 
         # variable exist get value
         # if a list of value is given, tests it
@@ -138,19 +138,19 @@ class ServiceConfigFile(RawConfigParser):
                 message = "bad value for '" + variable +\
                 "' variable. Value accepted: " + str(valeurs) +\
                 " Value read: " + str(tmp_var)
-                raise serviceError.ParameterError(section, message)
+                raise service_error.ParameterError(section, message)
         # if valid_min is given, check if variable is not lower than this value
         if (valid_min is not None) and (tmp_var < valid_min):
             message = "Value too small for '" + variable +\
             "' variable. Limits: " + str(valid_min) +\
             " to " + str(valid_max) + " Value read: " + str(tmp_var)
-            raise serviceError.ParameterError(section, message)
+            raise service_error.ParameterError(section, message)
         # if valid_max is given, check if variable is not greater than this value
         if (valid_max is not None) and (tmp_var > valid_max):
             message = "Value too big for '" + variable +\
             "' variable. Limits: " + str(valid_min) +\
             " to " + str(valid_max) + " Value read: " + str(tmp_var)
-            raise serviceError.ParameterError(section, message)
+            raise service_error.ParameterError(section, message)
 
     def get_var_from_type(self, section, variable, var_type):
         """
