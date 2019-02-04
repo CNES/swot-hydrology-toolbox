@@ -101,7 +101,7 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cy
 
         
     # Build command
-    cmd = "{} {} -shp".format(pge_lake_tile, laketile_cfg)
+    cmd = "{} {}".format(pge_lake_tile, laketile_cfg)
     print ("> executing:", cmd) 
     print()
     #subprocess.check_call(cmd, shell=True)
@@ -177,7 +177,7 @@ def main():
 	                
             cycle_number = "{:03d}".format(pixc_dataset.getncattr("cycle_number"))
             pass_number = "{:03d}".format(pixc_dataset.getncattr("pass_number"))
-            tile_number = pixc_dataset.getncattr("tile_name")
+            tile_number = pixc_dataset.getncattr("tile_name").split("_")[1]
             try:
                 start_time = pixc_dataset.getncattr("start_time")
             except: 
@@ -189,7 +189,7 @@ def main():
             
             print(". Cycle number = %s" % cycle_number)
             print(". Orbit number = %s" % pass_number)
-            print(". Tile ref = %s" % tile_number)
+            print(". Tile number = %s" % tile_number)
             print(". Start time = %s" % start_time)
             print(". Stop time = %s" % stop_time)
             
