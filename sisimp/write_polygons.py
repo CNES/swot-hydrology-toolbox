@@ -617,9 +617,9 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     continue  # ignore polygons completely outside the swath
 
                 points = np.transpose(np.array(ring.GetPoints()))
-                lon = points[0] * DEG2RAD
-                lat = points[1] * DEG2RAD
-               
+                
+                lon = points[0]
+                lat = points[1]
                
                 x_c, y_c, zone_number, zone_letter = utm.from_latlon(lat[0], lon[0])
                 latlon = pyproj.Proj(init="epsg:4326")
@@ -631,9 +631,14 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     ring_xy.AddPoint(X[i],Y[i])
                 poly_xy = ogr.Geometry(ogr.wkbPolygon)
                 poly_xy.AddGeometry(ring_xy)
-                area = poly_xy.GetArea()
+                
+                # area in ha
+                area = poly_xy.GetArea()/10000.
            
                 layerDefn = layer.GetLayerDefn()
+                
+                lon = lon * DEG2RAD
+                lat = lat * DEG2RAD
                 
                 lac = None
                 
@@ -645,7 +650,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 
                 if IN_attributes.height_model == 'gaussian': 
                     if area > IN_attributes.height_model_min_area:
-                        print(ind+1)
                         my_api.printInfo(str("Gaussian model applied for big water body of size %f ha" % area))
                         lac = Gaussian_Lac(ind+1, IN_attributes, lat, lon, IN_cycle_number)
                     else:

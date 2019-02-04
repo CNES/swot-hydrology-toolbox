@@ -26,7 +26,7 @@ def dark_water_simulation(taille_2D, fact_echelle_dw, pourcent_dw, seedvalue=Non
     # Create a 2D gaussian profile
     if seedvalue is not None:
         np.random.seed(int(seedvalue))
-    profile_2d = height_model.generate_2d_profile_gaussian(taille_2D, 0., 'Default', 1, fact_echelle_dw)
+    profile_2d = height_model.generate_2d_profile_gaussian_old(taille_2D, 0., 'Default', 1, fact_echelle_dw)
     
     ### Create Dark water mask
     # Define the threshold value to keep the desired % of dark water
@@ -85,7 +85,7 @@ def dark_water_non_detected_simulation(mask_dw,fact_echelle_nondetected_dw,perce
             size_y=maxy-miny+1
 
             #Simulate non detected dark water
-            profile_2d = height_model.generate_2d_profile_gaussian([size_x,size_y],0.,'Default',1,fact_echelle_nondetected_dw)
+            profile_2d = height_model.generate_2d_profile_gaussian_old([size_x,size_y],0.,'Default',1,fact_echelle_nondetected_dw)
             profile_2d[np.where(mask_regions[minx:maxx+1,miny:maxy+1]!=i)]=-999
             non_detected_dw_mask[minx:maxx+1,miny:maxy+1]=profile_2d
         # Define the threshold value to keep the percentage of non_detected dark water inside detected dark_water regions
