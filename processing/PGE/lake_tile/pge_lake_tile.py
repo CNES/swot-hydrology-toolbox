@@ -409,13 +409,11 @@ if __name__ == '__main__':
     PARSER.add_argument("command_file", help="command file (*.cfg)")
     ARGS = PARSER.parse_args()
 
-    try:
-        # Instantiate PGE
-        PGE = PGELakeTile(ARGS.command_file)
+    # 1 - Instantiate PGE
+    PGE = PGELakeTile(ARGS.command_file)
 
-        # Start PGE Lake Tile
-        PGE.start()
+    # 2 - Start PGE Lake Tile
+    PGE.start()
 
-    finally:
-        # Stop PGE Lake Tile
-        PGE.stop()
+    # 3 - Stop PGE Lake Tile
+    PGE.stop()
