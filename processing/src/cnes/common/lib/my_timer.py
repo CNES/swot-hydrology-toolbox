@@ -14,113 +14,113 @@ This file is part of the SWOT Hydrology Toolbox
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
- 
+
 import time
 import math
 
 
 class Timer(object):
-    
+
     def __init__(self):
         """
         Constructeur du timer
-            
+
         ** Attributes **
         - start_time : debut d'execution du code
         - tmp_time : temps intermediaire
-        """ 
+        """
         self.start_time = 0.0
         self.tmp_time = 0.0
-    
+
     # ----------------------------------------
-    
+
     def start(self):
         """
         Initialise le compteur de depart
         """
         self.start_time = time.time()
-    
+
     # ----------------------------------------
-        
+
     def info(self, IN_flagDebut=1):
         """
         Calcule la duree depuis une date de reference:
         - la derniere info demandee (ou debut d'execution pour la 1e info depuis la date d'execution) si IN_flagDebut=0
         - la date de debut d'execution si IN_flagDebut=1
         La date de l'execution de cette fonction est sauvegardee en tant que date intermediaire pour une utilisation ulterieure.
-            
+
         :param IN_flagDebut: =0 si la date de reference correspond a la derniere info demandee, =1 si elle correspond a la date de debut d'execution
         :type IN_flagDebut: int
 
         :return: la duree depuis la date de reference
         :rtype: str
         """
-        
+
         # 1 - On calcule la duree
         if (self.tmp_time == 0) or (IN_flagDebut == 1):
-            curTime = time.time() - self.start_time
+            cur_time = time.time() - self.start_time
         else:
-            curTime = time.time() - self.tmp_time
-        
+            cur_time = time.time() - self.tmp_time
+
         # 2 - On met a jour le temps intermediaire
         self.tmp_time = time.time()
-            
+
         # 3 - Retourne la duree au format hh:mm:ss
-        return "[Timer-INFO] Step executed in %s" % self.printDelay(int(curTime))
-  
-    def stop(self):  
+        return "[Timer-INFO] Step executed in %s" % self.printDelay(int(cur_time))
+
+    def stop(self):
         """
         Calcule la duree totale d'execution
-            
+
         :return: la duree totale d'execution
         :rtype: str
         """
-        
+
         # 1 - On calcule la duree
-        totalTime = time.time() - self.start_time
-        
+        total_time = time.time() - self.start_time
+
         # 2 - Retourne la duree au format hh:mm:ss
-        return "[Timer-INFO] Total execution time in %s" % self.printDelay(int(totalTime))
-    
+        return "[Timer-INFO] Total execution time in %s" % self.printDelay(int(total_time))
+
     # ----------------------------------------
-    
-    def printDelay(self, IN_time):
+
+    def printDelay(self, in_time):
         """
         Convertit la duree en parametre d'entree en chaine de caracteres
-            
-        :param IN_time: duree en secondes
-        :type IN_time: int
-            
-        :return: la duree correspondant a IN_time au format "HH:MM:SS" ou "DD days HH:MM:SS" si besoin
+
+        :param in_time: duree en secondes
+        :type in_time: int
+
+        :return: la duree correspondant a in_time au format "HH:MM:SS" ou "DD days HH:MM:SS" si besoin
         :rtype: str
         """
-        
-        # Calcul des secondes
-        tmp_MM = math.floor(IN_time / 60.0)
-        SS = IN_time - 60.0 * tmp_MM
-        
-        # Calcul des minutes
-        HH = math.floor(tmp_MM / 60.0)
-        MM = tmp_MM - 60.0 * HH
-        
-        # Calcul des heures si > 24h
-        if HH >= 24.0:
-            DD = math.floor(HH / 24.0)
-            HH -= 24.0 * DD
-            return "%d days %02d:%02d:%02d" % (DD, HH, MM, SS)
-        else:
-            return "%02d:%02d:%02d" % (HH, MM, SS)
 
+        # Calcul des secondes
+        tmp_mm = math.floor(in_time / 60.0)
+        ss = in_time - 60.0 * tmp_mm
+
+        # Calcul des minutes
+        hh = math.floor(tmp_mm / 60.0)
+        mm = tmp_mm - 60.0 * hh
+
+        # Calcul des heures si > 24h
+        if hh >= 24.0:
+            dd = math.floor(hh / 24.0)
+            hh -= 24.0 * dd
+            retour = "%d days %02d:%02d:%02d" % (dd, hh, mm, ss)
+        else:
+            retour = "%02d:%02d:%02d" % (hh, mm, ss)
+        return retour
 
 #######################################
 
 
 if __name__ == '__main__':
-    
-    myTime = Timer()
-    myTime.start()
+
+    my_time = Timer()
+    my_time.start()
     time.sleep(5)
-    print(myTime.info())
+    print(my_time.info())
     time.sleep(5)
-    print(myTime.info())
-    print(myTime.stop())
+    print(my_time.info())
+    print(my_time.stop())

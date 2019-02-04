@@ -13,10 +13,10 @@ This file is part of the SWOT Hydrology Toolbox
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals 
-
-import cnes.common.lib.my_api as my_api 
-import cnes.common.serviceConfigFile as serviceConfigFile
 import logging
+
+import cnes.common.service_config_file as service_config_file
+import cnes.common.service_error as service_error
 
 
 # Lake a priori database
@@ -95,68 +95,66 @@ def tmpGetConfigFromServiceConfigFile():
     This function is temporary. It will be delete in the future
     when serviceConfigFile will be used by lake_tile
     """
-    IN_config = serviceConfigFile.get_instance()
+    IN_config = service_config_file.get_instance()
     logger = logging.getLogger("locnes_variables")
 
-    print(IN_config)
     # Lake database
     global LAKE_DB
-    lake_db_file = IN_config.get("BD", "LAKE_DB")
+    lake_db_file = IN_config.get("DATABASES", "LAKE_DB")
     LAKE_DB = lake_db_file
     logger.info("> LAKE_DB = %s" % LAKE_DB)
 
     # Lake identifier attribute name in the database
     global LAKE_DB_ID
-    lake_db_id = IN_config.get("BD", "LAKE_DB_ID")
+    lake_db_id = IN_config.get("DATABASES", "LAKE_DB_ID")
     LAKE_DB_ID = lake_db_id
     logger.info("> LAKE_DB_ID = %s" % LAKE_DB_ID)
 
     # Shapefile with polygons of continents
     global CONTINENT_FILE
-    continent_file = IN_config.get("BD", "CONTINENT_FILE")
+    continent_file = IN_config.get("DATABASES", "CONTINENT_FILE")
     CONTINENT_FILE = continent_file
     logger.info("> CONTINENT_FILE = %s" % CONTINENT_FILE)
 
     # Water flags
     global FLAG_WATER
-    FLAG_WATER = IN_config.get("CONFIG_OVERWRITE", "FLAG_WATER")
+    FLAG_WATER = IN_config.get("CONFIG_PARAMS", "FLAG_WATER")
     logger.info("> FLAG_WATER = %s" % FLAG_WATER)
 
     # Dark water flags
     global FLAG_DARK
-    FLAG_DARK = IN_config.get("CONFIG_OVERWRITE", "FLAG_DARK")
+    FLAG_DARK = IN_config.get("CONFIG_PARAMS", "FLAG_DARK")
     logger.info("> FLAG_DARK = %s" % FLAG_DARK)
 
     # Layover flags
     global FLAG_LAYOVER
-    FLAG_LAYOVER = IN_config.get("CONFIG_OVERWRITE", "FLAG_LAYOVER")
+    FLAG_LAYOVER = IN_config.get("CONFIG_PARAMS", "FLAG_LAYOVER")
     logger.info("> FLAG_LAYOVER = %s" % FLAG_LAYOVER)
 
     # Hull method
     global HULL_METHOD
-    HULL_METHOD = IN_config.getfloat("CONFIG_OVERWRITE", "HULL_METHOD")
+    HULL_METHOD = IN_config.getfloat("CONFIG_PARAMS", "HULL_METHOD")
     logger.info("> HULL_METHOD = %s" % HULL_METHOD)
 
     # Model to deal with big lake processing
     global BIGLAKE_MODEL
-    BIGLAKE_MODEL = IN_config.get("CONFIG_OVERWRITE", "BIGLAKE_MODEL")
+    BIGLAKE_MODEL = IN_config.get("CONFIG_PARAMS", "BIGLAKE_MODEL")
     logger.info("> BIGLAKE_MODEL = %s" % BIGLAKE_MODEL)
 
     # Min size for lake to be considered as big
     global BIGLAKE_MIN_SIZE
-    BIGLAKE_MIN_SIZE = IN_config.getint("CONFIG_OVERWRITE", "BIGLAKE_MIN_SIZE")
+    BIGLAKE_MIN_SIZE = IN_config.getint("CONFIG_PARAMS", "BIGLAKE_MIN_SIZE")
     logger.info("> BIGLAKE_MIN_SIZE = %s" % BIGLAKE_MIN_SIZE)
 
     # Grid spacing for lake height smoothing
     global BIGLAKE_GRID_SPACING
-    BIGLAKE_GRID_SPACING = IN_config.getint("CONFIG_OVERWRITE", "BIGLAKE_GRID_SPACING")
+    BIGLAKE_GRID_SPACING = IN_config.getint("CONFIG_PARAMS", "BIGLAKE_GRID_SPACING")
     logger.info("> BIGLAKE_GRID_SPACING = %s" % BIGLAKE_GRID_SPACING)
 
     # Grid resolution for lake height smoothing
     global BIGLAKE_GRID_RES
-    BIGLAKE_GRID_RES = IN_config.getint("CONFIG_OVERWRITE", "BIGLAKE_GRID_RES")
+    BIGLAKE_GRID_RES = IN_config.getint("CONFIG_PARAMS", "BIGLAKE_GRID_RES")
     logger.info("> BIGLAKE_GRID_RES = %s" % BIGLAKE_GRID_RES)
-
 
 
 def overwriteConfig_from_cfg(IN_config):
@@ -368,16 +366,19 @@ def compareConfig_to_xml(IN_xml_tree):
     :param IN_xml_tree: XML tree (typically from .shp.xml file)
     :type IN_xml_tree: etree.parse
     """
+    logger = logging.getLogger("locnes_variables")
     
     # Lake database
     TMP_lake_db = IN_xml_tree.xpath("//LakeTile_shp/config_params/lake_db")[0].text
     if TMP_lake_db != LAKE_DB:
-        my_api.exitWithError("At least 2 different values of LAKE_DB for one processing: %s vs %s" % (LAKE_DB, TMP_lake_db))
+        message = "At least 2 different values of LAKE_DB for one processing: %s vs %s" % (LAKE_DB, TMP_lake_db)
+        raise service_error.ProcessingError(message, logger)
         
     # Lake identifier attribute name in the database
     TMP_lake_db_id = IN_xml_tree.xpath("//LakeTile_shp/config_params/lake_db_id")[0].text
     if TMP_lake_db_id != LAKE_DB_ID:
-        my_api.exitWithError("At least 2 different values of LAKE_DB_ID for one processing: %s vs %s" % (LAKE_DB_ID, TMP_lake_db_id))
+        message = "At least 2 different values of LAKE_DB_ID for one processing: %s vs %s" % (LAKE_DB_ID, TMP_lake_db_id)
+        raise service_error.ProcessingError(message, logger)
         
     # Shapefile with polygons of continents
     try:
@@ -385,59 +386,71 @@ def compareConfig_to_xml(IN_xml_tree):
     except: 
         TMP_continent_file = None
     if TMP_continent_file != CONTINENT_FILE:
-        my_api.exitWithError("At least 2 different values of CONTINENT_FILE for one processing: %s vs %s" % (CONTINENT_FILE, TMP_continent_file))
+        message = "At least 2 different values of CONTINENT_FILE for one processing: %s vs %s" % (CONTINENT_FILE, TMP_continent_file)
+        raise service_error.ProcessingError(message, logger)
             
     # Water flags
     TMP_flag_water = IN_xml_tree.xpath("//LakeTile_shp/config_params/flag_water")[0].text
     if TMP_flag_water != FLAG_WATER:
-        my_api.exitWithError("At least 2 different values of FLAG_WATER for one processing: %s vs %s" % (FLAG_WATER, TMP_flag_water))
+        message = "At least 2 different values of FLAG_WATER for one processing: %s vs %s" % (FLAG_WATER, TMP_flag_water)
+        raise service_error.ProcessingError(message, logger)
             
     # Dark water flags
     TMP_flag_dark = IN_xml_tree.xpath("//LakeTile_shp/config_params/flag_dark")[0].text
     if TMP_flag_dark != FLAG_DARK:
-        my_api.exitWithError("At least 2 different values of FLAG_DARK for one processing: %s vs %s" % (FLAG_DARK, TMP_flag_dark))
+        message = "At least 2 different values of FLAG_DARK for one processing: %s vs %s" % (FLAG_DARK, TMP_flag_dark)
+        raise service_error.ProcessingError(message, logger)
             
     # Layover flags
     TMP_flag_layover = IN_xml_tree.xpath("//LakeTile_shp/config_params/flag_layover")[0].text
     if TMP_flag_layover != FLAG_LAYOVER:
-        my_api.exitWithError("At least 2 different values of FLAG_LAYOVER for one processing: %s vs %s" % (FLAG_LAYOVER, TMP_flag_layover))
+        message = "At least 2 different values of FLAG_LAYOVER for one processing: %s vs %s" % (FLAG_LAYOVER, TMP_flag_layover)
+        raise service_error.ProcessingError(message, logger)
             
     # Min size for lake product computation
     TMP_min_size = float(IN_xml_tree.xpath("//LakeTile_shp/config_params/min_size")[0].text)
     if TMP_min_size != MIN_SIZE:
-        my_api.exitWithError("At least 2 different values of MIN_SIZE for one processing: %s vs %s" % (MIN_SIZE, TMP_min_size))
+        message = "At least 2 different values of MIN_SIZE for one processing: %s vs %s" % (MIN_SIZE, TMP_min_size)
+        raise service_error.ProcessingError(message, logger)
     
     # Improve geolocation or not 
     TMP_imp_geoloc = bool(IN_xml_tree.xpath("//LakeTile_shp/config_params/imp_geoloc")[0].text)
     if TMP_imp_geoloc != IMP_GEOLOC:
-        my_api.exitWithError("At least 2 different values of IMP_GEOLOC for one processing: %s vs %s" % (IMP_GEOLOC, TMP_imp_geoloc))
+        message = "At least 2 different values of IMP_GEOLOC for one processing: %s vs %s" % (IMP_GEOLOC, TMP_imp_geoloc)
+        raise service_error.ProcessingError(message, logger)
             
     # Hull method
     TMP_hull_method = float(IN_xml_tree.xpath("//LakeTile_shp/config_params/hull_method")[0].text)
     if TMP_hull_method != HULL_METHOD:
-        my_api.exitWithError("At least 2 different values of HULL_METHOD for one processing: %s vs %s" % (HULL_METHOD, TMP_hull_method))
+        message = "At least 2 different values of HULL_METHOD for one processing: %s vs %s" % (HULL_METHOD, TMP_hull_method)
+        raise service_error.ProcessingError(message, logger)
             
     # Maximal standard deviation of height inside a lake
     TMP_std_height_max = float(IN_xml_tree.xpath("//LakeTile_shp/config_params/std_height_max")[0].text)
     if TMP_std_height_max != STD_HEIGHT_MAX:
-        my_api.exitWithError("At least 2 different values of STD_HEIGHT_MAX for one processing: %s vs %s" % (STD_HEIGHT_MAX, TMP_std_height_max))
+        message = "At least 2 different values of STD_HEIGHT_MAX for one processing: %s vs %s" % (STD_HEIGHT_MAX, TMP_std_height_max)
+        raise service_error.ProcessingError(message, logger)
             
     # Model to deal with big lake processing
     TMP_biglake_model = IN_xml_tree.xpath("//LakeTile_shp/config_params/biglake_model")[0].text
     if TMP_biglake_model != BIGLAKE_MODEL:
-        my_api.exitWithError("At least 2 different values of BIGLAKE_MODEL for one processing: %s vs %s" % (BIGLAKE_MODEL, TMP_biglake_model))
+        message = "At least 2 different values of BIGLAKE_MODEL for one processing: %s vs %s" % (BIGLAKE_MODEL, TMP_biglake_model)
+        raise service_error.ProcessingError(message, logger)
         
     # Min size for lake to be considered as big
     TMP_biglake_min_size = int(IN_xml_tree.xpath("//LakeTile_shp/config_params/biglake_min_size")[0].text)
     if TMP_biglake_min_size != BIGLAKE_MIN_SIZE:
-        my_api.exitWithError("At least 2 different values of BIGLAKE_MIN_SIZE for one processing: %s vs %s" % (BIGLAKE_MIN_SIZE, TMP_biglake_min_size))
+        message = "At least 2 different values of BIGLAKE_MIN_SIZE for one processing: %s vs %s" % (BIGLAKE_MIN_SIZE, TMP_biglake_min_size)
+        raise service_error.ProcessingError(message, logger)
         
     # Grid spacing for lake height smoothing
     TMP_biglake_grid_spacing = int(IN_xml_tree.xpath("//LakeTile_shp/config_params/biglake_grid_spacing")[0].text)
     if TMP_biglake_grid_spacing != BIGLAKE_GRID_SPACING:
-        my_api.exitWithError("At least 2 different values of BIGLAKE_GRID_SPACING for one processing: %s vs %s" % (BIGLAKE_GRID_SPACING, TMP_biglake_grid_spacing))
+        message = "At least 2 different values of BIGLAKE_GRID_SPACING for one processing: %s vs %s" % (BIGLAKE_GRID_SPACING, TMP_biglake_grid_spacing)
+        raise service_error.ProcessingError(message, logger)
         
     # Grid resolution for lake height smoothing
     TMP_biglake_grid_res = int(IN_xml_tree.xpath("//LakeTile_shp/config_params/biglake_grid_res")[0].text)
     if TMP_biglake_grid_res != BIGLAKE_GRID_RES:
-        my_api.exitWithError("At least 2 different values of BIGLAKE_GRID_RES for one processing: %s vs %s" % (BIGLAKE_GRID_RES, TMP_biglake_grid_res))
+        message = "At least 2 different values of BIGLAKE_GRID_RES for one processing: %s vs %s" % (BIGLAKE_GRID_RES, TMP_biglake_grid_res)
+        raise service_error.ProcessingError(message, logger)

@@ -10,12 +10,11 @@ This file is part of the SWOT Hydrology Toolbox
  Copyright (C) 2018 Centre National d’Etudes Spatiales
  This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
-
 """
 
+import logging
 from osgeo import ogr
 
-import cnes.common.lib.my_api as my_api
 import cnes.common.lib_lake.locnes_variables as my_var
 
     
@@ -29,14 +28,14 @@ def link_poly_to_continent(in_poly):
     :return: list of continent(s) associated to polygon
     :rtype: list of string
     """
-    my_api.printDebug("[my_tools] == link_poly_to_continent ==")
+    logger = logging.getLogger("my_bassin")
     
     # Case when no continent file
     if my_var.CONTINENT_FILE is None:
-        my_api.printDebug("> No continent file")
+        logger.debug("> No continent file")
         retour = None
     else:
-        my_api.printDebug("> Continent file = %s" % my_var.CONTINENT_FILE)
+        logger.debug("> Continent file = %s" % my_var.CONTINENT_FILE)
         
         # 1 - Open continent shapefile in read-only mode
         shp_driver = ogr.GetDriverByName(str("ESRI Shapefile"))
@@ -59,6 +58,7 @@ def link_poly_to_continent(in_poly):
 
     return retour
 
+
 #######################################
     
     
@@ -72,7 +72,9 @@ def compute_continent_from_basin_id(in_basin_id):
     :return: 2 letters related to the continent
     :rtype: string
     """
+    
     retour = ""
+    
     if in_basin_id.startswith("1"):
         retour = "NA"
     elif in_basin_id.startswith("2"):
@@ -93,4 +95,5 @@ def compute_continent_from_basin_id(in_basin_id):
         retour = "AN"
     else:
         retour = "xx"
+        
     return retour
