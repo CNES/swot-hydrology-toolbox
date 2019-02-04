@@ -63,6 +63,7 @@ class PGELakeTile():
         # 2 - Load parameter file
         # 2.1 - Read value from command file
         file_config = my_params["param_file"]
+        print(my_params)
         # 2.2 - Test existence
         if not os.path.exists(file_config):
             raise service_error.DirFileError(file_config)
@@ -171,8 +172,9 @@ class PGELakeTile():
         config.read(self.cmd_file)
 
         # 2 - Retrieve PATHS
+        
         try:
-            out_params["param_file"] = os.path.expandvars(os.config.get("PATHS", "param_file"))
+            out_params["param_file"] = os.path.expandvars(config.get("PATHS", "param_file"))
         except:
             out_params["param_file"] = "lake_tile_param.cfg"
         out_params["pixc_file"] = config.get("PATHS", "PIXC file")
