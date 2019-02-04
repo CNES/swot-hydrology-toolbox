@@ -172,7 +172,7 @@ class PGELakeTile():
 
         # 2 - Retrieve PATHS
         try:
-            out_params["param_file"] = config.get("PATHS", "param_file")
+            out_params["param_file"] = os.path.expandvars(os.config.get("PATHS", "param_file"))
         except:
             out_params["param_file"] = "lake_tile_param.cfg"
         out_params["pixc_file"] = config.get("PATHS", "PIXC file")
