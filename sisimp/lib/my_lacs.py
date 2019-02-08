@@ -53,14 +53,14 @@ class Constant_Lac(Lac):
 
 class Reference_height_Lac(Lac):
     
-    def __init__(self, num, layer, IN_attributes):
+    def __init__(self, num, polygon_index, layer, IN_attributes):
         Lac.__init__(self, num)
         self.height_name = IN_attributes.height_name
         self.height = 0.
         for i in range(layer.GetFieldCount()):
         # Test 'HEIGHT' parameter in input shapefile fields
-            if layerDefn.GetFieldDefn(i).GetName() == self.height_name:
-                self.height = polygon_index.GetField(str(self.height_name))
+            if layer.GetFieldDefn(i).GetName() == self.height_name:
+                self.height = np.float(polygon_index.GetField(str(self.height_name)))
             
     def compute_h(self, lat, lon):
         return self.height

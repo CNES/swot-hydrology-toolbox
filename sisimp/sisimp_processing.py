@@ -134,7 +134,7 @@ class Processing(object):
     
             # True height file
             try:
-                self.my_attributes.trueheight_file = parameters.getValue("True height file")
+                self.my_attributes.trueheight_file = os.path.expandvars(parameters.getValue("True height file"))
                 my_api.printInfo("True height file : %s" % self.my_attributes.trueheight_file)
             except:
                 self.my_attributes.trueheight_file = None
@@ -186,7 +186,7 @@ class Processing(object):
                     self.my_attributes.height_name = read_parameter(parameters, "Height shp attribute name", "HEIGHT", str)
                     
                 elif self.my_attributes.height_model == "reference_file": # True height file
-                    self.my_attributes.trueheight_file = read_parameter(parameters, "True height file", None, str)
+                    self.my_attributes.trueheight_file = os.path.expandvars(parameters.getValue("True height file"))
                     if self.my_attributes.trueheight_file is None:
                         my_api.exitWithError("True height file not filled")
                     my_tools.testFile(self.my_attributes.trueheight_file, IN_extent=".nc")
