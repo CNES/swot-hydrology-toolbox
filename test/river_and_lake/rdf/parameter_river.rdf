@@ -36,5 +36,5 @@ fit_types                 (-) = ['OLS', 'WLS', 'RLM']
 min_fit_points            (-) = 3
 do_improved_geolocation   (-) = True
 geolocation_method        (-) = taylor
-height_agg_method         (-) = 'weight'
-area_agg_method           (-) = 'composite'
+height_agg_method         (-) = weight
+area_agg_method           (-) = composite

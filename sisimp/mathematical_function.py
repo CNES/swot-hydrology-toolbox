@@ -23,7 +23,7 @@ import lib.my_api as my_api
 
 from lib.my_variables import RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
 
-def calc_delta_h(IN_angles, IN_noise_height, IN_height_bias_std):
+def calc_delta_h(IN_angles, IN_noise_height, IN_height_bias_std, seed = None):
     """
     Calculate the delta h values and add noise
 
@@ -39,6 +39,8 @@ def calc_delta_h(IN_angles, IN_noise_height, IN_height_bias_std):
     :return OUT_noisy_h: the noisy height values
     :rtype OUT_noisy_h: 1D-array of float
     """
+    
+    np.random.seed(seed)
 
     if (IN_angles.size != 0) and (np.max(IN_angles*RAD2DEG) > np.max(IN_noise_height[:, 0])):
         my_api.printInfo("One or more incidence angles are greater than the max value defined in the noise file ! Values higher than {0} degrees will be set to      the maximum value defined in the file.".format(np.max(IN_noise_height[:, 0])))
@@ -51,7 +53,7 @@ def calc_delta_h(IN_angles, IN_noise_height, IN_height_bias_std):
     elif (IN_noise_height[:, 1] < 1.e-5).any() and IN_height_bias_std < 1.e-5:  # Case both are equals to zero
         OUT_noisy_h = np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1])
     else:  # Case none are equals to zero
-        OUT_noisy_h = np.random.normal(0, IN_height_bias_std) + np.random.normal(0, np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:     , 1]))
+        OUT_noisy_h = np.random.normal(0, IN_height_bias_std) + np.random.normal(0, np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:,1]))
 
     return OUT_noisy_h
 

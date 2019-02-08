@@ -15,10 +15,10 @@ This file is part of the SWOT Hydrology Toolbox
 from __future__ import absolute_import, division, print_function, unicode_literals 
 
 import os
+import logging
 from osgeo import ogr, osr
 
-import cnes.common.lib.my_api as my_api
-
+import cnes.common.service_error as service_error
 
 def merge_mem_layer_with_shp(in_list_shp, in_layer):
     """
@@ -35,7 +35,8 @@ def merge_mem_layer_with_shp(in_list_shp, in_layer):
     :return out_layer: output layer
     :rtype out_layer: OGRlayer
     """
-    my_api.printDebug("[LakeProduct] == merge_mem_layer_with_shp ==")
+    logger = logging.getLogger("my_shp_file")
+    logger.debug("[LakeProduct] == merge_mem_layer_with_shp ==")
 
     # 1 - Create memory data source
     mem_driver = ogr.GetDriverByName(str('MEMORY'))  # Memory driver
@@ -46,7 +47,7 @@ def merge_mem_layer_with_shp(in_list_shp, in_layer):
 
     # 3 - For each input shapefile
     for cur_shp in in_list_shp:
-        my_api.printDebug("[LakeProduct] > Adding %s" % os.path.basename(cur_shp))
+        logger.debug("[LakeProduct] > Adding %s" % os.path.basename(cur_shp))
 
         # 3.1 - Open the shapefile and get layer
         shp_driver = ogr.GetDriverByName(str('ESRI Shapefile'))  # Shapefile driver
@@ -76,7 +77,8 @@ def merge_2_layers(in_layer1, in_layer2):
     :return out_layer: output layer
     :rtype out_layer: OGRlayer
     """
-    my_api.printDebug("[LakeProduct] == mergeLayerRL ==")
+    logger = logging.getLogger("my_shp_file")
+    logger.debug("[LakeProduct] == mergeLayerRL ==")
 
     # 1 - Get layer definitions
     layer_defn1 = in_layer1.GetLayerDefn()
@@ -88,7 +90,8 @@ def merge_2_layers(in_layer1, in_layer2):
     fields_name_2 = [layer_defn2.GetFieldDefn(i).GetName() for i in range(layer_defn2.GetFieldCount())]
     print(fields_name_2)
     if fields_name_1 != fields_name_2:
-        my_api.exitWithError("[LakeProduct] ERROR = fields of layer %s and layer %s are not identical" % (layer_defn1.GetName(), layer_defn2.GetName()))
+        message = "[LakeProduct] ERROR = fields of layer %s and layer %s are not identical" % (layer_defn1.GetName(), layer_defn2.GetName())
+        raise service_error.ProcessingError(message, logger)
 
     # 3 - Create output memory driver and data source
     mem_driver = ogr.GetDriverByName(str('MEMORY'))  # Memory driver

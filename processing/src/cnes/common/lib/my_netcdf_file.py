@@ -16,16 +16,19 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from netCDF4 import Dataset
 import numpy
+import logging
 
+import cnes.common.lib.my_variables as my_variables
+import cnes.common.service_error as service_error
 
 class myNcReader(object):
 
-    def __init__(self, IN_filename):
+    def __init__(self, in_filename):
         """
         Constructor
         
-        :param IN_filename: filename of the NetCDF file
-        :type IN_filename: string
+        :param in_filename: filename of the NetCDF file
+        :type in_filename: string
         
         Variables:
             filename / string: filename of the NetCDF file
@@ -33,10 +36,10 @@ class myNcReader(object):
         """
         
         # Filename
-        self.filename = IN_filename
+        self.filename = in_filename
         
         # Content
-        self.content = Dataset(IN_filename, 'r')
+        self.content = Dataset(in_filename, 'r')
         
     def close(self):
         """
@@ -57,8 +60,10 @@ class myNcReader(object):
         :rtype: dict
         """
         if IN_group is None:
-            return self.content.dimensions
-        return IN_group.dimensions
+            retour = self.content.dimensions
+        else:
+            retour = IN_group.dimensions
+        return retour
                     
     def printListDim(self, IN_group=None):
         """
@@ -70,21 +75,23 @@ class myNcReader(object):
         for value in self.getListDim(IN_group=IN_group):
             print("%s - size = %d" % (value, self.getDimValue(value, IN_group=IN_group)))
     
-    def getDimValue(self, IN_name, IN_group=None):
+    def getDimValue(self, in_name, IN_group=None):
         """
-        Get the size of the dimension named IN_name
+        Get the size of the dimension named in_name
         
-        :param IN_name: name of the dimension
-        :type IN_name: string
-        :param IN_group: group containing the dimension IN_name
+        :param in_name: name of the dimension
+        :type in_name: string
+        :param IN_group: group containing the dimension in_name
         :type IN_group: netCDF4.Group
         
         :return: size of the dimension
         :rtype: int
         """
         if IN_group is None:
-            return len(self.content.dimensions[IN_name])
-        return len(IN_group.dimensions[IN_name])
+            retour = len(self.content.dimensions[in_name])
+        else:
+            retour = len(IN_group.dimensions[in_name])
+        return retour
     
     #----------------------------------------
     
@@ -99,8 +106,10 @@ class myNcReader(object):
         :rtype: list of string
         """
         if IN_group is None:
-            return self.content.ncattrs()
-        return IN_group.ncattrs()
+            retour = self.content.ncattrs()
+        else:
+            retour = IN_group.ncattrs()
+        return retour
         
     def printListAtt(self, IN_group=None):
         """
@@ -112,21 +121,23 @@ class myNcReader(object):
         for value in self.getListAtt(IN_group=IN_group):
             print("%s = %s" % (value, str(self.getAttValue(value, IN_group=IN_group))))
     
-    def getAttValue(self, IN_name, IN_group=None):
+    def getAttValue(self, in_name, IN_group=None):
         """
-        Get the value associated to the global attribute named IN_name
+        Get the value associated to the global attribute named in_name
         
-        :param IN_name: name of the attribute
-        :type IN_name: string
-        :param IN_group: group containing the global attribute IN_name
+        :param in_name: name of the attribute
+        :type in_name: string
+        :param IN_group: group containing the global attribute in_name
         :type IN_group: netCDF4.Group
         
         :return: value associated to the attribute
         :rtype: string
         """
         if IN_group is None:
-            return self.content.getncattr(IN_name)
-        return IN_group.getncattr(IN_name)
+            retour = self.content.getncattr(in_name)
+        else:
+            retour = IN_group.getncattr(in_name)
+        return retour
     
     #----------------------------------------
         
@@ -148,14 +159,14 @@ class myNcReader(object):
         for value in list_var:
             print(value + " - units = " + self.getVarUnit(value, IN_group=IN_group))
     
-    def getVarValue(self, IN_name, IN_group=None):
+    def getVarValue(self, in_name, IN_group=None):
         """
-        Get the data associated to the variable IN_name
+        Get the data associated to the variable in_name
         _FillValue value are filled by NaN and the multiplication by the scale_factor is done if needed
         
-        :param IN_name: name of the variable
-        :type IN_name: string
-        :param IN_group: group containing the variable IN_name
+        :param in_name: name of the variable
+        :type in_name: string
+        :param IN_group: group containing the variable in_name
         :type IN_group: netCDF4.Group
         
         :return: formatted data
@@ -169,33 +180,33 @@ class myNcReader(object):
             cur_content = IN_group
         
         # 1 - Get data
-        OUT_data = numpy.copy(cur_content.variables[IN_name][:])
+        out_data = numpy.copy(cur_content.variables[in_name][:])
             
         # 2 - If data values are not "int", change _FillValue by NaN
-        OUT_type = str(OUT_data.dtype)
-        if not OUT_type.startswith("int"):  # NaN ne s'applique pas aux tableaux d'entiers
+        out_type = str(out_data.dtype)
+        if not out_type.startswith("int"):  # NaN ne s'applique pas aux tableaux d'entiers
             try:
-                OUT_data[OUT_data == cur_content.variables[IN_name]._FillValue] = numpy.nan
+                out_data[out_data == cur_content.variables[in_name]._FillValue] = numpy.nan
             except AttributeError:
                 pass
-                # print "[my_netcdf_file] %s: no _FillValue" % ( IN_name )
+                # print "[my_netcdf_file] %s: no _FillValue" % ( in_name )
                 
         # 3 - Multiplication by the scale factor
         try:
-            OUT_data = OUT_data * cur_content.variables[IN_name].scale_factor
+            out_data = out_data * cur_content.variables[in_name].scale_factor
         except AttributeError:
             pass
-            # print('[my_netcdf_file] %s: no scale_factor') % ( IN_name )
+            # print('[my_netcdf_file] %s: no scale_factor') % ( in_name )
             
-        return OUT_data
+        return out_data
     
-    def getVarUnit(self, IN_name, IN_group=None):
+    def getVarUnit(self, in_name, IN_group=None):
         """
-        Get the unit of variable named IN_name
+        Get the unit of variable named in_name
         
-        :param IN_name: name of the variable
-        :type IN_name: string
-        :param IN_group: group containing the variable IN_name
+        :param in_name: name of the variable
+        :type in_name: string
+        :param IN_group: group containing the variable in_name
         :type IN_group: netCDF4.Group
         
         :return: unit
@@ -209,22 +220,23 @@ class myNcReader(object):
             cur_content = IN_group
 
         try:
-            return cur_content.variables[IN_name].units
+            retour = cur_content.variables[in_name].units
         except AttributeError:
-            return "-"
+            retour = "-"
 
+        return retour
             
 #######################################
 
 
 class myNcWriter(object):
 
-    def __init__(self, IN_filename):
+    def __init__(self, in_filename):
         """
         Constructor
         
-        :param IN_filename: full path of the NetCDF file
-        :type IN_filename: string
+        :param in_filename: full path of the NetCDF file
+        :type in_filename: string
         
         Variables:
             filename / string: full path of the NetCDF file
@@ -232,10 +244,10 @@ class myNcWriter(object):
         """
         
         # Filename
-        self.filename = IN_filename
+        self.filename = in_filename
         
         # Content
-        self.content = Dataset(IN_filename, 'w')
+        self.content = Dataset(in_filename, 'w')
         
     def close(self):
         """
@@ -245,88 +257,122 @@ class myNcWriter(object):
     
     #----------------------------------------
 
-    def add_group(self, IN_name):
+    def add_group(self, in_name):
         """
         Add a group
         
-        :param IN_name: the name of the group
-        :type IN_name: string
+        :param in_name: the name of the group
+        :type in_name: string
         """
-        return self.content.createGroup(IN_name)
+        return self.content.createGroup(in_name)
         
-    def add_dimension(self, IN_name, IN_size, IN_group=None):
+    def add_dimension(self, in_name, in_size, IN_group=None):
         """
         Set the size of the dimension with the given name
 
-        :param IN_name: the name of the dimension
-        :type IN_name: string
-        :param IN_size: the size of the dimension
-        :type IN_size: int
-        :param IN_group: group which will contain the dimension IN_name
+        :param in_name: the name of the dimension
+        :type in_name: string
+        :param in_size: the size of the dimension
+        :type in_size: int
+        :param IN_group: group which will contain the dimension in_name
         :type IN_group: netCDF4.Group
         """
         if IN_group is None:
-            self.content.createDimension(IN_name, IN_size)
+            self.content.createDimension(in_name, in_size)
         else:
-            IN_group.createDimension(IN_name, IN_size)
+            IN_group.createDimension(in_name, in_size)
 
     #----------------------------------------
         
-    def add_global_attribute(self, IN_name, IN_value, IN_group=None):
+    def add_global_attribute(self, in_name, in_value, IN_group=None):
         """
         Set the value of a global attribute with the given name
 
-        :param IN_name: the name of the attribute
-        :type IN_name: string
-        :param IN_value: the value to store
-        :type IN_value: unknown
-        :param IN_group: group which will contain the global attribute IN_name
+        :param in_name: the name of the attribute
+        :type in_name: string
+        :param in_value: the value to store
+        :type in_value: unknown
+        :param IN_group: group which will contain the global attribute in_name
         :type IN_group: netCDF4.Group
         """
         if IN_group is None:
-            self.content.setncattr(IN_name, IN_value)
+            self.content.setncattr(in_name, in_value)
         else:
-            IN_group.setncattr(IN_name, IN_value)
+            IN_group.setncattr(in_name, in_value)
 
     #----------------------------------------
         
-    def add_variable(self, IN_name, IN_datatype, IN_dimensions, IN_fill_value=None, IN_group=None, IN_compress=True):
+    def add_variable(self, in_name, in_datatype, in_dimensions, IN_fill_value=None, IN_group=None, IN_compress=True):
         """
         Add the data content of the variable
         
-        :param IN_name: the name of the variable
-        :type IN_name: string
-        :param IN_datatype: the type of the variable
-        :type IN_datatype: ex np.int32, ...
-        :param IN_dimensions: the name of the dimensions of the variable
-        :type IN_dimensions: string
+        :param in_name: the name of the variable
+        :type in_name: string
+        :param in_datatype: the type of the variable
+        :type in_datatype: ex np.int32, ...
+        :param in_dimensions: the name of the dimensions of the variable
+        :type in_dimensions: string
         :param IN_fill_value: the value used when no data is saved
         :type IN_fill_value: int or float
-        :param IN_group: group which will contain the variable IN_name
+        :param IN_group: group which will contain the variable in_name
         :type IN_group: netCDF4.Group
         :param IN_compress: true to compress the content of the variable (save disk space), else false
         :type IN_compress: boolean
         """
-
+        
+        logger = logging.getLogger(self.__class__.__name__)
         # 0 - Select the group to study
         if IN_group is None:
             cur_content = self.content
         else:
             cur_content = IN_group
-
-        cur_content.createVariable(IN_name, IN_datatype, IN_dimensions, IN_compress, 2, fill_value=IN_fill_value)
         
-    def add_variable_attribute(self, IN_varname, IN_attname, IN_value, IN_group=None):
+        if (in_datatype is numpy.double) or (in_datatype is numpy.float64):
+            # double netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, IN_compress, 2, fill_value=my_variables.FV_DOUBLE)
+        elif (in_datatype is numpy.float):
+            # float netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, IN_compress, 2, fill_value=my_variables.FV_FLOAT)
+        elif (in_datatype is numpy.int32) or (in_datatype is int):
+            # int netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, IN_compress, 2, fill_value=my_variables.FV_INT)
+        elif (in_datatype is numpy.uint32):
+            # unsigned int netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, IN_compress, 2, fill_value=my_variables.FV_UINT)
+        elif (in_datatype is numpy.int16):
+            # short netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, IN_compress, 2, fill_value=my_variables.FV_SHORT)
+        elif (in_datatype is numpy.uint16):
+            # unsigned short netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, IN_compress, 2, fill_value=my_variables.FV_USHORT)
+        elif (in_datatype is numpy.int8):
+            # byte netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, IN_compress, 2, fill_value=my_variables.FV_BYTE)
+        elif (in_datatype is numpy.uint8):
+            # unsigned byte netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, IN_compress, 2, fill_value=my_variables.FV_UBYTE)
+        elif (in_datatype is str):
+            # char netCDF variable command below is not correctly support in python netCDF...
+            #cur_content.createVariable(in_name, in_datatype, in_dimensions, IN_compress, 2, fill_value=my_variables.FV_STRING)
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, IN_compress, 2)
+        else:
+            # datatype not recognized !
+            message = "datatype not recognized : %s" % str(in_datatype)
+            raise service_error.ProcessingError(message, logger)
+        
+        
+        
+    def add_variable_attribute(self, in_varname, in_attname, in_value, IN_group=None):
         """
         Set the value of a variable attribute with the given name
 
-        :param IN_varname: the name of the variable
-        :type IN_varname: string
-        :param IN_attname: the name of the attribute of the variable
-        :type IN_attname: string
-        :param IN_value: the value to store
-        :type IN_value: unknown
-        :param IN_group: group which will contain the variable IN_name
+        :param in_varname: the name of the variable
+        :type in_varname: string
+        :param in_attname: the name of the attribute of the variable
+        :type in_attname: string
+        :param in_value: the value to store
+        :type in_value: unknown
+        :param IN_group: group which will contain the variable in_name
         :type IN_group: netCDF4.Group
         """
 
@@ -336,22 +382,22 @@ class myNcWriter(object):
         else:
             cur_content = IN_group
 
-        if IN_varname in cur_content.variables:
-            cur_content.variables[IN_varname].setncattr(IN_attname, IN_value)
+        if in_varname in cur_content.variables:
+            cur_content.variables[in_varname].setncattr(in_attname, in_value)
         else:
-            exit("[my_netcdf_file/add_variable_attribute] Could not add variable attribute ; %s variable does not exist" % IN_varname)
+            exit("[my_netcdf_file/add_variable_attribute] Could not add variable attribute ; %s variable does not exist" % in_varname)
 
     #----------------------------------------
         
-    def fill_variable(self, IN_name, IN_data, IN_group=None):
+    def fill_variable(self, in_name, in_data, IN_group=None):
         """
         Write the given data into the named variable 
 
-        :param IN_name: the name of the variable
-        :type IN_name: string
-        :param IN_data: the data to store
-        :type IN_data: unknown
-        :param IN_group: group which will contain the variable IN_name
+        :param in_name: the name of the variable
+        :type in_name: string
+        :param in_data: the data to store
+        :type in_data: unknown
+        :param IN_group: group which will contain the variable in_name
         :type IN_group: netCDF4.Group
         """
 
@@ -361,11 +407,11 @@ class myNcWriter(object):
         else:
             cur_content = IN_group
 
-        if IN_name in cur_content.variables:
+        if in_name in cur_content.variables:
             # Write the whole array
-            cur_content.variables[IN_name][:] = IN_data
+            cur_content.variables[in_name][:] = in_data
         else:
-            exit("[my_netcdf_file/fill_variable] Could not fill variable ; %s variable does not exist" % IN_name)
+            exit("[my_netcdf_file/fill_variable] Could not fill variable ; %s variable does not exist" % in_name)
 
 
 #######################################

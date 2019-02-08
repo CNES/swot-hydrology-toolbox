@@ -167,11 +167,147 @@ class GeolocRiver(object):
         if unfound_keys > 0:
             print("Warning: {} points' (reach, node) were not found in the node file".format(unfound_keys))
 
-    def apply_improved_geoloc(self):
+    def apply_improved_geoloc(self,method='taylor'):
         """
         Compute the new lat, lon, height using the new heights
         """
-        self.taylor_improved_geoloc()
+        if method == 'taylor':
+            self.taylor_improved_geoloc()
+        else:
+            # swotlib
+            self.swotlib_improved_geoloc()
+
+    def swotlib_improved_geoloc(self):
+        """
+        wrapper for functions that use the actual geolocation in swotlib
+        """
+        # import python/swotlib-only stuff
+        import swot.proc.geolocate
+        import swot.proc.base_classes
+        import swot.multilook.multilook as ml
+        import swot.refloc.refloc
+        #print ("got here", self.sensor)
+        # make swot.proc sensor file from damiens version
+        sensor = swot.proc.base_classes.TVP()#Sensor()
+        sensor.time = np.array(self.sensor.time, dtype=np.double)
+        sensor.x = np.array(self.sensor.nadir_x, dtype=np.double)
+        sensor.y = np.array(self.sensor.nadir_y, dtype=np.double)
+        sensor.z = np.array(self.sensor.nadir_z, dtype=np.double)
+        sensor.vx = np.array(self.sensor.nadir_vx, dtype=np.double)
+        sensor.vy = np.array(self.sensor.nadir_vy, dtype=np.double)
+        sensor.vz = np.array(self.sensor.nadir_vz, dtype=np.double)
+        sensor.ref_leverarm_x = np.array(self.sensor.ref_leverarm_x, dtype=np.double)
+        sensor.ref_leverarm_y = np.array(self.sensor.ref_leverarm_y, dtype=np.double)
+        sensor.ref_leverarm_z = np.array(self.sensor.ref_leverarm_z, dtype=np.double)
+        sensor.sec_leverarm_x = np.array(self.sensor.sec_leverarm_x, dtype=np.double)
+        sensor.sec_leverarm_y = np.array(self.sensor.sec_leverarm_y, dtype=np.double)
+        sensor.sec_leverarm_z = np.array(self.sensor.sec_leverarm_z, dtype=np.double)
+        #
+        #sensor.baseline_left_x = np.array(self.sensor.baseline_left_x,dtype=np.double)
+        #sensor.baseline_left_y = np.array(self.sensor.baseline_left_y,dtype=np.double)
+        #sensor.baseline_left_z = np.array(self.sensor.baseline_left_z, dtype=np.double)
+        #sensor.baseline_right_x = np.array(self.sensor.baseline_right_x, dtype=np.double)
+        #sensor.baseline_right_y = np.array(self.sensor.baseline_right_y, dtype=np.double)
+        #sensor.baseline_right_z = np.array(self.sensor.baseline_right_z ,dtype=np.double)
+        #print ("#########sensor:",sensor.x)
+        # get the azimuth looks
+        azimuth_looks = int(np.nanmedian(self.pixc.num_rare_looks))
+        #print ('#########az_looks:',azimuth_looks)
+        line_to_sensor = np.arange(len(sensor.x))
+        # fake these so we dont have to read them in and mess with the interface
+        #sensor.time = np.array(line_to_sensor,dtype=np.double)
+        #lat, lon, height = geoloc.convert_ecef2llh(
+        #    sensor.x, sensor.y, sensor.z, GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
+        #sensor.latitude = np.zeros(np.shape(sensor.x))
+        #sensor.longitude = np.zeros(np.shape(sensor.x))
+        #sensor.altitude =  np.zeros(np.shape(sensor.x))
+        #sensor.heading = np.zeros(np.shape(sensor.x))
+        
+        rare_line_to_sensor = ml.boxcar_downsample(
+            line_to_sensor[np.newaxis].T, azimuth_looks, 1,
+            agg_type='sample')
+        
+        # get the swath side
+        swath_side = 'Left'
+        swath_side_int = 1
+        if self.pixc.tile_ref.endswith('R'):
+            swath_side = 'Right'
+            swath_side_int = -1
+        # make a refloc object
+        attributes = {}#pixc.attributes
+        attributes['nr_pixels'] = self.pixc.nr_pixels
+        attributes['nr_lines'] = self.pixc.nr_lines
+        attributes['wavelength'] = self.pixc.wavelength
+        attributes['range_spacing'] = self.pixc.range_spacing
+        attributes['near_range'] = self.pixc.near_range
+        attributes['swath_side_flag'] = swath_side_int
+        refloc = swot.refloc.refloc.refloc_from_sensor(
+            sensor, attributes, rare_line_to_sensor)
+        
+        # set xyz image
+        # Convert geodetic coordinates (lat, lon, height) to cartesian coordinates (x, y, z)
+        x, y, z = geoloc.convert_llh2ecef(
+            self.pixcvec.latitude, 
+            self.pixcvec.longitude, 
+            self.pixcvec.height, 
+            GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
+        #
+        X = np.zeros((attributes['nr_lines'],attributes['nr_pixels']))
+        Y = np.zeros((attributes['nr_lines'],attributes['nr_pixels']))
+        Z = np.zeros((attributes['nr_lines'],attributes['nr_pixels']))
+        X[self.pixcvec.azimuth_idx,self.pixcvec.range_idx] = x
+        Y[self.pixcvec.azimuth_idx,self.pixcvec.range_idx] = y
+        Z[self.pixcvec.azimuth_idx,self.pixcvec.range_idx] = z
+        refloc.set_xyz(X,Y,Z)
+        
+        # set s_image
+        use_illumination_time = True
+        if use_illumination_time:
+            # use the s_image in the pixc file
+            s_image = np.zeros((attributes['nr_lines'],attributes['nr_pixels']))
+                                    
+            #### OLD WAY
+            #~ sensor_s = [np.argmin(abs(self.sensor.time 
+                                      #~ - self.pixc.illumination_time[k])) 
+                        #~ for k in range(len(self.pixc.illumination_time))]
+                        
+            f = interpolate.interp1d(self.sensor.time,range(len(self.sensor.time)))
+            sensor_s = (np.rint(f(self.pixc.illumination_time))).astype(np.double)
+                        
+            s_image[self.pixc.azimuth_index,self.pixc.range_index] = sensor_s[:]
+            refloc.set_s_prof(s_image)
+        else:
+            # recompute s-image using pixc geoloc as refloc
+            refloc.compute_s_prof(0, attributes['nr_lines'])
+        #refloc.compute_s_prof(0, attributes['nr_lines'])
+        # make H_new as a 2d image
+        H_new = np.zeros((attributes['nr_lines'],attributes['nr_pixels']))
+        H_new[self.pixcvec.azimuth_idx,self.pixcvec.range_idx] = self.new_height[:]
+        
+        # finally call the function that does the work 
+        #llh = swot.proc.geolocate.height_constrained_geoloc_grad_search (
+        #    refloc,
+        #    sensor,
+        #    H_new,
+        #    self.pixc.wavelength,
+        #    swath_side_int,
+        #    maxiter=10)
+        xyz = swot.proc.geolocate.fixed_height_geolocation (
+            refloc,
+            sensor,
+            H_new,
+            self.pixc.wavelength)
+        llh = swot.proc.geolocate.xyz2llh(xyz)
+        # map to outputs
+        lat = np.squeeze(llh[0,:,:])
+        lon = np.squeeze(llh[1,:,:])
+        height = np.squeeze(llh[2,:,:])
+        
+        msk = np.zeros((attributes['nr_lines'],attributes['nr_pixels']))
+        msk[self.pixcvec.azimuth_idx,self.pixcvec.range_idx] = 1
+        self.OUT_lat_corr = lat[msk==1]
+        self.OUT_lon_corr = lon[msk==1]
+        self.OUT_height_corr = height[msk==1]
 
     def taylor_improved_geoloc(self):
         nb_pix = self.pixcvec.height.size
@@ -250,7 +386,7 @@ def geoloc_river(pixc, pixcvec, sensor, rivertile, fit_heights_per_reach, interp
         if fit_heights_per_reach:
             geolocriver.fit_node_heights()
         geolocriver.estimate_pixvec_height_for_geoloc(interpolate_pixc_between_nodes)
-        geolocriver.apply_improved_geoloc()
+        geolocriver.apply_improved_geoloc(method=method)
         
         return (geolocriver.OUT_lat_corr, geolocriver.OUT_lon_corr, geolocriver.OUT_height_corr)
 
