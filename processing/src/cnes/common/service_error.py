@@ -22,7 +22,7 @@
 
 
 """
-.. module:: serviceError.py
+.. module:: service_error.py
     :synopsis: basic error class for Swot
 
 """

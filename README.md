@@ -9,19 +9,23 @@ This software is released under open source license LGPL v.3 and is distributed 
 SWOT (Surface Water and Ocean Topography) is an innovative radar altimetry satellite mission projected for launch in 2021, prepared jointly by NASA’s Jet Propulsion Laboratory (JPL) and Centre National d’Etudes Spatiales (CNES), with contributions from the UK Space Agency (UKSA) and the Canadian Space Agency (CSA). SWOT features a high-rate (HR) data mode for continental hydrology, and a low-rate (LR) data mode dedicated mainly to oceanography. For more information, refer to https://swot.cnes.fr/en/ or https://swot.jpl.nasa.gov/. 
 
 ## Objectives 
-* Provide open-source tools that, together with JPL’s RiverObs tool (https://github.com/SWOTAlgorithms/RiverObs.git), enable end-users to generate virtually all SWOT HR level-2 (L2) products with relatively realistic errors
+* Provide open-source tools that, together with JPL’s RiverObs tool (https://github.com/SWOTAlgorithms/RiverObs.git), enable end-users to generate virtually all SWOT HR level-2 (L2) products with fairly (but not fully) representative characteristics (see section on caveats below)
   * Get familiar with product content and formats, use the data to conduct studies...
 * Give end-users access to the L2+ processing prototypes 
-  * Validate methodology, propose improvements
+  * Validate methodology, propose improvements...
 * As far as possible let the toolbox correspond directly to the processing prototypes that are evolving towards operational processing chains 
   * Coded in high-level programming language (Python 3), for simple distribution, installation and use
+
+```
+Note that both algorithms and products are still under development and will be updated regularly.
+```
 
 ## Content 
 * SISIMP: Large scale simulator of L2_HR_PIXC products (with orbit selection tool)
 * LOCNES: Generation of L2_HR_LAKE* and L2_HR_PIXC_VEC products 
 * Improved geolocation library (used by RiverObs and LOCNES)
 * Module to generate L2_HR_RASTER products (under development, not yet included)
-* Overall script permitting to run all steps consecutively 
+* Overall script permitting to run all steps consecutively (with example dataset)
 * Tools for file format conversion etc.
 * Potentially other modules in the future (for ex. floodplain DEM generation)
 
@@ -46,10 +50,14 @@ Although the large-scale simulator included in the toolbox provides fairly repre
   * Also possible to inject “true” heights from models (after simulation)
   * Random effective instrument noise added to height (and propagated to geolocation)
 * Idealized pixel cloud processing (i.e. water detection, phase unwrapping etc. are implicitly assumed to be perfect)
-* Some data fields are at this stage void (various flags, uncertainty indicators…)
+
+```
+If a higher degree of realism is necessary to conduct a study, lower-level simulators and processors need to be employed. 
+These are not publicly available, but SWOT science team members can contact the SWOT algorithm development team for support. 
+```
 
 Products formats and algorithms:
-* The product formats are not et in their final version, but are regularly updated to reflect the current working definitions, and will evolve into the official product formats as and when these are defined.
+* The product formats are not yet in their final version, but are regularly updated to reflect the current working definitions, and will evolve into the official product formats as and when these are defined. Some data fields are at this stage void (various flags, uncertainty indicators…).
 * The processing algorithms will also continue to evolve, as today's prototypes are progessively refined into operational software. 
 
 ## Installation procedure
@@ -113,9 +121,9 @@ The dependencies of swot-hydrology-toolbox are:
 
 ### Python environment installation
 
-#### Setting up an conda environment
+#### Setting up a conda environment
 
-To create an conda environment, execute
+To create a conda environment, execute
 
 ```bash
 cd $SWOT_HYDROLOGY_TOOLBOX
@@ -139,4 +147,11 @@ After activating your Python environment, you have to set your PYTHONPATH variab
 export PYTHONPATH=$SWOT_HYDROLOGY_TOOLBOX/processing/src/:$RIVEROBS/src:$PYTHONPATH
 ```
 
+An example dataset showing how to configure and run simulation and processing is available under /test.
 
+The needed input for the overall chain include:
+* An orbit file (provided)
+* A water mask in shapefile format covering the area you want so simulate (see example under /test)
+* A river database in shapefile format (e.g. GRWL)
+* A lake database in shapefile format
+* Various configuration files (examples provided)

@@ -96,9 +96,9 @@ class findOrbit(object):
                     print("  Number of sampling point = %d" % nb_sampling_points)
 
                     # Cut valid files and save in new files
-                    pass_num = int(orbit_file.split('.')[0].split("_")[-1]) + 1  # Compute pass number wrt SWOT KMLs available on AVISO+
+                    pass_num = int(orbit_file.split('.')[0].split("_")[-1]) + 332  # Compute pass number wrt SWOT KMLs available on AVISO+ (sept2015-v2)
                     if pass_num > 584:
-                        pass_num = pass_num % 585 + 1
+                        pass_num -= 584
                     out_filename = file_prefix + "_cycle_0000_pass_%04d.nc" % pass_num
                     print("  Save as %s" % out_filename)
                     output_orbit_file = Dataset(out_filename, "w", format="NETCDF4")
@@ -113,8 +113,7 @@ class findOrbit(object):
                         # Linear regression of variable
                         lin_reg = np.polyfit(index_over_dem[:], varin[index_over_dem], 1)
                         give_output = np.poly1d(lin_reg)
-                        output_scale = np.arange(index_over_dem[0], index_over_dem[-1], float(index_over_dem[-1] - index_over_dem[0]) / float(nb_sampling_points))
-                        #print(give_output(output_scale))
+                        output_scale = np.linspace(index_over_dem[0], index_over_dem[-1],nb_sampling_points)
                         outVar[:] = give_output(output_scale)
                     
                     # Creating x, y and z variables

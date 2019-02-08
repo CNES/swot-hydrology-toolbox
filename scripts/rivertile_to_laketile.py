@@ -12,7 +12,6 @@ from netCDF4 import Dataset
 import os
 from os.path import join, abspath
 import subprocess
-import sys
 
 import my_rdf
 
@@ -92,17 +91,17 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cy
         tbx_path = os.environ['SWOT_HYDROLOGY_TOOLBOX']
     except:
         tbx_path = os.getcwd().replace(os.sep+"scripts", "")
+        
     # Build LOCNES/lake_tile main lib
-    
     if (env == 'swotCNES'):
         print("Switch to swotCNES env instead of swot-hydrology-toolbox processing")
         pge_lake_tile = '/work/ALT/swot/swotdev/desrochesd/swot-sds/swotCNES/src/cnes/sas/lake_tile/pge_lake_tile.py'
     else:
-        pge_lake_tile = join(tbx_path, 'processing', 'src', 'cnes', 'sas', 'lake_tile', 'pge_lake_tile.py')
+        pge_lake_tile = join(tbx_path, 'processing', 'PGE', 'lake_tile', 'pge_lake_tile.py')
 
         
     # Build command
-    cmd = "{} {} -shp".format(pge_lake_tile, laketile_cfg)
+    cmd = "{} {}".format(pge_lake_tile, laketile_cfg)
     print ("> executing:", cmd) 
     print()
     #subprocess.check_call(cmd, shell=True)
@@ -157,7 +156,6 @@ def main():
     else:
         print("> %d river annotation file(s) to deal with" % len(river_files))
     print()
-
     
     for river_annotation in river_files:
         
@@ -179,7 +177,7 @@ def main():
 	                
             cycle_number = "{:03d}".format(pixc_dataset.getncattr("cycle_number"))
             pass_number = "{:03d}".format(pixc_dataset.getncattr("pass_number"))
-            tile_number = pixc_dataset.getncattr("tile_name")
+            tile_number = pixc_dataset.getncattr("tile_name").split("_")[1]
             try:
                 start_time = pixc_dataset.getncattr("start_time")
             except: 
@@ -191,7 +189,7 @@ def main():
             
             print(". Cycle number = %s" % cycle_number)
             print(". Orbit number = %s" % pass_number)
-            print(". Tile ref = %s" % tile_number)
+            print(". Tile number = %s" % tile_number)
             print(". Start time = %s" % start_time)
             print(". Stop time = %s" % stop_time)
             

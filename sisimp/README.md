@@ -1,23 +1,22 @@
 # Large scale simulator of pixel cloud
 
-## Purpose
 This module simulates pixel cloud with realistic errors from a shapefile of water mask, and over large scale.
 
-### Input files
+## Input files
 
-#### Shapefile of water mask
+### Shapefile of water mask
 This is a polygon shapefile. Each object corresponds to a water body. Specific attributes are required depending on the configuration of the simulator:
 * ```RIV_FLAG = 1``` for river objects, ```=0``` otherwise; to use with ```Create dummy pixc vec river file = yes``` to distinguish river pixels from other pixels; if RIV_FLAG not set, all water bodies are considered as lakes
 *  An attribute named ```HEIGHT``` (or other to fill in the parameter file, see hereafter) gives the height associated to each water body. If the value is set to NULL, then the height is considered to be 0.
 
-#### Orbit files
+### Orbit files
 They are the result of the select_orbit_cnes module, i.e:
 * ```<prefix>_cycle_<cccc>_pass_<pppp>.nc``` (cccc = cycle number on 4 digits; pppp = pass number on 4 digits) corresponds to a subset of the theoretical orbit over the studied area
 * ```passplan.txt``` is the pass plan, i.e. the sequence of passes overflying the studied area; ```passplan_t<pppp>.txt``` contains the information for pass ```pppp```.
 
 
-### Output files
-#### The pixel cloud PIXC file
+## Output files
+### The pixel cloud PIXC file
 The filename pattern is ```SWOT_L2_HR_PIXC_I_<ccc>_<ppp>_<ttt><s>_<yyyyMMddThhmmss>_<yyyyMMddThhmmss>_<CRID>_<nn>``` where:
 * __ccc__ is the cycle number, on 3 digits
 * __ppp__ is the pass number, on 3 digits
@@ -30,7 +29,7 @@ The filename pattern is ```SWOT_L2_HR_PIXC_I_<ccc>_<ppp>_<ttt><s>_<yyyyMMddThhmm
 
 NB: a shapefile version of the PixC is produced if asked
 
-#### The PIXCVecRiver file (optionnal)
+### The PIXCVecRiver file (optionnal)
 
 This is the file complementary to the PIXC file, containing improved geolocation for river objects (cf. above).
 
@@ -46,40 +45,7 @@ The filename pattern is ```SWOT_L2_HR_PIXCVecRiver_<ccc>_<ppp>_<ttt><s>_<yyyyMMd
 
 NB: a shapefile version of the PixC is produced if asked
 
-## Run simulator
-
-=======
-# pixc_simulator
-Large-scale pixelc cloud simulator.
-
-CNES sisimp code delivered by Claire 14Feb2018
-
-This module is dedicated to simulation of pixel clouds from water mask shapefiles at large scale.
-
-# Options
-Processing options are set in the RDF file, an example is given in the current project in the file parameter_sisimp.rdf.
-
-Options of parameter_file are :
-* Noise file path : path to noise file. An example of noise file is given in file height_noise_presum2.txt
-* Run directory for orbits : path to the orbit folder. Folling files and directories should be avaliable :
-    * makeGdemOrbit_2.01 directory
-    * passplan.txt
-    * passplan_tXXX.txt, XXX being the orbit number
-* Shapefile path : path to the water mask shapefile without extention ".shp"
-* Geolocalisation improvement : yes (no cross-track noise applied) or no
-* Real pixc file format : yes (PixC as defined in PDD) or no(PixC as provided by classic simulator)
-* Create shapefile : yes or no (works only with real pixel cloud option)
-* Create dummy pixc vec river file : yes (L2_HR_PIXC_VEC_RIVER product associated to PixC files) or no (works only with real pixel cloud option)
-* Water flag : classification flag for water (usually 4)
-* Output directory : path to the output directory
-* Cycle : cycle number
-* Orbit : orbit number
-
-# Run
-
-To run sisimp, use this command in a terminal :
-```
-python sisimp.py [-h] [-v [VERBOSE]] [-l [LOGFILE]] parameter_file
+# Usage
 ```
 usage: proc_sisimp.py [-h] [-v [VERBOSE]] [-l [LOGFILE]] parameter_file
 
@@ -94,9 +60,9 @@ optional arguments:
                         Write prints to a logfile in addition to the console
 ```
 
-### Parameter file
+## Parameter file
 
-#### With min options
+### With min options
 The parameter file is in RDF format and must contain at least the following (```parameter_sisimp_light.rdf```):
 ```
 Run directory for orbits = <full_path_to_orbit_files>
@@ -119,7 +85,7 @@ In particular:
 * ___Create shapefile___ is to generate PixC files also in shapefile format
 * ___Create dummy pixc vec river file___ is to generate arbitrary PIXCVecRiver file (normally processed by RiverObs)
 
-#### All options
+### All options
 The full parameter file can contain the following attributes (```parameter_sisimp_full.rdf```):
 ```
 Run directory for orbits = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/orbit
@@ -130,8 +96,6 @@ Output directory = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/simu
 Noise file path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt
 roll_file_name = /work/ALT/swot/swotpub/SWOT_Simulator_data/input_data/large_scale_sim_scene/data_sim_roll_v1.nc
 
-
-
 Options for Dark Water simulation are : 
 Dark water =  yes or no If yes dark water simulation is executed
 Scale factor dw = float to parameterize the correlation length of simulated dark water areas
@@ -141,7 +105,6 @@ Dark water seed = int seed to be used for reproducible dark water simulations
 Scale factor non detected dw =  float to parameterize the correlation length of simulated non detected dark water areas
 Dark water detected percentage = int (between 0 and 100) percentage of detected dark water
 Dark water detected noise factor = float noise factor for dark water pixels height simulation
-
 
 !### Orbit parameters
 !3 options =

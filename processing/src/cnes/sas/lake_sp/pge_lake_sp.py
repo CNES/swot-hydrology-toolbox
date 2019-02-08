@@ -317,7 +317,7 @@ class Processing(object):
                                                       self.objPixc_Vec_SP_R, 
                                                       self.objLakeDb, 
                                                       "tmp_R", 
-                                                      IN_id_prefix=self.lake_sp_filenames.lake_id_prefix)
+                                                      in_id_prefix=self.lake_sp_filenames.lake_id_prefix)
             my_api.printInfo("") 
 
             # 2.2 - Left swath
@@ -332,7 +332,7 @@ class Processing(object):
                                                       self.objPixc_Vec_SP_L, 
                                                       self.objLakeDb, 
                                                       "tmp_L", 
-                                                      IN_id_prefix=self.lake_sp_filenames.lake_id_prefix)
+                                                      in_id_prefix=self.lake_sp_filenames.lake_id_prefix)
             my_api.printInfo("")
             
             # 3 - Compute lake products
@@ -395,8 +395,8 @@ class Processing(object):
             # 4.5 - Close dataSources
             dataSource_sp1.Destroy()
             dataSource_sp2.Destroy()
-            self.objLake_SP_R.dataSource.Destroy()
-            self.objLake_SP_L.dataSource.Destroy()
+            self.objLake_SP_R.free_product()
+            self.objLake_SP_L.free_product()
             my_api.printInfo("")
 
             # 5 - Update PIXCVec files

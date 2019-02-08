@@ -24,7 +24,7 @@ optional arguments:
   -f, --force           force overwrite existing outputs; default is to quit
 ```
 In particular:
-* ___l2pixc_annotation_file___ is an output of the large scale simulator (sisimp) or the hr_simulator_to_pixel_cloud.py tool; its pattern is like: ```pixc_annotation_<ccc>_<ppp>_<ttt-t>``` where ___ccc___ is the cycle number over 3 digits, ___ppp___ is the pass number over 3 digits and ___ttt-t___ is the tile reference (ex: 45N-R for the tile of 1° of latitude at nadir, starting at 45° North, Right swath); it is a key-value file, containing at least: ```l2pixc file = <full_path_to_pixc_file>```
+* ___l2pixc_annotation_file___ is an output of the large scale simulator (sisimp) or the hr_simulator_to_pixel_cloud.py tool; its pattern is like: ```pixc_annotation_<ccc>_<ppp>_<ttt-t>``` where ___ccc___ is the cycle number over 3 digits, ___ppp___ is the pass number over 3 digits and ___ttt-t___ is the tile reference (ex: 45N-R for the tile of 1° of latitude at nadir, starting at 45° North, Right swath); it is a key-value file, containing at least: ```l2pixc file = <full_path_to_pixc_file>```; __l2pixc_annotation_file__ may be a directory: in this case, the script takes in input all the annotation files in this directory
 * ___riverobs_path___ is the full path to RiverObs software; if not filled, the software uses the environment variable named "RIVEROBS"
 
 ### Parameter file

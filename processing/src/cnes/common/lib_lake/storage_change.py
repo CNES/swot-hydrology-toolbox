@@ -77,7 +77,7 @@ def STOCC_quadratic(in_height, in_area, in_ref_height, in_ref_area, in_ref_flood
         return None, None
     
     # Volume variation between both surfaces
-    out_stoc_val = (in_height - in_ref_height)/3. * (in_area + in_ref_area + math.sqrt(in_area + in_ref_area))
+    out_stoc_val = (in_height - in_ref_height)/3. * (in_area + in_ref_area + math.sqrt(in_area * in_ref_area))
     
     # Associated uncertainty
     out_stoc_u = -9999.

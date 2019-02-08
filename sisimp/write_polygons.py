@@ -21,6 +21,8 @@ import sys
 import os
 import utm 
 import pyproj
+import time
+
 
 import lib.my_api as my_api
 
@@ -337,11 +339,12 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
       
     # 4.1 - Compute noise over height
     if IN_attributes.dark_water.lower() == "yes" :
+        noise_seed = int(str(time.time()).split('.')[1])
         delta_h=np.zeros(elevation_tab.shape)
         water_pixels=np.where(classification_tab==IN_attributes.water_flag)
         dw_pixels=np.where(classification_tab==IN_attributes.darkwater_flag)
-        delta_h[water_pixels]=math_fct.calc_delta_h(angles[water_pixels],IN_attributes.noise_height,IN_attributes.height_bias_std)
-        delta_h[dw_pixels]=math_fct.calc_delta_h(angles[dw_pixels],IN_attributes.dw_detected_noise_height,IN_attributes.height_bias_std)
+        delta_h[water_pixels]=math_fct.calc_delta_h(angles[water_pixels],IN_attributes.noise_height,IN_attributes.height_bias_std, seed = noise_seed)
+        delta_h[dw_pixels]=math_fct.calc_delta_h(angles[dw_pixels],IN_attributes.dw_detected_noise_height,IN_attributes.height_bias_std, seed = noise_seed)
     else : 
         delta_h = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std)
 
@@ -409,42 +412,46 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     ######################
     # Write output files #
     ######################
-
-
     
     # Cut arrays in order to write real PixC files
-    # Tiles correspond to 1deg of latitude at nadir
-    if lat.size != 0:        
-    
-        # Get min/max nadir latitudes values
-        nadir_lat_max = int(np.max(nadir_lat_deg))
-        nadir_lat_min = int(np.min(nadir_lat_deg))
+    # Tiles correspond to theoretical tiles, with 60km length at nadir
+    if lat.size != 0:  
 
+        # Retrieve the tile database (pass_number/tile_number/nadir_lon/nadir_lat/nadir_heading)
         tile_db = IN_attributes.tile_database
-        tile_db_orbit = tile_db[np.where(tile_db[:,0] == IN_orbit_number)[0],:]
+        # Subset the tile DB to the portion related to the orbit number
+        #tile_db_orbit = tile_db[np.where(tile_db[:,0] == IN_orbit_number)[0],:]
+        tmp_orbit_number = IN_orbit_number - 331  # Pass 1 in tile database file = pass 332 in last KML file (sept2015-v2)
+        if tmp_orbit_number < 1:
+            tmp_orbit_number += 584
+        tile_db_orbit = tile_db[np.where(tile_db[:,0] == tmp_orbit_number)[0],:]
         
-        nadir_lat_argmax = int(np.argmax(nadir_lat_deg))        
+        # Compute the indices of nadir_lat_min and nadir_lat_max
         nadir_lat_argmin = int(np.argmin(nadir_lat_deg))
+        nadir_lat_argmax = int(np.argmax(nadir_lat_deg))
         
-        nadir_lat_deg_max = nadir_lat_deg[nadir_lat_argmax]
-        nadir_lon_deg_max = nadir_lon_deg[nadir_lat_argmax]
-
+        # Get long and lat in degrees, associated to nadir_min_lat
         nadir_lat_deg_min = nadir_lat_deg[nadir_lat_argmin]
         nadir_lon_deg_min = nadir_lon_deg[nadir_lat_argmin]
         
+        # Get long and lat in degrees, associated to nadir_max_lat
+        nadir_lat_deg_max = nadir_lat_deg[nadir_lat_argmax]
+        nadir_lon_deg_max = nadir_lon_deg[nadir_lat_argmax]
+
+        # Construct the kd-tree for quick nearest-neighbor lookup        
         tree = cKDTree(tile_db_orbit[:,2:4])
         
-        ind_max = tree.query([nadir_lat_deg_max, nadir_lon_deg_max])
+        # Retrieve index of tile_db_orbit the nearest of nadir_min_lat
         ind_min = tree.query([nadir_lat_deg_min, nadir_lon_deg_min])
+        # Retrieve index of tile_db_orbit the nearest of nadir_max_lat
+        ind_max = tree.query([nadir_lat_deg_max, nadir_lon_deg_max])
 
         tile_db_orbit_cropped = tile_db_orbit[min(ind_max[1], ind_min[1])-1:max(ind_max[1], ind_min[1])+2,:]
         vect_lat_lon_db_cropped = np.zeros([tile_db_orbit_cropped.shape[0]-1,2])
-    
         
         for i in range(tile_db_orbit_cropped.shape[0]-1):
             vect_lat_lon_db_cropped[i,0] = tile_db_orbit_cropped[i+1,2]-tile_db_orbit_cropped[i,2]
             vect_lat_lon_db_cropped[i,1] = tile_db_orbit_cropped[i+1,3]-tile_db_orbit_cropped[i,3]
-        
         
         nb_az_traj = max(nadir_lat_argmax,nadir_lat_argmin)- min(nadir_lat_argmax,nadir_lat_argmin)+1
         tile_values = np.zeros(nb_az_traj, int)
@@ -452,14 +459,17 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             dist = np.abs(((nadir_lat_deg[i]-tile_db_orbit_cropped[:-1,2])*vect_lat_lon_db_cropped[:,0] + (nadir_lon_deg[i]-tile_db_orbit_cropped[:-1,3])*vect_lat_lon_db_cropped[:,1])/np.sqrt(vect_lat_lon_db_cropped[:,0]**2+vect_lat_lon_db_cropped[:,1]**2))
             tile_values[i] = tile_db_orbit_cropped[np.argmin(dist),1]
 
+
+        ## If you want only one tile (for some tests)
+        #~ tile_values[:] = tile_values[0]
+        
         tile_list = np.unique(tile_values)
         
         for tile_number in tile_list:
+            
+            my_api.printInfo("== Dealing with tile number %03d" % tile_number)
+            
             ind_nadir_lat_tile_i = np.where(tile_values == tile_number)[0]
-            lat_start = min(nadir_lat_deg[ind_nadir_lat_tile_i[0]],  nadir_lat_deg[ind_nadir_lat_tile_i[-1]])
-            lat_end =  max(nadir_lat_deg[ind_nadir_lat_tile_i[0]],  nadir_lat_deg[ind_nadir_lat_tile_i[-1]])
-
-            my_api.printInfo("Dealing with latitudes >= %s AND < %s" % (lat_start, lat_end))
             
             # Get azimuth indices corresponding to this integer value of latitude
             nadir_az = ind_nadir_lat_tile_i
@@ -479,15 +489,13 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 my_api.printInfo("Min az ind = %d - Max az ind = %d" % (np.min(sub_az), np.max(sub_az)))
                 
                 # Get output filename
-                # North / south lat flag
-                nord_or_south = ["S", "N"][np.mean(nadir_lat_deg[ind_nadir_lat_tile_i]) > 0]
 
                 # Left / right swath flag
                 left_or_right = IN_swath.upper()[0]
                 
                 
                 # General tile reference
-                tile_ref = str(tile_number) + nord_or_south + "-" + left_or_right
+                tile_ref = "%03d%s" % (tile_number, left_or_right)
                 
                 # Init L2_HR_PIXC object
                 my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min, sub_r, classification_tab[az_indices], pixel_area[az_indices],
