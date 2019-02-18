@@ -34,15 +34,15 @@ def generate_1d_profile(taille_1D, hmean, hdev, l, plot=False):
         plt.show()
 
 def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, height_model_stdv, plot=False, seed = None):
-    
+
+
     Nx = int((latmax-latmin)/dlat)
     Ny = int((lonmax-lonmin)/dlon)
-
     lx = 500*dlat
     ly = 500*dlon
     
-
-    np.random.seed(seed)
+    if seed is not None:
+        np.random.seed(int(seed))
     kx = np.fft.fftfreq(Nx, d=dlon)
     ky = np.fft.rfftfreq(Ny, d=dlat)
     
@@ -62,7 +62,6 @@ def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, hei
     deltaky = 1/Ny/dlat
         
     h_corr = np.sqrt((Nx*Ny/(4*dlon*dlat/lx/ly)))*np.fft.irfft2(hij, s=(Nx,Ny))
-
     if plot:
         plt.figure()
         plt.imshow(h_corr)
@@ -78,7 +77,6 @@ def generate_2d_profile_gaussian_old(taille_2D, hmean, size_filter, hdev, fact_e
         a = int(taille_2D[0] * fact_echelle)
         b = int(taille_2D[1] * fact_echelle)
         size_filter=[a,b]
-        
     np.random.seed(seed)
     h = (np.random.rand(taille_2D[0],taille_2D[1])-0.5)
 
