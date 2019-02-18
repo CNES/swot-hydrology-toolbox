@@ -256,7 +256,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     r, az = [ind[0], ind[1]]  # Range index
     #az = ind[1]  # Azimuth index
     river_flag = IN_water_pixels[ind]  # 1=lake and 2=river
-    
     # Dark Water
     
     ## check if dark water is simulated or not
@@ -268,15 +267,13 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             taille_r, taille_az = rmax-rmin+1, azmax-azmin+1
 
             # Simulate dark_water
-            dw_mask=dark_water.dark_water_simulation([taille_az,taille_r],IN_attributes.fact_echelle_dw, IN_attributes.dw_pourcent,IN_attributes.dw_seed)
-
+            dw_mask=dark_water.dark_water_simulation(1,azmin ,azmax+1,1, rmin, rmax+1,IN_attributes.dw_pourcent , seedvalue=None)
             ## Get water extent
             indice_r = np.array(ind[0]-rmin)
             indice_az = np.array(ind[1]-azmin)
-
             ## Randomly classify or erase dark water regions
             ### Randomly erase DW regions in DW mask
-            dw_mask = dark_water.dark_water_non_detected_simulation(dw_mask,IN_attributes.scale_factor_non_detected_dw,IN_attributes.dw_detected_percent,IN_attributes.dw_seed)
+            dw_mask = dark_water.dark_water_non_detected_simulation(dw_mask,1,azmin ,azmax+1,1, rmin, rmax+1,IN_attributes.dw_detected_percent,IN_attributes.dw_seed)
             #reshape dark_water to water extent
             dw_mask=dw_mask[indice_az,indice_r]
             ### Update IN_water_pixels with the deleted water pixels
@@ -645,7 +642,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 
                 if IN_attributes.height_model == 'gaussian': 
                     if area > IN_attributes.height_model_min_area:
-                        print(ind+1)
                         my_api.printInfo(str("Gaussian model applied for big water body of size %f ha" % area))
                         lac = Gaussian_Lac(ind+1, IN_attributes, lat, lon, IN_cycle_number)
                     else:
@@ -685,6 +681,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 geom_out.AddGeometry(ring)
             # 4.2.4 - Add Output geometry
             if add_ring:
+               
                 # Add the output reprojected polygon to the output feature
                 feature_out.SetGeometry(geom_out)
                 # Set the RIV_FLAG field
@@ -694,9 +691,12 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 layerDefn = layer.GetLayerDefn()
                 for i in range(layerDefn.GetFieldCount()):
                     # Test 'HEIGHT' parameter in input shapefile fields
-                    if layerDefn.GetFieldDefn(i).GetName() == IN_attributes.height_name:
-                        height_from_shp = True
-                        feature_out.SetField(str("HEIGHT"), polygon_index.GetField(str(IN_attributes.height_name)))
+                    #if layerDefn.GetFieldDefn(i).GetName() == IN_attributes.height_name:
+                    #    height_from_shp = True
+                    #    if polygon_index.GetField(str(IN_attributes.height_name)) is not None :
+                    #        feature_out.SetField(str("HEIGHT"), polygon_index.GetField(str(IN_attributes.height_name)))
+                    #    else : 
+                    #        feature_out.SetField(str("HEIGHT"), 0.)
                         
                     if IN_attributes.height_model == 'polynomial' or IN_attributes.height_model == 'gaussian':
                         feature_out.SetField(str("CODE"),polygon_index.GetField("code"))
@@ -794,13 +794,11 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau = 0.):
     psi = math_fct.linear_extrap(lat0, IN_attributes.lat_init, IN_attributes.heading_init)
     y = du * np.cos(psi)  # eq (3)
     OUT_azcoord = (math_fct.linear_extrap(lat0, IN_attributes.lat_init, np.arange(len(IN_attributes.lat_init))))
-    
     lat_0, lon_0 = IN_attributes.lat_init, IN_attributes.lon_init
-    
     nb_points = 50
     gamma = np.zeros([len(IN_lat), nb_points])
     beta = np.zeros([len(IN_lat), nb_points])
-        
+  
     for i in range(nb_points):
         theta = np.pi/2. - IN_lat
         theta_0 = np.pi/2. - lat_0[OUT_azcoord.astype('i4')+i-int(nb_points/2),]

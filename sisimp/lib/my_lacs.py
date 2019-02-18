@@ -60,7 +60,8 @@ class Reference_height_Lac(Lac):
         for i in range(layer.GetFieldCount()):
         # Test 'HEIGHT' parameter in input shapefile fields
             if layer.GetFieldDefn(i).GetName() == self.height_name:
-                self.height = np.float(polygon_index.GetField(str(self.height_name)))
+                if polygon_index.GetField(str(self.height_name)) is not None :
+                    self.height = np.float(polygon_index.GetField(str(self.height_name)))
             
     def compute_h(self, lat, lon):
         return self.height
@@ -91,9 +92,9 @@ class Gaussian_Lac(Lac):
         taille_lon, taille_lat = np.int((lonmax-lonmin)/self.dlon), np.int((latmax-latmin)/self.dlat)
         
         self.height = height_model.generate_2d_profile_gaussian(self.dlat, latmin, latmax, self.dlon, lonmin, lonmax, self.height_model_stdv, seed = self.seed)
+        print("gaussian min height",np.min(self.height))
+        print("gaussian max height",np.max(self.height))
         
-        
-        print(self.height.shape, taille_lat, taille_lon)
         self.h_interp = scipy.interpolate.RectBivariateSpline(latmin + self.dlat*np.arange(taille_lat),lonmin + self.dlon*np.arange(taille_lon),  self.height)
         
     def compute_h(self, lat, lon):
@@ -142,10 +143,8 @@ class Polynomial_Lac(Lac):
             self.mode = 'az' 
                         
         h0 = np.mean(self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period)
-
         X, Y = pyproj.transform(self.latlon, self.utm_proj, lon, lat)
         height_water = height_model.generate_2d_profile_2nd_order_list(self.X0, self.Y0, X, Y, COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST)
-        
         return h0 + height_water
 
 class Height_in_file_Lac(Lac):
