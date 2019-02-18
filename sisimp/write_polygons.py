@@ -654,7 +654,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
 
                 if IN_attributes.height_model == 'reference_height':
-                    lac = Reference_Lac(ind+1, layerDefn, IN_attributes)
+                    lac = Reference_height_Lac(ind+1, layerDefn, polygon_index, IN_attributes)
                 
                 if IN_attributes.height_model == 'gaussian': 
                     if area > IN_attributes.height_model_min_area:
