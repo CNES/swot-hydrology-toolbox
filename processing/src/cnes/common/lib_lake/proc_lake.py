@@ -143,7 +143,7 @@ class LakeProduct(object):
             
             logger.info("")
             logger.info("===== compute_product / label = %d / nb pixels = %d / size = %.2f m2 =====" % (label, obj_nb_pix, obj_size))
-            
+                        
             # 4 - Compute mean height ONLY over water pixels except if there is only dark water
             # TODO: to improve later
             if classif["water"] is None:
@@ -171,7 +171,7 @@ class LakeProduct(object):
                                                                       plot=False)
                         
                     elif height_model == 'polynomial':                                 
-                        height_model = biglakemodel.fit_biglake_model_polyfit(self.obj_pixc, pix_index)
+                        height_model = biglakemodel.fit_biglake_model_polyfit(self.obj_pixc, pix_index, classif)
                                                          
                     else:
                         logger.debug("No height model defined, assume Mean Height model")
@@ -480,16 +480,16 @@ class LakeProduct(object):
             ref_height, ref_area = self.obj_lake_db.getRefValues(p_id)
             
             # 2 - Get observed lakes linked to this a priori lake
-            self.layer.SetAttributeFilter("prior_id LIKE '%{}%'".format(p_id))
+            self.shp_mem_layer.layer.SetAttributeFilter("prior_id LIKE '%{}%'".format(p_id))
             
             # 3 - Number of observed objects linked to this a priori lake
-            nb_obs_lake = self.layer.GetFeatureCount()
+            nb_obs_lake = self.shp_mem_layer.layer.GetFeatureCount()
             
             # 4 - Process wrt to case
             if nb_obs_lake == 1:  
                 
                 # Get lake feature and values
-                obs_lake = self.layer.GetNextFeature()
+                obs_lake = self.shp_mem_layer.layer.GetNextFeature()
                 obs_height = obs_lake.GetField(str("height"))
                 obs_area = obs_lake.GetField(str("area_total"))
                 
@@ -515,12 +515,12 @@ class LakeProduct(object):
                         obs_lake.SetField(str("ds_Q_u"), stoc_u)
                 
                 # Rewrite feature with storage change values
-                self.layer.SetFeature(obs_lake)
+                self.shp_mem_layer.layer.SetFeature(obs_lake)
                 
             else:  # Case 1 prior lake <=> 2 or more observed lakes
                 pass
         
-            self.layer.SetAttributeFilter(None)
+            self.shp_mem_layer.layer.SetAttributeFilter(None)
 
     # ----------------------------------------
     
