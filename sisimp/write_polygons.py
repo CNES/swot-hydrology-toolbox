@@ -414,19 +414,15 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         if tmp_orbit_number < 1:
             tmp_orbit_number += 584
         tile_db_orbit = tile_db[np.where(tile_db[:,0] == tmp_orbit_number)[0],:]
-        
         # Compute the indices of nadir_lat_min and nadir_lat_max
         nadir_lat_argmin = int(np.argmin(nadir_lat_deg))
         nadir_lat_argmax = int(np.argmax(nadir_lat_deg))
-        
         # Get long and lat in degrees, associated to nadir_min_lat
         nadir_lat_deg_min = nadir_lat_deg[nadir_lat_argmin]
         nadir_lon_deg_min = nadir_lon_deg[nadir_lat_argmin]
-        
         # Get long and lat in degrees, associated to nadir_max_lat
         nadir_lat_deg_max = nadir_lat_deg[nadir_lat_argmax]
         nadir_lon_deg_max = nadir_lon_deg[nadir_lat_argmax]
-
         # Construct the kd-tree for quick nearest-neighbor lookup        
         tree = cKDTree(tile_db_orbit[:,2:4])
         
@@ -434,24 +430,20 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         ind_min = tree.query([nadir_lat_deg_min, nadir_lon_deg_min])
         # Retrieve index of tile_db_orbit the nearest of nadir_max_lat
         ind_max = tree.query([nadir_lat_deg_max, nadir_lon_deg_max])
-
-        tile_db_orbit_cropped = tile_db_orbit[min(ind_max[1], ind_min[1])-1:max(ind_max[1], ind_min[1])+2,:]
-        vect_lat_lon_db_cropped = np.zeros([tile_db_orbit_cropped.shape[0]-1,2])
-        
-        for i in range(tile_db_orbit_cropped.shape[0]-1):
+        tile_db_orbit_cropped = tile_db_orbit[max(0, min(ind_max[1], ind_min[1])-1):min(len(tile_db_orbit), max(ind_max[1], ind_min[1])+2),:]
+        vect_lat_lon_db_cropped = np.zeros([max(0,tile_db_orbit_cropped.shape[0]-1),2])
+                 
+        for i in range(max(0,tile_db_orbit_cropped.shape[0]-1)):
             vect_lat_lon_db_cropped[i,0] = tile_db_orbit_cropped[i+1,2]-tile_db_orbit_cropped[i,2]
-            vect_lat_lon_db_cropped[i,1] = tile_db_orbit_cropped[i+1,3]-tile_db_orbit_cropped[i,3]
-        
-        nb_az_traj = max(nadir_lat_argmax,nadir_lat_argmin)- min(nadir_lat_argmax,nadir_lat_argmin)+1
-        tile_values = np.zeros(nb_az_traj, int)
+            vect_lat_lon_db_cropped[i,1] = tile_db_orbit_cropped[i+1,3]-tile_db_orbit_cropped[i,3]                 
+            nb_az_traj = max(nadir_lat_argmax,nadir_lat_argmin)- min(nadir_lat_argmax,nadir_lat_argmin)+1
+            tile_values = np.zeros(nb_az_traj, int)
         for i in range(min(nadir_lat_argmax,nadir_lat_argmin), max(nadir_lat_argmax,nadir_lat_argmin)+1):
             dist = np.abs(((nadir_lat_deg[i]-tile_db_orbit_cropped[:-1,2])*vect_lat_lon_db_cropped[:,0] + (nadir_lon_deg[i]-tile_db_orbit_cropped[:-1,3])*vect_lat_lon_db_cropped[:,1])/np.sqrt(vect_lat_lon_db_cropped[:,0]**2+vect_lat_lon_db_cropped[:,1]**2))
             tile_values[i] = tile_db_orbit_cropped[np.argmin(dist),1]
-
-
+        
         ## If you want only one tile (for some tests)
         #~ tile_values[:] = tile_values[0]
-        
         tile_list = np.unique(tile_values)
         
         for tile_number in tile_list:
@@ -809,7 +801,7 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau = 0.):
         k = OUT_azcoord.astype('i4')+i-int(nb_points/2)
         bad_ind = np.logical_or((k < 0) , (k > len(IN_attributes.costheta_init)-1))
         k[bad_ind] = 0.
-        
+
         theta = np.pi/2. - IN_lat
         theta_0 = np.pi/2. - lat_0[k,]
         phi = IN_lon
@@ -828,10 +820,10 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau = 0.):
         beta[:,i]= (GEN_APPROX_RAD_EARTH+heau)*(np.sin(theta)*np.cos(phi)*(sinpsi_0*costheta_0*cosphi_0-cospsi_0*sinphi_0) \
                 +np.sin(theta)*np.sin(phi)*(sinpsi_0*costheta_0*sinphi_0+cospsi_0*cosphi_0) \
                 +np.cos(theta)*(-sinpsi_0*sintheta_0))
-        
+
         gamma[bad_ind,i] = 9.99e20
         beta[bad_ind,i] = 9.99e20
-
+                
     ind = np.zeros(len(IN_lat), int)   
     y = np.zeros(len(IN_lat), float)   
              
