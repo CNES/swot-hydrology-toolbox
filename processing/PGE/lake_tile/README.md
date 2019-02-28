@@ -55,7 +55,6 @@ If the __param_file__ key is not set in the command file, the software uses defa
 They are:
 * __FLAG_WATER__ is the list of water flags to keep for processing (3=water near land edge  4=interior water)
 * __FLAG_DARK__ is the list of dark water flags to keep for processing (23=dark water near land edge  24=interior dark water)
-* __FLAG_LAYOVER__ is the list of layover flags to keep for processing
 * __MIN_SIZE__ is the minimum size for a lake to generate a lake product (=polygon + attributes) for it
 * __STD_HEIGHT_MAX__ is the maximal standard deviation of height inside a lake; this value is used to distinguish different lakes that may be merged in the radar geometry
 * __IMP_GEOLOC__ is the flag to improve PixC golocation (=True) or not (=False)

@@ -20,6 +20,7 @@ from osgeo import ogr, osr
 
 import cnes.common.service_error as service_error
 
+
 def merge_mem_layer_with_shp(in_list_shp, in_layer):
     """
     This function merges shapefiles listed in in_list_shp with the layer in_layer (typically LakeTile shp with LakeSP memory layer).

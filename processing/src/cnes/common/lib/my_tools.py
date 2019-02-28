@@ -15,6 +15,8 @@ This file is part of the SWOT Hydrology Toolbox
 
 """
 
+import datetime
+import logging
 import math
 import numpy as np
 import os
@@ -22,7 +24,6 @@ from osgeo import osr
 from scipy.ndimage.measurements import label
 from skimage.morphology import square
 from sklearn.cluster import KMeans
-import logging
 
 import skimage
 if skimage.__version__ >= "0.11":
@@ -30,10 +31,10 @@ if skimage.__version__ >= "0.11":
 else:
     from skimage.filter.rank import median as median_filter
 
-from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE, GEN_APPROX_RAD_EARTH
-import cnes.common.lib_lake.locnes_variables as my_var
+import cnes.common.lib.my_variables as my_var
+import cnes.common.lib_lake.locnes_variables as my_var2
 import cnes.common.service_error as service_error
-
+import pyproj
 
 def testFile(in_file, IN_extent=None):
     """
@@ -103,6 +104,186 @@ def rad2deg(in_rad):
     :rtype: same as input
     """
     return in_rad * 180. / np.pi
+
+
+#######################################
+    
+
+def convert_to_m180_180(in_long):
+    """
+    Convert longitudes from [0;360[ to [-180;180[
+    
+    :param in_long: longitudes to convert
+    :type in_long: float or 1D-array of float
+    
+    :return: out_long = converted longitude
+    :rtype: same as input = float or 1D-array of float
+    """
+    
+    out_long = in_long
+    ind = np.where(in_long > 180.0)
+    if ind is not None:
+        out_long[ind] -= 360.
+        
+    return out_long
+    
+
+def convert_to_0_360(in_long):
+    """
+    Convert longitudes from [-180;180[ to [0;360[ 
+    
+    :param in_long: longitudes to convert
+    :type in_long: float or 1D-array of float
+    
+    :return: out_long = converted longitude
+    :rtype: same as input = float or 1D-array of float
+    """
+    
+    out_long = in_long
+    ind = np.where(in_long < 0.0)
+    if ind is not None:
+        out_long[ind] += 360.
+        
+    return out_long
+
+
+#######################################
+    
+
+def swot_timeformat(in_datetime, in_format=0):
+    """
+    Convert time into appropriate string format
+    
+    :param in_datetime: time value to write as a string
+    :type in_datetime: datetime.datetime
+    :param in_format: string format option 0 (default)="YYYY-MM-DD hh:mm:ss.ssssssZ" 1="YYYY-MM-DD hh:mm:ss"
+    :type in_format: int
+    
+    :return: out_datetime: time value written as a string
+    :rtype: string
+    """
+    
+    out_datetime = ""
+    
+    if in_format == 1:
+        out_datetime = in_datetime.strftime("%Y-%m-%d %H:%M:%S")
+    else:
+        out_datetime = "%sZ" % in_datetime.strftime("%Y-%m-%d %H:%M:%S.%f")
+        
+    return out_datetime
+
+
+def convertSec2Time(in_time, txt_format=1):
+    """
+    Convert a date_time in seconds towards a string with the format specified as in put parameter
+
+    :param in_time: date_time in seconds
+    :type in_time: float
+    :param txt_format: [optionnal] 1="hh:mm:ss" 2="[hh]h [mm]min [ss]s" 3="hh:mm:ss.ms" 4="Day DD hh:mm:ss"
+    :type txt_format: int (defaut = 1)
+
+    :return: la duree correspondant a in_time au format choisi
+    :rtype: str
+    """
+
+    # Calcul des secondes
+    tmp_mm = math.floor(in_time / 60.0)
+    SS = in_time - 60.0 * tmp_mm
+
+    # Calcul des minutes
+    HH = math.floor(tmp_mm / 60.0)
+    MM = tmp_mm - 60.0 * HH
+
+    # Calcul des heures si > 24h
+    DD = math.floor(HH / 24.0)
+    HH -= 24.0 * DD
+    if txt_format == 1:
+        retour = "%02d:%02d:%02d" % (HH, MM, SS)
+    elif txt_format == 2:
+        retour = "%02dh%02dmin%02ds" % (HH, MM, SS)
+    elif txt_format == 3:
+        retour = "%02d:%02d:%02.3f" % (HH, MM, SS)
+    elif txt_format == 4:
+        retour = "Day %02d %02d:%02d:%02d" % (DD+1, HH, MM, SS)  # DD+1 car le 1e jour est le jour 1
+
+    return retour
+
+
+def convert_utc_to_str(in_utc_time):
+    """
+    Convert UTC time to appropriate string format
+    
+    :param in_utc_time: date_time in seconds from 01/01/2000 00:00:00
+    :type in_utc_time: float
+    
+    :return: UTC time from 01/01/2000 00:00:00 as a string
+    :rtype: string
+    """
+    return swot_timeformat(datetime.datetime(2000, 1, 1) + datetime.timedelta(seconds=in_utc_time), in_format=1)
+
+
+#######################################
+    
+
+def convert_fillvalue(in_data, in_flag="nc2shp"):
+    """
+    Convert NetCDF fill value in data into shapefile fill value (or reverse)
+    
+    :param in_data: data in which fill values will be replaced
+    :type in_data: scalar or numpy.array
+    :param in_flag: flag to specify conversion "nc2shp"(default)=NetCDF to Shapefile "shp2nc"=Shapefile to NetCDF
+    :type in_flag: string
+    
+    :return: out_data = data in which fill values have been replaced
+    :rtype: same as in_data in input
+    """
+    
+    # Output vector init
+    out_data = in_data
+    
+    if np.isscalar(in_data):
+        
+        # PROCESS FOR SCALAR
+        
+        # 1 - Retrieve data type
+        type_name = type(in_data)
+
+        # 2 - Get associated fill values
+        fv_nc = my_var.FV_NETCDF[type_name]  # For NetCDF files
+        fv_shp = my_var.FV_SHP[type_name]  # For Shapefiles
+    
+        # 3 - Make conversion
+        if in_flag == "nc2shp":
+            if in_data == fv_nc:
+                out_data = fv_shp
+        elif in_flag == "shp2nc":
+            if in_data == fv_shp:
+                out_data = fv_nc
+            
+    else:
+        
+        # PROCESS FOR ARRAYS
+    
+        # 1 - Retrieve data type
+        type_name = in_data.dtype.name
+        if type_name.startswith("str"):
+            type_name = "str"
+
+        # 2 - Get associated fill values
+        fv_nc = my_var.FV_NETCDF[type_name]  # For NetCDF files
+        fv_shp = my_var.FV_SHP[type_name]  # For Shapefiles
+    
+        # 3 - Make conversion
+        if in_flag == "nc2shp":
+            nan_idx = np.where(in_data == fv_nc)
+            if (type_name == 'uint8') or (type_name == 'uint16') or (type_name == 'int8') or (type_name == 'int16'):  # Otherwise, _FillValues don't work
+                out_data = in_data.astype('int32')
+            out_data[nan_idx] = fv_shp
+        elif in_flag == "shp2nc":
+            nan_idx = np.where(in_data == fv_shp)
+            out_data[nan_idx] = fv_nc
+    
+    return out_data
 
 
 #######################################
@@ -229,12 +410,12 @@ def relabelLakeUsingSegmentationHeigth(in_x, in_y, in_height):
     nb_classes = 1
 
     # 2.1 - Cas with only one class
-    if std_heigth < my_var.STD_HEIGHT_MAX:  # If only one lake is in the given pixc subset
+    if std_heigth < my_var2.STD_HEIGHT_MAX:  # If only one lake is in the given pixc subset
         retour = np.ones(nb_pts)  # Return one unique label for all pixc
     else:
         # 2.2 - Init a k-means classifier
         kmeans_classif = KMeans()
-        while std_heigth > my_var.STD_HEIGHT_MAX:
+        while std_heigth > my_var2.STD_HEIGHT_MAX:
 
             nb_classes += 1
 
@@ -306,118 +487,106 @@ def convert2dMatIn1dVec(in_x, in_y, in_mat):
 #######################################
 
 
-def cptDigits(in_real):
-    """
-    Compute the position of the first significant figure of a real number (ex: 110 => 3 ; 0.000156 => -4)
-
-    :param in_real: real number
-    :type in_real: float
-
-    :return the position of the first significant figure of a real number
-    :rtype: int
-    """
-
-    # Cas particulier de 0
-    if in_real == 0:
-        out_cpt = 1
-
-    elif abs(in_real) >= 10:  # Cas des nombres >= 10
-        out_cpt = 1
-        while abs(in_real) >= 10:
-            in_real /= 10.0
-            out_cpt += 1
-
-    elif abs(in_real) < 1:  # Cas des nombres < 1
-        out_cpt = 0
-        while abs(in_real) < 1:
-            in_real *= 10.0
-            out_cpt -= 1
-
-    else:
-        out_cpt = 1
-
-    return out_cpt
-
-
-#######################################
-
-
-def convertSec2Time(in_time, txt_format=1):
-    """
-    Convert a date_time in seconds towards a string with the format specified as in put parameter
-
-    :param in_time: date_time in seconds
-    :type in_time: float
-    :param txt_format: [optionnal] 1="hh:mm:ss" 2="[hh]h [mm]min [ss]s" 3="hh:mm:ss.ms" 4="Day DD hh:mm:ss"
-    :type txt_format: int (defaut = 1)
-
-    :return: la duree correspondant a in_time au format choisi
-    :rtype: str
-    """
-
-    # Calcul des secondes
-    tmp_mm = math.floor(in_time / 60.0)
-    SS = in_time - 60.0 * tmp_mm
-
-    # Calcul des minutes
-    HH = math.floor(tmp_mm / 60.0)
-    MM = tmp_mm - 60.0 * HH
-
-    # Calcul des heures si > 24h
-    DD = math.floor(HH / 24.0)
-    HH -= 24.0 * DD
-    if txt_format == 1:
-        retour = "%02d:%02d:%02d" % (HH, MM, SS)
-    elif txt_format == 2:
-        retour = "%02dh%02dmin%02ds" % (HH, MM, SS)
-    elif txt_format == 3:
-        retour = "%02d:%02d:%02.3f" % (HH, MM, SS)
-    elif txt_format == 4:
-        retour = "Day %02d %02d:%02d:%02d" % (DD+1, HH, MM, SS)  # DD+1 car le 1e jour est le jour 1
-
-    return retour
-
-#######################################
-
-
-def computeMean_2sigma(in_v_val):
+def compute_mean_2sigma(in_v_val, in_nan=None):
     """
     Compute the mean of the input values, after remove of non-sense values, i.e. below or above the median +/- 2*standard deviation
+    If set, remove NaN values from the computation
 
     :param in_v_val: vector of values for which the mean is computed
     :type in_v_val: 1D-array of float
+    :param in_nan: value to consider as NaN (default=None)
+    :type in_nan: depends on the initial vector
 
-    :return the mean value
+    :return: the mean value (None if no finite value)
     :rtype: float
     """
     logger = logging.getLogger("my_tools")
     
+    # 0 - Consider only non-NaN values
+    v_val = in_v_val
+    if in_nan is not None:
+        not_nan_idx = np.where(v_val < in_nan)[0]
+        if len(not_nan_idx) == 0:
+            return None
+        v_val = in_v_val[not_nan_idx]
+    
     # 1 - Compute statistical values over this vector
     # 1.1 - Median
-    med = np.median(in_v_val)
+    med = np.median(v_val)
     # 1.2 - Standard deviation
-    std = np.std(in_v_val)
+    std = np.std(v_val)
     # 1.3 - Nb values
-    nb_val = in_v_val.size
-    
-    if (len(in_v_val.shape)) == 2:
-        in_v_val = in_v_val[0]
+    nb_val = v_val.size
 
     # 2 - Remove indices with value out of 2 sigma
+    
     # 2.1 - Lower than mean - 2 sigma
-    idx_lower = np.where(in_v_val < med-2*std)[0]
+    idx_lower = np.where(v_val < med-2*std)[0]
     v_indices = np.delete(np.arange(nb_val), idx_lower)
     # 2.2 - Higher than mean + 2 sigma
-
-    idx_higher = np.where(in_v_val[v_indices] > med+2*std)[0]
+    idx_higher = np.where(v_val[v_indices] > med+2*std)[0]
     v_indices = np.delete(v_indices, idx_higher)
 
     message = "%d / %d pixels used for mean computation" % (v_indices.size, nb_val)
     logger.debug(message)
 
-    # 3 - Return the mean of cleaned vector
-    return np.mean(in_v_val[v_indices])
+    # 3 - Return the mean of clean vector
+    return np.mean(v_val[v_indices])
 
+
+def compute_std(in_v_val, in_nan=None):
+    
+    """
+    Compute the standard deviation of the input values
+    If set, remove NaN values from the computation
+
+    :param in_v_val: vector of values for which the standard deviation is computed
+    :type in_v_val: 1D-array of float
+    :param in_nan: value to consider as NaN (default=None)
+    :type in_nan: depends on the initial vector
+
+    :return: the mean value (None if no finite value)
+    :rtype: float
+    """
+    
+    # Consider only non-NaN values
+    v_val = in_v_val
+    if in_nan is not None:
+        not_nan_idx = np.where(v_val < in_nan)[0]
+        if len(not_nan_idx) == 0:
+            return None
+        v_val = in_v_val[not_nan_idx]
+        
+    # Return the standard deviation of clean vector
+    return np.std(v_val)
+
+
+def compute_sum(in_v_val, in_nan=None):
+    
+    """
+    Compute the sum of the input values
+    If set, remove NaN values from the computation
+
+    :param in_v_val: vector of values for which the sum is computed
+    :type in_v_val: 1D-array of float
+    :param in_nan: value to consider as NaN (default=None)
+    :type in_nan: depends on the initial vector
+
+    :return: the mean value (None if no finite value)
+    :rtype: float
+    """
+    
+    # Consider only non-NaN values
+    v_val = in_v_val
+    if in_nan is not None:
+        not_nan_idx = np.where(v_val < in_nan)[0]
+        if len(not_nan_idx) == 0:
+            return None
+        v_val = in_v_val[not_nan_idx]
+        
+    # Return the sum of the clean vector elements
+    return np.sum(v_val)
+    
 
 #######################################
 
@@ -489,11 +658,33 @@ def computeDist(in_lon1, in_lat1, in_lon2, in_lat2):
     # 1 - Distance angulaire en radians
     s12 = np.arccos(np.sin(lat1)*np.sin(lat2) + np.cos(lat1)*np.cos(lat2)*np.cos(lon2-lon1))
 
-    return s12 * GEN_APPROX_RAD_EARTH
+    return s12 * my_var.GEN_APPROX_RAD_EARTH
 
 
 #######################################
 
+def getUTM_EPSG_Code(lon, lat):
+    utm_band = str((math.floor((lon + 180 )/6)%60)+1)
+    if len(utm_band) == 1:
+        utm_band = '0'+utm_band
+    if lat >= 0:
+        epsg = '326' + utm_band
+    else:
+        epsg = '326' + utm_band
+    return epsg
+
+#######################################
+
+def getUTMCoords(in_lon, in_lat):
+    lat_mean = np.mean(in_lat)
+    lon_mean = np.mean(in_lon)
+
+    # x_c, y_c, zone_number, zone_lettre = utm.from_latlon(lat_mean, lon_mean)
+    latlon = pyproj.Proj(init="epsg:4326")
+    epsg=getUTM_EPSG_Code(lon_mean, lat_mean)
+    utm_proj = pyproj.Proj(init='epsg:' + epsg)
+    X, Y = pyproj.transform(latlon, utm_proj, in_lon, in_lat)
+    return (X,Y, )
 
 def getArea(in_polygon, in_centroid):
     """
@@ -515,12 +706,7 @@ def getArea(in_polygon, in_centroid):
     centroid_lon = in_centroid[0]
     centroid_lat = in_centroid[1]
 
-    if centroid_lat > 0:
-        epsg_code += "6"
-    else:
-        epsg_code += "7"
-
-    epsg_code += str(int(1 + (centroid_lon + 180)//6))
+    epsg_code = getUTM_EPSG_Code(centroid_lon, centroid_lat)
 
     # 1 - Projection of in_polygon into UTM
     src_source = osr.SpatialReference()
@@ -535,84 +721,6 @@ def getArea(in_polygon, in_centroid):
 
     # 2 - Compute and return area
     return in_polygon.GetArea()
-
-
-#######################################
-
-
-def llh2xyz(in_lon, in_lat, in_height, IN_flag_rad=True):
-    """
-    Convert geographic coordinates (longitude, latitude, height) to cartesian coordinates (x, y, z)
-
-    :param in_lon: longitude in degrees east
-    :type in_lon: scalar or 1D-array
-    :param in_lat: latitude in degrees north
-    :type in_lat: scalar or 1D-array
-    :param in_height: height in meters
-    :type in_height: scalar or 1D-array
-    :param IN_flag_rad: =False if IN_lan and in_lat are in degrees, =True if they are in radians (default)
-    :type IN_flag_rad: boolean
-
-    :return out_x, out_y, out_z: cartesian coordinates
-    :type: scalars or 1D-array
-
-    .. author: Damien DESROCHES & Alejandro BOHE - CNES DSO/SI/TR
-    """
-
-    # 1 - Convert geodetic coordinates in radians
-    if IN_flag_rad:
-        lat = in_lat
-        lon = in_lon
-    else:
-        lat = deg2rad(in_lat)
-        lon = deg2rad(in_lon)
-
-    # 2 - Compute earth excentricity
-    e = np.sqrt(GEN_RAD_EARTH_EQ ** 2 - GEN_RAD_EARTH_POLE ** 2) / GEN_RAD_EARTH_EQ
-
-    # 3 - Compute earth radius for latitude lat
-    Rn = GEN_RAD_EARTH_EQ / np.sqrt(1 - e**2 * np.sin(lat)**2)
-
-    # 4 - Compute cartesian coordinates
-    out_x = (Rn + in_height) * np.cos(lat) * np.cos(lon)
-    out_y = (Rn + in_height) * np.cos(lat) * np.sin(lon)
-    out_z = (Rn * (1.-e**2) + in_height) * np.sin(lat)
-
-    return out_x, out_y, out_z
-
-
-def xyz2llh(in_x, in_y, in_z):
-    """
-    Convert cartesian coordinates (x, y, z) to geographic coordinates (lat, lon, height)
-
-    :param in_x: coordinate along x-axis
-    :type in_x: scalar or 1D-array
-    :param in_y: coordinate along y-axis
-    :type in_y: scalar or 1D-array
-    :param in_z: coordinate along z-axis
-    :type in_z: scalar or 1D-array
-
-    :return out_long, out_lat, out_height: geographic coordinates (longitude, latitude, height)
-    :rtype: same as input (scalar or 1D-array)
-    """
-
-    # 1 - Compute ellipsoide variables
-    e = np.sqrt(GEN_RAD_EARTH_EQ ** 2 - GEN_RAD_EARTH_POLE ** 2) / GEN_RAD_EARTH_EQ  # Ellipsoid excentricity
-    f = 1 - np.sqrt(1 - e**2)  # Flattening factor
-    r = np.sqrt(in_x**2 + in_y**2 + in_z**2)  # Distance between center of earth and point
-    d = np.sqrt(in_x**2 + in_y**2)  # Distance between center of earth and point with latitude 0
-
-    # 2 - Compute longitudes
-    out_lon = np.arctan2(in_y, in_x)
-
-    # 3 - Compute latitudes
-    mu = np.arctan(in_z/d * ((1-f) + e**2 * GEN_RAD_EARTH_EQ/r))
-    out_lat = np.arctan((in_z*(1-f)+e**2 * GEN_RAD_EARTH_EQ * np.sin(mu)**3) / ((1-f)*(d-e**2 * GEN_RAD_EARTH_EQ * np.cos(mu)**3)))
-
-    # 4 - Compute heights
-    out_height = (d*np.cos(out_lat)) + (in_z*np.sin(out_lat)) - GEN_RAD_EARTH_EQ*np.sqrt(1-(e**2)*np.sin(out_lat)**2)
-
-    return rad2deg(out_lon), rad2deg(out_lat), out_height
 
 
 #######################################

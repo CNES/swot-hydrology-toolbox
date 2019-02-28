@@ -12,6 +12,7 @@
 This file is part of the SWOT Hydrology Toolbox
  Copyright (C) 2018 Centre National d’Etudes Spatiales
  This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
@@ -63,7 +64,6 @@ class PGELakeTile():
         # 2 - Load parameter file
         # 2.1 - Read value from command file
         file_config = my_params["param_file"]
-        print(my_params)
         # 2.2 - Test existence
         if not os.path.exists(file_config):
             raise service_error.DirFileError(file_config)
@@ -96,6 +96,13 @@ class PGELakeTile():
         # TODO replace all global variables by call to service_config_file
         my_var.tmpGetConfigFromServiceConfigFile()
         
+        # 8 - Form processing metadata dictionary
+        self.proc_metadata = {}
+        self.proc_metadata["xref_static_lake_db_file"] = my_var.LAKE_DB
+        self.proc_metadata["xref_input_l2_hr_pixc_file"] = self.pixc_file
+        self.proc_metadata["xref_input_l2_hr_pixc_vec_river_file"] = self.pixc_vec_river_file
+        self.proc_metadata["xref_l2_hr_lake_tile_param_file"] = file_config
+        
         logger.info("")
         logger.info("")
 
@@ -122,7 +129,7 @@ class PGELakeTile():
         logger.info("")
 
         # 5 - Run post-processing
-        my_lake_tile.run_postprocessing()
+        my_lake_tile.run_postprocessing(self.proc_metadata)
         logger.info(self.timer.info(0))
         logger.info("")
         
@@ -172,7 +179,6 @@ class PGELakeTile():
         config.read(self.cmd_file)
 
         # 2 - Retrieve PATHS
-        
         try:
             out_params["param_file"] = os.path.expandvars(config.get("PATHS", "param_file"))
         except:
@@ -308,9 +314,6 @@ class PGELakeTile():
             # Dark water flag = 23=darkwater near land  24=interior dark water
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'FLAG_DARK', str)
             logger.debug('FLAG_DARK = ' + str(self.cfg.get('CONFIG_PARAMS', 'FLAG_DARK')))
-            # Layover flag
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'FLAG_LAYOVER', str)
-            logger.debug('FLAG_LAYOVER = ' + str(self.cfg.get('CONFIG_PARAMS', 'FLAG_LAYOVER')))
             
             # Min size for a lake to generate a lake product (=polygon + attributes) for it
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'MIN_SIZE', float)
@@ -324,11 +327,11 @@ class PGELakeTile():
             logger.debug('IMP_GEOLOC = ' + str(self.cfg.get('CONFIG_PARAMS', 'IMP_GEOLOC')))
             # Method to compute lake boundary or polygon hull
             # 0=convex hull 1=concav hull (1.0=with alpha param (default) 1.1=without) 2=concav hull radar vectorisation
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'HULL_METHOD', float, valeurs=[1, 1.1, 2])
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'HULL_METHOD', float, valeurs=[0, 1, 1.1, 2])
             logger.debug('HULL_METHOD = ' + str(self.cfg.get('CONFIG_PARAMS', 'HULL_METHOD')))
             
             # Big lakes parameters for improved geoloc
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'BIGLAKE_MODEL', str, valeurs=["polynomial"])
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'BIGLAKE_MODEL', str, valeurs=["polynomial", "no"])
             logger.debug('BIGLAKE_MODEL = ' + str(self.cfg.get('CONFIG_PARAMS', 'BIGLAKE_MODEL')))
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'BIGLAKE_MIN_SIZE', float)
             logger.debug('BIGLAKE_MIN_SIZE = ' + str(self.cfg.get('CONFIG_PARAMS', 'BIGLAKE_MIN_SIZE')))

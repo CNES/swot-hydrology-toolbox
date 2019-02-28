@@ -188,37 +188,35 @@ class PixcvecRiver(object):
         # 1.8 - Azimuth indices of water pixels
         self.azimuth_idx = np.array(pixc_main.variables["azimuth_index"])
         # this is to handle partial reading of the pixc as well 
-        try:
-            # 1.14 - Longitude
-            self.longitude = np.array(pixc_main.variables["longitude_vectorproc"])
-            # 1.15 - Latitude
-            self.latitude = np.array(pixc_main.variables["latitude_vectorproc"])
-            # 1.16 - Height
-            self.height = np.array(pixc_main.variables["height_vectorproc"])
-            # 1.16 - Node index
-            self.node_index = np.array(pixc_main.variables["node_index"])
-            # 1.16 - reach index
-            self.reach_index = np.array(pixc_main.variables["reach_index"])
-            # 1.16 - river tag
-            self.river_tag = np.array(pixc_main.variables["river_tag"])
-            # 1.16 - along_reach
-            self.along_reach = np.array(pixc_main.variables["along_reach"])
-            # 1.16 - cross_reach
-            self.cross_reach = np.array(pixc_main.variables["cross_reach"])
-            # 1.16 - distance_to_node
-            self.distance_to_node = np.array(pixc_main.variables["distance_to_node"])
+  
+        # 1.14 - Longitude
+        self.longitude = np.array(pixc_main.variables["longitude_vectorproc"])
+        # 1.15 - Latitude
+        self.latitude = np.array(pixc_main.variables["latitude_vectorproc"])
+        # 1.16 - Height
+        self.height = np.array(pixc_main.variables["height_vectorproc"])
+        # 1.16 - Node index
+        self.node_index = np.array(pixc_main.variables["node_index"])
+        # 1.16 - reach index
+        self.reach_index = np.array(pixc_main.variables["reach_index"])
+        # 1.16 - river tag
+        #~ self.river_tag = np.array(pixc_main.variables["river_tag"])
+        # 1.16 - along_reach
+        self.along_reach = np.array(pixc_main.variables["along_reach"])
+        # 1.16 - cross_reach
+        self.cross_reach = np.array(pixc_main.variables["cross_reach"])
+        # 1.16 - distance_to_node
+        self.distance_to_node = np.array(pixc_main.variables["distance_to_node"])
 
-            #~ self.range_spacing = pixc_main.getncattr("nominal_slant_range_spacing")
-            self.range_spacing = 0.74948114156723
-            
-            near_range = pixc_main.getncattr("near_range")
-            if isinstance(near_range, collections.Iterable):
-                print("Warning, near_range is a list.")
-                self.near_range = 0
-            else:
-                self.near_range = near_range
-        except KeyError:
-            pass
+        self.range_spacing = pixc_main.getncattr("nominal_slant_range_spacing")
+        #~ self.range_spacing = 0.74948114156723
+        
+        near_range = pixc_main.getncattr("near_range")
+        if isinstance(near_range, collections.Iterable):
+            print("Warning, near_range is a list.")
+            self.near_range = 0
+        else:
+            self.near_range = near_range
 
         pixc_main.close()
 

@@ -171,20 +171,30 @@ class BigLakeModel(object):
 
 
         # Center of lake in UTM and find the zone_number, zone_letter
+        
+        latitude = pixc.latitude[pixc_mask]
+        longitude = pixc.longitude[pixc_mask]
+        Z = pixc.height[pixc_mask]
+
+        good_ind = np.where(np.isnan(latitude) == False)
+
+        ind = np.where(longitude > 180.)
+        if ind is not None:
+            longitude[ind]+= -360.
+        
         x_c, y_c, zone_number, zone_letter = utm.from_latlon(
-                np.mean(pixc.latitude[pixc_mask]),
-                np.mean(pixc.longitude[pixc_mask]))
+                np.nanmean(latitude),
+                np.nanmean(longitude))
                 
         # Convert pixel cloud to UTM (zone of the centroid)
         latlon = pyproj.Proj(init="epsg:4326")
         utm_proj = pyproj.Proj("+proj=utm +zone={}{} +ellps=WGS84 +datum=WGS84 +units=m +no_defs".format(zone_number, zone_letter))
-        X, Y = pyproj.transform(latlon, utm_proj, pixc.longitude[pixc_mask], pixc.latitude[pixc_mask])
+        X, Y = pyproj.transform(latlon, utm_proj, longitude, latitude)
 
         # 2D polynomial fitting of heights on the ground grid 
         # For now, degre 2, may be change
-        Z = pixc.height[pixc_mask]
-        A = np.array([X*0+1, X, Y, X**2, X**2*Y, X**2*Y**2, Y**2, X*Y**2, X*Y]).T
-        B = Z.flatten()
+        A = np.array([X[good_ind]*0+1, X[good_ind], Y[good_ind], X[good_ind]**2, X[good_ind]**2*Y[good_ind], X[good_ind]**2*Y[good_ind]**2, Y[good_ind]**2, X[good_ind]*Y[good_ind]**2, X[good_ind]*Y[good_ind]]).T
+        B = Z[good_ind].flatten()
 
         coeff, r, rank, s = np.linalg.lstsq(A, B)
         
