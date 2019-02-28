@@ -32,10 +32,9 @@ Note that both algorithms and products are still under development and will be u
 ## Associated RiverObs version
 The RiverObs version compatible with the master branch of the swot-hydrology-toolbox is :
 
-* commit 10199d47cce881f70bd46178a05d132d3a0534ab
-* Merge: 8b9a57e ac1c0e4
+* commit d5b8232f391ba152568dcdd8b0ae935c79dbf72c
 * Author: Alex Fore <Alexander.Fore@jpl.nasa.gov>
-* Date:   Wed Jan 16 07:30:51 2019 -0800
+* Date:  Mon Feb 4 09:10:30 2019 -0800
 
 
 ## Caveats

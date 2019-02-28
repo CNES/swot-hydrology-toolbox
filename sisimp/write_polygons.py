@@ -422,19 +422,15 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         if tmp_orbit_number < 1:
             tmp_orbit_number += 584
         tile_db_orbit = tile_db[np.where(tile_db[:,0] == tmp_orbit_number)[0],:]
-        
         # Compute the indices of nadir_lat_min and nadir_lat_max
         nadir_lat_argmin = int(np.argmin(nadir_lat_deg))
         nadir_lat_argmax = int(np.argmax(nadir_lat_deg))
-        
         # Get long and lat in degrees, associated to nadir_min_lat
         nadir_lat_deg_min = nadir_lat_deg[nadir_lat_argmin]
         nadir_lon_deg_min = nadir_lon_deg[nadir_lat_argmin]
-        
         # Get long and lat in degrees, associated to nadir_max_lat
         nadir_lat_deg_max = nadir_lat_deg[nadir_lat_argmax]
         nadir_lon_deg_max = nadir_lon_deg[nadir_lat_argmax]
-
         # Construct the kd-tree for quick nearest-neighbor lookup        
         tree = cKDTree(tile_db_orbit[:,2:4])
         
@@ -442,24 +438,20 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         ind_min = tree.query([nadir_lat_deg_min, nadir_lon_deg_min])
         # Retrieve index of tile_db_orbit the nearest of nadir_max_lat
         ind_max = tree.query([nadir_lat_deg_max, nadir_lon_deg_max])
-
-        tile_db_orbit_cropped = tile_db_orbit[min(ind_max[1], ind_min[1])-1:max(ind_max[1], ind_min[1])+2,:]
-        vect_lat_lon_db_cropped = np.zeros([tile_db_orbit_cropped.shape[0]-1,2])
-        
-        for i in range(tile_db_orbit_cropped.shape[0]-1):
+        tile_db_orbit_cropped = tile_db_orbit[max(0, min(ind_max[1], ind_min[1])-1):min(len(tile_db_orbit), max(ind_max[1], ind_min[1])+2),:]
+        vect_lat_lon_db_cropped = np.zeros([max(0,tile_db_orbit_cropped.shape[0]-1),2])
+                 
+        for i in range(max(0,tile_db_orbit_cropped.shape[0]-1)):
             vect_lat_lon_db_cropped[i,0] = tile_db_orbit_cropped[i+1,2]-tile_db_orbit_cropped[i,2]
-            vect_lat_lon_db_cropped[i,1] = tile_db_orbit_cropped[i+1,3]-tile_db_orbit_cropped[i,3]
-        
-        nb_az_traj = max(nadir_lat_argmax,nadir_lat_argmin)- min(nadir_lat_argmax,nadir_lat_argmin)+1
-        tile_values = np.zeros(nb_az_traj, int)
+            vect_lat_lon_db_cropped[i,1] = tile_db_orbit_cropped[i+1,3]-tile_db_orbit_cropped[i,3]                 
+            nb_az_traj = max(nadir_lat_argmax,nadir_lat_argmin)- min(nadir_lat_argmax,nadir_lat_argmin)+1
+            tile_values = np.zeros(nb_az_traj, int)
         for i in range(min(nadir_lat_argmax,nadir_lat_argmin), max(nadir_lat_argmax,nadir_lat_argmin)+1):
             dist = np.abs(((nadir_lat_deg[i]-tile_db_orbit_cropped[:-1,2])*vect_lat_lon_db_cropped[:,0] + (nadir_lon_deg[i]-tile_db_orbit_cropped[:-1,3])*vect_lat_lon_db_cropped[:,1])/np.sqrt(vect_lat_lon_db_cropped[:,0]**2+vect_lat_lon_db_cropped[:,1]**2))
             tile_values[i] = tile_db_orbit_cropped[np.argmin(dist),1]
-
-
+        
         ## If you want only one tile (for some tests)
         #~ tile_values[:] = tile_values[0]
-        
         tile_list = np.unique(tile_values)
         
         for tile_number in tile_list:
@@ -496,7 +488,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 
                 # Init L2_HR_PIXC object
                 my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min, sub_r, classification_tab[az_indices], pixel_area[az_indices],
-                                                    lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
+                                                    lat_noisy[az_indices],np.where(lon_noisy[az_indices]<0, lon_noisy[az_indices]+360, lon_noisy[az_indices]), elevation_tab_noisy[az_indices], y[az_indices],
                                                     IN_attributes.orbit_time[nadir_az], nadir_lat_deg[nadir_az], nadir_lon_deg[nadir_az], nadir_alt[nadir_az], nadir_heading[nadir_az],
                                                     IN_attributes.x[nadir_az], IN_attributes.y[nadir_az], IN_attributes.z[nadir_az], vx[nadir_az], vy[nadir_az], vz[nadir_az], r0[nadir_az],
                                                     IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size, IN_attributes.azimuth_spacing, IN_attributes.range_sampling, IN_attributes.near_range)
@@ -520,7 +512,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                     # Init PIXCVec product
                     my_pixc_vec = proc_real_pixc_vec_river.l2_hr_pixc_vec_river(sub_az, sub_r, IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size)
                     # Set improved geoloc
-                    my_pixc_vec.set_vectorproc(lat[az_indices], lon[az_indices], elevation_tab[az_indices])
+                    my_pixc_vec.set_vectorproc(lat[az_indices], np.where(lon[az_indices] < 0, lon[az_indices]+360,lon[az_indices]), elevation_tab[az_indices])
                     # Compute river_flag
                     my_pixc_vec.set_river_lake_tag(river_flag[az_indices]-1)  # -1 to have 0=lake and 1=river
                     # Write PIXCVec file
@@ -814,16 +806,19 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau = 0.):
     beta = np.zeros([len(IN_lat), nb_points])
   
     for i in range(nb_points):
+        k = OUT_azcoord.astype('i4')+i-int(nb_points/2)
+        bad_ind = np.logical_or((k < 0) , (k > len(IN_attributes.costheta_init)-1))
+        k[bad_ind] = 0.
         theta = np.pi/2. - IN_lat
-        theta_0 = np.pi/2. - lat_0[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
+        theta_0 = np.pi/2. - lat_0[k,]
         phi = IN_lon
         
-        costheta_0 = IN_attributes.costheta_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
-        sintheta_0 = IN_attributes.sintheta_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
-        cosphi_0 = IN_attributes.cosphi_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
-        sinphi_0 = IN_attributes.sinphi_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
-        cospsi_0 = IN_attributes.cospsi_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
-        sinpsi_0 = IN_attributes.sinpsi_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
+        costheta_0 = IN_attributes.costheta_init[k,]
+        sintheta_0 = IN_attributes.sintheta_init[k,]
+        cosphi_0 = IN_attributes.cosphi_init[k,]
+        sinphi_0 = IN_attributes.sinphi_init[k,]
+        cospsi_0 = IN_attributes.cospsi_init[k,]
+        sinpsi_0 = IN_attributes.sinpsi_init[k,]
 
         
         gamma[:,i] = (GEN_APPROX_RAD_EARTH+heau)*(np.sin(theta)*np.cos(phi)*(-cospsi_0*costheta_0*cosphi_0-sinpsi_0*sinphi_0) \
@@ -833,6 +828,8 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau = 0.):
         beta[:,i]= (GEN_APPROX_RAD_EARTH+heau)*(np.sin(theta)*np.cos(phi)*(sinpsi_0*costheta_0*cosphi_0-cospsi_0*sinphi_0) \
                 +np.sin(theta)*np.sin(phi)*(sinpsi_0*costheta_0*sinphi_0+cospsi_0*cosphi_0) \
                 +np.cos(theta)*(-sinpsi_0*sintheta_0))
+        gamma[bad_ind,i] = 9.99e20
+        beta[bad_ind,i] = 9.99e20
                 
     ind = np.zeros(len(IN_lat), int)   
     y = np.zeros(len(IN_lat), float)   
