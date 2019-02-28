@@ -111,12 +111,14 @@ class SASLakeTile(object):
 
         # 3.1 - Init PIXCVec product by retrieving data from the pixel cloud complementary file after river processing
         logger.info("> 3a - Init pixel cloud complementary file...")
-        self.objPixcVec = proc_pixc_vec.PixelCloudVec("TILE", self.pixc_vec_river_file)
+        self.objPixcVec = proc_pixc_vec.PixelCloudVec("TILE")
+        self.objPixcVec.set_from_pixcvec_file(self.pixc_vec_river_file)
         logger.info("")
 
         # 3.2 - Retrieve needed data from the pixel cloud
         logger.info("> 3b - Retrieving needed data from the pixel cloud...")
-        self.objPixc = proc_pixc.PixelCloud(self.pixc_file, self.objPixcVec.reject_idx)
+        self.objPixc = proc_pixc.PixelCloud()
+        self.objPixc.set_from_pixc_file(self.pixc_file, self.objPixcVec.reject_index)
         logger.info("")
 
         # 3.3 - Reshape PIXCVec arrays
@@ -124,8 +126,8 @@ class SASLakeTile(object):
         self.objPixcVec.reshape(self.objPixc)
         logger.info("")
 
-        # 2 - Retrieve lake Db layer
-        logger.info("> 2 - Retrieving lake database layer...")
+        # 4 - Retrieve lake Db layer
+        logger.info("> 4 - Retrieving lake database layer...")
         if my_var.LAKE_DB == "":
             logger.info("NO database specified -> NO link of SWOT obs with a priori lake")
         else:
@@ -143,8 +145,8 @@ class SASLakeTile(object):
                 raise service_error.ProcessingError(message, logger)
         logger.info("")
 
-        # 4 - Initialize lake product
-        logger.info("> 4c - Reshape PIXCVecRiver arrays...")
+        # 5 - Initialize lake product
+        logger.info("> 5 - Init lake product object...")
         self.objLake = proc_lake.LakeProduct("TILE",
                                              self.objPixc,
                                              self.objPixcVec,
@@ -178,14 +180,20 @@ class SASLakeTile(object):
             logger.info("" + timer_proc.info(0))
             logger.info("")
 
-            # 3 - F4 = Retrieve pixels corresponding to lakes and new objects entirely inside the tile
-            logger.info("2 - Getting pixels corresponding to lakes and new objects entirely inside the tile...")
+            # 3 - F4 = Retrieve pixels corresponding to lakes and unknown entirely inside the tile
+            logger.info("2 - Getting pixels corresponding to lakes and unknown entirely inside the tile...")
             self.objPixc.computeObjInsideTile()
             logger.info("" + timer_proc.info(0))
             logger.info("")
+            
+            # 4 - F5 = Retrieve pixels indices and associated label of objects at the top/bottom edge of the tile
+            logger.info("3 - Getting pixels corresponding to objects at the top/bottom edge of the tile...")
+            self.objPixc.compute_edge_indices_and_label()
+            logger.info("" + timer_proc.info(0))
+            logger.info("")
 
-            # 4 - F6 = Fill lake product
-            logger.info("3 - Filling LakeTile product...")
+            # 5 - F6 = Fill lake product
+            logger.info("4 - Filling LakeTile product...")
             self.objLake.computeLakeProducts(self.objPixc.labels_inside)
             logger.info("" + timer_proc.info(0))
             logger.info("")
@@ -194,9 +202,12 @@ class SASLakeTile(object):
             logger.info("NO selected PixC => empty lake tile product generated")
             logger.info("")
 
-    def run_postprocessing(self):
+    def run_postprocessing(self, in_proc_metadata):
         """
         Process PGE_L2_HR_LakeTile OUT, i.e. convert output data in L2_HR_LakeTile product and close files
+        
+        :param in_proc_metadata: processing metadata
+        :type in_proc_metadata: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("")
@@ -208,22 +219,24 @@ class SASLakeTile(object):
 
         # 1 - Write LakeTile shapefile
         logger.info("1 - Writing LakeTile memory layer to shapefile...")
-        my_shp.write_mem_layer_as_shp(self.objLake.layer, self.lake_tile_filenames.lake_tile_shp_file)
-        self.objLake.free_product()  # Close memory layer
+        my_shp.write_mem_layer_as_shp(self.objLake.shp_mem_layer.layer, self.lake_tile_filenames.lake_tile_shp_file)
+        self.objLake.shp_mem_layer.free()  # Close memory layer
         logger.info("")
         # Write XML metadatafile for shapefile
-        self.objLake.writeMetadataFile("%s.xml" % self.lake_tile_filenames.lake_tile_shp_file)
+        self.objLake.shp_mem_layer.update_and_write_metadata("%s.xml" % self.lake_tile_filenames.lake_tile_shp_file, 
+                                                             in_pixc_metadata=self.objPixc.pixc_metadata,
+                                                             in_proc_metadata=in_proc_metadata)
 
         # 2 - Write PIXCVec for objects entirely inside tile
         logger.info("2 - Writing LakeTile_pixcvec file...")
-        self.objPixcVec.write_file(self.lake_tile_filenames.lake_tile_pixcvec_file, None, True)
+        self.objPixcVec.write_file(self.lake_tile_filenames.lake_tile_pixcvec_file, in_proc_metadata)
         if self.flag_prod_shp and (self.objPixcVec.nb_water_pix != 0):
-            self.objPixcVec.write_file_asShp(self.lake_tile_filenames.lake_tile_pixcvec_file.replace(".nc", ".shp"), IN_classif=self.objPixc.origin_classif)
+            self.objPixcVec.write_file_asShp(self.lake_tile_filenames.lake_tile_pixcvec_file.replace(".nc", ".shp"), self.objPixc)
         logger.info("")
 
         # 3 - Write intermediate NetCDF file with indices of pixels (and associated label) related to objects at the top/bottom edges of the tile
         logger.info("3 - Writing LakeTile_edge file...")
-        self.objPixc.write_edge_file(self.lake_tile_filenames.lake_tile_edge_file, None, True)
+        self.objPixc.write_edge_file(self.lake_tile_filenames.lake_tile_edge_file, in_proc_metadata)
         if self.flag_prod_shp and (self.objPixc.nb_edge_pix != 0):
             self.objPixc.write_edge_file_asShp(self.lake_tile_filenames.lake_tile_edge_file.replace(".nc", ".shp"))
         logger.info("")
@@ -233,6 +246,3 @@ class SASLakeTile(object):
             logger.info("4 - Closing lake database...")
             self.objLakeDb.close_db()
             logger.info("")
-
-
-#######################################
