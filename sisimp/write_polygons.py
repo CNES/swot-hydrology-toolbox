@@ -814,17 +814,20 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau = 0.):
     beta = np.zeros([len(IN_lat), nb_points])
   
     for i in range(nb_points):
+        k = OUT_azcoord.astype('i4')+i-int(nb_points/2)
+        bad_ind = np.logical_or((k < 0) , (k > len(IN_attributes.costheta_init)-1))
+        k[bad_ind] = 0.
+        
         theta = np.pi/2. - IN_lat
-        theta_0 = np.pi/2. - lat_0[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
+        theta_0 = np.pi/2. - lat_0[k,]
         phi = IN_lon
         
-        costheta_0 = IN_attributes.costheta_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
-        sintheta_0 = IN_attributes.sintheta_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
-        cosphi_0 = IN_attributes.cosphi_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
-        sinphi_0 = IN_attributes.sinphi_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
-        cospsi_0 = IN_attributes.cospsi_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
-        sinpsi_0 = IN_attributes.sinpsi_init[OUT_azcoord.astype('i4')+i-int(nb_points/2),]
-
+        costheta_0 = IN_attributes.costheta_init[k,]
+        sintheta_0 = IN_attributes.sintheta_init[k,]
+        cosphi_0 = IN_attributes.cosphi_init[k,]
+        sinphi_0 = IN_attributes.sinphi_init[k,]
+        cospsi_0 = IN_attributes.cospsi_init[k,]
+        sinpsi_0 = IN_attributes.sinpsi_init[k,]
         
         gamma[:,i] = (GEN_APPROX_RAD_EARTH+heau)*(np.sin(theta)*np.cos(phi)*(-cospsi_0*costheta_0*cosphi_0-sinpsi_0*sinphi_0) \
                 +np.sin(theta)*np.sin(phi)*(-cospsi_0*costheta_0*sinphi_0+sinpsi_0*cosphi_0) \
@@ -833,7 +836,10 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau = 0.):
         beta[:,i]= (GEN_APPROX_RAD_EARTH+heau)*(np.sin(theta)*np.cos(phi)*(sinpsi_0*costheta_0*cosphi_0-cospsi_0*sinphi_0) \
                 +np.sin(theta)*np.sin(phi)*(sinpsi_0*costheta_0*sinphi_0+cospsi_0*cosphi_0) \
                 +np.cos(theta)*(-sinpsi_0*sintheta_0))
-                
+        
+        gamma[bad_ind,i] = 9.99e20
+        beta[bad_ind,i] = 9.99e20
+
     ind = np.zeros(len(IN_lat), int)   
     y = np.zeros(len(IN_lat), float)   
              
