@@ -167,7 +167,7 @@ class BigLakeModel(object):
 
         return res
 
-    def fit_biglake_model_polyfit(self, pixc, pixc_mask):
+    def fit_biglake_model_polyfit(self, pixc, pixc_mask, classif):
 
 
         # Center of lake in UTM and find the zone_number, zone_letter
@@ -176,7 +176,11 @@ class BigLakeModel(object):
         longitude = pixc.longitude[pixc_mask]
         Z = pixc.height[pixc_mask]
 
-        good_ind = np.where(np.isnan(latitude) == False)
+        # TBD : replace by a threshold od dark water %
+        if classif["water"] is not None:
+            good_ind = np.where(np.isnan(latitude[classif["water"]]) == False)
+        else:
+            good_ind = np.where(np.isnan(latitude) == False)
 
         ind = np.where(longitude > 180.)
         if ind is not None:
@@ -186,6 +190,9 @@ class BigLakeModel(object):
                 np.nanmean(latitude),
                 np.nanmean(longitude))
                 
+        #~ pixc[pixc_mask[classif["water"]]])
+        
+        
         # Convert pixel cloud to UTM (zone of the centroid)
         latlon = pyproj.Proj(init="epsg:4326")
         utm_proj = pyproj.Proj("+proj=utm +zone={}{} +ellps=WGS84 +datum=WGS84 +units=m +no_defs".format(zone_number, zone_letter))
