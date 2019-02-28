@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-.. module:: lake_tile_filenames.py
+.. module:: locnes_filenames.py
     :synopsis: Deal with filenames used by LOCNES. There is one specific class per processor.
 
 .. moduleauthor:: Claire POTTIER - CNES DSO/SI/TR
@@ -18,6 +18,7 @@ import logging
 
 import cnes.common.lib_lake.locnes_variables as my_var
 import cnes.common.service_error as service_error
+
 
 def getInfoFromFilename(in_filename, in_type):
     """
@@ -128,7 +129,7 @@ class lakeTileFilenames(object):
         # 2.3 - Tile ref
         self.tile_ref = tmp_dict["tile_ref"]
         if self.tile_ref is None:
-            self.tile_ref = "ttt-t"
+            self.tile_ref = "ttts"
             logger.info("WARNING: tile ref has not been found in PIXC filename %s -> set to default value = %s", os.path.basename(self.pixc_file), self.tile_ref)
         else:
             logger.info("Tile ref = %s", self.tile_ref)
@@ -208,9 +209,9 @@ class lakeTileFilenames(object):
     def computeLakeIdPrefix(self):
         """
         Compute ID prefix for LakeTile product
-        Id pattern is: 5_ccc_ppp_ttt-s_<increment_over_4_digits> where ccc is cycle number, ppp is pass number and ttt-s is tile ref with swath (ex: 45N-L for 45 North Left swath)
+        Id pattern is: ttts_<increment_over_4_digits> where ttts is tile ref with swath (ex: 230L for Tile 230 Left swath)
         """
-        self.lake_id_prefix = "5_%03d_%03d_%s_" % (self.cycle_num, self.pass_num, self.tile_ref)
+        self.lake_id_prefix = "%s_" % self.tile_ref
     
     #----------------------------------
     
