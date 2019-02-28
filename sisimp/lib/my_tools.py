@@ -63,9 +63,48 @@ def testDir(IN_dir):
             my_api.exitWithError("ERROR = %s is not a directory" % ( IN_dir ))
     else:
         my_api.exitWithError("ERROR = %s doesn't exist" % ( IN_dir ))
+        
+#######################################
+    
+def convert_to_m180_180(in_long):
+    """
+    Convert longitudes from [0;360[ to [-180;180[
+    
+    :param in_long: longitudes to convert
+    :type in_long: float or 1D-array of float
+    
+    :return: out_long = converted longitude
+    :rtype: same as input = float or 1D-array of float
+    """
+    
+    out_long = in_long
+    ind = np.where(in_long > 180.0)
+    if ind is not None:
+        out_long[ind] -= 360.
+        
+    return out_long
+    
+
+def convert_to_0_360(in_long):
+    """
+    Convert longitudes from [-180;180[ to [0;360[ 
+    
+    :param in_long: longitudes to convert
+    :type in_long: float or 1D-array of float
+    
+    :return: out_long = converted longitude
+    :rtype: same as input = float or 1D-array of float
+    """
+    
+    out_long = in_long
+    ind = np.where(in_long < 0.0)
+    if ind is not None:
+        out_long[ind] += 360.
+        
+    return out_long
 
 #######################################
-
+        
 def computeBinMat(IN_sizeX, IN_sizeY, IN_X, IN_Y):
     '''
     Creates a 2D binary matrix from Y and Y 1D vectors
