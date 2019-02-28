@@ -30,17 +30,18 @@ CONTINENT_FILE = "/work/ALT/swot/swotpub/BD/major_basins/FAO/major_hydrobasins.s
 # Flags
 FLAG_WATER = "3;4"  # Water flag  3=water near land edge  4=interior water
 FLAG_DARK = "23;24"  # Dark water flag  23=darkwater near land  24=interior dark water
-FLAG_LAYOVER = "12;13;14"  # Layover flag
 
 # Min size for a lake to generate a lake product (=polygon + attributes) for it
-MIN_SIZE = 1.0  # In ha
+MIN_SIZE = 10000.0  # In m2
 
 # To improve PixC golocation (=True) or not (=False)
 IMP_GEOLOC = True
 
 # Method to compute lake boundary or polygon hull
 # 0=convex hull 1=concav hull (1.0=with alpha param (default) 1.1=without) 2=concav hull radar vectorisation
-HULL_METHOD = 1.0
+HULL_METHOD = 2.0
+NB_PIX_MAX_DELAUNEY = 1e5 # max number of pixel for hull computation 1
+NB_PIX_MAX_CONTOUR = 8000 # max number of contour points for hull computation 2
 
 # Maximal standard deviation of height inside a lake
 STD_HEIGHT_MAX = 10
@@ -126,16 +127,16 @@ def tmpGetConfigFromServiceConfigFile():
     FLAG_DARK = IN_config.get("CONFIG_PARAMS", "FLAG_DARK")
     logger.info("> FLAG_DARK = %s" % FLAG_DARK)
 
-    # Layover flags
-    global FLAG_LAYOVER
-    FLAG_LAYOVER = IN_config.get("CONFIG_PARAMS", "FLAG_LAYOVER")
-    logger.info("> FLAG_LAYOVER = %s" % FLAG_LAYOVER)
-
     # Hull method
     global HULL_METHOD
     HULL_METHOD = IN_config.getfloat("CONFIG_PARAMS", "HULL_METHOD")
     logger.info("> HULL_METHOD = %s" % HULL_METHOD)
 
+    # Maximal standard deviation of height inside a lake
+    global STD_HEIGHT_MAX
+    STD_HEIGHT_MAX = IN_config.getfloat("CONFIG_PARAMS", "STD_HEIGHT_MAX")
+    logger.info("> STD_HEIGHT_MAX = %s" % STD_HEIGHT_MAX)
+    
     # Model to deal with big lake processing
     global BIGLAKE_MODEL
     BIGLAKE_MODEL = IN_config.get("CONFIG_PARAMS", "BIGLAKE_MODEL")
@@ -143,7 +144,7 @@ def tmpGetConfigFromServiceConfigFile():
 
     # Min size for lake to be considered as big
     global BIGLAKE_MIN_SIZE
-    BIGLAKE_MIN_SIZE = IN_config.getint("CONFIG_PARAMS", "BIGLAKE_MIN_SIZE")
+    BIGLAKE_MIN_SIZE = IN_config.getfloat("CONFIG_PARAMS", "BIGLAKE_MIN_SIZE")
     logger.info("> BIGLAKE_MIN_SIZE = %s" % BIGLAKE_MIN_SIZE)
 
     # Grid spacing for lake height smoothing
@@ -220,14 +221,6 @@ def overwriteConfig_from_cfg(IN_config):
         else:
             print("> Default value for FLAG_DARK = %s" % FLAG_DARK)
             
-        # Layover flags
-        if "flag_layover" in list_over:
-            global FLAG_LAYOVER
-            FLAG_LAYOVER = IN_config.get("CONFIG_OVERWRITE", "FLAG_LAYOVER")
-            print("> FLAG_LAYOVER = %s" % FLAG_LAYOVER)
-        else:
-            print("> Default value for FLAG_LAYOVER = %s" % FLAG_LAYOVER)
-            
         # Hull method
         if "hull_method" in list_over:
             global HULL_METHOD
@@ -235,7 +228,15 @@ def overwriteConfig_from_cfg(IN_config):
             print("> HULL_METHOD = %s" % HULL_METHOD)
         else:
             print("> Default value for HULL_METHOD = %s" % HULL_METHOD)
-            
+
+        # Std height max
+        if "std_height_max" in list_over:
+            global STD_HEIGHT_MAX
+            STD_HEIGHT_MAX = IN_config.getfloat("CONFIG_OVERWRITE", "STD_HEIGHT_MAX")
+            print("> STD_HEIGHT_MAX = %s" % STD_HEIGHT_MAX)
+        else:
+            print("> Default value for STD_HEIGHT_MAX = %s" % STD_HEIGHT_MAX)
+                        
         # Model to deal with big lake processing
         if "biglake_model" in list_over:
             global BIGLAKE_MODEL
@@ -312,11 +313,6 @@ def overwriteConfig_from_xml(IN_xml_tree):
     global FLAG_DARK
     FLAG_DARK = IN_xml_tree.xpath("//LakeTile_shp/config_params/flag_dark")[0].text
     print("> FLAG_DARK = %s" % FLAG_DARK)
-            
-    # Layover flags
-    global FLAG_LAYOVER
-    FLAG_LAYOVER = IN_xml_tree.xpath("//LakeTile_shp/config_params/flag_layover")[0].text
-    print("> FLAG_LAYOVER = %s" % FLAG_LAYOVER)
             
     # Min size for lake product computation
     global MIN_SIZE
@@ -399,12 +395,6 @@ def compareConfig_to_xml(IN_xml_tree):
     TMP_flag_dark = IN_xml_tree.xpath("//LakeTile_shp/config_params/flag_dark")[0].text
     if TMP_flag_dark != FLAG_DARK:
         message = "At least 2 different values of FLAG_DARK for one processing: %s vs %s" % (FLAG_DARK, TMP_flag_dark)
-        raise service_error.ProcessingError(message, logger)
-            
-    # Layover flags
-    TMP_flag_layover = IN_xml_tree.xpath("//LakeTile_shp/config_params/flag_layover")[0].text
-    if TMP_flag_layover != FLAG_LAYOVER:
-        message = "At least 2 different values of FLAG_LAYOVER for one processing: %s vs %s" % (FLAG_LAYOVER, TMP_flag_layover)
         raise service_error.ProcessingError(message, logger)
             
     # Min size for lake product computation

@@ -16,32 +16,24 @@ from osgeo import gdal, ogr
 from osgeo.gdalconst import GDT_Float32
 
 import numpy as np
-import scipy
 import sys
 import os
 import utm 
 import pyproj
+from scipy.spatial import cKDTree
 import time
 
 
 import lib.my_api as my_api
-
+import lib.my_tools as my_tools
+from lib.my_lacs import Constant_Lac, Reference_height_Lac, Gaussian_Lac, Polynomial_Lac, Height_in_file_Lac
 from lib.my_variables import RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
-
-import lib.height_model as height_model
-import lib.true_height_model as true_height_model
 from lib.roll_module import Roll_module
-from lib.my_tools import llh2xyz
-from lib.my_tools import xyz2llh
-from cnes.modules.geoloc.lib.geoloc import pointcloud_height_geoloc_vect
 import lib.dark_water_functions as dark_water
 import proc_real_pixc
 import proc_real_pixc_vec_river
-from lib.my_lacs import Constant_Lac, Reference_height_Lac, Gaussian_Lac, Polynomial_Lac, Height_in_file_Lac
 
 import mathematical_function as math_fct
-from scipy.spatial import cKDTree
-import matplotlib.pyplot as plt
 
 
 class orbitAttributes:
@@ -496,8 +488,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 
                 # Init L2_HR_PIXC object
                 my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min, sub_r, classification_tab[az_indices], pixel_area[az_indices],
-                                                    lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
-                                                    IN_attributes.orbit_time[nadir_az], nadir_lat_deg[nadir_az], nadir_lon_deg[nadir_az], nadir_alt[nadir_az], nadir_heading[nadir_az],
+                                                    lat_noisy[az_indices], my_tools.convert_to_0_360(lon_noisy[az_indices]), elevation_tab_noisy[az_indices], y[az_indices],
+                                                    IN_attributes.orbit_time[nadir_az], nadir_lat_deg[nadir_az], my_tools.convert_to_0_360(nadir_lon_deg[nadir_az]), nadir_alt[nadir_az], nadir_heading[nadir_az],
                                                     IN_attributes.x[nadir_az], IN_attributes.y[nadir_az], IN_attributes.z[nadir_az], vx[nadir_az], vy[nadir_az], vz[nadir_az], r0[nadir_az],
                                                     IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size, IN_attributes.azimuth_spacing, IN_attributes.range_sampling, IN_attributes.near_range)
                 
@@ -520,7 +512,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                     # Init PIXCVec product
                     my_pixc_vec = proc_real_pixc_vec_river.l2_hr_pixc_vec_river(sub_az, sub_r, IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size)
                     # Set improved geoloc
-                    my_pixc_vec.set_vectorproc(lat[az_indices], lon[az_indices], elevation_tab[az_indices])
+                    my_pixc_vec.set_vectorproc(lat[az_indices], my_tools.convert_to_0_360(lon[az_indices]), elevation_tab[az_indices])
                     # Compute river_flag
                     my_pixc_vec.set_river_lake_tag(river_flag[az_indices]-1)  # -1 to have 0=lake and 1=river
                     # Write PIXCVec file

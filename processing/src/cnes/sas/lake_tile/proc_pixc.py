@@ -7,259 +7,202 @@
 .. module author: Claire POTTIER - CNES DSO/SI/TR
     
 .. todo: sortir les pixels oceans de la liste des pixels à traiter
-.. todo: contenu exact du PIXC à màj qd décidé
 .. todo: entités qui contiennent pixels rivière et autres
 
 This file is part of the SWOT Hydrology Toolbox
  Copyright (C) 2018 Centre National d’Etudes Spatiales
  This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
-
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import ast
-import datetime
+import logging
 import numpy as np
 import os
 from osgeo import ogr, osr
 from scipy import interpolate
-import logging
 
 import cnes.common.lib.my_basins as my_basins
 import cnes.common.lib.my_netcdf_file as my_nc
 import cnes.common.lib.my_tools as my_tools
+import cnes.common.lib.my_variables as my_var2
+import cnes.common.lib_lake.locnes_products_netcdf as nc_file
 import cnes.common.lib_lake.locnes_variables as my_var
 
 
 class PixelCloud(object):
 
-    def __init__(self, IN_pixc_file, IN_idx_reject, IN_use_fractional_inundation=None):
+    def __init__(self):
         """
-        Constructor: retrieve needed data from pixel cloud
-        
-        :param IN_pixc_file: full path of L2_HR_PIXC file
-        :type IN_pixc_file: string
-        :param IN_idx_reject: list of indices to reject before all processing
-        :type IN_idx_reject: 1D-array of int
-        :param IN_use_fractional_inundation:
-                For which classes should the inundation fraction be used?
-                The default is to assume that interior pixels are 100% water,
-                But to use both land and water edge pixels partially by using the fractional inundation kwd.
-        :type IN_use_fractional_inundation: bool list, default None
+        Constructor: init pixel cloud object
 
         Variables of the object:
-        - From group pixc in L2_HR_PIXC file
-            nb_pix_range / int: number of pixels in range dimension (= global attribute named nr_pixels in L2_HR_PIXC)
-            nb_pix_azimuth / int: number of pixels in azimuth dimension (= global attribute named nr_lines in L2_HR_PIXC)
-            cycle_num / int: cycle number (= global attribute named cycle_number in L2_HR_PIXC)
-            pass_num / int: pass number (= global attribute named pass_number in L2_HR_PIXC)
-            tile_ref / int: tile reference (= global attribute named tile_ref in L2_HR_PIXC)
-            origin_classif / 1D-array of int: classification value of pixels (= variable named classification in L2_HR_PIXC)
-            range_idx / 1D-array of int: range indices of water pixels (= variable named range_index in L2_HR_PIXC)
-            azimuth_idx / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in L2_HR_PIXC)
-            pixel_area / 1D-array of int: area of water pixels (= variable named pixel_area in L2_HR_PIXC)
-            longitude / 1D-array of float: longitude of water pixels (= variable named longitude in L2_HR_PIXC)
-            latitude / 1D-array of float: latitude of water pixels (= variable named latitude in L2_HR_PIXC)
-            height / 1D-array of float: height of water pixels (= variable named height in L2_HR_PIXC)
-            crosstrack / 1D-array of float: cross-track distance from nadir to center of water pixels (= variable named crosstrack in L2_HR_PIXC)
-        - From group tvp in L2_HR_PIXC file
-            nadir_time / 1D-array of float: observation time of each nadir pixel (= variable named time in L2_HR_PIXC file)
+            
+        - From pixel_cloud group in L2_HR_PIXC file
+            nb_pix_range / int: number of pixels in range dimension (= global attribute named interferogram_size_range in L2_HR_PIXC)
+            nb_pix_azimuth / int: number of pixels in azimuth dimension (= global attribute named interferogram_size_azimuth in L2_HR_PIXC)
+            [origin_]classif / 1D-array of byte: classification value of pixels (= variable named classification in L2_HR_PIXC)
+            [origin_]range_index / 1D-array of int: range indices of water pixels (= variable named range_index in L2_HR_PIXC)
+            [origin_]azimuth_index / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in L2_HR_PIXC)
+            water_frac / 1D array of float: water fraction
+            water_frac_uncert / 1D array of float: water fraction uncertainty
+            false_detection_rate / 1D array of float: alse detection rate
+            missed_detection_rate / 1D array of float: missed detection rate
+            prior_water_prob / 1D array of float: prior water probability
+            bright_land_flag / 1D array of byte: bright land flag
+            layover_impact /1D array of float: layover impact
+            num_rare_looks / 1D array of byte: number of rare looks
+            [origin_]latitude / 1D-array of float: latitude of water pixels
+            [origin_]longitude / 1D-array of float: longitude of water pixels
+            height / 1D-array of float: height of water pixels
+            cross_track / 1D-array of float: cross-track distance from nadir to center of water pixels
+            pixel_area / 1D-array of int: area of water pixels
+            inc / 1D array of float: incidence angle
+            dheight_dphase / 1D array of float: sensitivity of height estimate to interferogram phase
+            dheight_droll / 1D array of float: sensitivity of height estimate to spacecraft roll
+            dheight_dbaseline / 1D array of float: sensitivity of height estimate to interferometric baseline
+            dheight_drange / 1D array of float: sensitivity of height estimate to range
+            darea_dheight / 1D array of float: sensitivity of pixel area to reference height
+            num_med_looks / 1D array of int: number of medium looks
+            sig0 / 1D array of float: sigma0
+            phase_unwrapping_region / 1D array of float: phase unwrapping region index
+            instrument_range_cor / 1D array of float: instrument range correction
+            instrument_phase_cor / 1D array of float: instrument phase correction
+            instrument_baseline_cor / 1D array of float: instrument baseline correction
+            instrument_attitude_cor / 1D array of float: instrument attitude correction
+            model_dry_tropo_cor / 1D array of float: dry troposphere vertical correction
+            model_wet_tropo_cor / 1D array of float: wet troposphere vertical correction
+            iono_cor_gim_ka / 1D array of float: ionosphere vertical correction
+            xover_height_cor / 1D array of float: crossover calibration height correction
+            load_tide_sol1 / 1D array of float: load tide height (GOT4.10)
+            load_tide_sol2 / 1D array of float: load tide height (FES2014)
+            pole_tide / 1D array of float: pole tide height
+            solid_earth_tide / 1D array of float: solid earth tide
+            geoid / 1D array of float: geoid
+            surface_type_flag / 1D array of byte: surface type flag
+            
+        - From tvp group in L2_HR_PIXC file
+            nadir_time[_tai] / 1D-array of float: observation UTC [TAI] time of each nadir pixel (= variable named time[tai] in L2_HR_PIXC file)
             nadir_longitude / 1D-array of float: longitude of each nadir pixel (= variable named longitude in L2_HR_PIXC file)
             nadir_latitude / 1D-array of float: latitude of each nadir pixel (= variable named latitude in L2_HR_PIXC file)   
             nadir_[x|y|z] / 1D-array of float: [x|y|z] cartesian coordinates of each nadir pixel (= variables named [x|y|z] in L2_HR_PIXC file)
             nadir_[vx|vy|vz] / 1D-array of float: velocity vector of each nadir pixel in cartesian coordinates (= variables named velocity_unit_[x|y|z] in L2_HR_PIXC file)
-            near_range / 1D-array of float: near range distance for each nadir point (= variable named near_range in L2_HR_PIXC file)
+            nadir_sc_event_flag / 1D array of byte: spacecraft event flag
+            nadir_tvp_qual / 1D array of byte: quality flag
+            
         - From processing
-            nb_water_pix / int: number of water pixels
-            pixc_vec_river / PixelCloudVecRiver object: associed pixel cloud river complementary file
-            selected_idx / 1D-array of int: indices from original 1D-arrays of not rejected pixels with classification indices listed in IN_classif
-            nb_selected / int: number of selected pixels (=selected_idx.size)
             tile_poly / ogr.Polygon: polygon of the PixC tile
             continent / string: continent covered by the tile (if global var CONTINENT_FILE exists)
+            inundated_area / 1D-array of int: area of pixels covered by water
+            selected_index / 1D-array of int: indices from original 1D-arrays of not rejected pixels with specified classification indices
+            nb_selected / int: number of selected pixels (=selected_index.size)
+            nb_water_pix / int: number of water pixels
             labels / 1D-array of int: labelled regions associated to each PixC water pixel; pixels of this vector correspond one-to-one to the pixels of data from L2_HR_PIXC and L2_HR_PIXC_VEC_RIVER
             nb_obj / int : number of separate entities in the PixC tile
             labels_inside / 1D-array of int: label of objects entirely inside the tile
             nb_obj_inside / int : number of these objects
-            labels_edge / 1D-array of int: label of objects at the top/bottom edges of the tile
-            nb_obj_edge / int : number of these objects 
-            edge_idx / 1D-array of int: indices of pixels contained in objects at top/bottom edges
+            labels_[at_top|at_bottom|at_both]_edge / 1D-array of int: label of objects at the top/bottom/both edges of the tile
+            nb_obj_[at_top|at_bottom|at_both]_edge / int : number of these objects 
+            edge_index / 1D-array of int: indices of pixels contained in objects at top/bottom edges
             edge_label / 1D-array of int: object label for each pixel contained in objects at top/bottom edges
             edge_loc / 1D-array of int: object edge location (0=bottom 1=top 2=both) for each pixel contained in objects at top/bottom edges
             nb_edge_pix / int: number of pixels contained in objects at top/bottom edges
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("L2_HR_PIXC file = %s" % IN_pixc_file)
-        TMP_print = "Keeping pixels with classification flags ="
-        if my_var.FLAG_WATER != "":
-            TMP_print += " %s (WATER)" % my_var.FLAG_WATER
-        if my_var.FLAG_DARK != "":
-            TMP_print += " %s (DARK)" % my_var.FLAG_DARK
-        if my_var.FLAG_LAYOVER != "":
-            TMP_print += " %s (LAYOVER)" % my_var.FLAG_LAYOVER
-        logger.info(TMP_print)
+        logger.info("- start -")
 
-        # 1 - Retrieve needed information from pixel cloud file
-        pixc_reader = my_nc.myNcReader(IN_pixc_file)
-        pixc_group = pixc_reader.content.groups['pixel_cloud']
-        sensor_group = pixc_reader.content.groups['tvp']
+        # Init PIXC variables
+        self.origin_classif = None  
+        self.origin_range_index = None
+        self.origin_azimuth_index = None
+        self.origin_longitude = None
+        self.origin_latitude = None
+        self.classif = None  
+        self.range_index = None
+        self.azimuth_index = None
+        self.water_frac = None
+        self.water_frac_uncert = None
+        self.false_detection_rate = None
+        self.missed_detection_rate = None
+        self.prior_water_prob = None
+        self.bright_land_flag = None
+        self.layover_impact = None
+        self.num_rare_looks = None
+        self.latitude = None
+        self.longitude = None
+        self.height = None
+        self.cross_track = None
+        self.pixel_area = None
+        self.inc = None
+        self.dheight_dphase = None
+        self.dheight_droll = None
+        self.dheight_dbaseline = None
+        self.dheight_drange = None
+        self.darea_dheight = None
+        self.num_med_looks = None
+        self.sig0 = None
+        self.phase_unwrapping_region = None
+        self.instrument_range_cor = None
+        self.instrument_phase_cor = None
+        self.instrument_baseline_cor = None
+        self.instrument_attitude_cor = None
+        self.model_dry_tropo_cor = None
+        self.model_wet_tropo_cor = None
+        self.iono_cor_gim_ka = None
+        self.xover_height_cor = None
+        self.load_tide_sol1 = None
+        self.load_tide_sol2 = None
+        self.pole_tide = None
+        self.solid_earth_tide = None
+        self.geoid = None
+        self.surface_type_flag = None
+        self.pixc_qual = None
+        self.nadir_time = None
+        self.nadir_time_tai = None
+        self.nadir_longitude = None
+        self.nadir_latitude = None
+        self.nadir_x = None
+        self.nadir_y = None
+        self.nadir_z = None
+        self.nadir_vx = None
+        self.nadir_vy = None
+        self.nadir_vz = None
+        self.nadir_sc_event_flag = None
+        self.nadir_tvp_qual = None
         
-                # 1.1 - Number of pixels in range dimension
-        self.nb_pix_range = int(pixc_reader.getAttValue("interferogram_size_range", IN_group=pixc_group))
-        # 1.2 - Number of pixels in azimuth dimension
-        self.nb_pix_azimuth = int(pixc_reader.getAttValue("interferogram_size_azimuth", IN_group=pixc_group))
-        # 1.3 - Cycle number
-        self.cycle_num = int(pixc_reader.getAttValue("cycle_number"))
-        # 1.4 - Pass number
-        self.pass_num = int(pixc_reader.getAttValue("pass_number"))
-        # 1.5 - Tile reference
-        self.tile_ref = pixc_reader.getAttValue("tile_name")
-        # 1.6 - Classification flag
-        self.origin_classif = pixc_reader.getVarValue("classification", IN_group=pixc_group)
-        # 1.7 - Range indices of water pixels
-        self.origin_range_idx = pixc_reader.getVarValue("range_index", IN_group=pixc_group)
-        # 1.8 - Azimuth indices of water pixels
-        self.origin_azimuth_idx = pixc_reader.getVarValue("azimuth_index", IN_group=pixc_group)
-        # 1.9 - Sensor azimuth position of water pixels
-        origin_illumination_time = pixc_reader.getVarValue("illumination_time", IN_group=pixc_group)
-                        
-        # 1.10 - Continent overflown
-        # Create polygon of tile from global attributes
-        ring = ogr.Geometry(ogr.wkbLinearRing)
-        ring.AddPoint(float(pixc_reader.getAttValue("inner_first_longitude")), float(pixc_reader.getAttValue("inner_first_latitude")))
-        ring.AddPoint(float(pixc_reader.getAttValue("outer_first_longitude")), float(pixc_reader.getAttValue("outer_first_latitude")))
-        ring.AddPoint(float(pixc_reader.getAttValue("outer_last_longitude")), float(pixc_reader.getAttValue("outer_last_latitude")))
-        ring.AddPoint(float(pixc_reader.getAttValue("inner_last_longitude")), float(pixc_reader.getAttValue("inner_last_latitude")))
-        ring.AddPoint(float(pixc_reader.getAttValue("inner_first_longitude")), float(pixc_reader.getAttValue("inner_first_latitude")))
-        self.tile_poly = ogr.Geometry(ogr.wkbPolygon)
-        self.tile_poly.AddGeometry(ring)
-        self.continent = my_basins.link_poly_to_continent(self.tile_poly)
-                
-        # 2 - Get indices corresponding to input classification flags
-        # 2.1 - Flag rejected pixels in a specific way
-        TMP_classif = self.origin_classif  # Init temporary classif vector
-        if IN_idx_reject is None:
-            logger.info("No pixel to be rejected")
-        else:
-            logger.info("%d pixels to be rejected" % IN_idx_reject.size)
-            TMP_classif[IN_idx_reject] = 100  # Dummy value to ease selection hereafter
-        # 2.2 - Build list of classification flags to keep
-        TMP_flags = ""
-        if my_var.FLAG_WATER != "":
-            TMP_flags += my_var.FLAG_WATER.replace('"','')  # Water flags
-        if my_var.FLAG_DARK != "":
-            if TMP_flags != "":
-                TMP_flags += ";"
-            TMP_flags += my_var.FLAG_DARK.replace('"','')  # Dark water flags
-        if my_var.FLAG_LAYOVER != "":
-            if TMP_flags != "":
-                TMP_flags += ";"
-            TMP_flags += my_var.FLAG_LAYOVER.replace('"','')  # Layover flags
-        # 2.3 - Get list of classification flags
-        list_classif_flags = TMP_flags.split(";")
-        # 2.4 - Get list of selected indices
-        self.selected_idx = None  # Init wanted indices vector
-        for classif_flag in list_classif_flags:
-            vInd = np.where(TMP_classif == int(classif_flag))[0]
-            logger.info("%d pixels with classification flag = %d" % (vInd.size, int(classif_flag)))
-            if vInd.size != 0:
-                if self.selected_idx is None:
-                    self.selected_idx = vInd
-                else:
-                    self.selected_idx = np.concatenate((self.selected_idx, vInd))
-        if self.selected_idx is None:
-            self.nb_selected = 0
-        else:
-            self.nb_selected = self.selected_idx.size
-        logger.info("=> %d pixels to keep" % self.nb_selected)
+        # Init dictionary of PIXC metadata
+        self.pixc_metadata = {}
+        self.pixc_metadata["cycle_number"] = -9999
+        self.pixc_metadata["pass_number"] = -9999
+        self.pixc_metadata["tile_number"] = -9999
+        self.pixc_metadata["swath_side"] = ""
+        self.pixc_metadata["tile_name"] = ""
+        self.pixc_metadata["start_time"] = ""
+        self.pixc_metadata["stop_time"] = ""
+        self.pixc_metadata["inner_first_latitude"] = -9999.0
+        self.pixc_metadata["inner_first_longitude"] = -9999.0
+        self.pixc_metadata["inner_last_latitude"] = -9999.0
+        self.pixc_metadata["inner_last_longitude"] = -9999.0
+        self.pixc_metadata["outer_first_latitude"] = -9999.0
+        self.pixc_metadata["outer_first_longitude"] = -9999.0
+        self.pixc_metadata["outer_last_latitude"] = -9999.0
+        self.pixc_metadata["outer_last_longitude"] = -9999.0
+        self.pixc_metadata["continent"] = ""
+        self.pixc_metadata["ellipsoid_semi_major_axis"] = ""
+        self.pixc_metadata["ellipsoid_flattening"] = ""
+        self.pixc_metadata["interferogram_size_range"] = -9999
+        self.pixc_metadata["interferogram_size_azimuth"] = -9999
+        self.pixc_metadata["near_range"] = -9999.0
 
-        # 3 - Keep PixC data only for selected pixels
-        if self.nb_selected != 0:
-            
-            # 3.1 - In PixC group
-            
-            # Classification flags
-            self.classif = self.origin_classif[self.selected_idx]
-            # Range indices of water pixels
-            self.range_idx = self.origin_range_idx[self.selected_idx]
-            # Number of water pixels
-            self.nb_water_pix = self.range_idx.size
-            # Range indices of water pixels
-            self.azimuth_idx = self.origin_azimuth_idx[self.selected_idx]
-            # Sensor azimuth position of water pixels
-            illumination_time = origin_illumination_time[self.selected_idx]
-            # Pixel area
-            self.pixel_area = pixc_reader.getVarValue("pixel_area", IN_group=pixc_group)[self.selected_idx]
-            # Longitude
-            self.longitude = pixc_reader.getVarValue("longitude", IN_group=pixc_group)[self.selected_idx]
-            # Latitude
-            self.latitude = pixc_reader.getVarValue("latitude", IN_group=pixc_group)[self.selected_idx]
-            # Height
-            self.height = pixc_reader.getVarValue("height", IN_group=pixc_group)[self.selected_idx]
-            # Cross-track distance
-            self.crosstrack = pixc_reader.getVarValue("cross_track", IN_group=pixc_group)[self.selected_idx]
-
-            # Inundation fraction
-            # The inundation fraction is, in theory, a number between 0 and 1 estimating the fraction of the pixel covered with water.
-            # In practice, because of noise, it can be outside the bounds and even be negative!
-            # It will produced an ensemble unbiased estimate if the class mean cross sections are known.
-            if IN_use_fractional_inundation is None:
-
-                logger.info("Fractional inundation not used")
-                # All water pixels are supposed inundated
-                self.fractional_inundation = None
-                self.inundated_area = self.pixel_area
-
-            else:
-                logger.info("Fractional inundation used!")
-
-                # Get continuous classification (water fraction)
-                self.fractional_inundation = pixc_reader.getVarValue("continuous_classification", IN_group=pixc_group)[self.selected_idx]
-
-                # Get classification at the selected indexes
-                classif_idx = self.origin_classif[self.selected_idx]
-
-                # Get flags to know for which classes should the inundation fraction be used
-                use_fractional_inundation = IN_use_fractional_inundation.split(";")
-
-                # Initialize inundated area
-                self.inundated_area = self.pixel_area
-
-                # Update it when use_fractional_inundation for class i is True
-                for i, k in enumerate(list_classif_flags):
-                    if ast.literal_eval(use_fractional_inundation[i]):
-                        logger.info("[use_fractional_inundation[{}]: {} for class: {}".format(i, use_fractional_inundation[i], k))
-                        index = np.where(classif_idx == int(k))
-                        self.inundated_area[index] = self.pixel_area[index] * self.fractional_inundation[index]
-
-            # 3.2 - In TVP group
-            
-            # Interpolate nadir_time wrt illumination time
-            TMP_nadir_time = pixc_reader.getVarValue("time", IN_group=sensor_group)  # Read nadir_time values
-            f = interpolate.interp1d(TMP_nadir_time, range(len(TMP_nadir_time)))  # Interpolator
-            nadir_idx = (np.rint(f(illumination_time))).astype(int)  # Link between PixC and nadir pixels
-            
-            # Nadir time
-            self.nadir_time = TMP_nadir_time[nadir_idx]
-            # Nadir longitude
-            self.nadir_longitude = pixc_reader.getVarValue("longitude", IN_group=sensor_group)[nadir_idx]
-            # Nadir latitude
-            self.nadir_latitude = pixc_reader.getVarValue("latitude", IN_group=sensor_group)[nadir_idx]
-            # Nadir cartesian coordinates
-            self.nadir_x = pixc_reader.getVarValue("x", IN_group=sensor_group)[nadir_idx]
-            self.nadir_y = pixc_reader.getVarValue("y", IN_group=sensor_group)[nadir_idx]
-            self.nadir_z = pixc_reader.getVarValue("z", IN_group=sensor_group)[nadir_idx]
-            # Nadir velocity in cartesian coordinates
-            self.nadir_vx = pixc_reader.getVarValue("vx", IN_group=sensor_group)[nadir_idx]
-            self.nadir_vy = pixc_reader.getVarValue("vy", IN_group=sensor_group)[nadir_idx]
-            self.nadir_vz = pixc_reader.getVarValue("vz", IN_group=sensor_group)[nadir_idx]
-            # Near range distance at each nadir point 
-            self.near_range = pixc_reader.getAttValue("near_range")
-                    
-        # 4.8 - Close file
-        pixc_reader.close()
-
-        # 5 - Other initialization
+        # Variables specific to processing
+        self.nb_pix_range = 0  # Number of pixels in range dimension
+        self.nb_pix_azimuth = 0  # Number of pixels in azimuth dimension
+        self.tile_poly = None  # Polygon representing the PIXC tile
+        self.continent = None  # Continent covered by the tile
+        self.inundated_area = None  # Area of pixel where water
+        self.selected_index = None  # Indices of selected pixels
+        self.nb_selected = 0  # Number of selected pixels
+        self.nb_water_pix = 0  # Number of water pixels
         self.labels = None  # Vector of entity labels associated to each pixel
         self.nb_obj = None  # Number of separate entities
         self.labels_inside = None  # Labels of entities entirely inside the tile
@@ -270,10 +213,256 @@ class PixelCloud(object):
         self.nb_obj_at_bottom_edge = None  # Number of entities at the bottom edge of the tile
         self.labels_at_both_edges = None  # Labels of entities at the top and bottom edges of the tile
         self.nb_obj_at_both_edges = None  # Number of entities at the top and bottom edges of the tile
-        self.edge_idx = None  # Indices of pixels contained in objects at top/bottom edges
+        self.edge_index = None  # Indices of pixels contained in objects at top/bottom edges
         self.edge_label = None  # Object label for each pixel contained in objects at top/bottom edges
         self.edge_loc = None  # Object edge location (0=bottom 1=top 2=both) for each pixel contained in objects at top/bottom edges
         self.nb_edge_pix = 0  # Number of pixels contained in objects at top/bottom edges
+        
+    def set_from_pixc_file(self, in_pixc_file, in_index_reject):
+        """
+        Retrieve needed data from pixel cloud
+        
+        :param in_pixc_file: full path of L2_HR_PIXC file
+        :type in_pixc_file: string
+        :param in_index_reject: list of indices to reject before all processing
+        :type in_index_reject: 1D-array of int
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.info("L2_HR_PIXC file = %s" % in_pixc_file)
+        TMP_print = "Keep pixels with classification flags ="
+        if my_var.FLAG_WATER != "":
+            TMP_print += " %s (WATER)" % my_var.FLAG_WATER
+        if my_var.FLAG_DARK != "":
+            TMP_print += " %s (DARK)" % my_var.FLAG_DARK
+        logger.info(TMP_print)
+        
+        # 1 - Open pixel cloud file in reading mode
+        pixc_reader = my_nc.myNcReader(in_pixc_file)
+        pixc_group = pixc_reader.content.groups['pixel_cloud']
+        sensor_group = pixc_reader.content.groups['tvp']
+        
+        # 2 - Retrieve needed global attributes
+        pixc_keys = pixc_reader.getListAtt()
+        for key, value in self.pixc_metadata.items():
+            if key in pixc_keys:
+                self.pixc_metadata[key] = pixc_reader.getAttValue(key)
+        # pixel_cloud attributes
+        pixc_keys = pixc_reader.getListAtt(in_group=pixc_group)
+        for key, value in self.pixc_metadata.items():
+            if key in pixc_keys:
+                self.pixc_metadata[key] = pixc_reader.getAttValue(key, in_group=pixc_group)
+                    
+        # Specific variable save
+        self.nb_pix_range = int(self.pixc_metadata["interferogram_size_range"])  # Number of pixels in range dimension
+        self.nb_pix_azimuth = int(self.pixc_metadata["interferogram_size_azimuth"])  # Number of pixels in azimuth dimension
+        self.near_range = np.double(self.pixc_metadata["near_range"])  # Slant range for the 1st image pixel
+                        
+        # 3 - Continent overflown
+        # Create polygon of tile from global attributes
+        ring = ogr.Geometry(ogr.wkbLinearRing)
+        ring.AddPoint(float(pixc_reader.getAttValue("inner_first_longitude")), float(pixc_reader.getAttValue("inner_first_latitude")))
+        ring.AddPoint(float(pixc_reader.getAttValue("outer_first_longitude")), float(pixc_reader.getAttValue("outer_first_latitude")))
+        ring.AddPoint(float(pixc_reader.getAttValue("outer_last_longitude")), float(pixc_reader.getAttValue("outer_last_latitude")))
+        ring.AddPoint(float(pixc_reader.getAttValue("inner_last_longitude")), float(pixc_reader.getAttValue("inner_last_latitude")))
+        ring.AddPoint(float(pixc_reader.getAttValue("inner_first_longitude")), float(pixc_reader.getAttValue("inner_first_latitude")))
+        self.tile_poly = ogr.Geometry(ogr.wkbPolygon)
+        self.tile_poly.AddGeometry(ring)
+        # Find associated continent
+        self.continent = my_basins.link_poly_to_continent(self.tile_poly)
+        self.pixc_metadata["continent"] = self.continent
+        
+        # 4 - Retrieve high level variables
+        # 4.1 - Classification flag
+        self.origin_classif = pixc_reader.getVarValue("classification", in_group=pixc_group)
+        # 4.2 - Range indices of water pixels
+        self.origin_range_index = pixc_reader.getVarValue("range_index", in_group=pixc_group)
+        # 4.3 - Azimuth indices of water pixels
+        self.origin_azimuth_index = pixc_reader.getVarValue("azimuth_index", in_group=pixc_group)
+        # 4.4 - Longitude
+        origin_longitude = pixc_reader.getVarValue("longitude", in_group=pixc_group)
+        # 4.4 - Azimuth indices of water pixels
+        origin_latitude = pixc_reader.getVarValue("latitude", in_group=pixc_group)
+                
+        # 5 - Get indices corresponding to input classification flags
+        logger.info("There are %d pixels in the input PIXC" % len(origin_longitude))
+        # 5.1 - Flag rejected pixels in a specific way
+        TMP_classif = self.origin_classif  # Init temporary classif vector
+        if in_index_reject is not None:
+            logger.info("%d pixels are river (but not reservoir) pixels => will be rejected" % in_index_reject.size)
+            TMP_classif[in_index_reject] = 100  # Dummy value to ease selection hereafter
+        # 5.2 - Remove pixels with longitude or latitude = FillValue or NaN
+        nan_idx = np.where(origin_longitude == my_var2.FV_DOUBLE)[0]
+        nb_nan = len(nan_idx)
+        if nb_nan != 0:
+            logger.info("%d pixels have _FillValue longitude => will be rejected" % nb_nan)
+            TMP_classif[nan_idx] = 100 
+        nan_idx = np.argwhere(np.isnan(origin_longitude))
+        nb_nan = len(nan_idx)
+        if nb_nan != 0:
+            logger.info("%d pixels have NaN longitude => will be rejected" % nb_nan)
+            TMP_classif[nan_idx] = 100 
+        nan_idx = np.where(origin_latitude == my_var2.FV_DOUBLE)[0]
+        nb_nan = len(nan_idx)
+        if nb_nan != 0:
+            logger.info("%d pixels have _FillValue latitude => will be rejected" % nb_nan)
+            TMP_classif[nan_idx] = 100 
+        nan_idx = np.argwhere(np.isnan(origin_latitude))
+        nb_nan = len(nan_idx)
+        if nb_nan != 0:
+            logger.info("%d pixels have NaN latitude => will be rejected" % nb_nan)
+            TMP_classif[nan_idx] = 100 
+        # 5.3 - Build list of classification flags to keep
+        TMP_flags = ""
+        if my_var.FLAG_WATER != "":
+            TMP_flags += my_var.FLAG_WATER.replace('"','')  # Water flags
+        if my_var.FLAG_DARK != "":
+            if TMP_flags != "":
+                TMP_flags += ";"
+            TMP_flags += my_var.FLAG_DARK.replace('"','')  # Dark water flags
+        # 5.4 - Get list of classification flags
+        list_classif_flags = TMP_flags.split(";")
+        # 5.5 - Get list of selected indices
+        self.selected_index = None  # Init wanted indices vector
+        for classif_flag in list_classif_flags:
+            vInd = np.where(TMP_classif == int(classif_flag))[0]
+            logger.info("%d pixels with classification flag = %d" % (vInd.size, int(classif_flag)))
+            if vInd.size != 0:
+                if self.selected_index is None:
+                    self.selected_index = vInd
+                else:
+                    self.selected_index = np.concatenate((self.selected_index, vInd))
+        if self.selected_index is None:
+            self.nb_selected = 0
+        else:
+            self.nb_selected = self.selected_index.size
+        logger.info("=> %d pixels to keep" % self.nb_selected)
+
+        # 6 - Keep PixC data only for selected pixels
+        if self.nb_selected != 0:
+            
+            # 6.1 - In PixC group
+            
+            # Classification flags
+            self.classif = self.origin_classif[self.selected_index]
+            # Range indices of water pixels
+            self.range_index = self.origin_range_index[self.selected_index]
+            # Number of water pixels
+            self.nb_water_pix = self.range_index.size
+            # Range indices of water pixels
+            self.azimuth_index = self.origin_azimuth_index[self.selected_index]
+            
+            # Water fraction
+            self.water_frac = pixc_reader.getVarValue_orEmpty("water_frac", in_group=pixc_group)[self.selected_index]
+            # Water fraction uncertainty
+            self.water_frac_uncert = pixc_reader.getVarValue_orEmpty("water_frac_uncert", in_group=pixc_group)[self.selected_index]
+            # False detection rate
+            self.false_detection_rate = pixc_reader.getVarValue_orEmpty("false_detection_rate", in_group=pixc_group)[self.selected_index]
+            # Missed detection rate
+            self.missed_detection_rate = pixc_reader.getVarValue_orEmpty("missed_detection_rate", in_group=pixc_group)[self.selected_index]
+            # Prior water probability
+            self.prior_water_prob = pixc_reader.getVarValue_orEmpty("prior_water_prob", in_group=pixc_group)[self.selected_index]
+            # Bright land flag
+            self.bright_land_flag = pixc_reader.getVarValue_orEmpty("bright_land_flag", in_group=pixc_group)[self.selected_index]
+            # Layover impact
+            self.layover_impact = pixc_reader.getVarValue_orEmpty("layover_impact", in_group=pixc_group)[self.selected_index]
+            # Number of rare looks
+            self.num_rare_looks = pixc_reader.getVarValue_orEmpty("num_rare_looks", in_group=pixc_group)[self.selected_index]
+            # Latitude
+            self.latitude = origin_latitude[self.selected_index]
+            # Longitude
+            self.longitude = origin_longitude[self.selected_index]
+            # Height
+            self.height = pixc_reader.getVarValue("height", in_group=pixc_group)[self.selected_index]
+            # Cross-track distance
+            self.cross_track = pixc_reader.getVarValue("cross_track", in_group=pixc_group)[self.selected_index]
+            # Pixel area
+            self.pixel_area = pixc_reader.getVarValue("pixel_area", in_group=pixc_group)[self.selected_index]
+            # Inundated area
+            self.inundated_area = np.copy(self.pixel_area)
+            ind_ok = np.where(self.water_frac < my_var2.FV_FLOAT)
+            if len(ind_ok) > 0:
+                self.inundated_area[ind_ok] = self.pixel_area[ind_ok] * self.water_frac[ind_ok]
+            # Incidence angle
+            self.inc = pixc_reader.getVarValue_orEmpty("inc", in_group=pixc_group)[self.selected_index]
+            # Sensitivity of height estimate to interferogram phase
+            self.dheight_dphase = pixc_reader.getVarValue_orEmpty("dheight_dphase", in_group=pixc_group)[self.selected_index]
+            # Sensitivity of height estimate to spacecraft roll
+            self.dheight_droll = pixc_reader.getVarValue_orEmpty("dheight_droll", in_group=pixc_group)[self.selected_index]
+            # Sensitivity of height estimate to interferometric baseline
+            self.dheight_dbaseline = pixc_reader.getVarValue_orEmpty("dheight_dbaseline", in_group=pixc_group)[self.selected_index]
+            # Sensitivity of height estimate to range
+            self.dheight_drange = pixc_reader.getVarValue_orEmpty("dheight_drange", in_group=pixc_group)[self.selected_index]
+            # Sensitivity of pixel area to reference height
+            self.darea_dheight = pixc_reader.getVarValue_orEmpty("darea_dheight", in_group=pixc_group)[self.selected_index]
+            # Time of illumination of each pixel
+            illumination_time = pixc_reader.getVarValue("illumination_time", in_group=pixc_group)[self.selected_index]
+            # Number of medium looks
+            self.num_med_looks = pixc_reader.getVarValue_orEmpty("num_med_looks", in_group=pixc_group)[self.selected_index]
+            # sigma0
+            self.sig0 = pixc_reader.getVarValue_orEmpty("sig0", in_group=pixc_group)[self.selected_index]
+            # Phase unwrapping region index
+            self.phase_unwrapping_region = pixc_reader.getVarValue_orEmpty("phase_unwrapping_region", in_group=pixc_group)[self.selected_index]
+            # Instrument range correction
+            self.instrument_range_cor = pixc_reader.getVarValue_orEmpty("instrument_range_cor", in_group=pixc_group)[self.selected_index]
+            # Instrument phase correction
+            self.instrument_phase_cor = pixc_reader.getVarValue_orEmpty("instrument_phase_cor", in_group=pixc_group)[self.selected_index]
+            # Instrument baseline correction
+            self.instrument_baseline_cor = pixc_reader.getVarValue_orEmpty("instrument_baseline_cor", in_group=pixc_group)[self.selected_index]
+            # Instrument attitude correction
+            self.instrument_attitude_cor = pixc_reader.getVarValue_orEmpty("instrument_attitude_cor", in_group=pixc_group)[self.selected_index]
+            # Dry troposphere vertical correction
+            self.model_dry_tropo_cor = pixc_reader.getVarValue_orEmpty("model_dry_tropo_cor", in_group=pixc_group)[self.selected_index]
+            # Wet troposphere vertical correction
+            self.model_wet_tropo_cor = pixc_reader.getVarValue_orEmpty("model_wet_tropo_cor", in_group=pixc_group)[self.selected_index]
+            # Ionosphere vertical correction
+            self.iono_cor_gim_ka = pixc_reader.getVarValue_orEmpty("iono_cor_gim_ka", in_group=pixc_group)[self.selected_index]
+            # Crossover calibration height correction
+            self.xover_height_cor = pixc_reader.getVarValue_orEmpty("xover_height_cor", in_group=pixc_group)[self.selected_index]
+            # Load tide height (GOT4.10)
+            self.load_tide_sol1 = pixc_reader.getVarValue_orEmpty("load_tide_sol1", in_group=pixc_group)[self.selected_index]
+            # Load tide height (FES2014)
+            self.load_tide_sol2 = pixc_reader.getVarValue_orEmpty("load_tide_sol2", in_group=pixc_group)[self.selected_index]
+            # Pole tide height
+            self.pole_tide = pixc_reader.getVarValue_orEmpty("pole_tide", in_group=pixc_group)[self.selected_index]
+            # Solid earth tide
+            self.solid_earth_tide = pixc_reader.getVarValue_orEmpty("solid_earth_tide", in_group=pixc_group)[self.selected_index]
+            # Geoid
+            self.geoid = pixc_reader.getVarValue_orEmpty("geoid", in_group=pixc_group)[self.selected_index]
+            # Surface type flag
+            self.surface_type_flag = pixc_reader.getVarValue_orEmpty("surface_type_flag", in_group=pixc_group)[self.selected_index]
+            # Quality flag
+            self.pixc_qual = pixc_reader.getVarValue_orEmpty("pixc_qual", in_group=pixc_group)[self.selected_index]
+
+            # 6.2 - In TVP group
+            
+            # Interpolate nadir_time wrt illumination time
+            TMP_nadir_time = pixc_reader.getVarValue("time", in_group=sensor_group)  # Read nadir_time values
+            f = interpolate.interp1d(TMP_nadir_time, range(len(TMP_nadir_time)))  # Interpolator
+            nadir_index = (np.rint(f(illumination_time))).astype(int)  # Link between PixC and nadir pixels
+            
+            # Nadir time
+            self.nadir_time = TMP_nadir_time[nadir_index]
+            # Nadir time TAI
+            self.nadir_time_tai = pixc_reader.getVarValue("time_tai", in_group=sensor_group)[nadir_index]
+            # Nadir longitude
+            self.nadir_longitude = pixc_reader.getVarValue("longitude", in_group=sensor_group)[nadir_index]
+            # Nadir latitude
+            self.nadir_latitude = pixc_reader.getVarValue("latitude", in_group=sensor_group)[nadir_index]
+            # Nadir cartesian coordinates
+            self.nadir_x = pixc_reader.getVarValue("x", in_group=sensor_group)[nadir_index]
+            self.nadir_y = pixc_reader.getVarValue("y", in_group=sensor_group)[nadir_index]
+            self.nadir_z = pixc_reader.getVarValue("z", in_group=sensor_group)[nadir_index]
+            # Nadir velocity in cartesian coordinates
+            self.nadir_vx = pixc_reader.getVarValue("vx", in_group=sensor_group)[nadir_index]
+            self.nadir_vy = pixc_reader.getVarValue("vy", in_group=sensor_group)[nadir_index]
+            self.nadir_vz = pixc_reader.getVarValue("vz", in_group=sensor_group)[nadir_index]
+            # Spacecraft event flag
+            self.nadir_sc_event_flag = pixc_reader.getVarValue("sc_event_flag", in_group=sensor_group)[nadir_index]
+            # Quality flag
+            self.nadir_tvp_qual = pixc_reader.getVarValue("tvp_qual", in_group=sensor_group)[nadir_index]
+                    
+        # 4.8 - Close file
+        pixc_reader.close()
 
     # ----------------------------------------
 
@@ -282,13 +471,13 @@ class PixelCloud(object):
         Create the water mask (i.e. a 2D binary matrix) in radar geometry,
         from the pixel cloud (1D-array layers of azimuth_index, range_index, classification and continuous classification)
         
-        :return: water mask in radar geometry, i.e. a 2D matrix with "1" for each (IN_X_i, IN_Y_i)  having classification=0 and 0 elsewhere
+        :return: water mask in radar geometry, i.e. a 2D matrix with "1" for each pixel in input
         :rtype: 2D binary matrix of int 0/1
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("- start -")
 
-        return my_tools.computeBinMat(self.nb_pix_range, self.nb_pix_azimuth, self.range_idx, self.azimuth_idx)
+        return my_tools.computeBinMat(self.nb_pix_range, self.nb_pix_azimuth, self.range_index, self.azimuth_index)
 
     def computeSeparateEntities(self):
         """
@@ -304,7 +493,7 @@ class PixelCloud(object):
         sepEntities, self.nb_obj = my_tools.labelRegion(water_mask)
 
         # 3 - Convert 2D labelled mask in 1D-array layer of the same size of the L2_HR_PIXC layers
-        self.labels = my_tools.convert2dMatIn1dVec(self.range_idx, self.azimuth_idx, sepEntities)
+        self.labels = my_tools.convert2dMatIn1dVec(self.range_index, self.azimuth_index, sepEntities)
         self.labels = self.labels.astype(int)  # Conversion from float to integer
 
         # 4 - For each label : check if only one lake is in each label and relabels if necessary
@@ -313,11 +502,11 @@ class PixelCloud(object):
         for label in np.unique(self.labels):
             idx = np.where(self.labels == label)
 
-            min_rg = min(self.range_idx[idx])
-            min_az = min(self.azimuth_idx[idx])
+            min_rg = min(self.range_index[idx])
+            min_az = min(self.azimuth_index[idx])
 
-            relabel_obj = my_tools.relabelLakeUsingSegmentationHeigth(self.range_idx[idx] - min_rg,
-                                                                      self.azimuth_idx[idx] - min_az,
+            relabel_obj = my_tools.relabelLakeUsingSegmentationHeigth(self.range_index[idx] - min_rg,
+                                                                      self.azimuth_index[idx] - min_az,
                                                                       self.height[idx])
 
             labels_tmp[self.labels == label] = np.max(labels_tmp) + relabel_obj
@@ -327,17 +516,17 @@ class PixelCloud(object):
 
     def computeObjInsideTile(self):
         """
-        Separate labels of lakes and new objects entirely inside the tile, from labels of objects at top or bottom of the tile
+        Separate labels of lakes and unknown objects entirely inside the tile, from labels of objects at top or bottom of the tile
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("- start -")
 
         # 1 - Identify objects at azimuth = 0
-        idx_at_az_0 = np.where(self.azimuth_idx == 0)[0]
+        idx_at_az_0 = np.where(self.azimuth_index == 0)[0]
         labels_at_az_0 = np.unique(self.labels[idx_at_az_0])
 
         # 2 - Identify objects at azimuth = max
-        idx_at_az_max = np.where(self.azimuth_idx == self.nb_pix_azimuth - 1)[0]
+        idx_at_az_max = np.where(self.azimuth_index == self.nb_pix_azimuth - 1)[0]
         labels_at_az_max = np.unique(self.labels[idx_at_az_max])
 
         # 3 - Identify objects at azimuth = 0 and azimuth = max
@@ -372,226 +561,201 @@ class PixelCloud(object):
                                               self.labels_at_both_edges)  # Delete labels at top and bottom
         self.nb_obj_inside = self.labels_inside.size
         logger.info("> %d objects entirely inside the tile" % self.nb_obj_inside)
+        
+    def compute_edge_indices_and_label(self):
+        """
+        Compute edge pixels indices and their associated label
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.info("- start -")
+        
+        if (self.nb_obj_at_top_edge + self.nb_obj_at_bottom_edge + self.nb_obj_at_both_edges) == 0:
+            logger.info("NO edge pixel to deal with")
+            
+        else:
+            
+            flag_start = False
+            
+            # 1 - Fill with bottom edge objects
+            if self.nb_obj_at_bottom_edge != 0:
+                flag_start = True
+                self.edge_index = np.where(self.labels == self.labels_at_bottom_edge[0])[0]  # Get PixC pixels related to bottom edge object
+                self.edge_label = np.ones(self.edge_index.size) * self.labels_at_bottom_edge[0]  # Associated label vector
+                self.edge_loc = np.zeros(self.edge_index.size)  # Associated location: 0=bottom 1=top 2=both
+                for indl in np.arange(1, self.nb_obj_at_bottom_edge):  # Loop over the other bottom edge objects
+                    tmp_index = np.where(self.labels == self.labels_at_bottom_edge[indl])[0]  # Get pixels related to edge object
+                    self.edge_index = np.append(self.edge_index, tmp_index)
+                    self.edge_label = np.append(self.edge_label, np.ones(tmp_index.size) * self.labels_at_bottom_edge[indl])
+                    self.edge_loc = np.append(self.edge_loc, np.zeros(tmp_index.size))
+                    
+            # 2 - Fill with top edge objects
+            if self.nb_obj_at_top_edge != 0:
+                if flag_start is False:
+                    flag_start = True
+                    idx_start = 1
+                    self.edge_index = np.where(self.labels == self.labels_at_top_edge[0])[0]  # Get PixC pixels related to top edge object
+                    self.edge_label = np.ones(self.edge_index.size) * self.labels_at_top_edge[0]  # Associated label vector
+                    self.edge_loc = np.zeros(self.edge_index.size) + 1  # Associated location: 0=bottom 1=top 2=both
+                else:
+                    idx_start = 0
+                for indl in np.arange(idx_start, self.nb_obj_at_top_edge):  # Loop over the other top edge objects
+                    tmp_index = np.where(self.labels == self.labels_at_top_edge[indl])[0]  # Get pixels related to edge object
+                    self.edge_index = np.append(self.edge_index, tmp_index)
+                    self.edge_label = np.append(self.edge_label, np.ones(tmp_index.size) * self.labels_at_top_edge[indl])
+                    self.edge_loc = np.append(self.edge_loc, np.zeros(tmp_index.size) + 1)
+                    
+            # 3 - Fill with bottom and top edges objects
+            if self.nb_obj_at_both_edges != 0:
+                if flag_start is False:
+                    idx_start = 1
+                    self.edge_index = np.where(self.labels == self.labels_at_both_edges[0])[0]  # Get PixC pixels related to both edges object
+                    self.edge_label = np.ones(self.edge_index.size) * self.labels_at_both_edges[0]  # Associated label vector
+                    self.edge_loc = np.zeros(self.edge_index.size) + 2  # Associated location: 0=bottom 1=top 2=both
+                else:
+                    idx_start = 0
+                for indl in np.arange(idx_start, self.nb_obj_at_both_edges):  # Loop over the other both edges objects
+                    tmp_index = np.where(self.labels == self.labels_at_both_edges[indl])[0]  # Get pixels related to edge object
+                    self.edge_index = np.append(self.edge_index, tmp_index)
+                    self.edge_label = np.append(self.edge_label, np.ones(tmp_index.size) * self.labels_at_both_edges[indl])
+                    self.edge_loc = np.append(self.edge_loc, np.zeros(tmp_index.size) + 2)
+                    
+            # 4 - Number of edge pixels
+            self.nb_edge_pix = self.edge_index.size
 
     # ----------------------------------------
 
-    def write_edge_file(self, IN_out_file, noval, compress=False):
+    def write_edge_file(self, in_filename, in_proc_metadata):
         """
         Save pixels related to objects at top/bottom edge of the PixC tile in a NetCDF file.
         These 1D-arrays indicate pixel index, associated label, location (top/bottom/both edges) and needed PixC variables.
         If there is no pixel at tile edge, the file is empty but exists.
         
-        :param IN_out_file: output file full path
-        :type IN_out_file: string
-        :param noval: No data value
-        :type noval: float
-        :param compress: parameter the define to compress or not the file
-        :type compress: boolean
+        :param in_filename: full path of the output file
+        :type in_filename: string
+        :param in_proc_metadata: processing metadata
+        :type in_proc_metadata: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("Output L2_HR_LAKE_TILE edge file = %s" % IN_out_file)
+        logger.info("Output L2_HR_LakeTile_edge NetCDF file = %s" % in_filename)
+        
+        # 1 - Init product
+        edge_file = nc_file.LakeTileEdge_product(in_pixc_metadata=self.pixc_metadata, 
+                                                 in_proc_metadata=in_proc_metadata)
 
-        # 1 - Open file in writing mode
-        data = my_nc.myNcWriter(IN_out_file)
+        # 2 - Form dictionary with variables to write
+        vars_to_write = {}
+        vars_to_write["edge_index"] = self.selected_index[self.edge_index]
+        vars_to_write["edge_label"] = self.edge_label
+        vars_to_write["edge_loc"] = self.edge_loc
+        vars_to_write["classification"] = self.classif[self.edge_index]
+        vars_to_write["range_index"] = self.range_index[self.edge_index]
+        vars_to_write["azimuth_index"] = self.azimuth_index[self.edge_index]
+        vars_to_write["water_frac"] = self.water_frac[self.edge_index]
+        vars_to_write["water_frac_uncert"] = self.water_frac_uncert[self.edge_index]
+        vars_to_write["false_detection_rate"] = self.false_detection_rate[self.edge_index]
+        vars_to_write["missed_detection_rate"] = self.missed_detection_rate[self.edge_index]
+        vars_to_write["prior_water_prob"] = self.prior_water_prob[self.edge_index]
+        vars_to_write["bright_land_flag"] = self.bright_land_flag[self.edge_index]
+        vars_to_write["layover_impact"] = self.layover_impact[self.edge_index]
+        vars_to_write["num_rare_looks"] = self.num_rare_looks[self.edge_index]
+        vars_to_write["latitude"] = self.latitude[self.edge_index]
+        vars_to_write["longitude"] = self.longitude[self.edge_index]
+        vars_to_write["height"] = self.height[self.edge_index]
+        vars_to_write["cross_track"] = self.cross_track[self.edge_index]
+        vars_to_write["pixel_area"] = self.pixel_area[self.edge_index]
+        vars_to_write["inc"] = self.inc[self.edge_index]
+        vars_to_write["dheight_dphase"] = self.dheight_dphase[self.edge_index]
+        vars_to_write["dheight_droll"] = self.dheight_droll[self.edge_index]
+        vars_to_write["dheight_dbaseline"] = self.dheight_dbaseline[self.edge_index]
+        vars_to_write["dheight_drange"] = self.dheight_drange[self.edge_index]
+        vars_to_write["darea_dheight"] = self.darea_dheight[self.edge_index]
+        vars_to_write["num_med_looks"] = self.num_med_looks[self.edge_index]
+        vars_to_write["sig0"] = self.sig0[self.edge_index]
+        vars_to_write["phase_unwrapping_region"] = self.phase_unwrapping_region[self.edge_index]
+        vars_to_write["instrument_range_cor"] = self.instrument_range_cor[self.edge_index]
+        vars_to_write["instrument_phase_cor"] = self.instrument_phase_cor[self.edge_index]
+        vars_to_write["instrument_baseline_cor"] = self.instrument_baseline_cor[self.edge_index]
+        vars_to_write["instrument_attitude_cor"] = self.instrument_attitude_cor[self.edge_index]
+        vars_to_write["model_dry_tropo_cor"] = self.model_dry_tropo_cor[self.edge_index]
+        vars_to_write["model_wet_tropo_cor"] = self.model_wet_tropo_cor[self.edge_index]
+        vars_to_write["iono_cor_gim_ka"] = self.iono_cor_gim_ka[self.edge_index]
+        vars_to_write["xover_height_cor"] = self.xover_height_cor[self.edge_index]
+        vars_to_write["load_tide_sol1"] = self.load_tide_sol1[self.edge_index]
+        vars_to_write["load_tide_sol2"] = self.load_tide_sol2[self.edge_index]
+        vars_to_write["pole_tide"] = self.pole_tide[self.edge_index]
+        vars_to_write["solid_earth_tide"] = self.solid_earth_tide[self.edge_index]
+        vars_to_write["geoid"] = self.geoid[self.edge_index]
+        vars_to_write["surface_type_flag"] = self.surface_type_flag[self.edge_index]
+        vars_to_write["pixc_qual"] = self.pixc_qual[self.edge_index]
+        vars_to_write["nadir_time"] = self.nadir_time[self.edge_index]
+        vars_to_write["nadir_time_tai"] = self.nadir_time_tai[self.edge_index]
+        vars_to_write["nadir_longitude"] = self.nadir_longitude[self.edge_index]
+        vars_to_write["nadir_latitude"] = self.nadir_latitude[self.edge_index]
+        vars_to_write["nadir_x"] = self.nadir_x[self.edge_index]
+        vars_to_write["nadir_y"] = self.nadir_y[self.edge_index]
+        vars_to_write["nadir_z"] = self.nadir_z[self.edge_index]
+        vars_to_write["nadir_vx"] = self.nadir_vx[self.edge_index]
+        vars_to_write["nadir_vy"] = self.nadir_vy[self.edge_index]
+        vars_to_write["nadir_vz"] = self.nadir_vz[self.edge_index]
+        vars_to_write["nadir_sc_event_flag"] = self.nadir_sc_event_flag[self.edge_index]
+        vars_to_write["nadir_tvp_qual"] = self.nadir_tvp_qual[self.edge_index]
+            
+        # 3 - Write file
+        edge_file.write_product(in_filename, self.nb_edge_pix, vars_to_write)
 
-        if noval is None:
-            noval = -999000000.
-
-        # 2 - Write file
-        if self.nb_selected == 0:
-            logger.info("NO selected PixC => empty edge file generated")
-            data.add_dimension('record', 0)
-
-        else:
-
-            if (self.nb_obj_at_top_edge + self.nb_obj_at_bottom_edge + self.nb_obj_at_both_edges) == 0:
-                logger.info(
-                    "No object at top/bottom edge of the PixC tile => empty edge file generated")
-                data.add_dimension('record', 0)
-
-            else:
-
-                # 2.1 - Get edge pixels indices and their associated label
-                flag_start = False
-                # 2.1.1 - Fill with bottom edge objects
-                if self.nb_obj_at_bottom_edge != 0:
-                    flag_start = True
-                    self.edge_idx = np.where(self.labels == self.labels_at_bottom_edge[0])[
-                        0]  # Get PixC pixels related to bottom edge object
-                    self.edge_label = np.ones(self.edge_idx.size) * self.labels_at_bottom_edge[
-                        0]  # Associated label vector
-                    self.edge_loc = np.zeros(self.edge_idx.size)  # Associated location: 0=bottom 1=top 2=both
-                    for indl in np.arange(1, self.nb_obj_at_bottom_edge):  # Loop over the other bottom edge objects
-                        tmp_idx = np.where(self.labels == self.labels_at_bottom_edge[indl])[
-                            0]  # Get pixels related to edge object
-                        self.edge_idx = np.append(self.edge_idx, tmp_idx)
-                        self.edge_label = np.append(self.edge_label,
-                                                    np.ones(tmp_idx.size) * self.labels_at_bottom_edge[indl])
-                        self.edge_loc = np.append(self.edge_loc, np.zeros(tmp_idx.size))
-                # 2.1.2 - Fill with top edge objects
-                if self.nb_obj_at_top_edge != 0:
-                    if flag_start is False:
-                        flag_start = True
-                        idx_start = 1
-                        self.edge_idx = np.where(self.labels == self.labels_at_top_edge[0])[
-                            0]  # Get PixC pixels related to top edge object
-                        self.edge_label = np.ones(self.edge_idx.size) * self.labels_at_top_edge[
-                            0]  # Associated label vector
-                        self.edge_loc = np.zeros(self.edge_idx.size) + 1  # Associated location: 0=bottom 1=top 2=both
-                    else:
-                        idx_start = 0
-                    for indl in np.arange(idx_start, self.nb_obj_at_top_edge):  # Loop over the other top edge objects
-                        tmp_idx = np.where(self.labels == self.labels_at_top_edge[indl])[
-                            0]  # Get pixels related to edge object
-                        self.edge_idx = np.append(self.edge_idx, tmp_idx)
-                        self.edge_label = np.append(self.edge_label,
-                                                    np.ones(tmp_idx.size) * self.labels_at_top_edge[indl])
-                        self.edge_loc = np.append(self.edge_loc, np.zeros(tmp_idx.size) + 1)
-                # 2.1.3 - Fill with bottom and top edges objects
-                if self.nb_obj_at_both_edges != 0:
-                    if flag_start is False:
-                        idx_start = 1
-                        self.edge_idx = np.where(self.labels == self.labels_at_both_edges[0])[
-                            0]  # Get PixC pixels related to both edges object
-                        self.edge_label = np.ones(self.edge_idx.size) * self.labels_at_both_edges[
-                            0]  # Associated label vector
-                        self.edge_loc = np.zeros(self.edge_idx.size) + 2  # Associated location: 0=bottom 1=top 2=both
-                    else:
-                        idx_start = 0
-                    for indl in np.arange(idx_start, self.nb_obj_at_both_edges):  # Loop over the other both edges objects
-                        tmp_idx = np.where(self.labels == self.labels_at_both_edges[indl])[0]  # Get pixels related to edge object
-                        self.edge_idx = np.append(self.edge_idx, tmp_idx)
-                        self.edge_label = np.append(self.edge_label,
-                                                    np.ones(tmp_idx.size) * self.labels_at_both_edges[indl])
-                        self.edge_loc = np.append(self.edge_loc, np.zeros(tmp_idx.size) + 2)
-                # 2.1.4 - Number of edge pixels
-                self.nb_edge_pix = self.edge_idx.size
-
-                # 2.2 - Write output NetCdf file
-
-                data.add_dimension('record', self.nb_edge_pix)
-
-                data.add_variable('edge_idx', np.int32, 'record', IN_fill_value=np.int(noval), IN_compress=compress)
-                data.fill_variable('edge_idx', self.selected_idx[self.edge_idx])
-                data.add_variable('edge_label', np.int32, 'record', IN_fill_value=np.int(noval), IN_compress=compress)
-                data.fill_variable('edge_label', self.edge_label)
-                data.add_variable('edge_loc', np.int32, 'record', IN_fill_value=np.int(noval), IN_compress=compress)
-                data.fill_variable('edge_loc', self.edge_loc)
-
-                data.add_variable('azimuth_index', np.int32, 'record', IN_fill_value=np.int(noval), IN_compress=compress)
-                data.fill_variable('azimuth_index', self.azimuth_idx[self.edge_idx])
-                data.add_variable('range_index', np.int32, 'record', IN_fill_value=np.int(noval), IN_compress=compress)
-                data.fill_variable('range_index', self.range_idx[self.edge_idx])
-
-                data.add_variable('classif', np.int32, 'record', IN_fill_value=np.int(noval), IN_compress=compress)
-                data.fill_variable('classif', self.origin_classif[self.edge_idx])
-                data.add_variable('pixel_area', np.float64, 'record', IN_fill_value=np.float(noval), IN_compress=compress)
-                data.fill_variable('pixel_area', self.pixel_area[self.edge_idx])
-
-                data.add_variable('latitude', np.double, 'record', IN_fill_value=noval, IN_compress=compress)
-                data.add_variable_attribute('latitude', 'units', 'degrees_north')
-                data.fill_variable('latitude', self.latitude[self.edge_idx])
-                data.add_variable('longitude', np.double, 'record', IN_fill_value=noval, IN_compress=compress)
-                data.add_variable_attribute('longitude', 'units', 'degrees_east')
-                data.fill_variable('longitude', self.longitude[self.edge_idx])
-                data.add_variable('height', np.float64, 'record', IN_fill_value=np.float(noval), IN_compress=compress)
-                data.add_variable_attribute('height', 'units', 'm')
-                data.fill_variable('height', self.height[self.edge_idx])
-                data.add_variable('crosstrack', np.float64, 'record', IN_fill_value=np.float(noval), IN_compress=compress)
-                data.fill_variable('crosstrack', self.crosstrack[self.edge_idx])
-
-                data.add_variable('nadir_time', np.float64, 'record', IN_fill_value=np.float(noval), IN_compress=compress)
-                data.fill_variable('nadir_time', self.nadir_time[self.edge_idx])
-                data.add_variable('nadir_lon', np.double, 'record', IN_fill_value=noval, IN_compress=compress)
-                data.add_variable_attribute('nadir_lon', 'units', 'degrees_east')
-                data.fill_variable('nadir_lon', self.nadir_longitude[self.edge_idx])
-                data.add_variable('nadir_lat', np.double, 'record', IN_fill_value=noval, IN_compress=compress)
-                data.add_variable_attribute('nadir_lat', 'units', 'degrees_north')
-                data.fill_variable('nadir_lat', self.nadir_latitude[self.edge_idx])
-                data.add_variable('nadir_x', np.float64, 'record', IN_fill_value=np.float(noval), IN_compress=compress)
-                data.fill_variable('nadir_x', self.nadir_x[self.edge_idx])
-                data.add_variable('nadir_y', np.float64, 'record', IN_fill_value=np.float(noval), IN_compress=compress)
-                data.fill_variable('nadir_y', self.nadir_y[self.edge_idx])
-                data.add_variable('nadir_z', np.float64, 'record', IN_fill_value=np.float(noval), IN_compress=compress)
-                data.fill_variable('nadir_z', self.nadir_z[self.edge_idx])
-                data.add_variable('nadir_vx', np.float64, 'record', IN_fill_value=np.float(noval), IN_compress=compress)
-                data.fill_variable('nadir_vx', self.nadir_vx[self.edge_idx])
-                data.add_variable('nadir_vy', np.float64, 'record', IN_fill_value=np.float(noval), IN_compress=compress)
-                data.fill_variable('nadir_vy', self.nadir_vy[self.edge_idx])
-                data.add_variable('nadir_vz', np.float64, 'record', IN_fill_value=np.float(noval), IN_compress=compress)
-                data.fill_variable('nadir_vz', self.nadir_vz[self.edge_idx])
-                
-        data.add_global_attribute('nadir_near_range', self.near_range)
-        data.add_global_attribute('producer', my_var.PRODUCER)
-        data.add_global_attribute('creation_date', str(datetime.datetime.now()))
-        data.add_global_attribute('cycle_number', self.cycle_num)
-        data.add_global_attribute('pass_number', self.pass_num)
-        data.add_global_attribute('tile_ref', self.tile_ref)
-        if my_var.CONTINENT_FILE is not None:
-            data.add_global_attribute('continent', self.continent)
-        data.add_global_attribute('nr_pixels', self.nb_pix_range)
-        data.add_global_attribute('nr_lines', self.nb_pix_azimuth)
-        data.add_global_attribute('lake_db', my_var.LAKE_DB)
-        if my_var.CONTINENT_FILE is not None:
-            data.add_global_attribute('continent_file', my_var.CONTINENT_FILE)
-        data.add_global_attribute('flag_water', my_var.FLAG_WATER)
-        data.add_global_attribute('flag_dark', my_var.FLAG_DARK)
-        data.add_global_attribute('flag_layover', my_var.FLAG_LAYOVER)
-        data.add_global_attribute('min_size', my_var.MIN_SIZE)
-        TMP_geoloc = 0
-        if my_var.IMP_GEOLOC:
-            TMP_geoloc = 1
-        data.add_global_attribute('imp_geoloc', TMP_geoloc)
-        data.add_global_attribute('hull_method', my_var.HULL_METHOD)
-        data.add_global_attribute('std_height_max', my_var.STD_HEIGHT_MAX)
-        data.add_global_attribute('biglake_model', my_var.BIGLAKE_MODEL)
-        data.add_global_attribute('biglake_min_size', my_var.BIGLAKE_MIN_SIZE)
-        data.add_global_attribute('biglake_grid_spacing', my_var.BIGLAKE_GRID_SPACING)
-        data.add_global_attribute('biglake_grid_res', my_var.BIGLAKE_GRID_RES)
-
-        # 3 - Close file
-        data.close()
-
-    def write_edge_file_asShp(self, IN_filename):
+    def write_edge_file_asShp(self, in_filename):
         """
         Write PixC subset related to edge (top/bottom) objects as a shapefile
 
-        :param IN_filename: full path of the output file
-        :type IN_filename: string
+        :param in_filename: full path of the output file
+        :type in_filename: string
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("Output L2_HR_LAKE_TILE edge shapefile = %s" % IN_filename)
+        logger.info("Output L2_HR_LakeTile_edge shapefile = %s" % in_filename)
 
         # 1 - Initialisation du fichier de sortie
         # 1.1 - Driver
         shpDriver = ogr.GetDriverByName(str("ESRI Shapefile"))
-        # 1.2 - Creation du fichier
-        if os.path.exists(IN_filename):
-            shpDriver.DeleteDataSource(IN_filename)
-        outDataSource = shpDriver.CreateDataSource(IN_filename)
-        # 1.3 - Creation de la couche
+        # 1.2 - Create file
+        if os.path.exists(in_filename):
+            shpDriver.DeleteDataSource(in_filename)
+        outDataSource = shpDriver.CreateDataSource(in_filename)
+        # 1.3 - Create layer
         srs = osr.SpatialReference()
         srs.ImportFromEPSG(4326)  # WGS84
-        outLayer = outDataSource.CreateLayer(str(str(os.path.basename(IN_filename)).replace('.shp', '')), srs, geom_type=ogr.wkbPoint)
-        # 1.4 - Creation des attributs
-        outLayer.CreateField(ogr.FieldDefn(str('EDGE_IDX'), ogr.OFTInteger))
-        outLayer.CreateField(ogr.FieldDefn(str('EDGE_LAB'), ogr.OFTInteger))
-        outLayer.CreateField(ogr.FieldDefn(str('EDGE_LOC'), ogr.OFTInteger))
-        outLayer.CreateField(ogr.FieldDefn(str('AZ_INDEX'), ogr.OFTInteger))
-        outLayer.CreateField(ogr.FieldDefn(str('R_INDEX'), ogr.OFTInteger))
-        tmpField = ogr.FieldDefn(str('HEIGHT'), ogr.OFTReal)
+        outLayer = outDataSource.CreateLayer(str(str(os.path.basename(in_filename)).replace('.shp', '')), srs, geom_type=ogr.wkbPoint)
+        # 1.4 - Create attributes
+        outLayer.CreateField(ogr.FieldDefn(str('edge_index'), ogr.OFTInteger))
+        outLayer.CreateField(ogr.FieldDefn(str('edge_label'), ogr.OFTInteger))
+        outLayer.CreateField(ogr.FieldDefn(str('edge_loc'), ogr.OFTInteger))
+        outLayer.CreateField(ogr.FieldDefn(str('az_index'), ogr.OFTInteger))
+        outLayer.CreateField(ogr.FieldDefn(str('r_index'), ogr.OFTInteger))
+        outLayer.CreateField(ogr.FieldDefn(str('classif'), ogr.OFTInteger))
+        tmpField = ogr.FieldDefn(str('water_frac'), ogr.OFTReal)
         tmpField.SetWidth(10)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('NADIR_T'), ogr.OFTReal)
-        tmpField.SetWidth(10)
+        tmpField = ogr.FieldDefn(str('crosstrack'), ogr.OFTReal)
+        tmpField.SetWidth(12)
+        tmpField.SetPrecision(4)
+        outLayer.CreateField(tmpField)
+        tmpField = ogr.FieldDefn(str('pixel_area'), ogr.OFTReal)
+        tmpField.SetWidth(12)
+        tmpField.SetPrecision(6)
+        outLayer.CreateField(tmpField)
+        tmpField = ogr.FieldDefn(str('height'), ogr.OFTReal)
+        tmpField.SetWidth(12)
+        tmpField.SetPrecision(4)
+        outLayer.CreateField(tmpField)
+        tmpField = ogr.FieldDefn(str('nadir_t'), ogr.OFTReal)
+        tmpField.SetWidth(13)
         tmpField.SetPrecision(3)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('NAD_LON'), ogr.OFTReal)
+        tmpField = ogr.FieldDefn(str('nadir_long'), ogr.OFTReal)
         tmpField.SetWidth(10)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('NAD_LAT'), ogr.OFTReal)
+        tmpField = ogr.FieldDefn(str('nadir_lat'), ogr.OFTReal)
         tmpField.SetWidth(10)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
@@ -599,23 +763,26 @@ class PixelCloud(object):
 
         # 2 - On traite point par point
         for indp in range(self.nb_edge_pix):
-            tmp_idx = self.edge_idx[indp]
+            tmp_index = self.edge_index[indp]
             # 2.1 - On cree l'objet dans le format de la couche de sortie
             outFeature = ogr.Feature(outLayerDefn)
             # 2.2 - On lui assigne le point
             point = ogr.Geometry(ogr.wkbPoint)
-            point.AddPoint(self.longitude[tmp_idx], self.latitude[tmp_idx])
+            point.AddPoint(self.longitude[tmp_index], self.latitude[tmp_index])
             outFeature.SetGeometry(point)
             # 2.3 - On lui assigne les attributs
-            outFeature.SetField(str('EDGE_IDX'), int(self.selected_idx[tmp_idx]))
-            outFeature.SetField(str('EDGE_LAB'), int(self.edge_label[indp]))
-            outFeature.SetField(str('EDGE_LOC'), int(self.edge_loc[indp]))
-            outFeature.SetField(str('AZ_INDEX'), int(self.azimuth_idx[tmp_idx]))
-            outFeature.SetField(str('R_INDEX'), int(self.range_idx[tmp_idx]))
-            outFeature.SetField(str('HEIGHT'), float(self.height[tmp_idx]))
-            outFeature.SetField(str('NADIR_T'), float(self.nadir_time[tmp_idx]))
-            outFeature.SetField(str('NAD_LON'), float(self.nadir_longitude[tmp_idx]))
-            outFeature.SetField(str('NAD_LAT'), float(self.nadir_latitude[tmp_idx]))
+            outFeature.SetField(str('edge_index'), int(self.selected_index[tmp_index]))
+            outFeature.SetField(str('edge_label'), int(self.edge_label[indp]))
+            outFeature.SetField(str('edge_loc'), int(self.edge_loc[indp]))
+            outFeature.SetField(str('az_index'), int(self.azimuth_index[tmp_index]))
+            outFeature.SetField(str('classif'), int(self.classif[tmp_index]))
+            outFeature.SetField(str('water_frac'), float(self.water_frac[tmp_index]))
+            outFeature.SetField(str('crosstrack'), float(self.cross_track[tmp_index]))
+            outFeature.SetField(str('pixel_area'), float(self.pixel_area[tmp_index]))
+            outFeature.SetField(str('height'), float(self.height[tmp_index]))
+            outFeature.SetField(str('nadir_t'), float(self.nadir_time[tmp_index]))
+            outFeature.SetField(str('nadir_long'), float(self.nadir_longitude[tmp_index]))
+            outFeature.SetField(str('nadir_lat'), float(self.nadir_latitude[tmp_index]))
             # 2.4 - On ajoute l'objet dans la couche de sortie
             outLayer.CreateFeature(outFeature)
 
