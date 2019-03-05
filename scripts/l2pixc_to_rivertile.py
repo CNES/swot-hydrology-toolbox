@@ -70,7 +70,7 @@ def main():
         rdf_files = glob.glob(args['l2pixc_annotation_file'])
     else:
         # multi files case
-        rdf_files = glob.glob(os.path.join(args['l2pixc_annotation_file'],"*.rdf"))
+        rdf_files = glob.glob(os.path.join(args['l2pixc_annotation_file'],"pixc*.rdf"))
     if len(rdf_files) == 0:
         print("> NO PixC annotation file to deal with")
     else:

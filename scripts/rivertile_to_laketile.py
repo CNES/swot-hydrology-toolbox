@@ -149,7 +149,7 @@ def main():
     if os.path.isfile(args['river_annotation_file']):
         river_files = glob.glob(args['river_annotation_file'])
     else:
-        river_files = glob.glob(os.path.join(args['river_annotation_file'], "pixc*.rdf"))
+        river_files = glob.glob(os.path.join(args['river_annotation_file'], "*.rdf"))
     # Print on console
     if len(river_files) == 0:
         print("> NO river annotation file to deal with")
