@@ -33,18 +33,26 @@ def generate_1d_profile(taille_1D, hmean, hdev, l, plot=False):
         plt.plot(hh)
         plt.show()
 
-def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, height_model_stdv, plot=False, seed = None):
+def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, height_model_stdv, plot=False, lcorr = 500, seed = None):
 
-
+    
     Nx = int((latmax-latmin)/dlat)
     Ny = int((lonmax-lonmin)/dlon)
-    lx = 500*dlat
-    ly = 500*dlon
+    lx = lcorr*dlat
+    ly = lcorr*dlon
     
+    Nx0= Nx
+    Ny0= Ny
+    
+    if Nx < 5*lx:
+        Nx = 5*lx
+    if Ny < 5*ly:
+        Ny = 5*ly       
+        
     if seed is not None:
         np.random.seed(int(seed))
-    kx = np.fft.fftfreq(Nx, d=dlon)
-    ky = np.fft.rfftfreq(Ny, d=dlat)
+    kx = np.fft.fftfreq(Nx, d=dlat)
+    ky = np.fft.rfftfreq(Ny, d=dlon)
     
     hij_real = np.random.normal(0., height_model_stdv/np.sqrt(2), (len(kx),len(ky)))
     hij_imag = np.random.normal(0., height_model_stdv/np.sqrt(2), (len(kx),len(ky)))
@@ -53,20 +61,21 @@ def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, hei
     
     filterkx = np.where(np.abs(kx)>  1/lx, 0, 1)
     filterky = np.where(np.abs(ky)>  1/ly, 0, 1)
-    
+
+        
     kxv, kyv = np.meshgrid(filterky,filterkx)
         
     hij = hij*kxv*kyv
-    
-    deltakx = 1/Nx/dlon
-    deltaky = 1/Ny/dlat
         
     h_corr = np.sqrt((Nx*Ny/(4*dlon*dlat/lx/ly)))*np.fft.irfft2(hij, s=(Nx,Ny))
+        
+    h_corr = h_corr[0:Nx0, 0:Ny0]
+        
     if plot:
         plt.figure()
         plt.imshow(h_corr)
         plt.show()
-        
+    
     return h_corr
 
 
