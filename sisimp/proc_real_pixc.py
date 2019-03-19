@@ -218,14 +218,17 @@ class l2_hr_pixc(object):
         data.add_global_attribute('processing_beamwidth', "0LL")    
         
         data.add_global_attribute("inner_first_latitude", self.latitude[np.argmin(self.latitude)])
-        data.add_global_attribute("outer_first_latitude", self.latitude[np.argmax(self.latitude)])
-        data.add_global_attribute("inner_last_latitude", self.latitude[np.argmin(self.longitude)])
-        data.add_global_attribute("outer_last_latitude", self.latitude[np.argmax(self.longitude)])
-        data.add_global_attribute("inner_first_longitude", self.longitude[np.argmin(self.latitude)])
-        data.add_global_attribute("outer_first_longitude", self.longitude[np.argmax(self.latitude)])
-        data.add_global_attribute("inner_last_longitude", self.longitude[np.argmin(self.longitude)])
+        data.add_global_attribute("inner_first_longitude", self.longitude[np.argmin(self.longitude)])
+
+        data.add_global_attribute("outer_first_latitude", self.latitude[np.argmin(self.latitude)])
+        data.add_global_attribute("outer_first_longitude", self.longitude[np.argmax(self.longitude)])
+
+        data.add_global_attribute("outer_last_latitude", self.latitude[np.argmax(self.latitude)])
         data.add_global_attribute("outer_last_longitude", self.longitude[np.argmax(self.longitude)])
-        
+
+        data.add_global_attribute("inner_last_latitude", self.latitude[np.argmax(self.latitude)])
+        data.add_global_attribute("inner_last_longitude", self.longitude[np.argmin(self.longitude)])
+
         data.add_global_attribute("slc_first_line_index_in_tvp", 'None')
         data.add_global_attribute("slc_last_line_index_in_tvp", 'None')
         data.add_global_attribute("xref_input_l1b_hr_slc", 'None')
