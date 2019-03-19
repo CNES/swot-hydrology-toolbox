@@ -40,19 +40,26 @@ def main():
     nb_pixels = pixc.dimensions["water_record"].size
     nb_tvp_record = sensor.dimensions["record"].size
 
-    var_pixc_names = [['azimuth_index', int, 'azimuth_index'], ['range_index', int, 'range_index'], ['x_factor_left', np.float32, None],  ['x_factor_right', np.float32, None], \
-    ['pixel_area', np.float64, 'pixel_area'], ['incidence_angle', np.float64, None], ['classification', np.int, 'classification'], \
-    ['continuous_classification', np.float32, 'continuous_classification'], ['ifgram', np.float32, None], ['power_left', np.float32, 'power_left'], ['power_right', np.float32, 'power_right'], \
-    ['coherent_power', np.float64, 'coherent_power'], ['num_rare_looks', np.float32, None], ['latitude', np.float64, 'latitude_medium'], ['longitude', np.float64, 'longitude_medium'], \
-    ['height', np.float64, 'height_medium'], ['cross_track', np.float64, 'cross_track_medium'], ['phase_noise_std', np.float32, 'dphase_medium'], ['dlatitude_dphase', np.float64, None], \
-    ['dlongitude_dphase', np.float64, None], ['dheight_dphase', np.float64, 'dheight_dphase_medium'], \
-    ['illumination_time', np.float64, None], ['num_med_looks', np.float32, None], ['sigma0', np.float32, None], ['regions', np.float64, None]]
-  
-    var_tvp_names  = [['time', np.float64, 'time'],['latitude', np.float64, 'latitude'],['longitude', np.float64, 'longitude'],['height', np.float64, 'altitude'],['heading', np.float64, 'heading'],['x', np.float64, 'x'],\
-    ['y', np.float64, 'y'],['z', np.float64, 'z'],['near_range', np.float64, None],['baseline_left_x', np.float64, 'baseline_left_x'],['baseline_left_y', np.float64, 'baseline_left_y'],\
-    ['baseline_left_z', np.float64, 'baseline_left_z'],['baseline_right_x', np.float64, 'baseline_right_x'],['baseline_right_y', np.float64, 'baseline_right_y'],['baseline_right_z', \
-    np.float64, 'baseline_right_z'], ['vx', np.float64, 'velocity_unit_x'],['vy', np.float64, 'velocity_unit_y'],['vz', np.float64, 'velocity_unit_z'],['ref_leverarm_x', np.float64, None],\
-    ['ref_leverarm_y', np.float64, None],['ref_leverarm_z', np.float64, None],['sec_leverarm_x', np.float64, None],['sec_leverarm_y', np.float64, None],['sec_leverarm_z', np.float64, None]]
+    var_pixc_names = [['azimuth_index', int, 'azimuth_index'], ['range_index', int, 'range_index'], ['interferogram', np.float32, None], ['power_plus_y', np.float32, None],\
+    ['power_minus_y', np.float32, None], ['coherent_power', np.float64, None],['x_factor_plus_y', np.float64, None],['x_factor_minus_y', np.float64, None],['water_frac', np.float64, None],\
+    ['water_frac_uncert', np.float64, None], ['classification', np.int, 'classification'], ['false_detection_rate', np.float64, None], ['missed_detection_rate', np.float64, None],\
+    ['prior_water_prob', np.float64, None], ['bright_land_flag', np.float64, None],['layover_impact', np.float32, None], ['num_rare_looks', np.int, None],['latitude', np.float64, 'latitude_medium'],\
+    ['longitude', np.float64, 'longitude_medium'], ['height', np.float64, 'height_medium'], ['cross_track', np.float64, 'cross_track_medium'], ['pixel_area', np.float64, 'pixel_area'],\
+    ['inc', np.float64, None], ['phase_noise_std', np.float32, 'dphase_medium'], ['dlatitude_dphase', np.float64, None], ['dlongitude_dphase', np.float64, None],\
+    ['dheight_dphase', np.float64, 'dheight_dphase_medium'], ['dheight_droll', np.float64, None], ['dheight_dbaseline', np.float64, None], ['dheight_drange', np.float64, None],\
+    ['darea_dheight', np.float64, None], ['illumination_time', np.float64, None], ['illumination_time_tai', np.float64, None],['num_med_looks', np.float32, None], ['sig0', np.float32, None],\
+    ['phase_unwrapping_region', np.float64, None], ['instrument_range_cor', np.float64, None], ['instrument_phase_cor', np.float64, None], ['instrument_baseline_cor', np.float64, None],\
+    ['instrument_attitude_cor', np.float64, None], ['model_dry_tropo_cor', np.float64, None], ['model_wet_tropo_cor', np.float64, None], ['iono_cor_gim_ka', np.float64, None],\
+    ['xover_height_cor', np.float64, None], ['load_tide_sol1', np.float64, None], ['load_tide_sol2', np.float64, None], ['pole_tide', np.float64, None], ['solid_earth_tide', np.float64, None],\
+    ['geoid', np.float64, None], ['surface_type_flag', np.float64, None], ['pixc_qual', np.float64, None]]
+    
+      
+    var_tvp_names  = [['time', np.float64, 'time'],['time_tai', np.float64, None], ['latitude', np.float64, 'latitude'],['longitude', np.float64, 'longitude'],['height', np.float64, 'altitude'],\
+    ['roll', np.float64, None],['pitch', np.float64, None],['yaw', np.float64, None],['velocity_heading', np.float64, 'heading'],['x', np.float64, 'x'],\
+    ['y', np.float64, 'y'],['z', np.float64, 'z'],['vx', np.float64, 'velocity_unit_x'],['vy', np.float64, 'velocity_unit_y'],['vz', np.float64, 'velocity_unit_z'],\
+    ['plus_y_antenna_x', np.float64, 'baseline_right_x'],['plus_y_antenna_y', np.float64, 'baseline_right_y'],['plus_y_antenna_z', np.float64, 'baseline_right_z'],\
+    ['minus_y_antenna_x', np.float64, 'baseline_left_x'],['minus_y_antenna_y', np.float64, 'baseline_left_y'],['minus_y_antenna_z', np.float64, 'baseline_left_z'],\
+    ['record_counter', np.float64, None], ['sc_event_flag', np.float64, None],['tvp_qual', np.float64, None]]
   
 
   
@@ -82,34 +89,63 @@ def main():
     
     presumming_factor = 1
     fill_value = -9990000000.
-    pixc_group.setncattr('wavelength', 0.008385803020979)
-    pixc_group.setncattr('near_range', np.float(pixc.getncattr('near_range')))
-    pixc_group.setncattr('range_spacing', np.float(pixc.getncattr('range_spacing')))
-    pixc_group.setncattr('azimuth_spacing', np.float(pixc.getncattr('azimuth_spacing')))
-    pixc_group.setncattr('noise_power_left', -116.8458)
-    pixc_group.setncattr('noise_power_right', -116.8458)
-    pixc_group.setncattr('start_time', pixc.getncattr('time_coverage_start'))
-    pixc_group.setncattr('stop_time', pixc.getncattr('time_coverage_end'))
-    pixc_group.setncattr('pass_number', sensor.getncattr('pass_number'))
-    pixc_group.setncattr('cycle_number', sensor.getncattr('cycle_number'))
-    pixc_group.setncattr('tile_ref', tile_ref)
-    pixc_group.setncattr('inner_first_lat', latitude[np.argmin(latitude)])
-    pixc_group.setncattr('inner_first_lon', longitude[np.argmin(latitude)])
-    pixc_group.setncattr('inner_last_lat', latitude[np.argmin(longitude)])
-    pixc_group.setncattr('inner_last_lon', longitude[np.argmin(longitude)])
-    pixc_group.setncattr('outer_first_lat', latitude[np.argmax(latitude)])
-    pixc_group.setncattr('outer_first_lon', longitude[np.argmax(latitude)])
-    pixc_group.setncattr('outer_last_lat', latitude[np.argmax(longitude)])
-    pixc_group.setncattr('outer_last_lon', longitude[np.argmax(longitude)])
-    pixc_group.setncattr('description', fill_value)
-    pixc_group.setncattr('nr_pixels', 3500)
-    pixc_group.setncattr('nr_lines', np.int(nb_tvp_record/presumming_factor))
-    pixc_group.setncattr('looks_to_efflooks', 0)
     
-    
+    final_pixc.setncattr('NCProperties', "pixel cloud from 1051 version")
+    final_pixc.setncattr('Conventions', "CF-1.7")
+    final_pixc.setncattr('title', "Level 2 Pixel Clould Data Product")
+    final_pixc.setncattr('institution', "JPL")
+    final_pixc.setncattr('source', "Ka-band radar interferometer")
+    final_pixc.setncattr('history', "None")
+    final_pixc.setncattr('mission_name', "SWOT")
+    final_pixc.setncattr('references', "None")
+    final_pixc.setncattr('reference_document', "None")
+    final_pixc.setncattr('contact', "None")
+    final_pixc.setncattr('pass_number', sensor.getncattr('pass_number'))
+    final_pixc.setncattr('cycle_number', sensor.getncattr('cycle_number'))
+    #WARNING, TO BE CHANGED
+    final_pixc.setncattr('tile_name', 0_0_0)
+    final_pixc.setncattr('wavelength', 0.008385803020979)
+    final_pixc.setncattr('near_range', np.float(pixc.getncattr('near_range')))
+    final_pixc.setncattr('nominal_slant_range_spacing', np.float(pixc.getncattr('range_spacing')))
+    final_pixc.setncattr('start_time', pixc.getncattr('time_coverage_start'))
+    final_pixc.setncattr('stop_time', pixc.getncattr('time_coverage_end'))
+    final_pixc.setncattr('polarization', "None")
+    final_pixc.setncattr('transmit_antenna', "plus_y")
+    final_pixc.setncattr('processing_beamwidth', "0LL")
+    final_pixc.setncattr('ephemeris', "0LL")
+    final_pixc.setncattr('yaw_flip', "0LL")
+    final_pixc.setncattr('hpa_cold', "0LL")
+    final_pixc.setncattr('inner_first_lat', latitude[np.argmin(latitude)])
+    final_pixc.setncattr('inner_first_lon', longitude[np.argmin(latitude)])
+    final_pixc.setncattr('inner_last_lat', latitude[np.argmin(longitude)])
+    final_pixc.setncattr('inner_last_lon', longitude[np.argmin(longitude)])
+    final_pixc.setncattr('outer_first_lat', latitude[np.argmax(latitude)])
+    final_pixc.setncattr('outer_first_lon', longitude[np.argmax(latitude)])
+    final_pixc.setncattr('outer_last_lat', latitude[np.argmax(longitude)])
+    final_pixc.setncattr('outer_last_lon', longitude[np.argmax(longitude)])
+    final_pixc.setncattr('slc_first_line_index_in_tvp', "None")
+    final_pixc.setncattr('slc_last_line_index_in_tvp', "None")
+    final_pixc.setncattr('xref_input_l1b_hr_slc', "None")
+    final_pixc.setncattr('xref_static_karin_cal_file', "None")
+    final_pixc.setncattr('xref_ref_dem_file', "None")
+    final_pixc.setncattr('xref_water_mask_file', "None")
+    final_pixc.setncattr('xref_static_geophys_file', "None")
+    final_pixc.setncattr('xref_dynamic_geophys_file', "None")
+    final_pixc.setncattr('xref_int_lr_xover_cal_file', "None")
+    final_pixc.setncattr('xref_l2_hr_pixc_config_parameters_file', "None")
+    final_pixc.setncattr('ellipsoid_semi_major_axis', "None")
+    final_pixc.setncattr('ellipsoid_flattening', "None")
+ 
+    pixc_group.setncattr('description', "cloud of geolocated interferogram pixels")
+    pixc_group.setncattr('interferogram_size_range', 3500)
+    pixc_group.setncattr('interferogram_size_azimuth', nb_tvp_record)
+    pixc_group.setncattr('looks_to_efflooks', 1.75)
+ 
+
     for v in var_pixc_names: 
         fill_value = -9990000000.
-        if v[0] == "ifgram":
+        
+        if v[0] == "interferogram":
             pixc_group.createVariable(v[0], v[1], ["record","depth"], fill_value = fill_value)
             pixc_group.variables[v[0]][:,0] = pixc.variables['ifgram_real'][:]
             pixc_group.variables[v[0]][:,1] = pixc.variables['ifgram_imag'][:]
