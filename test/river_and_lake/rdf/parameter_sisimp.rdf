@@ -34,9 +34,14 @@ Dark water detected percentage = 90
 Dark water detected noise factor = 4
 
 !### Error parameters
-Height bias std = 0.1
+Height bias std = 0.
 Noise multiplier factor = 0.5 !1/sqrt(Nl) where Nl is 4
 Geolocalisation improvement = no !yes (no cross-track noise applied) or no
+
+!### Tropo model
+Tropo model  = gaussian
+Tropo error stdv = 0.2
+Tropo error correlation = 5000
 
 !### Files in output
 Create shapefile = yes !Produce output files also as shapefiles

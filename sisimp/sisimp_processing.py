@@ -157,6 +157,14 @@ class Processing(object):
             self.my_attributes.noise_multiplier_factor = read_parameter(parameters, "Noise multiplier factor", NOISE_MULTIPLIER_FACTOR, float)
             self.my_attributes.geolocalisation_improvement = read_parameter(parameters, "Geolocalisation improvement", GEOLOCATION_IMPROVEMENT, str)
             
+            # Tropo model
+            self.my_attributes.tropo_model = read_parameter(parameters, "Tropo model", None, str)
+            if self.my_attributes.tropo_model == 'gaussian':
+                self.my_attributes.tropo_error_stdv = read_parameter(parameters, "Tropo error stdv", None, float)
+                self.my_attributes.tropo_error_correlation = read_parameter(parameters, "Tropo error correlation", None, int)
+            if self.my_attributes.tropo_model == 'map':
+                self.my_attributes.tropo_error_map_file = read_parameter(parameters, "Tropo error map file", None, str)
+            
             # Height model parameters
             
             # More complex model
@@ -193,13 +201,7 @@ class Processing(object):
                         
                 else:
                     my_api.exitWithError("Height model value UNKNOWN => should be one of polynomial / gaussian / reference_height / reference_file")
-                         
-            # Dark water
-            self.my_attributes.dark_water = read_parameter(parameters, "Dark water", 'No', str)
-            self.my_attributes.fact_echelle_dw = read_parameter(parameters, "Scale factor dw", FACT_ECHELLE_DW, float)
-            self.my_attributes.dw_pourcent = read_parameter(parameters, "Dark water percentage", DW_PERCENT, float)
-            self.my_attributes.darkwater_flag = read_parameter(parameters, "Dark water flag", DARKWATER_FLAG, float)
-            self.my_attributes.dw_seed=read_parameter(parameters, "Dark water seed", None, float)
+                
             
         except IOError:
             my_api.exitWithError("[sisimp_processing/run_preprocessing] Parameter file not found = %s" % IN_paramFile)

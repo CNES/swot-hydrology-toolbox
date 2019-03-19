@@ -44,10 +44,10 @@ def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, hei
     Nx0= Nx
     Ny0= Ny
     
-    if Nx < 5*lx:
-        Nx = 5*lx
-    if Ny < 5*ly:
-        Ny = 5*ly       
+    if Nx < lx+10:
+        Nx = lx+10
+    if Ny < ly+10:
+        Ny = ly+10      
         
     if seed is not None:
         np.random.seed(int(seed))

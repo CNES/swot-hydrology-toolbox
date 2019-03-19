@@ -29,6 +29,7 @@ import lib.my_tools as my_tools
 from lib.my_lacs import Constant_Lac, Reference_height_Lac, Gaussian_Lac, Polynomial_Lac, Height_in_file_Lac
 from lib.my_variables import RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
 from lib.roll_module import Roll_module
+from lib.tropo_module import Tropo_module
 import lib.dark_water_functions as dark_water
 import proc_real_pixc
 import proc_real_pixc_vec_river
@@ -361,12 +362,26 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         if IN_swath.lower() == 'left' :  # Sign depends on left / right swath
             delta_h_roll = (roll.roll1_err_cloud-roll.roll1_cor_cloud)*y*1e-6
             delta_h += delta_h_roll
-    
+
         ## Check what is the better value from roll_module to use as error
 
     except:
         my_api.printInfo("No roll error applied")
-       
+ 
+    # 4.3 Add tropospheric delay
+
+    if IN_attributes.tropo_model == 'gaussian':
+
+        tropo = Tropo_module(IN_attributes.tropo_model)
+        tropo_error = tropo.calculate_tropo_error_gaussian(az, r, IN_attributes.tropo_error_stdv, IN_attributes.tropo_error_correlation) 
+        delta_h += tropo_error
+     
+        
+    if IN_attributes.tropo_model == 'map':
+        print('Map tropo error not already implemented')
+            
+        
+    
     # 5.3 - Compute final noisy heights (elevation + thermal noise + roll error + height model) 
     elevation_tab_noisy = elevation_tab + delta_h           
     
@@ -664,10 +679,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
                 lac.set_hmean(np.mean(lac.compute_h(lat, lon)))
                 
-                #~ plt.figure()
-                #~ plt.plot(lac.compute_h(lat, lon))
-                #~ plt.show()
-                
+       
                 az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, heau = lac.hmean)
                 
                 range_tab = np.concatenate((range_tab, r), -1)
@@ -692,14 +704,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 height_from_shp = False
                 layerDefn = layer.GetLayerDefn()
                 for i in range(layerDefn.GetFieldCount()):
-                    # Test 'HEIGHT' parameter in input shapefile fields
-                    #if layerDefn.GetFieldDefn(i).GetName() == IN_attributes.height_name:
-                    #    height_from_shp = True
-                    #    if polygon_index.GetField(str(IN_attributes.height_name)) is not None :
-                    #        feature_out.SetField(str("HEIGHT"), polygon_index.GetField(str(IN_attributes.height_name)))
-                    #    else : 
-                    #        feature_out.SetField(str("HEIGHT"), 0.)
-                        
                     if IN_attributes.height_model == 'polynomial' or IN_attributes.height_model == 'gaussian':
                         feature_out.SetField(str("CODE"),polygon_index.GetField("code"))
                 if not height_from_shp:

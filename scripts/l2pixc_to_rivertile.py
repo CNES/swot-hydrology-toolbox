@@ -86,13 +86,21 @@ def main():
         ann_cfg = rdf.parameters
         
         # Get value of orbit cycle, orbit number and latitude tile coordinates
-        pixc_ann_split = os.path.basename(pixc_ann_file).split(".")[0].split("_")
-        num_cycle = pixc_ann_split[2]
-        num_orbit = pixc_ann_split[3]
-        lat_tile = pixc_ann_split[4]
-        print("Cycle number = %s - Orbit number = %s - Tile ref = %s" % (num_cycle, num_orbit, lat_tile))
-        print()
         
+        try:
+            pixc_ann_split = os.path.basename(pixc_ann_file).split(".")[0].split("_")
+            num_cycle = pixc_ann_split[2]
+            num_orbit = pixc_ann_split[3]
+            lat_tile = pixc_ann_split[4]
+            print("Cycle number = %s - Orbit number = %s - Tile ref = %s" % (num_cycle, num_orbit, lat_tile))
+            print()
+        except:
+            print("No information in pixc annotation file, assuming num_cycle = 0, num_orbit=0, lat_tile=0")
+            num_cycle = '0'
+            num_orbit = '0'
+            lat_tile = '0'
+            
+                        
         #~ ann_cfg = rdf.parse(
             #~ os.path.abspath(args['l2pixc_annotation_file']), comment='!')
     
