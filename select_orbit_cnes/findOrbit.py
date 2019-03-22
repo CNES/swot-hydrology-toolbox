@@ -141,11 +141,12 @@ class findOrbit(object):
                     output_orbit_file.setncattr('dem west longitude', self.west_lon)
                     output_orbit_file.setncattr('dem east longitude', self.east_lon)
 
-                    data_orbit.close()
                     output_orbit_file.close()
                     
                 else:
                     print("> NOT KEPT: orbit file = %s" % orbit_file)
+                    
+                data_orbit.close()
 
         return orbit_over_dem
     
