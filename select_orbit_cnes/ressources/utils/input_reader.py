@@ -20,7 +20,7 @@ from __future__ import division
 
 import os
 
-from ressources.const_input_reader import LON_WEST, LON_EAST, LAT_NORTH, LAT_SOUTH, AZIMUTH_SPACING, SWATH, NEAR_RANGE, GDEM_PREFIX, DEM_FILE, ORBIT_REPOSITORY, START_MISSION_TIME, MAKE_PASS_PLAN, SIMULATION_START, SIMULATION_STOP, CYCLE_DURATION
+from ressources.const_input_reader import LON_WEST, LON_EAST, LAT_NORTH, LAT_SOUTH, AZIMUTH_SPACING, SWATH, NEAR_RANGE, GDEM_PREFIX, DEM_FILE, ORBIT_REPOSITORY, MISSION_START_TIME, MAKE_PASS_PLAN, SIMULATION_START, SIMULATION_STOP, CYCLE_DURATION
 
 from ressources.rdf.rdf_reader import RdfReader
 from ressources.rdf.rdf_enums import RDF_DEFAULT
@@ -58,7 +58,7 @@ class Input_Reader(object):
         self.near_range = None
         self.dem_file = None
         self.gdem_orbit_prefix = None
-        self.start_mission_time = None
+        self.mission_start_time = None
         self.simulation_start = None
         self.simulation_stop = None
         self.cycle_duration = None
@@ -97,7 +97,7 @@ class Input_Reader(object):
         self.gdem_orbit_prefix = parameter_file.get_parameter_or_default(RDF_DEFAULT, GDEM_PREFIX, None)
 
         self.orbit_repository = parameter_file.get_parameter_or_default(RDF_DEFAULT, ORBIT_REPOSITORY, None)
-        self.start_mission_time = parameter_file.get_parameter_or_default(RDF_DEFAULT, START_MISSION_TIME, None)
+        self.mission_start_time = parameter_file.get_parameter_or_default(RDF_DEFAULT, MISSION_START_TIME, None)
         self.make_pass_plan = parameter_file.get_parameter_or_default(RDF_DEFAULT, MAKE_PASS_PLAN, None)
         self.simulation_start = parameter_file.get_parameter_or_default(RDF_DEFAULT, SIMULATION_START, None)
         self.simulation_stop = parameter_file.get_parameter_or_default(RDF_DEFAULT, SIMULATION_STOP, None)
@@ -130,8 +130,8 @@ class Input_Reader(object):
     def get_orbit_repository(self):
         return self.orbit_repository
 
-    def get_start_mission(self):
-        return self.start_mission_time
+    def get_mission_start_time(self):
+        return self.mission_start_time
 
     def get_make_pass_plan(self):
         return self.make_pass_plan

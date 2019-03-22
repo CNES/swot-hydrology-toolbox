@@ -45,12 +45,13 @@ class Processing(object):
         self.west = None
         self.azimuth_spacing = None
         self.near_range = None
-        self.swath_length = None
+        self.swath_width = None
         self.orbit_directory = None
-        self.start_mission_time = None
+        self.mission_start_time = None
         self.makePassPlan = None
         self.simulation_start = None
         self.simulation_stop = None
+        self.cycle_duration = None
         
         print()
     
@@ -93,9 +94,9 @@ class Processing(object):
         
         self.azimuth_spacing = float(param_reader.get_azimuth_spacing())
         self.near_range = float(param_reader.get_near_range())
-        self.swath_length = float(param_reader.get_swath())
+        self.swath_width = float(param_reader.get_swath())
         self.gdem_prefix = param_reader.get_gdem_prefix()
-        self.start_mission_time = param_reader.get_start_mission()
+        self.mission_start_time = param_reader.get_mission_start_time()
         self.makePassPlan = param_reader.get_make_pass_plan()
         self.simulation_start_time = param_reader.get_simulation_start()
         self.simulation_stop_time = param_reader.get_simulation_stop()
@@ -141,15 +142,15 @@ class Processing(object):
             self.west, self.east = self.east, self.west
             
         # Init orbit class
-        gdem_orbit = findOrbit(self.north, self.south, self.east, self.west, self.near_range, self.swath_length)
+        gdem_orbit = findOrbit(self.north, self.south, self.east, self.west, self.near_range, self.swath_width)
         
         # Compute orbit files specific to studied area
         prefix = os.path.join(self.output_directory, self.gdem_prefix)
-        orbit_over_dem = gdem_orbit.orbit_over_dem(self.orbit_directory, prefix, self.azimuth_spacing, start_mission_time = self.start_mission_time)       
+        gdem_orbit.orbit_over_dem(self.orbit_directory, prefix, self.azimuth_spacing, self.swath_width, self.cycle_duration, mission_start_time=self.mission_start_time)       
         
         # Compute pass plan if asked
         if self.makePassPlan == "yes":
-            passplan = lib_passplan.Passplan(self.output_directory, self.start_mission_time, self.cycle_duration, self.simulation_start_time, self.simulation_stop_time)
+            passplan = lib_passplan.Passplan(self.output_directory, self.mission_start_time, self.cycle_duration, self.simulation_start_time, self.simulation_stop_time)
             passplan.run_preprocessing()
             passplan.run_processing()
             
