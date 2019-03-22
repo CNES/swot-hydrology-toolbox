@@ -35,10 +35,8 @@ class findOrbit(object):
         self.near_range = near_range
         self.swath= swath_length
 
-    def orbit_over_dem(self, orbit_directory, file_prefix, azimuth_spacing, start_mission_time = "0000_00_00"):
+    def orbit_over_dem(self, orbit_directory, file_prefix, azimuth_spacing, swath_width, cycle_duration, mission_start_time="0000_00_00"):
         print("[findOrbit] == orbit_over_dem ==")
-        
-        orbit_over_dem = []
         
         # DEM reference polygon
         polygon_ref = box(self.south_lat, self.west_lon, self.north_lat, self.east_lon)
@@ -131,11 +129,11 @@ class findOrbit(object):
                     output_orbit_file.setncattr('pass_number', orbit_file[-7:]) 
                     output_orbit_file.setncattr('cycle_number', 1) 
                     output_orbit_file.setncattr('beginning_of_mission_time', 0.)
-                    output_orbit_file.setncattr('azimuth_spacing', 21.875)
-                    output_orbit_file.setncattr('swath_width', 120000.)
+                    output_orbit_file.setncattr('azimuth_spacing', azimuth_spacing)
+                    output_orbit_file.setncattr('swath_width', swath_width)
                     output_orbit_file.setncattr('release', "select_orbit_cnes")
-                    output_orbit_file.setncattr('mission start time', "2014-01-01")
-                    output_orbit_file.setncattr('cycle_duration', 1802645.8059698)
+                    output_orbit_file.setncattr('mission start time', mission_start_time)
+                    output_orbit_file.setncattr('cycle_duration', cycle_duration)
                     output_orbit_file.setncattr('dem south latitude', self.south_lat)
                     output_orbit_file.setncattr('dem north latitude', self.north_lat)
                     output_orbit_file.setncattr('dem west longitude', self.west_lon)
@@ -147,6 +145,4 @@ class findOrbit(object):
                     print("> NOT KEPT: orbit file = %s" % orbit_file)
                     
                 data_orbit.close()
-
-        return orbit_over_dem
     
