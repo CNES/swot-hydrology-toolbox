@@ -35,7 +35,7 @@ class findOrbit(object):
         self.near_range = near_range
         self.swath= swath_length
 
-    def orbit_over_dem(self, orbit_directory, file_prefix, start_mission_time = "0000_00_00"):
+    def orbit_over_dem(self, orbit_directory, file_prefix, azimuth_spacing, start_mission_time = "0000_00_00"):
         print("[findOrbit] == orbit_over_dem ==")
         
         orbit_over_dem = []
@@ -92,7 +92,7 @@ class findOrbit(object):
                     print("> Orbit file = %s" % orbit_file)
                     
                     # Data sampling
-                    nb_sampling_points = int(vincenty.dist_vincenty(lon[index_over_dem[0]], lat[index_over_dem[0]], lon[index_over_dem[-1]], lat[index_over_dem[-1]])/21.875)
+                    nb_sampling_points = int(vincenty.dist_vincenty(lon[index_over_dem[0]], lat[index_over_dem[0]], lon[index_over_dem[-1]], lat[index_over_dem[-1]])/azimuth_spacing)
                     print("  Number of sampling point = %d" % nb_sampling_points)
 
                     # Cut valid files and save in new files
