@@ -92,8 +92,8 @@ class findOrbit(object):
                     print("> Orbit file = %s" % orbit_file)
                     
                     # Data sampling
-                    nb_sampling_points = int(vincenty.dist_vincenty(lon[index_over_dem[0]], lat[index_over_dem[0]], lon[index_over_dem[-1]], lat[index_over_dem[-1]])/azimuth_spacing)
-                    print("  Number of sampling point = %d" % nb_sampling_points)
+                    nb_sampling_points = int(vincenty.dist_vincenty(lat[index_over_dem[0]], lon[index_over_dem[0]], lat[index_over_dem[-1]], lon[index_over_dem[-1]])/azimuth_spacing)
+                    print("  Number of sampling points = %d" % nb_sampling_points)
 
                     # Cut valid files and save in new files
                     pass_num = int(orbit_file.split('.')[0].split("_")[-1]) + 332  # Compute pass number wrt SWOT KMLs available on AVISO+ (sept2015-v2)
@@ -133,11 +133,11 @@ class findOrbit(object):
                     output_orbit_file.setncattr('beginning_of_mission_time', 0.)
                     output_orbit_file.setncattr('azimuth_spacing', 21.875)
                     output_orbit_file.setncattr('swath_width', 120000.)
-                    output_orbit_file.setncattr('release', "Build 1051 made by user bawillia on 10/20/2016 12:32:57")
+                    output_orbit_file.setncattr('release', "select_orbit_cnes")
                     output_orbit_file.setncattr('mission start time', "2014-01-01")
                     output_orbit_file.setncattr('cycle_duration', 1802645.8059698)
                     output_orbit_file.setncattr('dem south latitude', self.south_lat)
-                    output_orbit_file.setncattr('dem north katitude', self.north_lat)
+                    output_orbit_file.setncattr('dem north latitude', self.north_lat)
                     output_orbit_file.setncattr('dem west longitude', self.west_lon)
                     output_orbit_file.setncattr('dem east longitude', self.east_lon)
 
