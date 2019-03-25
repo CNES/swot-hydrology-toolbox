@@ -12,7 +12,8 @@ Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip
 !Multiple orbit = yes (default) => all orbit files in Orbit directory will be processed
 !Multiple orbit = no => set the Orbit to a correct number found in the Orbit directory; only this orbit file will be processed
 !Multiple orbit = passplan => orbit files will be processed according to passplan.txt file (generated if passplan = yes in select_orbit.rdf)
-
+Multiple orbit = no
+Orbit = 14
 
 !### Simulation parameters
 Swath width = 120000.

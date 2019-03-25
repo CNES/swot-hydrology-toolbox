@@ -95,7 +95,7 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cy
     # Build LOCNES/lake_tile main lib
     if (env == 'swotCNES'):
         print("Switch to swotCNES env instead of swot-hydrology-toolbox processing")
-        pge_lake_tile = '/work/ALT/swot/swotdev/desrochesd/swot-sds/swotCNES/src/cnes/sas/lake_tile/pge_lake_tile.py'
+        pge_lake_tile = '/work/ALT/swot/swotdev/desrochesd/swot-sds/swotCNES/PGE/lake_tile/pge_lake_tile.py'
     else:
         pge_lake_tile = join(tbx_path, 'processing', 'PGE', 'lake_tile', 'pge_lake_tile.py')
 
