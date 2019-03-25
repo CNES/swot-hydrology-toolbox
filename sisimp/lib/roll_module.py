@@ -8,6 +8,8 @@
 import netCDF4 as nc
 import numpy
 import scipy.interpolate
+from matplotlib import pyplot 
+import matplotlib.pyplot as plt
 
 
 deltat=0. # time lag to be applied if reference time or pass number is different from CNES reference. 
@@ -56,3 +58,29 @@ class Roll_module(object):
         self.roll1_cor_cloud=f(cloud_time)
         f=scipy.interpolate.interp1d(sensor_time,self.roll2_cor_sens,kind='linear')
         self.roll2_cor_cloud=f(cloud_time)        
+
+
+if __name__ == "__main__":
+    
+    roll_file = '/work/ALT/swot/swototar/XOVERCAL/roll_phase/roll_phase_c016_p574.nc'
+    fid = nc.Dataset(roll_file, 'r')
+    
+    x = numpy.array(fid.variables['time_karin'])
+        
+    sl1 = numpy.array(fid.variables['sl1'])
+    sl2 = numpy.array(fid.variables['sl2'])
+    
+    slopeleft = (sl1-sl2)
+    sloperight = (sl1+sl2)
+    #~ slopeleft_p = (sl1p-sl2p)
+    #~ sloperight_p = (sl1p+sl2p)
+        
+    error_left = slopeleft*10e-3*10.
+    #~ error_left_p = slopeleft_p*10e-3*10.
+    error_right = sloperight*10e-3*10.
+    #~ error_right_p = sloperight_p*10e-3*10.
+    
+    plt.figure()
+    plt.plot(x, error_right)
+    #~ plt.plot(xp, error_right_p)
+    plt.show()   
