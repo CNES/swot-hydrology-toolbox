@@ -39,10 +39,11 @@ class Processing(object):
         
         self.parameter_file = parameter_file
         self.output_directory = output_directory
-        self.north= None
-        self.south= None
-        self.east= None
-        self.west= None
+        self.north = None
+        self.south = None
+        self.east = None
+        self.west = None
+        self.azimuth_spacing = None
         self.near_range = None
         self.swath_length = None
         self.orbit_directory = None
@@ -84,11 +85,13 @@ class Processing(object):
         except:
             self.api.error("orbits folder not found")
             return_code = 101
+            
         self.north = float(param_reader.get_north_latitude())
         self.south = float(param_reader.get_south_latitude())
         self.east = float(param_reader.get_east_longitude())
         self.west = float(param_reader.get_west_longitude())
-
+        
+        self.azimuth_spacing = float(param_reader.get_azimuth_spacing())
         self.near_range = float(param_reader.get_near_range())
         self.swath_length = float(param_reader.get_swath())
         self.gdem_prefix = param_reader.get_gdem_prefix()
@@ -142,7 +145,7 @@ class Processing(object):
         
         # Compute orbit files specific to studied area
         prefix = os.path.join(self.output_directory, self.gdem_prefix)
-        orbit_over_dem = gdem_orbit.orbit_over_dem(self.orbit_directory, prefix, start_mission_time = self.start_mission_time)       
+        orbit_over_dem = gdem_orbit.orbit_over_dem(self.orbit_directory, prefix, self.azimuth_spacing, start_mission_time = self.start_mission_time)       
         
         # Compute pass plan if asked
         if self.makePassPlan == "yes":

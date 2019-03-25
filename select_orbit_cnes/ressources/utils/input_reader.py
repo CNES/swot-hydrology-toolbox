@@ -20,7 +20,7 @@ from __future__ import division
 
 import os
 
-from ressources.const_input_reader import LON_WEST, LON_EAST, LAT_NORTH, LAT_SOUTH, SWATH, NEAR_RANGE, GDEM_PREFIX, DEM_FILE, ORBIT_REPOSITORY, START_MISSION_TIME, MAKE_PASS_PLAN, SIMULATION_START, SIMULATION_STOP, CYCLE_DURATION
+from ressources.const_input_reader import LON_WEST, LON_EAST, LAT_NORTH, LAT_SOUTH, AZIMUTH_SPACING, SWATH, NEAR_RANGE, GDEM_PREFIX, DEM_FILE, ORBIT_REPOSITORY, START_MISSION_TIME, MAKE_PASS_PLAN, SIMULATION_START, SIMULATION_STOP, CYCLE_DURATION
 
 from ressources.rdf.rdf_reader import RdfReader
 from ressources.rdf.rdf_enums import RDF_DEFAULT
@@ -53,6 +53,7 @@ class Input_Reader(object):
         self.longitude_east = None
         self.latitude_north = None
         self.latitude_south = None
+        self.azimuth_spacing = None
         self.swath = None
         self.near_range = None
         self.dem_file = None
@@ -89,6 +90,7 @@ class Input_Reader(object):
         self.latitude_north = parameter_file.get_parameter(RDF_DEFAULT, LAT_NORTH)
         self.latitude_south = parameter_file.get_parameter(RDF_DEFAULT, LAT_SOUTH)
 
+        self.azimuth_spacing = parameter_file.get_parameter_or_default(RDF_DEFAULT, AZIMUTH_SPACING, None)
         self.swath = parameter_file.get_parameter_or_default(RDF_DEFAULT, SWATH, None)
         self.near_range = parameter_file.get_parameter_or_default(RDF_DEFAULT, NEAR_RANGE, None)
         self.dem_file = parameter_file.get_parameter_or_default(RDF_DEFAULT, DEM_FILE, None)
@@ -112,6 +114,9 @@ class Input_Reader(object):
 
     def get_east_longitude(self):
         return self.longitude_east
+
+    def get_azimuth_spacing(self):
+        return self.azimuth_spacing
 
     def get_swath(self):
         return self.swath
