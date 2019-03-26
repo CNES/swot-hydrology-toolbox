@@ -373,11 +373,14 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     if IN_attributes.tropo_model == 'gaussian':
 
         tropo = Tropo_module(IN_attributes.tropo_model)
-        tropo_error = tropo.calculate_tropo_error_gaussian(az, r, IN_attributes.tropo_error_stdv, IN_attributes.tropo_error_correlation) 
+        tropo_error = tropo.calculate_tropo_error_gaussian(az, r, IN_attributes.tropo_error_stdv, IN_attributes.tropo_error_mean, IN_attributes.tropo_error_correlation) 
         delta_h += tropo_error
      
         
     if IN_attributes.tropo_model == 'map':
+        tropo = Tropo_module(IN_attributes.tropo_model)
+        tropo_error = tropo.calculate_tropo_error_map(np.mean(lat)* RAD2DEG, az, r, IN_attributes.tropo_error_map_file, IN_attributes.tropo_error_correlation) 
+        
         print('Map tropo error not already implemented')
             
         
