@@ -12,12 +12,12 @@ import lib.height_model as height_model
 import lib.my_api as my_api
 
 
-def dark_water_simulation(dlat, latmin, latmax, dlon, lonmin, lonmax, pourcent_dw, seedvalue):
+def dark_water_simulation(dlat, latmin, latmax, dlon, lonmin, lonmax, pourcent_dw, seedvalue, lcorr = 50):
     
     # Create a 2D gaussian profile
     #if seedvalue is not None:
     #    np.random.seed(int(seedvalue))
-    profile_2d = height_model.generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, 1, plot = False, lcorr = 50, seed = seedvalue)
+    profile_2d = height_model.generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, 1, plot = False, lcorr = lcorr, seed = seedvalue)
     
     ### Create Dark water mask
     # Define the threshold value to keep the desired % of dark water
@@ -56,7 +56,7 @@ def dark_water_randomerase(mask_dw, water_pixmatrix, taille_2D, seedvalue=None):
     return mask_dw, water_pixmatrix
 
 
-def dark_water_non_detected_simulation(mask_dw, dlat, latmin, latmax, dlon, lonmin, lonmax,percent_detected_dw,seedvalue):
+def dark_water_non_detected_simulation(mask_dw, dlat, latmin, latmax, dlon, lonmin, lonmax,percent_detected_dw,seedvalue, scale_factor = 0.5):
     # label dark water regions
     mask_regions=label(mask_dw)
     region_list=[i for i in range(1,np.max(mask_regions+1))]
@@ -74,10 +74,10 @@ def dark_water_non_detected_simulation(mask_dw, dlat, latmin, latmax, dlon, lonm
             # Get the bounding lines and columns of the region
             minx, maxx, miny, maxy = min(region_ind[0]),max(region_ind[0]),min(region_ind[1]),max(region_ind[1])
             size_y = maxy-miny+1
-            size_x=maxx-minx+1
+            size_x = maxx-minx+1
 
             #Simulate non detected dark water
-            profile_2d = height_model.generate_2d_profile_gaussian(1, minx, maxx+1, 1, miny, maxy+1,1, plot = False, lcorr = 50, seed = seedvalue)
+            profile_2d = height_model.generate_2d_profile_gaussian(1, minx, maxx+1, 1, miny, maxy+1,1, plot = False, lcorr = scale_factor*(size_y+size_x)/2., seed = seedvalue)
             
             profile_2d[np.where(mask_regions[minx:maxx+1,miny:maxy+1]!=i)]=-999
             non_detected_dw_mask[minx:maxx+1,miny:maxy+1]=profile_2d

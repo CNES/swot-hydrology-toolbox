@@ -34,10 +34,11 @@ def generate_1d_profile(taille_1D, hmean, hdev, l, plot=False):
         plt.show()
 
 def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, height_model_stdv, plot=False, lcorr = 500, seed = None):
-
     
     Nx = int((latmax-latmin)/dlat)
     Ny = int((lonmax-lonmin)/dlon)
+    lcorr = int(lcorr)
+    
     lx = lcorr*dlat
     ly = lcorr*dlon
     
@@ -47,12 +48,16 @@ def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, hei
     if Nx < lx+10:
         Nx = lx+10
     if Ny < ly+10:
-        Ny = ly+10      
+        Ny = ly+10           
         
+    nx_pad = 2**(int(np.log2(Nx - 1)) + 1)
+    ny_pad = 2**(int(np.log2(Ny - 1)) + 1)
+        
+     
     if seed is not None:
         np.random.seed(int(seed))
-    kx = np.fft.fftfreq(Nx, d=dlat)
-    ky = np.fft.rfftfreq(Ny, d=dlon)
+    kx = np.fft.fftfreq(nx_pad, d=dlat)
+    ky = np.fft.rfftfreq(ny_pad, d=dlon)
     
     hij_real = np.random.normal(0., height_model_stdv/np.sqrt(2), (len(kx),len(ky)))
     hij_imag = np.random.normal(0., height_model_stdv/np.sqrt(2), (len(kx),len(ky)))
@@ -67,7 +72,7 @@ def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, hei
         
     hij = hij*kxv*kyv
         
-    h_corr = np.sqrt((Nx*Ny/(4*dlon*dlat/lx/ly)))*np.fft.irfft2(hij, s=(Nx,Ny))
+    h_corr = np.sqrt((nx_pad*ny_pad/(4*dlon*dlat/lx/ly)))*np.fft.irfft2(hij, s=(nx_pad,ny_pad))
         
     h_corr = h_corr[0:Nx0, 0:Ny0]
         
