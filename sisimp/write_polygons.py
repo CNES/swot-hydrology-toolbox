@@ -262,7 +262,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             taille_r, taille_az = rmax-rmin+1, azmax-azmin+1
 
             # Simulate dark_water
-            dw_mask=dark_water.dark_water_simulation(1,azmin ,azmax+1,1, rmin, rmax+1,IN_attributes.dw_pourcent , seedvalue=None)
+            dw_mask=dark_water.dark_water_simulation(1,azmin ,azmax+1,1, rmin, rmax+1,IN_attributes.dw_pourcent, IN_attributes.dw_seed, lcorr = IN_attributes.dw_correlation_length)
     
             ## Get water extent
             indice_r = np.array(ind[0]-rmin)
@@ -270,7 +270,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             ## Randomly classify or erase dark water regions
             ### Randomly erase DW regions in DW mask
 
-            dw_mask = dark_water.dark_water_non_detected_simulation(dw_mask,1,azmin ,azmax+1,1, rmin, rmax+1,IN_attributes.dw_detected_percent,IN_attributes.dw_seed)
+            dw_mask = dark_water.dark_water_non_detected_simulation(dw_mask,1,azmin ,azmax+1,1, rmin, rmax+1,IN_attributes.dw_detected_percent,IN_attributes.dw_seed, scale_factor = IN_attributes.scale_factor_non_detected_dw)
             #reshape dark_water to water extent
 
 

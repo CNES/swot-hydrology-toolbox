@@ -30,7 +30,7 @@ from lib.my_variables import SWATH_WIDTH, NR_CROSS_TRACK, SENSOR_WAVELENGTH, NB_
         HEIGHT_MODEL_t0, HEIGHT_MODEL_PERIOD, HEIGHT_MODEL_MIN_AREA, HEIGHT_BIAS_STD, NOISE_MULTIPLIER_FACTOR, RANGE_SAMPLING, \
         WATER_FLAG, MULTIPLE_ORBIT, COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST, GEOLOCATION_IMPROVEMENT, \
         FACT_ECHELLE, HEIGHT_MODEL, HEIGHT_MODEL_STDV, GEN_APPROX_RAD_EARTH, RAD2DEG, DEG2RAD, FACT_ECHELLE_DW, DW_PERCENT, DARKWATER_FLAG, \
-        SCALE_FACTOR_NON_DETECTED_DW, DW_DETECTED_PERCENT, DW_DETECTED_NOISE_FACTOR
+        SCALE_FACTOR_NON_DETECTED_DW, DW_DETECTED_PERCENT, DW_DETECTED_NOISE_FACTOR, DW_CORRELATION_LENGTH
 
 
 def read_parameter(IN_rdf_reader, IN_instrument_name, IN_instrument_default_value, read_type):
@@ -141,13 +141,13 @@ class Processing(object):
                 my_api.printInfo("True height file not set, True height model won't be applied")
             # Dark water
             self.my_attributes.dark_water = read_parameter(parameters, "Dark water",'No' , str)
-            self.my_attributes.fact_echelle_dw = read_parameter(parameters,"Scale factor dw",FACT_ECHELLE_DW,float)
             self.my_attributes.dw_pourcent = read_parameter(parameters, "Dark water percentage",DW_PERCENT,float)
-            self.my_attributes.darkwater_flag = read_parameter(parameters, "Dark water flag", DARKWATER_FLAG, float)
+            self.my_attributes.darkwater_flag = read_parameter(parameters, "Dark water flag", DARKWATER_FLAG, int)
             self.my_attributes.dw_seed=read_parameter(parameters, "Dark water seed", None, float)
             self.my_attributes.scale_factor_non_detected_dw = read_parameter(parameters, "Scale factor non detected dw", SCALE_FACTOR_NON_DETECTED_DW,float)
             self.my_attributes.dw_detected_percent = read_parameter(parameters, "Dark water detected percentage", DW_DETECTED_PERCENT, float)
             self.my_attributes.dw_detected_noise_factor = read_parameter(parameters, "Dark water detected noise factor", DW_DETECTED_NOISE_FACTOR, float)
+            self.my_attributes.dw_correlation_length = read_parameter(parameters, "Dark water correlation length", DW_CORRELATION_LENGTH, int)
 
             # Water flag
             self.my_attributes.water_flag = read_parameter(parameters, "Water flag", WATER_FLAG, float)

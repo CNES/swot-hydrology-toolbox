@@ -26,13 +26,14 @@ Water flag = 4
 
 !### Dark water
 Dark water = yes
-Scale factor dw = 0.1
-Dark water percentage = 5
 Dark water flag = 24
-!Dark water seed = 12345678
-Scale factor non detected dw = 2
+Dark water percentage = 5
 Dark water detected percentage = 90
 Dark water detected noise factor = 4
+Scale factor non detected dw = 0.5
+Dark water correlation length = 500
+
+!Dark water seed = 12345678
 
 !### Error parameters
 Height bias std = 0.
