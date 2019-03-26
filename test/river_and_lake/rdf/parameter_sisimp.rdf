@@ -40,9 +40,11 @@ Noise multiplier factor = 0.5 !1/sqrt(Nl) where Nl is 4
 Geolocalisation improvement = no !yes (no cross-track noise applied) or no
 
 !### Tropo model
-Tropo model  = gaussian
-Tropo error stdv = 0.2
+Tropo model  = map
+Tropo error stdv = 0.03
+Tropo error mean = 0.01
 Tropo error correlation = 5000
+Tropo error map file = /work/ALT/swot/swotdev/desrochesd/swot-hydrology-toolbox/sisimp/data/tropo_map/zonal_delta_wtc_J2.nc
 
 !### Files in output
 Create shapefile = yes !Produce output files also as shapefiles

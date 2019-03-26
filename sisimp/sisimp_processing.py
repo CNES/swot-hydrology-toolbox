@@ -159,12 +159,13 @@ class Processing(object):
             
             # Tropo model
             self.my_attributes.tropo_model = read_parameter(parameters, "Tropo model", None, str)
+            self.my_attributes.tropo_error_correlation = read_parameter(parameters, "Tropo error correlation", None, int)
+                
             if self.my_attributes.tropo_model == 'gaussian':
                 self.my_attributes.tropo_error_stdv = read_parameter(parameters, "Tropo error stdv", None, float)
-                self.my_attributes.tropo_error_correlation = read_parameter(parameters, "Tropo error correlation", None, int)
+                self.my_attributes.tropo_error_mean = read_parameter(parameters, "Tropo error mean", None, float)
             if self.my_attributes.tropo_model == 'map':
-                self.my_attributes.tropo_error_map_file = read_parameter(parameters, "Tropo error map file", None, str)
-            
+                self.my_attributes.tropo_error_map_file = os.path.expandvars(parameters.getValue("Tropo error map file")  )           
             # Height model parameters
             
             # More complex model
