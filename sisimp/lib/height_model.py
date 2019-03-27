@@ -25,7 +25,6 @@ def generate_1d_profile(taille_1D, hmean, hdev, l, plot=False):
 
     u,s,v = np.linalg.svd(c, full_matrices=False)
     d = np.dot(np.dot(u,np.diag(np.sqrt(s))),v)
-    #cc=np.dot(d,d.transpose())
 
     hh = hmean + np.dot(d,h)
 
@@ -34,7 +33,7 @@ def generate_1d_profile(taille_1D, hmean, hdev, l, plot=False):
         plt.show()
 
 def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, height_model_stdv, plot=False, lcorr = 500, seed = None):
-    
+        
     Nx = int((latmax-latmin)/dlat)
     Ny = int((lonmax-lonmin)/dlon)
     lcorr = int(lcorr)
@@ -45,20 +44,26 @@ def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, hei
     Nx0= Nx
     Ny0= Ny
     
+    # Need to increase image size due to larger lcorr compare to image shape
     if Nx < lx+10:
         Nx = lx+10
     if Ny < ly+10:
         Ny = ly+10           
-        
-    nx_pad = 2**(int(np.log2(Nx - 1)) + 1)
-    ny_pad = 2**(int(np.log2(Ny - 1)) + 1)
-        
-     
+ 
+    ### zero-padding not seems to improve computation time, TBC
+    #~ nx_pad = 2**(int(np.log2(Nx - 1)) + 1)
+    #~ ny_pad = 2**(int(np.log2(Ny - 1)) + 1)
+    ###    
+    
+    nx_pad = Nx
+    ny_pad = Ny
+         
     if seed is not None:
         np.random.seed(int(seed))
     kx = np.fft.fftfreq(nx_pad, d=dlat)
     ky = np.fft.rfftfreq(ny_pad, d=dlon)
     
+    ## TBD : Can be optimize : can be calculated only on non-zero value (after filtering by filterkx, filterky to avoid useless gaussian computation)
     hij_real = np.random.normal(0., height_model_stdv/np.sqrt(2), (len(kx),len(ky)))
     hij_imag = np.random.normal(0., height_model_stdv/np.sqrt(2), (len(kx),len(ky)))
 
@@ -66,14 +71,14 @@ def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, hei
     
     filterkx = np.where(np.abs(kx)>  1/lx, 0, 1)
     filterky = np.where(np.abs(ky)>  1/ly, 0, 1)
-
-        
+            
     kxv, kyv = np.meshgrid(filterky,filterkx)
         
     hij = hij*kxv*kyv
-        
+
+    ## TBD : Can be optimize : check if "manual fft" only on non-zero values and only on 0:Nx0, 0:Ny0 interval is faster than that direct approach
     h_corr = np.sqrt((nx_pad*ny_pad/(4*dlon*dlat/lx/ly)))*np.fft.irfft2(hij, s=(nx_pad,ny_pad))
-        
+
     h_corr = h_corr[0:Nx0, 0:Ny0]
         
     if plot:
@@ -82,6 +87,9 @@ def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, hei
         plt.show()
     
     return h_corr
+
+
+
 
 
 

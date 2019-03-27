@@ -38,7 +38,6 @@ Dark water correlation length = 500
 !### Error parameters
 Height bias std = 0.
 Noise multiplier factor = 0.5 !1/sqrt(Nl) where Nl is 4
-Geolocalisation improvement = no !yes (no cross-track noise applied) or no
 
 !### Tropo model
 Tropo model  = map
