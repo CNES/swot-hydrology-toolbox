@@ -270,7 +270,7 @@ class Processing(object):
                         file_name = os.path.join(path, file)
                         if len(re.findall("cycle_[0-9]+_pass_[0-9]+", file_name)) > 0:
                             orbit_number = int(file_name[-6:-3])
-                            self.my_attributes.orbit_list.append([0, orbit_number, os.path.join(run_directory_for_orbits, file_name)])
+                            self.my_attributes.orbit_list.append([0, orbit_number, file_name])
                             
                 # When passplan option is selected: self.orbit_files corresponds to the passplan
                 if self.my_attributes.multi_orbit_option == 'passplan':
