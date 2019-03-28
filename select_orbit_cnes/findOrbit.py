@@ -95,9 +95,10 @@ class findOrbit(object):
 
                     # Cut valid files and save in new files
                     pass_num = int(orbit_file.split('.')[0].split("_")[-1]) + 332  # Compute pass number wrt SWOT KMLs available on AVISO+ (sept2015-v2)
+                    #~ pass_num = int(orbit_file.split('.')[0].split("_")[-1])   # Compute pass number wrt SWOT KMLs available on AVISO+ (sept2015-v2)
                     if pass_num > 584:
                         pass_num -= 584
-                    out_filename = file_prefix + "_cycle_0000_pass_%04d.nc" % pass_num
+                    out_filename = file_prefix + "_cycle_0001_pass_%04d.nc" % pass_num
                     print("  Save as %s" % out_filename)
                     output_orbit_file = Dataset(out_filename, "w", format="NETCDF4")
                 
@@ -126,7 +127,7 @@ class findOrbit(object):
                     outVar[:] = z[:]
                     # Global attributes
                     output_orbit_file.setncattr('repeat_cycle_period', 1802697.12)
-                    output_orbit_file.setncattr('pass_number', orbit_file[-7:]) 
+                    output_orbit_file.setncattr('pass_number', pass_num) 
                     output_orbit_file.setncattr('cycle_number', 1) 
                     output_orbit_file.setncattr('beginning_of_mission_time', 0.)
                     output_orbit_file.setncattr('azimuth_spacing', azimuth_spacing)
