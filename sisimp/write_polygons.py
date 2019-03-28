@@ -343,31 +343,28 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         delta_h = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std)
 
     # 4.2 Add residual roll error
+    
     try:
-        
-        roll = Roll_module(IN_attributes.roll_file)
-        roll.interpolate_roll_on_sensor_grid(IN_attributes.orbit_time)
-        
-        ## Change roll values to simulate random acquisitions
-        ## TBD ##
-        
-        # Apply roll for each pixel
-        pixel_cloud_time = IN_attributes.orbit_time[az]
-        roll.interpolate_roll_on_pixelcloud(IN_attributes.orbit_time, pixel_cloud_time)
-
-        if IN_swath.lower() == 'right' :  # Sign depends on left / right swath
-            delta_h_roll = (roll.roll2_err_cloud-roll.roll2_cor_cloud)*y*1e-6
-            delta_h += delta_h_roll
+        if IN_attributes.roll_repo != None:
             
-        if IN_swath.lower() == 'left' :  # Sign depends on left / right swath
-            delta_h_roll = (roll.roll1_err_cloud-roll.roll1_cor_cloud)*y*1e-6
+            my_api.printInfo("Applying roll residual error")
+
+            roll = Roll_module(IN_attributes.roll_repo)
+            roll.get_roll_file_associated_to_orbit_and_cycle(IN_orbit_number, IN_cycle_number)
+            roll.interpolate_roll_on_sensor_grid(IN_attributes.orbit_time)
+            
+            # Apply roll for each pixel
+            roll.interpolate_roll_on_pixelcloud(IN_attributes.orbit_time, IN_attributes.orbit_time[az], y)
+            delta_h_roll = (roll.roll1_err_cloud)
+            
             delta_h += delta_h_roll
 
-        ## Check what is the better value from roll_module to use as error
+        else:
+            my_api.printInfo("No roll error applied")
 
     except:
-        my_api.printInfo("No roll error applied")
- 
+        my_api.printInfo("No roll error applied")    
+         
     # 4.3 Add tropospheric delay
 
     if IN_attributes.tropo_model == 'gaussian':

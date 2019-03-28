@@ -94,10 +94,10 @@ class Processing(object):
                 
             # Cross-over residual roll error
             try:
-                self.my_attributes.roll_file = str(parameters.getValue("roll_file_name"))
-                my_api.printInfo("Roll file : %s " % self.my_attributes.roll_file)
+                self.my_attributes.roll_repo = str(parameters.getValue("roll_repository_name"))
+                my_api.printInfo("Roll repository : %s " % self.my_attributes.roll_repo)
             except:
-                my_api.printInfo("roll_file_name not set, roll error won't be applied")
+                my_api.printInfo("roll_repo_name not set, roll error won't be applied")
 
             # Orbit parameters
             self.my_attributes.multi_orbit_option = read_parameter(parameters, "Multiple orbit", MULTIPLE_ORBIT, str).lower()
@@ -110,7 +110,15 @@ class Processing(object):
                     my_api.printInfo("Orbit number : %d" % self.my_attributes.orbit_number)
                 except:
                      my_api.exitWithError("Multiple orbit = no => Orbit number should be set")
-            
+
+                try:
+                    self.my_attributes.cycle_number = int(parameters.getValue("Cycle number"))
+                    my_api.printInfo("Orbit number : %d" % self.my_attributes.orbit_number)
+                except:
+                    my_api.printInfo("Multiple orbit = no => Cycle number should be set. Set to default value : 1")
+                    self.my_attributes.cycle_number = 1
+                     
+                                 
             if self.my_attributes.multi_orbit_option == 'passplan':
                 try:
                     self.my_attributes.passplan_path = str(parameters.getValue("Passplan path"))
@@ -270,7 +278,8 @@ class Processing(object):
                         file_name = os.path.join(path, file)
                         if len(re.findall("cycle_[0-9]+_pass_[0-9]+", file_name)) > 0:
                             orbit_number = int(file_name[-6:-3])
-                            self.my_attributes.orbit_list.append([0, orbit_number, os.path.join(run_directory_for_orbits, file_name)])
+                            orbit_cycle = int(file_name[-16:-13])
+                            self.my_attributes.orbit_list.append([orbit_cycle, orbit_number, os.path.join(run_directory_for_orbits, file_name)])
                             
                 # When passplan option is selected: self.orbit_files corresponds to the passplan
                 if self.my_attributes.multi_orbit_option == 'passplan':
@@ -295,12 +304,14 @@ class Processing(object):
                     for file in files:
                         file_name = os.path.join(path, file)
                         if ("pass_%04d" % self.my_attributes.orbit_number) in file_name:
-                            self.my_attributes.orbit_list.append([0, self.my_attributes.orbit_number, file_name])
+                            self.my_attributes.orbit_list.append([self.my_attributes.cycle_number, self.my_attributes.orbit_number, file_name])
+
             except IndexError:
                 my_api.printError("Orbit file not found = %s" % path_to_orbit_file)
                 my_api.exitWithError("Please check that orbit number %d has been generated" % self.my_attributes.orbit_number)
         my_api.printInfo("")
         my_api.printInfo("List of orbit files to process =")
+        
         for elem in self.my_attributes.orbit_list:
             my_api.printInfo("Cycle=%03d - Pass=%03d - Orbit file=%s" % (elem[0], elem[1], os.path.basename(elem[2])))
 

@@ -4,7 +4,8 @@ Output directory = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/simu
 
 !### Noise and error files 
 Noise file path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt
-roll_file_name = /work/ALT/swot/swotpub/SWOT_Simulator_data/input_data/large_scale_sim_scene/data_sim_roll_v1.nc
+roll_repository_name = /work/ALT/swot/swototar/XOVERCAL/karin
+
 Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip
 
 !### Orbit parameters: 
