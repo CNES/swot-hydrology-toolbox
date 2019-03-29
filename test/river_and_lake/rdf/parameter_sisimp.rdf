@@ -4,7 +4,8 @@ Output directory = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/simu
 
 !### Noise and error files 
 Noise file path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt
-roll_file_name = /work/ALT/swot/swotpub/SWOT_Simulator_data/input_data/large_scale_sim_scene/data_sim_roll_v1.nc
+roll_repository_name = /work/ALT/swot/swototar/XOVERCAL/karin
+
 Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip
 
 !### Orbit parameters
@@ -12,7 +13,9 @@ Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip
 !Multiple orbit = yes (default) => all orbit files in Orbit directory will be processed
 !Multiple orbit = no => set the Orbit to a correct number found in the Orbit directory; only this orbit file will be processed
 !Multiple orbit = passplan => orbit files will be processed according to passplan.txt file (generated if passplan = yes in select_orbit.rdf)
-
+Multiple orbit = no
+Orbit = 14
+Cycle number = 1
 
 !### Simulation parameters
 Swath width = 120000.
@@ -25,23 +28,25 @@ Water flag = 4
 
 !### Dark water
 Dark water = yes
-Scale factor dw = 0.1
-Dark water percentage = 5
 Dark water flag = 24
-!Dark water seed = 12345678
-Scale factor non detected dw = 2
+Dark water percentage = 5
 Dark water detected percentage = 90
 Dark water detected noise factor = 4
+Scale factor non detected dw = 0.5
+Dark water correlation length = 500
+
+!Dark water seed = 12345678
 
 !### Error parameters
 Height bias std = 0.
 Noise multiplier factor = 0.5 !1/sqrt(Nl) where Nl is 4
-Geolocalisation improvement = no !yes (no cross-track noise applied) or no
 
 !### Tropo model
-Tropo model  = gaussian
-Tropo error stdv = 0.2
+Tropo model  = map
+Tropo error stdv = 0.03
+Tropo error mean = 0.01
 Tropo error correlation = 5000
+Tropo error map file = /work/ALT/swot/swotdev/desrochesd/swot-hydrology-toolbox/sisimp/data/tropo_map/zonal_delta_wtc_J2.nc
 
 !### Files in output
 Create shapefile = yes !Produce output files also as shapefiles

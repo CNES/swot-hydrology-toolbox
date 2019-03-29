@@ -58,7 +58,7 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     elif "mission start time" in ds.ncattrs():
         OUT_attributes.mission_start_time = ds.getncattr('mission start time')  # Mission start time
     OUT_attributes.cycle_duration = ds.getncattr('repeat_cycle_period')
-    OUT_attributes.orbit_time = np.array(ds.variables['time']) + IN_cycle_number*OUT_attributes.cycle_duration
+    OUT_attributes.orbit_time = np.array(ds.variables['time']) + (IN_cycle_number-1)*OUT_attributes.cycle_duration
     
     OUT_attributes.x, OUT_attributes.y, OUT_attributes.z, OUT_attributes.azimuth_spacing = [np.array(ds.variables['x']), np.array(ds.variables['y']), np.array(ds.variables['z']), ds.getncattr('azimuth_spacing')]
     my_api.printDebug(str("Nb points on nadir track = %d" % (len(OUT_attributes.orbit_time)))) 
@@ -91,8 +91,6 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     
     # !!! Do not forget that indices 0 and -1 correspond to fake values, just used for extrapolations
     # Variable name ended with _init will be use to linear_exptrap
-    
-    
     
     OUT_attributes.lon = OUT_attributes.lon_init = lon 
     OUT_attributes.lat = OUT_attributes.lat_init = lat

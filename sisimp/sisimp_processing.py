@@ -30,7 +30,7 @@ from lib.my_variables import SWATH_WIDTH, NR_CROSS_TRACK, SENSOR_WAVELENGTH, NB_
         HEIGHT_MODEL_t0, HEIGHT_MODEL_PERIOD, HEIGHT_MODEL_MIN_AREA, HEIGHT_BIAS_STD, NOISE_MULTIPLIER_FACTOR, RANGE_SAMPLING, \
         WATER_FLAG, MULTIPLE_ORBIT, COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST, GEOLOCATION_IMPROVEMENT, \
         FACT_ECHELLE, HEIGHT_MODEL, HEIGHT_MODEL_STDV, GEN_APPROX_RAD_EARTH, RAD2DEG, DEG2RAD, FACT_ECHELLE_DW, DW_PERCENT, DARKWATER_FLAG, \
-        SCALE_FACTOR_NON_DETECTED_DW, DW_DETECTED_PERCENT, DW_DETECTED_NOISE_FACTOR
+        SCALE_FACTOR_NON_DETECTED_DW, DW_DETECTED_PERCENT, DW_DETECTED_NOISE_FACTOR, DW_CORRELATION_LENGTH
 
 
 def read_parameter(IN_rdf_reader, IN_instrument_name, IN_instrument_default_value, read_type):
@@ -94,10 +94,10 @@ class Processing(object):
                 
             # Cross-over residual roll error
             try:
-                self.my_attributes.roll_file = str(parameters.getValue("roll_file_name"))
-                my_api.printInfo("Roll file : %s " % self.my_attributes.roll_file)
+                self.my_attributes.roll_repo = str(parameters.getValue("roll_repository_name"))
+                my_api.printInfo("Roll repository : %s " % self.my_attributes.roll_repo)
             except:
-                my_api.printInfo("roll_file_name not set, roll error won't be applied")
+                my_api.printInfo("roll_repo_name not set, roll error won't be applied")
 
             # Orbit parameters
             self.my_attributes.multi_orbit_option = read_parameter(parameters, "Multiple orbit", MULTIPLE_ORBIT, str).lower()
@@ -110,7 +110,15 @@ class Processing(object):
                     my_api.printInfo("Orbit number : %d" % self.my_attributes.orbit_number)
                 except:
                      my_api.exitWithError("Multiple orbit = no => Orbit number should be set")
-            
+
+                try:
+                    self.my_attributes.cycle_number = int(parameters.getValue("Cycle number"))
+                    my_api.printInfo("Orbit number : %d" % self.my_attributes.orbit_number)
+                except:
+                    my_api.printInfo("Multiple orbit = no => Cycle number should be set. Set to default value : 1")
+                    self.my_attributes.cycle_number = 1
+                     
+                                 
             if self.my_attributes.multi_orbit_option == 'passplan':
                 try:
                     self.my_attributes.passplan_path = str(parameters.getValue("Passplan path"))
@@ -141,13 +149,13 @@ class Processing(object):
                 my_api.printInfo("True height file not set, True height model won't be applied")
             # Dark water
             self.my_attributes.dark_water = read_parameter(parameters, "Dark water",'No' , str)
-            self.my_attributes.fact_echelle_dw = read_parameter(parameters,"Scale factor dw",FACT_ECHELLE_DW,float)
             self.my_attributes.dw_pourcent = read_parameter(parameters, "Dark water percentage",DW_PERCENT,float)
-            self.my_attributes.darkwater_flag = read_parameter(parameters, "Dark water flag", DARKWATER_FLAG, float)
+            self.my_attributes.darkwater_flag = read_parameter(parameters, "Dark water flag", DARKWATER_FLAG, int)
             self.my_attributes.dw_seed=read_parameter(parameters, "Dark water seed", None, float)
             self.my_attributes.scale_factor_non_detected_dw = read_parameter(parameters, "Scale factor non detected dw", SCALE_FACTOR_NON_DETECTED_DW,float)
             self.my_attributes.dw_detected_percent = read_parameter(parameters, "Dark water detected percentage", DW_DETECTED_PERCENT, float)
             self.my_attributes.dw_detected_noise_factor = read_parameter(parameters, "Dark water detected noise factor", DW_DETECTED_NOISE_FACTOR, float)
+            self.my_attributes.dw_correlation_length = read_parameter(parameters, "Dark water correlation length", DW_CORRELATION_LENGTH, int)
 
             # Water flag
             self.my_attributes.water_flag = read_parameter(parameters, "Water flag", WATER_FLAG, float)
@@ -159,12 +167,13 @@ class Processing(object):
             
             # Tropo model
             self.my_attributes.tropo_model = read_parameter(parameters, "Tropo model", None, str)
+            self.my_attributes.tropo_error_correlation = read_parameter(parameters, "Tropo error correlation", None, int)
+                
             if self.my_attributes.tropo_model == 'gaussian':
                 self.my_attributes.tropo_error_stdv = read_parameter(parameters, "Tropo error stdv", None, float)
-                self.my_attributes.tropo_error_correlation = read_parameter(parameters, "Tropo error correlation", None, int)
+                self.my_attributes.tropo_error_mean = read_parameter(parameters, "Tropo error mean", None, float)
             if self.my_attributes.tropo_model == 'map':
-                self.my_attributes.tropo_error_map_file = read_parameter(parameters, "Tropo error map file", None, str)
-            
+                self.my_attributes.tropo_error_map_file = os.path.expandvars(parameters.getValue("Tropo error map file")  )           
             # Height model parameters
             
             # More complex model
@@ -269,7 +278,9 @@ class Processing(object):
                         file_name = os.path.join(path, file)
                         if len(re.findall("cycle_[0-9]+_pass_[0-9]+", file_name)) > 0:
                             orbit_number = int(file_name[-6:-3])
-                            self.my_attributes.orbit_list.append([0, orbit_number, os.path.join(run_directory_for_orbits, file_name)])
+                            orbit_cycle = int(file_name[-16:-13])
+                            self.my_attributes.orbit_list.append([orbit_cycle, orbit_number, file_name])
+
                             
                 # When passplan option is selected: self.orbit_files corresponds to the passplan
                 if self.my_attributes.multi_orbit_option == 'passplan':
@@ -294,12 +305,14 @@ class Processing(object):
                     for file in files:
                         file_name = os.path.join(path, file)
                         if ("pass_%04d" % self.my_attributes.orbit_number) in file_name:
-                            self.my_attributes.orbit_list.append([0, self.my_attributes.orbit_number, file_name])
+                            self.my_attributes.orbit_list.append([self.my_attributes.cycle_number, self.my_attributes.orbit_number, file_name])
+
             except IndexError:
                 my_api.printError("Orbit file not found = %s" % path_to_orbit_file)
                 my_api.exitWithError("Please check that orbit number %d has been generated" % self.my_attributes.orbit_number)
         my_api.printInfo("")
         my_api.printInfo("List of orbit files to process =")
+        
         for elem in self.my_attributes.orbit_list:
             my_api.printInfo("Cycle=%03d - Pass=%03d - Orbit file=%s" % (elem[0], elem[1], os.path.basename(elem[2])))
 
