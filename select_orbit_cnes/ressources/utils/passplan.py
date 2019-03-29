@@ -98,7 +98,7 @@ class Passplan(object):
         
         start = self.simulation_start_time - self.mission_start_time
         start = start.days + start.seconds/86400.0
-        self.cycle_start = int(floor(start/self.cycle_duration))
+        self.cycle_start = int(floor(start/self.cycle_duration))+1
         stop = self.simulation_stop_time - self.mission_start_time
         stop = stop.days + stop.seconds/86400.0
         self.cycle_stop = int(ceil(stop/self.cycle_duration))
@@ -138,7 +138,7 @@ class Passplan(object):
         for cycle in range(self.cycle_start,self.cycle_stop+1):
             for k,t in enumerate(self.pass_time):
                 if track==-1 or self.tracks[k]==track:
-                    t_cycle = timedelta(cycle*self.cycle_duration) + t
+                    t_cycle = timedelta((cycle-1)*self.cycle_duration) + t
                     t_sec = t_cycle.days*86400 + t_cycle.seconds
                     date = self.mission_start_time + t_cycle
                     str_date = date.strftime("%Y-%m-%d %H:%M:%S")
