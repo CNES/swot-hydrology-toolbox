@@ -146,7 +146,7 @@ class Processing(object):
         
         # Compute orbit files specific to studied area
         prefix = os.path.join(self.output_directory, self.gdem_prefix)
-        #~ gdem_orbit.orbit_over_dem(self.orbit_directory, prefix, self.azimuth_spacing, self.swath_width, self.cycle_duration, mission_start_time=self.mission_start_time)       
+        gdem_orbit.orbit_over_dem(self.orbit_directory, prefix, self.azimuth_spacing, self.swath_width, self.cycle_duration, mission_start_time=self.mission_start_time)       
         
         # Compute pass plan if asked
         if self.makePassPlan == "yes":
