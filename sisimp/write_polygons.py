@@ -618,22 +618,22 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
             intersection = geom.Intersection(swath_polygon) 
             # 4.2.3 - Convert polygons coordinates
             add_ring = False
+            
             for ring in all_linear_rings(intersection):
                 npoints = ring.GetPointCount()
 
                 if npoints == 0:
                     continue  # ignore polygons completely outside the swath
-
+                
                 points = np.transpose(np.array(ring.GetPoints()))
                 
-                lon = points[0]
-                lat = points[1]
+                lon, lat = points[0], points[1]
                
                 x_c, y_c, zone_number, zone_letter = utm.from_latlon(lat[0], lon[0])
                 latlon = pyproj.Proj(init="epsg:4326")
                 utm_proj = pyproj.Proj("+proj=utm +zone={}{} +ellps=WGS84 +datum=WGS84 +units=m +no_defs".format(zone_number, zone_letter))
                 X, Y = pyproj.transform(latlon, utm_proj, lon, lat) 
-                
+
                 ring_xy = ogr.Geometry(ogr.wkbLinearRing)
                 for i in range(len(X)):
                     ring_xy.AddPoint(X[i],Y[i])
@@ -643,10 +643,17 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 # area in ha
                 area = poly_xy.GetArea()/10000.
            
+                # Oversample the polygon to correctly reconstruct it in SAR geometry
+                poly_xy.Segmentize(100.)
+                new_points = np.transpose(np.array(poly_xy.GetGeometryRef(0).GetPoints()))
+                new_X, new_Y = new_points[0], new_points[1]
+                new_lon, new_lat = pyproj.transform(utm_proj, latlon, new_X, new_Y) 
                 layerDefn = layer.GetLayerDefn()
+        
+                lon = new_lon * DEG2RAD
+                lat = new_lat * DEG2RAD
                 
-                lon = lon * DEG2RAD
-                lat = lat * DEG2RAD
+                ###
                 
                 lac = None
                 
@@ -714,7 +721,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 # Add the output feature to the output layer
                 layerout.CreateFeature(feature_out)
                 liste_lac.append(lac)
-                
     IN_attributes.swath_polygons = OUT_swath_polygons
     IN_attributes.liste_lacs = liste_lac
     
