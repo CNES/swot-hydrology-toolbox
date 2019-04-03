@@ -15,6 +15,7 @@ This file is part of the SWOT Hydrology Toolbox
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from datetime import datetime, timedelta
 import numpy as np
 import os
 from osgeo import ogr, osr
@@ -161,6 +162,8 @@ class l2_hr_pixc(object):
         self.azimuth_spacing = IN_azimuth_spacing
         self.range_spacing = IN_range_spacing
         self.near_range = IN_near_range 
+    
+    #----------------------------------
 
     def write_pixc_file(self, IN_output_file, noval, compress=False):
         """
@@ -179,12 +182,8 @@ class l2_hr_pixc(object):
         
         if noval is None:
             noval = -999000000.
-
-
         
         # Global attributes
-
-
         data.add_global_attribute('Conventions', 'CF-1.7')
         data.add_global_attribute('title', 'Level 2 Pixel Clould Data Product')
         data.add_global_attribute('institution', 'JPL')
@@ -199,15 +198,13 @@ class l2_hr_pixc(object):
         data.add_global_attribute('tile_number', int(self.tile_ref[0:-1]))
         data.add_global_attribute('swath_side', self.tile_ref[-1])
         data.add_global_attribute('tile_name', "%03d_%03d%s" % (np.int(self.pass_num), int(self.tile_ref[0:-1]), self.tile_ref[-1]))
-
         data.add_global_attribute("wavelength", 0.008385803020979)
         ### WARNING HERE, TO BE CHANGED
         data.add_global_attribute('near_range', np.min(self.near_range))
         ### WARNING HERE, TO BE CHANGED       
         data.add_global_attribute('nominal_slant_range_spacing', self.range_spacing)
-        ### WARNING HERE, TO BE CHANGED       
-        data.add_global_attribute('start_time', "20160101T024707")    
-        data.add_global_attribute('stop_time', "20160101T024713")  
+        data.add_global_attribute('start_time', self.computeDate(self.nadir_time[0]))    
+        data.add_global_attribute('stop_time', self.computeDate(self.nadir_time[-1]))  
         data.add_global_attribute('polarization', 'None')         
         data.add_global_attribute('transmit_antenna', 'plus_y')
         data.add_global_attribute('processing_beamwidth', 'None')
@@ -215,8 +212,8 @@ class l2_hr_pixc(object):
         data.add_global_attribute('ephemeris', "0LL")    
         data.add_global_attribute('yaw_flip', "0LL")    
         data.add_global_attribute('hpa_cold', "0LL")    
-        data.add_global_attribute('processing_beamwidth', "0LL")    
-        
+        data.add_global_attribute('processing_beamwidth', "0LL")
+        ### WARNING HERE, TO BE CHANGED       
         data.add_global_attribute("inner_first_latitude", self.latitude[np.argmin(self.latitude)])
         data.add_global_attribute("inner_first_longitude", self.longitude[np.argmin(self.longitude)])
 
@@ -241,7 +238,6 @@ class l2_hr_pixc(object):
         data.add_global_attribute("xref_l2_hr_pixc_config_parameters_file", 'None')
         data.add_global_attribute("ellipsoid_semi_major_axis", 'None')
         data.add_global_attribute("ellipsoid_flattening", 'None')
-
 
         # Group pixel_cloud
 
@@ -360,15 +356,10 @@ class l2_hr_pixc(object):
         data.add_variable('pixc_qual', np.float64, 'points', np.float(noval), compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'pixc_qual', self.nb_water_pix, data, group=pixc)        
         # some new vars 11/01/2019
-    
-     
- 
         data.add_global_attribute('description', 'cloud of geolocated interferogram pixels', group=pixc)    
         data.add_global_attribute('interferogram_size_range', self.nb_pix_range, group=pixc)    
         data.add_global_attribute('interferogram_size_azimuth', self.nb_pix_azimuth, group=pixc)    
-        data.add_global_attribute('looks_to_efflooks', 1.75, group=pixc)    
-
-
+        data.add_global_attribute('looks_to_efflooks', 1.75, group=pixc)   
         
         # Group TVP
         
@@ -401,7 +392,6 @@ class l2_hr_pixc(object):
         data.add_variable('velocity_heading', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
         fill_vector_param(self.nadir_heading, 'velocity_heading', self.nb_nadir_pix, data, group=sensor)
         data.add_variable_attribute('velocity_heading', 'units', 'degrees', group=sensor)
-        
         
         data.add_variable('x', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
         fill_vector_param(self.nadir_x, 'x', self.nb_nadir_pix, data, group=sensor)
@@ -438,7 +428,6 @@ class l2_hr_pixc(object):
                 
         data.add_global_attribute('description', 'Time varying parameters group  including spacecraft attitude, position, velocity,  and antenna position information', group = sensor)    
  
- 
         # Group Noise
         
         noise = data.add_group("noise")
@@ -452,8 +441,9 @@ class l2_hr_pixc(object):
 
         data.add_global_attribute('description', 'Measured noise power for each recieve  echo of the plus_y and minus_y SLC channels', group = noise)    
  
-        
         data.close()
+    
+    #----------------------------------
  
     def write_annotation_file(self, IN_output_file, IN_pixc_file):
         """
@@ -470,6 +460,8 @@ class l2_hr_pixc(object):
         f.write("l2pixc file = %s\n" % IN_pixc_file)
         
         f.close()
+    
+    #----------------------------------
 
     def write_pixc_asShp(self, IN_output_file):
         """
@@ -606,6 +598,26 @@ class l2_hr_pixc(object):
             
         # 3 - Destroy the data sources to free resources
         outDataSource.Destroy()
+    
+    #----------------------------------
+        
+    def computeDate(self, IN_sec_from_start):
+        """
+        Compute date
+        
+        :param IN_sec_from_start: number of seconds from mission start time
+        :type IN_sec_from_start: int
+        
+        :return: date in UTC
+        :rtype: string YYYYMMDDThhmmss
+        """
+        
+        # Computation
+        tmp_time_split = self.mission_start_time.split("-")
+        date_in_sec = datetime(int(tmp_time_split[0]), int(tmp_time_split[1]), int(tmp_time_split[2])) + timedelta(seconds=IN_sec_from_start)
+        
+        # Format
+        return datetime.strftime(date_in_sec, '%Y%m%dT%H%M%S')
 
 
 ##########################
