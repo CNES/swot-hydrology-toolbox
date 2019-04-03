@@ -619,6 +619,9 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
             # 4.2.3 - Convert polygons coordinates
             add_ring = False
             
+            # Oversample the polygon to correctly reconstruct it in SAR geometry
+            intersection.Segmentize(0.01)
+            
             for ring in all_linear_rings(intersection):
                 npoints = ring.GetPointCount()
 
@@ -644,16 +647,20 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 area = poly_xy.GetArea()/10000.
            
                 # Oversample the polygon to correctly reconstruct it in SAR geometry
-                poly_xy.Segmentize(100.)
-                new_points = np.transpose(np.array(poly_xy.GetGeometryRef(0).GetPoints()))
-                new_X, new_Y = new_points[0], new_points[1]
-                new_lon, new_lat = pyproj.transform(utm_proj, latlon, new_X, new_Y) 
-                layerDefn = layer.GetLayerDefn()
-        
-                lon = new_lon * DEG2RAD
-                lat = new_lat * DEG2RAD
-                
+                #~ poly_xy.Segmentize(100.)
+                #~ new_points = np.transpose(np.array(poly_xy.GetGeometryRef(0).GetPoints()))
+                #~ new_X, new_Y = new_points[0], new_points[1]
+                #~ new_lon, new_lat = pyproj.transform(utm_proj, latlon, new_X, new_Y) 
+                #~ layerDefn = layer.GetLayerDefn()
+                #~ lon = new_lon * DEG2RAD
+                #~ lat = new_lat * DEG2RAD                
                 ###
+                
+                
+                lon = lon * DEG2RAD
+                lat = lat * DEG2RAD
+
+               
                 
                 lac = None
                 
