@@ -18,6 +18,7 @@ import os
 
 from lib.my_variables import PATTERN_FOOTPRINT, PATTERN_PIXC, PATTERN_FILE_ANNOT, PATTERN_PIXC_VEC_RIVER
 
+
 class sisimpFilenames(object):
 
     def __init__(self, IN_out_dir, IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num):
@@ -52,24 +53,22 @@ class sisimpFilenames(object):
         self.pixc_vec_river_file = None
         self.file_annot_file = None
         
-    def updateWithTileRef(self, IN_tile_ref, IN_sec_in_cycle_start, IN_sec_in_cycle_end):
+    def updateWithTileRef(self, IN_tile_ref, IN_start_time_sec, IN_stop_time_sec):
         """
         Update filenames with tile ref info
         
         :param IN_tile_ref: tile reference
         :type IN_tile_ref: string
-        :param IN_sec_in_cycle_start: start date of tile, as number of seconds from begin of current cycle
-        :type IN_sec_in_cycle_start: int
-        :param IN_sec_in_cycle_end: end date of tile, as number of seconds from begin of current cycle
-        :type IN_sec_in_cycle_end: int
+        :param IN_start_time_sec: start date of tile, as number of seconds from mission start time
+        :type IN_start_time_sec: int
+        :param IN_stop_time_sec: end date of tile, as number of seconds from mission start time
+        :type IN_stop_time_sec: int
         """
         
+        # Set self attributes
         self.tile_ref = IN_tile_ref
-        
-        # Compute tile start date
-        self.begin_date = self.computeDate(IN_sec_in_cycle_start)
-        # Compute tile end date
-        self.end_date = self.computeDate(IN_sec_in_cycle_end)
+        self.begin_date = self.computeDate(IN_start_time_sec)
+        self.end_date = self.computeDate(IN_stop_time_sec)
         
         # Set filenames
         self.computePixcFilename()
@@ -78,22 +77,19 @@ class sisimpFilenames(object):
     
     #----------------------------------
     
-    def computeDate(self, IN_sec_in_cycle):
+    def computeDate(self, IN_sec_from_start):
         """
         Compute date
         
-        :param IN_sec_in_cycle: number of seconds from begin of current cycle
-        :type IN_sec_in_cycle: int
+        :param IN_sec_from_start: number of seconds from mission start time
+        :type IN_sec_from_start: int
         
         :return: date in UTC
         :rtype: string YYYYMMDDThhmmss
         """
         
         # Computation
-        if self.cycle_num == 0:
-            date_in_sec = self.mission_start_time + timedelta(seconds=self.cycle_duration*self.cycle_num+IN_sec_in_cycle)
-        else:
-            date_in_sec = self.mission_start_time + timedelta(seconds=self.cycle_duration*(self.cycle_num-1)+IN_sec_in_cycle)
+        date_in_sec = self.mission_start_time + timedelta(seconds=IN_sec_from_start)
         
         # Format
         return datetime.strftime(date_in_sec, '%Y%m%dT%H%M%S')
