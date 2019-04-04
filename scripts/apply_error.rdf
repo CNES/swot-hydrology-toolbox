@@ -1,0 +1,11 @@
+roll_repository_name = /work/ALT/swot/swototar/XOVERCAL/karin
+
+!### Tropo model
+Tropo model  = map
+Tropo error stdv = 0.03
+Tropo error mean = 0.01
+Tropo error correlation = 5000
+Tropo error map file = /work/ALT/swot/swotdev/desrochesd/swot-hydrology-toolbox/sisimp/data/tropo_map/zonal_delta_wtc_J2.nc
+
+### Choose to apply error on both geolocation and height, or only on heights
+noisy_geoloc = True
