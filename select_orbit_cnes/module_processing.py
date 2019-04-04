@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 """
-.. module processing.py
+.. module_processing.py
     :synopsis: Basic processing class to run in simulations
     Created on 21 sept. 2012
     
@@ -10,83 +10,82 @@
  Copyright (C) 2018 Centre National d’Etudes Spatiales
  This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
  
-    $Id: module_processing.py 1093 2015-04-23 09:50:42Z nestival $
 """
-
 from __future__ import unicode_literals
 from __future__ import print_function
 from __future__ import division
 
 import os
 
-from findOrbit import findOrbit
+from find_orbit import findOrbit
 from ressources.utils.input_reader import Input_Reader
 import ressources.utils.passplan as lib_passplan
 
 
 class Processing(object):
 
-    def __init__(self, parameter_file, output_directory):
+    def __init__(self, in_parameter_file, in_output_directory):
         """
-        Constructor, initializes the module and read the command file
+        Constructor: initializes the self attributes
         
-        Args:
-            context(str) : The path to the module execution context
+        :param in_parameter_file: parameter file full path
+        :type in_parameter_file: str
+        :param in_output_directory: output directory full path
+        :type in_output_directory: str
         """
         print("[select_orbit_cnes] == INIT ==")
-        print("[select_orbit_cnes] Parameter file = %s" % parameter_file)
-        print("[select_orbit_cnes] Output directory = %s" % output_directory)
+        print("[select_orbit_cnes] Parameter file = %s" % in_parameter_file)
+        print("[select_orbit_cnes] Output directory = %s" % in_output_directory)
+        print()
         
-        self.parameter_file = parameter_file
-        self.output_directory = output_directory
-        self.north = None
-        self.south = None
-        self.east = None
-        self.west = None
-        self.azimuth_spacing = None
-        self.near_range = None
-        self.swath_width = None
-        self.orbit_directory = None
+        self.parameter_file = in_parameter_file
+        self.output_directory = in_output_directory
+        
+        self.mission_name = None
         self.mission_start_time = None
+        self.orbit_directory = None
+        self.south = None
+        self.north = None
+        self.west = None
+        self.east = None
+        self.azimuth_spacing = None
+        self.swath_width = None
+        self.near_range = None
         self.makePassPlan = None
         self.simulation_start = None
-        self.simulation_stop = None
-        self.cycle_duration = None
-        
-        print()
+        self.simulation_stop = None        
+    
+    #----------------------------------
     
     def run_preprocessing(self):
         """
-        Preprocessing, commonly used to perform some checking, read the configuration
-        and initialize structures that will be used during the processing.
+        Preprocessing: read the parameter file and initialize variables
         
-        Returns:
-            int. return code
+        :return: return code (0=OK - 101=error)
+        :rtype: int
         """
         print("[select_orbit_cnes] == PRE-PROCESSING... ==")
         
-        # Once API initialized in the __init__ function, it is possible to call API functions
-        # to get elements from the command.
-        
-        # To get a module input, just use its ID as follows:
-        # self.api.get_input(id) => get a single file
-        # self.api.get_input_list(id) => get a list of files
-        #
-        # The ID is the same as the one declared in the module_interface_descriptor.par file
         return_code = 0
         
-        # getting parameters from the chain parameter file
-        param_reader = Input_Reader(self.parameter_file)
-        # reading the parameter file
-        param_reader.read_param_file()
+        # 1 - Read the RDF parameter file
+        param_reader = Input_Reader(self.parameter_file)  # Init reader
+        param_reader.read_param_file()  # Read the file
 
-        # Find orbit directory path
+        # 2 - Find orbit directory path
         try:
             self.orbit_directory = param_reader.get_orbit_repository()
+            if os.path.exists(self.orbit_directory):
+                raise FileNotFoundError("Orbit repository doesn't exist: %s" % self.orbit_directory)
         except:
             self.api.error("orbits folder not found")
             return_code = 101
-            
+        
+        # 3 - Set class attributes values
+        
+        self.mission_name = param_reader.get_mission_name()
+        self.mission_start_time = param_reader.get_mission_start_time()        
+        
         self.north = float(param_reader.get_north_latitude())
         self.south = float(param_reader.get_south_latitude())
         self.east = float(param_reader.get_east_longitude())
@@ -96,11 +95,9 @@ class Processing(object):
         self.near_range = float(param_reader.get_near_range())
         self.swath_width = float(param_reader.get_swath())
         self.gdem_prefix = param_reader.get_gdem_prefix()
-        self.mission_start_time = param_reader.get_mission_start_time()
         self.makePassPlan = param_reader.get_make_pass_plan()
         self.simulation_start_time = param_reader.get_simulation_start()
         self.simulation_stop_time = param_reader.get_simulation_stop()
-        self.cycle_duration = float(param_reader.get_cycle_duration())
         
         print()
         return return_code
@@ -114,43 +111,22 @@ class Processing(object):
         """
         print("[select_orbit_cnes] == PROCESSING... ==")
         
-        # The log file is handled automatically
-        # In order to log a message use the API corresponding functions:
-        # self.api.info(message)
-        # or
-        # self.api.error(message)
-        # There are 5 levels of messages : trace, debug, info, warning, error
-       
-        # If you need to create a temporary file, use the dedicated function:
-        # file = self.api.create_tmp_file()
-        
-        # If an external binary has to be called from this source code, use
-        # the following procedure :
-        #     1) prepare everything the binary needs (maybe a particular input
-        # in order to determine what to do ?)
-        #     2) start the binary from command line:
-        # import subprocess
-        # command = ["<path/to/binary>", "<argument_1>", "<argument_2>", "<argument_3>", ...]
-        # return_code = subprocess.call(command)
-        #     3) the "call" function is blocked until the binaray execution ends
-        #     4) when call ends, control the binary outputs and return code
-        
-        # Modify coordinates if not coherent between each others
+        # 1 - Modify coordinates if not coherent between each others
         if self.north < self.south:
             self.north, self.south = self.south, self.north
         if self.west < self.east:
             self.west, self.east = self.east, self.west
             
-        # Init orbit class
-        gdem_orbit = findOrbit(self.north, self.south, self.east, self.west, self.near_range, self.swath_width)
+        # 2 - Init orbit class
+        gdem_orbit = findOrbit(self.south, self.north, self.west, self.east, self.swath_width, self.near_range)
         
-        # Compute orbit files specific to studied area
+        # 3 - Compute orbit files specific to studied area
         prefix = os.path.join(self.output_directory, self.gdem_prefix)
-        gdem_orbit.orbit_over_dem(self.orbit_directory, prefix, self.azimuth_spacing, self.swath_width, self.cycle_duration, mission_start_time=self.mission_start_time)       
+        cycle_duration = gdem_orbit.orbit_over_dem(self.orbit_directory, prefix, self.azimuth_spacing, self.swath_width, in_mission_start_time=self.mission_start_time)       
         
         # Compute pass plan if asked
         if self.makePassPlan == "yes":
-            passplan = lib_passplan.Passplan(self.output_directory, self.mission_start_time, self.cycle_duration, self.simulation_start_time, self.simulation_stop_time)
+            passplan = lib_passplan.Passplan(self.output_directory, self.mission_start_time, cycle_duration, self.simulation_start_time, self.simulation_stop_time)
             passplan.run_preprocessing()
             passplan.run_processing()
             

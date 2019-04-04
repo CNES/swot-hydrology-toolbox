@@ -48,6 +48,7 @@ if __name__ == '__main__':
             
             # 3 - Run processing
             ret = process.run_processing()
+            
             if (ret == 0):
                 # 4 - Run postprocessing
                 ret = process.run_postprocessing()
