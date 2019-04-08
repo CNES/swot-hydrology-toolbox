@@ -3,10 +3,7 @@
 .. module proc_real_pixc_vec_river.py
     :synopsis: Deal with data file complementary to pixel cloud files (L2_HR_PIXCVecRiver)
     Created on 08/29/2017
-    2018/11/30 (D. Desroches, V. Poughon, C. Pottier - CNES): change variables names wrt to new PIXCVecRiver naming convention
-                                                                    + write only river pixels (if empty, produce NetCDF file with record = 0)
-                                                                    + add pixc_index field = indices of river pixels within the L2_HR_PIXC product
-
+    
 .. module author: Claire POTTIER - CNES DSO/SI/TR
 
 This file is part of the SWOT Hydrology Toolbox
@@ -46,14 +43,14 @@ def fill_vector_param(IN_variable, IN_variable_name, IN_ref_size, IN_data_param)
             exit(exc)
         else:
             IN_data_param.fill_variable(IN_variable_name, IN_variable)
-
-
-#----------------------------------------
+            
+            
+#################################################
 
 
 class l2_hr_pixc_vec_river(object):
 
-    def __init__(self, IN_azimuth_index, IN_range_index, \
+    def __init__(self, IN_azimuth_index, IN_range_index,
                  IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_nb_pix_range, IN_nb_pix_azimuth):
         """
         Constructor of the pixel cloud vector attribute product
@@ -276,37 +273,3 @@ class l2_hr_pixc_vec_river(object):
         
         # Set tag of river pixels to a specific prefix
         self.river_tag[TMP_river_idx] = "1_"
-                
-
-#######################################
-
-
-if __name__ == '__main__':
-    
-    noval = -999900000
-
-    record = 10
-    azimuth_index = np.ones(record)+50.
-    range_index = np.ones(record)+50.
-    latitude = np.arange(record)+10.
-    longitude = np.arange(record)+50.
-    height = np.ones(record)+50.
-    
-    cycle_num = 1
-    pass_num = 10
-    tile_ref = "45N-L"
-    nb_pix_range = 200
-    nb_pix_azimuth = 20
-    
-    # Test avec vrai PixC
-    pixc_file = os.path.join(os.getcwd(), "SWOT_L2_HR_PIXC_001_010_45N-L_main.nc")
-    coord = my_nc.myNcReader(pixc_file)
-    # Init PIXCVecRiver product
-    my_pixc_vec = l2_hr_pixc_vec_river(coord.get_variable("azimuth_index"), \
-                                       coord.get_variable("range_index"), \
-                                       coord.get_global_attribute("cycle_number"), \
-                                       coord.get_global_attribute("pass_number"), \
-                                       coord.get_global_attribute("tile_ref"), \
-                                       coord.get_global_attribute("nb_pix_range"), \
-                                       coord.get_global_attribute("nb_pix_azimuth"))
-    
