@@ -14,6 +14,7 @@ This file is part of the SWOT Hydrology Toolbox
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from datetime import datetime
 import numpy as np
 import os
 from osgeo import ogr, osr
@@ -105,7 +106,7 @@ class l2_hr_pixc_vec_river(object):
     def write_file(self, IN_output_file, noval, compress=False):
         """
         Write the pixel cloud vector attribute for river product (L2_HR_PIXCVecRiver product)
-        NB: if there is no river pixels, write an empty file (with record = 0)
+        NB: if there is no river pixels, write an empty file (with points = 0)
 
         :param IN_output_file: output full path
         :type IN_output_file: string
@@ -127,40 +128,16 @@ class l2_hr_pixc_vec_river(object):
         self.pixc_river_idx = np.where(self.river_tag != "")[0]  # Indices of river pixels in the L2_HR_PIXC product
         self.nb_pix_river = len(self.pixc_river_idx)  # Number of river pixels
         
-        # 3 - Write file depending on the number of river pixels
-        if self.nb_pix_river == 0:
-            
-            my_api.printInfo("NO river pixels => empty PIXCVecRiver file generated")
-            data.add_dimension('record', 0)
-            
-        else:
-
-            data.add_dimension('record', self.nb_pix_river)
-    
-            data.add_variable('pixc_index', np.int32, 'record', np.int(noval), compress)
-            fill_vector_param(self.pixc_river_idx, 'pixc_index', self.nb_pix_river, data)
-            data.add_variable('azimuth_index', np.int32, 'record', np.int(noval), compress)
-            fill_vector_param(self.azimuth_index[self.pixc_river_idx], 'azimuth_index', self.nb_pix_river, data)
-            data.add_variable('range_index', np.int32, 'record', np.int(noval), compress)
-            fill_vector_param(self.range_index[self.pixc_river_idx], 'range_index', self.nb_pix_river, data)
-        
-            data.add_variable('latitude_vectorproc', np.double, 'record', noval, compress)
-            data.add_variable_attribute('latitude_vectorproc', 'units', 'degrees_north')
-            fill_vector_param(self.latitude_vectorproc[self.pixc_river_idx], 'latitude_vectorproc', self.nb_pix_river, data)
-            data.add_variable('longitude_vectorproc', np.double, 'record', noval, compress)
-            data.add_variable_attribute('longitude_vectorproc', 'units', 'degrees_east')
-            fill_vector_param(self.longitude_vectorproc[self.pixc_river_idx], 'longitude_vectorproc', self.nb_pix_river, data)
-            data.add_variable('height_vectorproc', np.float32, 'record', np.float(noval), compress)
-            data.add_variable_attribute('height_vectorproc', 'units', 'm')
-            fill_vector_param(self.height_vectorproc[self.pixc_river_idx], 'height_vectorproc', self.nb_pix_river, data)
-        
-            data.add_variable('river_tag', str, 'record', "", compress)
-            fill_vector_param(self.river_tag[self.pixc_river_idx], 'river_tag', self.nb_pix_river, data)
-        
-        # Write global attributes even if empty
-        data.add_global_attribute('description', 'L2_HR_PIXCVecRiver product obtained by CNES/LEGOS Large Scale Simulator')
-        data.add_global_attribute('mission_start_time', self.mission_start_time)
-        data.add_global_attribute('repeat_cycle_period', self.cycle_duration)
+        # 3 - Write global attributes even if empty
+        data.add_global_attribute('Conventions', 'CF-1.7')
+        data.add_global_attribute('title', 'Level 2 KaRIn high rate pixel cloud vector attribute river product')
+        data.add_global_attribute('institution', 'CNES - Large scale simulator')
+        data.add_global_attribute('source', 'Ka-band radar interferometer')
+        data.add_global_attribute('history', "%sZ: Creation" % datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
+        data.add_global_attribute('mission_name', "SWOT")
+        data.add_global_attribute('references', 'Large scale simulator')
+        data.add_global_attribute('reference_document', 'JPL D-56415')
+        data.add_global_attribute('contact', 'None')
         data.add_global_attribute('cycle_number', self.cycle_num)
         data.add_global_attribute('pass_number', np.int(self.pass_num))
         data.add_global_attribute('tile_number', int(self.tile_ref[0:-1]))
@@ -168,6 +145,42 @@ class l2_hr_pixc_vec_river(object):
         data.add_global_attribute('tile_name', "%03d_%03d%s" % (np.int(self.pass_num), int(self.tile_ref[0:-1]), self.tile_ref[-1]))
         data.add_global_attribute('interferogram_size_range', self.nb_pix_range)    
         data.add_global_attribute('interferogram_size_azimuth', self.nb_pix_azimuth)   
+        
+        # 4 - Write file depending on the number of river pixels
+        if self.nb_pix_river == 0:
+            
+            my_api.printInfo("NO river pixels => empty PIXCVecRiver file generated")
+            data.add_dimension('points', 0)
+            
+        else:
+
+            data.add_dimension('points', self.nb_pix_river)
+    
+            data.add_variable('pixc_index', np.int32, 'points', np.int(noval), compress)
+            fill_vector_param(self.pixc_river_idx, 'pixc_index', self.nb_pix_river, data)
+            data.add_variable('azimuth_index', np.int32, 'points', np.int(noval), compress)
+            fill_vector_param(self.azimuth_index[self.pixc_river_idx], 'azimuth_index', self.nb_pix_river, data)
+            data.add_variable('range_index', np.int32, 'points', np.int(noval), compress)
+            fill_vector_param(self.range_index[self.pixc_river_idx], 'range_index', self.nb_pix_river, data)
+        
+            data.add_variable('latitude_vectorproc', np.double, 'points', noval, compress)
+            data.add_variable_attribute('latitude_vectorproc', 'units', 'degrees_north')
+            fill_vector_param(self.latitude_vectorproc[self.pixc_river_idx], 'latitude_vectorproc', self.nb_pix_river, data)
+            data.add_variable('longitude_vectorproc', np.double, 'points', noval, compress)
+            data.add_variable_attribute('longitude_vectorproc', 'units', 'degrees_east')
+            fill_vector_param(self.longitude_vectorproc[self.pixc_river_idx], 'longitude_vectorproc', self.nb_pix_river, data)
+            data.add_variable('wse_vectorproc', np.float32, 'points', np.float(noval), compress)
+            data.add_variable_attribute('wse_vectorproc', 'units', 'm')
+            fill_vector_param(self.height_vectorproc[self.pixc_river_idx], 'wse_vectorproc', self.nb_pix_river, data)
+        
+            data.add_variable('node_id', str, 'points', "", compress)
+            fill_vector_param(self.river_tag[self.pixc_river_idx], 'node_id', self.nb_pix_river, data)
+            data.add_variable('lake_flag', str, 'points', "", compress)
+            fill_vector_param(np.zeros(self.nb_pix_river), 'lake_flag', self.nb_pix_river, data)
+            data.add_variable('climato_ice_flag', str, 'points', "", compress)
+            fill_vector_param(np.zeros(self.nb_pix_river), 'climato_ice_flag', self.nb_pix_river, data)
+            data.add_variable('dynamic_ice_flag', str, 'points', "", compress)
+            fill_vector_param(np.zeros(self.nb_pix_river), 'dynamic_ice_flag', self.nb_pix_river, data)
         
         # 4 - Close output file
         data.close()
