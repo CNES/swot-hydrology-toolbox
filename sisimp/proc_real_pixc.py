@@ -36,6 +36,8 @@ def fill_vector_param(variable, variable_name, ref_size, data_param, group=None)
     :type ref_size: int
     :param data_param: pointer to the NetCDF writer (=NcWrite(OUT_file))
     :type data_param: -
+    :param group:
+    :type group:
     """
     if variable is not None:
         xsize = len(variable)
@@ -51,8 +53,8 @@ def fill_vector_param(variable, variable_name, ref_size, data_param, group=None)
 
 class l2_hr_pixc(object):
 
-    def __init__(self, IN_azimuth_index, IN_range_index, IN_classification, IN_pixel_area, IN_latitude, IN_longitude, IN_height, IN_crosstrack, \
-                 IN_nadir_time, IN_nadir_latitude, IN_nadir_longitude, IN_nadir_altitude, IN_nadir_heading, IN_nadir_x, IN_nadir_y, IN_nadir_z, IN_nadir_vx, IN_nadir_vy, IN_nadir_vz, IN_nadir_near_range, \
+    def __init__(self, IN_azimuth_index, IN_range_index, IN_classification, IN_pixel_area, IN_latitude, IN_longitude, IN_height, IN_crosstrack,
+                 IN_nadir_time, IN_nadir_latitude, IN_nadir_longitude, IN_nadir_altitude, IN_nadir_heading, IN_nadir_x, IN_nadir_y, IN_nadir_z, IN_nadir_vx, IN_nadir_vy, IN_nadir_vz, IN_nadir_near_range,
                  IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_nb_pix_range, IN_nb_pix_azimuth, IN_azimuth_spacing, IN_range_spacing, IN_near_range):
         """
         Constructor of the pixel cloud product
@@ -136,8 +138,6 @@ class l2_hr_pixc(object):
         
         for i in range(self.illumination_time.size):
             self.illumination_time[i] = self.nadir_time[self.sensor_s[i]]
-
-        #self.illumination_time = [self.nadir_time[self.sensor_s[i]] for i in range((self.illumination_time).size)]
             
         self.nadir_latitude = IN_nadir_latitude
         self.nadir_longitude = IN_nadir_longitude
@@ -426,20 +426,19 @@ class l2_hr_pixc(object):
         data.add_variable('tvp_qual', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'tvp_qual', self.nb_nadir_pix, data, group=sensor) 
                 
-        data.add_global_attribute('description', 'Time varying parameters group  including spacecraft attitude, position, velocity,  and antenna position information', group = sensor)    
+        data.add_global_attribute('description', 'Time varying parameters group  including spacecraft attitude, position, velocity,  and antenna position information', group=sensor)
  
         # Group Noise
         
         noise = data.add_group("noise")
         data.add_dimension('num_lines', self.nb_nadir_pix, group=noise)
-        
 
         data.add_variable('noise_plus_y', np.float64, 'num_lines', np.float(noval), compress, group=noise)
         fill_vector_param(np.full(self.nb_nadir_pix, -116.845780895788), 'noise_plus_y', self.nb_nadir_pix, data, group=noise)
         data.add_variable('noise_minus_y', np.float64, 'num_lines', np.float(noval), compress, group=noise)
         fill_vector_param(np.full(self.nb_nadir_pix, -116.845780895788), 'noise_minus_y', self.nb_nadir_pix, data, group=noise)
 
-        data.add_global_attribute('description', 'Measured noise power for each recieve  echo of the plus_y and minus_y SLC channels', group = noise)    
+        data.add_global_attribute('description', 'Measured noise power for each recieve  echo of the plus_y and minus_y SLC channels', group=noise)
  
         data.close()
     
@@ -503,7 +502,7 @@ class l2_hr_pixc(object):
         tmpField.SetWidth(10)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('CR_TRACK'), ogr.OFTReal) # Distance dans la fauchee
+        tmpField = ogr.FieldDefn(str('CR_TRACK'), ogr.OFTReal)  # Distance dans la fauchee
         tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
@@ -550,7 +549,6 @@ class l2_hr_pixc(object):
             shpDriver.DeleteDataSource(IN_output_file)
         outDataSource = shpDriver.CreateDataSource(IN_output_file)
         # 1.3 - Creation de la couche
-        #print '> Creating layer pixel_cloud'
         srs = osr.SpatialReference()
         srs.ImportFromEPSG(4326)  # WGS84
         outLayer = outDataSource.CreateLayer(str(os.path.basename(IN_output_file).split('.')[0]+"_tvp"), srs, geom_type=ogr.wkbPoint)
@@ -559,7 +557,7 @@ class l2_hr_pixc(object):
         tmpField.SetWidth(10)
         tmpField.SetPrecision(2)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('LAT'), ogr.OFTReal) # Latitude
+        tmpField = ogr.FieldDefn(str('LAT'), ogr.OFTReal)  # Latitude
         tmpField.SetWidth(10)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
@@ -618,58 +616,3 @@ class l2_hr_pixc(object):
         
         # Format
         return datetime.strftime(date_in_sec, '%Y%m%dT%H%M%S')
-
-
-##########################
-        
-
-if __name__ == '__main__':
-    
-    noval = -999900000
-
-    points = 10
-    azimuth_index = np.arange(points)
-    range_index = np.ones(points)+50.
-    classification = np.ones(points)
-    pixel_area = np.ones(points)+10.
-    ambiguity_altitude = np.ones(points)+3.
-    latitude = np.arange(points)+10.
-    longitude = np.arange(points)+50.
-    height = np.ones(points)+50.
-    crosstrack = np.ones(points)+20.
-    range_tab = np.ones(points)+50.
-    
-    points = 200
-    nadir_time = np.ones(points)+10000.
-    nadir_latitude = np.arange(points)+10.
-    nadir_longitude = np.arange(points)+50.
-    nadir_altitude = np.ones(points)*890.
-    nadir_heading = np.ones(points)*77.6
-    nadir_x = np.ones(points)*20.
-    nadir_y = np.ones(points)*30.
-    nadir_z = np.ones(points)*40.
-    nadir_vx = np.ones(points)*20.
-    nadir_vy = np.ones(points)*30.
-    nadir_vz = np.ones(points)*40.
-    nadir_near_range = np.ones(points)*10.0
-    
-    cycle_num = 1
-    pass_num = 10
-    tile_ref = "45N-L"
-    nb_pix_range = 200
-    nb_pix_azimuth = 20
-    mission_start_time = 0
-    cycle_duration = 21.0
-    azimuth_spacing = 21.875
-    range_spacing = 0.7
-    near_range = np.ones(points)*10.0
-    
-    print("Current directory = %s" % os.getcwd()) 
-    
-    my_pixc = l2_hr_pixc(azimuth_index, range_index, classification, pixel_area, latitude, longitude, height, crosstrack, \
-                 nadir_time, nadir_latitude, nadir_longitude, nadir_altitude, nadir_heading, nadir_x, nadir_y, nadir_z, nadir_vx, nadir_vy, nadir_vz, nadir_near_range, \
-                 mission_start_time, cycle_duration, cycle_num, pass_num, tile_ref, nb_pix_range, nb_pix_azimuth, azimuth_spacing, range_spacing, near_range)
-    my_pixc.write_main(os.getcwd(), noval, True)
-    my_pixc.write_sensor(os.getcwd(), noval, True)
-    my_pixc.write_main_asShp(os.getcwd())
-    my_pixc.write_sensor_asShp(os.getcwd())

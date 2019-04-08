@@ -23,7 +23,8 @@ import lib.my_api as my_api
 
 from lib.my_variables import RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
 
-def calc_delta_h(IN_angles, IN_noise_height, IN_height_bias_std, seed = None):
+
+def calc_delta_h(IN_angles, IN_noise_height, IN_height_bias_std, seed=None):
     """
     Calculate the delta h values and add noise
 
@@ -53,7 +54,7 @@ def calc_delta_h(IN_angles, IN_noise_height, IN_height_bias_std, seed = None):
     elif (IN_noise_height[:, 1] < 1.e-5).any() and IN_height_bias_std < 1.e-5:  # Case both are equals to zero
         OUT_noisy_h = np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1])
     else:  # Case none are equals to zero
-        OUT_noisy_h = np.random.normal(0, IN_height_bias_std) + np.random.normal(0, np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:,1]))
+        OUT_noisy_h = np.random.normal(0, IN_height_bias_std) + np.random.normal(0, np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1]))
 
     return OUT_noisy_h
 
@@ -110,8 +111,14 @@ def lonlat_from_azy(IN_az, IN_ri, IN_attributes, IN_swath, h=0, IN_unit="rad"):
 
     :param IN_az: azimuth coordinate of given points
     :type IN_az: 1D-array of float
-    :param IN_y: crosstrack distance of given points
-    :type IN_y: 1D-array of float
+    :param IN_ri: crosstrack distance of given points
+    :type IN_ri: 1D-array of float
+    :param IN_attributes:
+    :type IN_attributes:
+    :param IN_swath:
+    :type IN_swath:
+    :param h:
+    :type h:
     :param IN_unit: "rad" (default) ou "deg" to output coordinates in radians or degrees
     :type IN_unit: string
 
@@ -137,22 +144,22 @@ def lonlat_from_azy(IN_az, IN_ri, IN_attributes, IN_swath, h=0, IN_unit="rad"):
     if IN_swath == 'Left':
         sign = -1
     else:
-        sign=1.
+        sign = 1.
         
-    mu = sign*np.arccos((IN_ri**2-((GEN_APPROX_RAD_EARTH+h)**2+(GEN_APPROX_RAD_EARTH+IN_Alt)**2))/(-2*(GEN_APPROX_RAD_EARTH +h)*(GEN_APPROX_RAD_EARTH+IN_Alt)))
+    mu = sign*np.arccos((IN_ri**2-((GEN_APPROX_RAD_EARTH+h)**2+(GEN_APPROX_RAD_EARTH+IN_Alt)**2))/(-2*(GEN_APPROX_RAD_EARTH + h)*(GEN_APPROX_RAD_EARTH+IN_Alt)))
 
     Cx = (np.cos(mu)*sintheta_0*cosphi_0 + np.sin(mu)*(sinpsi_0*costheta_0*cosphi_0-cospsi_0*sinphi_0))
     Cy = (np.cos(mu)*sintheta_0*sinphi_0 + np.sin(mu)*(sinpsi_0*costheta_0*sinphi_0+cospsi_0*cosphi_0))
     Cz = (np.cos(mu)*costheta_0 - np.sin(mu)*sinpsi_0*sintheta_0)
     
     xp_yp_zp = np.where(np.logical_and(Cx > 0, np.logical_and(Cy > 0, Cz > 0)))
-    xp_yp_zm = np.where(np.logical_and(Cx > 0, np.logical_and( Cy > 0, Cz < 0)))
-    xp_ym_zp = np.where(np.logical_and(Cx > 0, np.logical_and( Cy < 0, Cz > 0)))
-    xm_yp_zp = np.where(np.logical_and(Cx < 0, np.logical_and( Cy > 0, Cz > 0)))
-    xp_ym_zm = np.where(np.logical_and(Cx > 0, np.logical_and( Cy < 0, Cz < 0)))
-    xm_ym_zp = np.where(np.logical_and(Cx < 0, np.logical_and( Cy < 0, Cz > 0)))
-    xm_yp_zm = np.where(np.logical_and(Cx < 0, np.logical_and( Cy > 0, Cz < 0)))
-    xm_ym_zm = np.where(np.logical_and(Cx < 0, np.logical_and( Cy < 0, Cz < 0)))
+    xp_yp_zm = np.where(np.logical_and(Cx > 0, np.logical_and(Cy > 0, Cz < 0)))
+    xp_ym_zp = np.where(np.logical_and(Cx > 0, np.logical_and(Cy < 0, Cz > 0)))
+    xm_yp_zp = np.where(np.logical_and(Cx < 0, np.logical_and(Cy > 0, Cz > 0)))
+    xp_ym_zm = np.where(np.logical_and(Cx > 0, np.logical_and(Cy < 0, Cz < 0)))
+    xm_ym_zp = np.where(np.logical_and(Cx < 0, np.logical_and(Cy < 0, Cz > 0)))
+    xm_yp_zm = np.where(np.logical_and(Cx < 0, np.logical_and(Cy > 0, Cz < 0)))
+    xm_ym_zm = np.where(np.logical_and(Cx < 0, np.logical_and(Cy < 0, Cz < 0)))
 
     OUT_lat = np.zeros(len(mu), float)
     OUT_lon = np.zeros(len(mu), float)
@@ -179,9 +186,12 @@ def lonlat_from_azy(IN_az, IN_ri, IN_attributes, IN_swath, h=0, IN_unit="rad"):
     OUT_lon[xm_yp_zm] = np.arctan(Cy[xm_yp_zm]/Cx[xm_yp_zm]) + np.pi
     
     OUT_lat[xm_ym_zm] = np.pi/2. - np.arccos(Cz[xm_ym_zm])
-    OUT_lon[xm_ym_zm] = np.arctan(Cy[xm_ym_zm]/Cx[xm_ym_zm]) -np.pi/2.   
+    OUT_lon[xm_ym_zm] = np.arctan(Cy[xm_ym_zm]/Cx[xm_ym_zm]) - np.pi/2.
 
+    if IN_unit == "deg":
+        return OUT_lon*RAD2DEG, OUT_lat*RAD2DEG  # Output in degrees
     return OUT_lon, OUT_lat  # Output in radians
+
 
 def lonlat_from_azy_old(IN_az, IN_y, IN_lat_init, IN_lon_init, IN_heading_init, IN_unit="rad"):
     """
@@ -191,6 +201,12 @@ def lonlat_from_azy_old(IN_az, IN_y, IN_lat_init, IN_lon_init, IN_heading_init, 
     :type IN_az: 1D-array of float
     :param IN_y: crosstrack distance of given points
     :type IN_y: 1D-array of float
+    :param IN_lat_init:
+    :type IN_lat_init:
+    :param IN_lon_init:
+    :type IN_lon_init:
+    :param IN_heading_init:
+    :type IN_heading_init:
     :param IN_unit: "rad" (default) ou "deg" to output coordinates in radians or degrees
     :type IN_unit: string
 
@@ -213,12 +229,12 @@ def lonlat_from_azy_old(IN_az, IN_y, IN_lat_init, IN_lon_init, IN_heading_init, 
 
 
 def linear_extrap(IN_x, IN_xp, IN_yp):
-   if IN_xp[0] < IN_xp[-1]:
-       OUT_y = np.interp(IN_x, IN_xp, IN_yp)
-       OUT_y = np.where(IN_x<IN_xp[0], IN_yp[0]+(IN_x-IN_xp[0])*(IN_yp[0]-IN_yp[1])/(IN_xp[0]-IN_xp[1]), OUT_y)
-       OUT_y = np.where(IN_x>IN_xp[-1], IN_yp[-1]+(IN_x-IN_xp[-1])*(IN_yp[-1]-IN_yp[-2])/(IN_xp[-1]-IN_xp[-2]), OUT_y)
-   else:
-       OUT_y = np.interp(IN_x, IN_xp[::-1], IN_yp[::-1])
-       OUT_y = np.where(IN_x>IN_xp[0], IN_yp[0], OUT_y)
-       OUT_y = np.where(IN_x<IN_xp[-1], IN_yp[-1], OUT_y)
-   return OUT_y
+    if IN_xp[0] < IN_xp[-1]:
+        OUT_y = np.interp(IN_x, IN_xp, IN_yp)
+        OUT_y = np.where(IN_x < IN_xp[0], IN_yp[0]+(IN_x-IN_xp[0])*(IN_yp[0]-IN_yp[1])/(IN_xp[0]-IN_xp[1]), OUT_y)
+        OUT_y = np.where(IN_x > IN_xp[-1], IN_yp[-1]+(IN_x-IN_xp[-1])*(IN_yp[-1]-IN_yp[-2])/(IN_xp[-1]-IN_xp[-2]), OUT_y)
+    else:
+        OUT_y = np.interp(IN_x, IN_xp[::-1], IN_yp[::-1])
+        OUT_y = np.where(IN_x > IN_xp[0], IN_yp[0], OUT_y)
+        OUT_y = np.where(IN_x < IN_xp[-1], IN_yp[-1], OUT_y)
+    return OUT_y
