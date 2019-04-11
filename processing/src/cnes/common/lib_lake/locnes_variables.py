@@ -2,13 +2,14 @@
 """
 .. module:: locnes_variables.py
     :synopsis: Gather global variables used by LOCNES
-    Created on 08/21/2018
+     Created on 2018/08/21
 
 .. moduleauthor:: Claire POTTIER - CNES DSO/SI/TR
 
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
 
 """
@@ -38,8 +39,12 @@ MIN_SIZE = 10000.0  # In m2
 IMP_GEOLOC = True
 
 # Method to compute lake boundary or polygon hull
-# 0=convex hull 1=concav hull (1.0=with alpha param (default) 1.1=without) 2=concav hull radar vectorisation
-HULL_METHOD = 2.0
+# 0 = convex hull 
+# 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library (default) 
+# 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track
+# 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - without alpha parameter varying across-track
+# 2 = edge computed in radar geometry, then converted in ground geometry
+HULL_METHOD = 1.0
 NB_PIX_MAX_DELAUNEY = 1e5 # max number of pixel for hull computation 1
 NB_PIX_MAX_CONTOUR = 8000 # max number of contour points for hull computation 2
 
@@ -48,7 +53,7 @@ STD_HEIGHT_MAX = 10
 
 # Big lakes parameters for improved geoloc; used only if imp geoloc=1
 BIGLAKE_MODEL = "polynomial"  # =polynomial or =grid
-BIGLAKE_MIN_SIZE = 5000  # In ha; if None, disable biglake model
+BIGLAKE_MIN_SIZE = 50000000  # In m^2; if None, disable biglake model
 BIGLAKE_GRID_SPACING = 4000  # Grid spacing for lake height smoothing; in m
 BIGLAKE_GRID_RES = 8000  # Grid resolution for lake height smoothing; in m
 
@@ -96,65 +101,71 @@ def tmpGetConfigFromServiceConfigFile():
     This function is temporary. It will be delete in the future
     when serviceConfigFile will be used by lake_tile
     """
-    IN_config = service_config_file.get_instance()
+    cfg = service_config_file.get_instance()
     logger = logging.getLogger("locnes_variables")
 
+    print(cfg)
     # Lake database
     global LAKE_DB
-    lake_db_file = IN_config.get("DATABASES", "LAKE_DB")
+    lake_db_file = cfg.get("DATABASES", "LAKE_DB")
     LAKE_DB = lake_db_file
     logger.info("> LAKE_DB = %s" % LAKE_DB)
 
     # Lake identifier attribute name in the database
     global LAKE_DB_ID
-    lake_db_id = IN_config.get("DATABASES", "LAKE_DB_ID")
+    lake_db_id = cfg.get("DATABASES", "LAKE_DB_ID")
     LAKE_DB_ID = lake_db_id
     logger.info("> LAKE_DB_ID = %s" % LAKE_DB_ID)
 
     # Shapefile with polygons of continents
     global CONTINENT_FILE
-    continent_file = IN_config.get("DATABASES", "CONTINENT_FILE")
+    continent_file = cfg.get("DATABASES", "CONTINENT_FILE")
     CONTINENT_FILE = continent_file
     logger.info("> CONTINENT_FILE = %s" % CONTINENT_FILE)
 
     # Water flags
     global FLAG_WATER
-    FLAG_WATER = IN_config.get("CONFIG_PARAMS", "FLAG_WATER")
+    FLAG_WATER = cfg.get("CONFIG_PARAMS", "FLAG_WATER")
     logger.info("> FLAG_WATER = %s" % FLAG_WATER)
 
     # Dark water flags
     global FLAG_DARK
-    FLAG_DARK = IN_config.get("CONFIG_PARAMS", "FLAG_DARK")
+    FLAG_DARK = cfg.get("CONFIG_PARAMS", "FLAG_DARK")
     logger.info("> FLAG_DARK = %s" % FLAG_DARK)
+
+    # Layover flags
+    global FLAG_LAYOVER
+    FLAG_LAYOVER = cfg.get("CONFIG_PARAMS", "FLAG_LAYOVER")
+    logger.info("> FLAG_LAYOVER = %s" % FLAG_LAYOVER)
 
     # Hull method
     global HULL_METHOD
-    HULL_METHOD = IN_config.getfloat("CONFIG_PARAMS", "HULL_METHOD")
+    HULL_METHOD = cfg.getfloat("CONFIG_PARAMS", "HULL_METHOD")
     logger.info("> HULL_METHOD = %s" % HULL_METHOD)
 
     # Maximal standard deviation of height inside a lake
     global STD_HEIGHT_MAX
-    STD_HEIGHT_MAX = IN_config.getfloat("CONFIG_PARAMS", "STD_HEIGHT_MAX")
+    STD_HEIGHT_MAX = cfg.getfloat("CONFIG_PARAMS", "STD_HEIGHT_MAX")
     logger.info("> STD_HEIGHT_MAX = %s" % STD_HEIGHT_MAX)
     
     # Model to deal with big lake processing
     global BIGLAKE_MODEL
-    BIGLAKE_MODEL = IN_config.get("CONFIG_PARAMS", "BIGLAKE_MODEL")
+    BIGLAKE_MODEL = cfg.get("CONFIG_PARAMS", "BIGLAKE_MODEL")
     logger.info("> BIGLAKE_MODEL = %s" % BIGLAKE_MODEL)
 
     # Min size for lake to be considered as big
     global BIGLAKE_MIN_SIZE
-    BIGLAKE_MIN_SIZE = IN_config.getfloat("CONFIG_PARAMS", "BIGLAKE_MIN_SIZE")
+    BIGLAKE_MIN_SIZE = cfg.getfloat("CONFIG_PARAMS", "BIGLAKE_MIN_SIZE")
     logger.info("> BIGLAKE_MIN_SIZE = %s" % BIGLAKE_MIN_SIZE)
 
     # Grid spacing for lake height smoothing
     global BIGLAKE_GRID_SPACING
-    BIGLAKE_GRID_SPACING = IN_config.getint("CONFIG_PARAMS", "BIGLAKE_GRID_SPACING")
+    BIGLAKE_GRID_SPACING = cfg.getint("CONFIG_PARAMS", "BIGLAKE_GRID_SPACING")
     logger.info("> BIGLAKE_GRID_SPACING = %s" % BIGLAKE_GRID_SPACING)
 
     # Grid resolution for lake height smoothing
     global BIGLAKE_GRID_RES
-    BIGLAKE_GRID_RES = IN_config.getint("CONFIG_PARAMS", "BIGLAKE_GRID_RES")
+    BIGLAKE_GRID_RES = cfg.getint("CONFIG_PARAMS", "BIGLAKE_GRID_RES")
     logger.info("> BIGLAKE_GRID_RES = %s" % BIGLAKE_GRID_RES)
 
 
@@ -166,14 +177,14 @@ def overwriteConfig_from_cfg(IN_config):
     :type IN_config: ConfigParser.reader
     """
     
-    if "CONFIG_OVERWRITE" in IN_config.sections():
+    if "CONFIG_PARAMS" in IN_config.sections():
         
-        list_over = IN_config.options("CONFIG_OVERWRITE")
+        list_over = IN_config.options("CONFIG_PARAMS")
         
         # Lake database
         if "lake_db" in list_over:
             global LAKE_DB
-            lake_db_file = IN_config.get("CONFIG_OVERWRITE", "LAKE_DB")
+            lake_db_file = IN_config.get("CONFIG_PARAMS", "LAKE_DB")
             import cnes.common.lib.my_tools as my_tools
             my_tools.testFile(lake_db_file)  # Test existence of file
             LAKE_DB = lake_db_file
@@ -184,7 +195,7 @@ def overwriteConfig_from_cfg(IN_config):
         # Lake identifier attribute name in the database
         if "lake_db_id" in list_over:
             global LAKE_DB_ID
-            lake_db_id = IN_config.get("CONFIG_OVERWRITE", "LAKE_DB_ID")
+            lake_db_id = IN_config.get("CONFIG_PARAMS", "LAKE_DB_ID")
             LAKE_DB_ID = lake_db_id
             print("> LAKE_DB_ID = %s" % LAKE_DB_ID)
         else:
@@ -193,7 +204,7 @@ def overwriteConfig_from_cfg(IN_config):
         # Shapefile with polygons of continents
         if "continent_file" in list_over:
             global CONTINENT_FILE
-            continent_file = IN_config.get("CONFIG_OVERWRITE", "CONTINENT_FILE")
+            continent_file = IN_config.get("CONFIG_PARAMS", "CONTINENT_FILE")
             import cnes.common.lib.my_tools as my_tools
             my_tools.testFile(continent_file)  # Test existence of file
             CONTINENT_FILE = continent_file
@@ -208,7 +219,7 @@ def overwriteConfig_from_cfg(IN_config):
         # Water flags
         if "flag_water" in list_over:
             global FLAG_WATER
-            FLAG_WATER = IN_config.get("CONFIG_OVERWRITE", "FLAG_WATER")
+            FLAG_WATER = IN_config.get("CONFIG_PARAMS", "FLAG_WATER")
             print("> FLAG_WATER = %s" % FLAG_WATER)
         else:
             print("> Default value for FLAG_WATER = %s" % FLAG_WATER)
@@ -216,7 +227,7 @@ def overwriteConfig_from_cfg(IN_config):
         # Dark water flags
         if "flag_dark" in list_over:
             global FLAG_DARK
-            FLAG_DARK = IN_config.get("CONFIG_OVERWRITE", "FLAG_DARK")
+            FLAG_DARK = IN_config.get("CONFIG_PARAMS", "FLAG_DARK")
             print("> FLAG_DARK = %s" % FLAG_DARK)
         else:
             print("> Default value for FLAG_DARK = %s" % FLAG_DARK)
@@ -224,7 +235,7 @@ def overwriteConfig_from_cfg(IN_config):
         # Hull method
         if "hull_method" in list_over:
             global HULL_METHOD
-            HULL_METHOD = IN_config.getfloat("CONFIG_OVERWRITE", "HULL_METHOD")
+            HULL_METHOD = IN_config.getfloat("CONFIG_PARAMS", "HULL_METHOD")
             print("> HULL_METHOD = %s" % HULL_METHOD)
         else:
             print("> Default value for HULL_METHOD = %s" % HULL_METHOD)
@@ -232,7 +243,7 @@ def overwriteConfig_from_cfg(IN_config):
         # Std height max
         if "std_height_max" in list_over:
             global STD_HEIGHT_MAX
-            STD_HEIGHT_MAX = IN_config.getfloat("CONFIG_OVERWRITE", "STD_HEIGHT_MAX")
+            STD_HEIGHT_MAX = IN_config.getfloat("CONFIG_PARAMS", "STD_HEIGHT_MAX")
             print("> STD_HEIGHT_MAX = %s" % STD_HEIGHT_MAX)
         else:
             print("> Default value for STD_HEIGHT_MAX = %s" % STD_HEIGHT_MAX)
@@ -240,7 +251,7 @@ def overwriteConfig_from_cfg(IN_config):
         # Model to deal with big lake processing
         if "biglake_model" in list_over:
             global BIGLAKE_MODEL
-            BIGLAKE_MODEL = IN_config.get("CONFIG_OVERWRITE", "BIGLAKE_MODEL")
+            BIGLAKE_MODEL = IN_config.get("CONFIG_PARAMS", "BIGLAKE_MODEL")
             print("> BIGLAKE_MODEL = %s" % BIGLAKE_MODEL)
         else:
             print("> Default value for BIGLAKE_MODEL = %s" % BIGLAKE_MODEL)
@@ -248,7 +259,7 @@ def overwriteConfig_from_cfg(IN_config):
         # Min size for lake to be considered as big
         if "biglake_min_size" in list_over:
             global BIGLAKE_MIN_SIZE
-            BIGLAKE_MIN_SIZE = IN_config.getint("CONFIG_OVERWRITE", "BIGLAKE_MIN_SIZE")
+            BIGLAKE_MIN_SIZE = IN_config.getfloat("CONFIG_PARAMS", "BIGLAKE_MIN_SIZE")
             print("> BIGLAKE_MIN_SIZE = %s" % BIGLAKE_MIN_SIZE)
         else:
             print("> Default value for BIGLAKE_MIN_SIZE = %s" % BIGLAKE_MIN_SIZE)
@@ -256,7 +267,7 @@ def overwriteConfig_from_cfg(IN_config):
         # Grid spacing for lake height smoothing
         if "biglake_grid_spacing" in list_over:
             global BIGLAKE_GRID_SPACING
-            BIGLAKE_GRID_SPACING = IN_config.getint("CONFIG_OVERWRITE", "BIGLAKE_GRID_SPACING")
+            BIGLAKE_GRID_SPACING = IN_config.getint("CONFIG_PARAMS", "BIGLAKE_GRID_SPACING")
             print("> BIGLAKE_GRID_SPACING = %s" % BIGLAKE_GRID_SPACING)
         else:
             print("> Default value for BIGLAKE_GRID_SPACING = %s" % BIGLAKE_GRID_SPACING)
@@ -264,7 +275,7 @@ def overwriteConfig_from_cfg(IN_config):
         # Grid resolution for lake height smoothing
         if "biglake_grid_res" in list_over:
             global BIGLAKE_GRID_RES
-            BIGLAKE_GRID_RES = IN_config.getint("CONFIG_OVERWRITE", "BIGLAKE_GRID_RES")
+            BIGLAKE_GRID_RES = IN_config.getint("CONFIG_PARAMS", "BIGLAKE_GRID_RES")
             print("> BIGLAKE_GRID_RES = %s" % BIGLAKE_GRID_RES)
         else:
             print("> Default value for BIGLAKE_GRID_RES = %s" % BIGLAKE_GRID_RES)
@@ -341,7 +352,7 @@ def overwriteConfig_from_xml(IN_xml_tree):
         
     # Min size for lake to be considered as big
     global BIGLAKE_MIN_SIZE
-    BIGLAKE_MIN_SIZE = int(IN_xml_tree.xpath("//LakeTile_shp/config_params/biglake_min_size")[0].text)
+    BIGLAKE_MIN_SIZE = float(IN_xml_tree.xpath("//LakeTile_shp/config_params/biglake_min_size")[0].text)
     print("> BIGLAKE_MIN_SIZE = %s" % BIGLAKE_MIN_SIZE)
         
     # Grid spacing for lake height smoothing
@@ -428,7 +439,7 @@ def compareConfig_to_xml(IN_xml_tree):
         raise service_error.ProcessingError(message, logger)
         
     # Min size for lake to be considered as big
-    TMP_biglake_min_size = int(IN_xml_tree.xpath("//LakeTile_shp/config_params/biglake_min_size")[0].text)
+    TMP_biglake_min_size = float(IN_xml_tree.xpath("//LakeTile_shp/config_params/biglake_min_size")[0].text)
     if TMP_biglake_min_size != BIGLAKE_MIN_SIZE:
         message = "At least 2 different values of BIGLAKE_MIN_SIZE for one processing: %s vs %s" % (BIGLAKE_MIN_SIZE, TMP_biglake_min_size)
         raise service_error.ProcessingError(message, logger)

@@ -2,13 +2,14 @@
 """
 .. module:: my_shp_file.py
     :synopsis: Deal with shapefiles and memory layers
-    Created on 09/14/2018
+     Created on 2018/09/14
 
 .. moduleauthor: Claire POTTIER (CNES DSO/SI/TR)
 
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
 
 """

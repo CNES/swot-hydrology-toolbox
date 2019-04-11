@@ -18,6 +18,7 @@ import argparse
 import configparser as cfg
 import datetime
 import os
+import sys
 
 import cnes.common.lib.my_tools as my_tools
 import cnes.common.lib.my_timer as my_timer
@@ -160,6 +161,7 @@ class MultiLakeTile(object):
 
                 # 1 - Initialization
                 cmd_file = self.create_cmd_file(indf)
+                print(cmd_file)
                 my_lake_tile = pge_lake_tile.PGELakeTile(cmd_file)
 
                 # 2 - Run
@@ -198,8 +200,13 @@ class MultiLakeTile(object):
         tile_ref = information["tile_ref"]
 
         # 3 - Init log filename (without date because it is computed in pge_lake_tile.py)
-        log_file = os.path.splitext(self.log_file)[0] + "_" + str(cycle_num) + "_" \
-                                    + str(pass_num) + "_" + str(tile_ref) + os.path.splitext(self.log_file)[1]
+        if self.log_file is None:
+            log_file = os.path.join(self.output_dir, "LogFile_" + str(cycle_num) + "_" +
+                                    str(pass_num) + "_" + str(tile_ref) + ".log")
+            print("Log file : " + log_file)
+        else:
+            log_file = os.path.splitext(self.log_file)[0] + "_" + str(cycle_num) + "_" \
+                                        + str(pass_num) + "_" + str(tile_ref) + os.path.splitext(self.log_file)[1]
         
         # 4 - Init command filename
         cmd_filename = "lake_tile_command_" + str(cycle_num) + "_" + str(pass_num) + "_" + str(tile_ref) + ".cfg"
@@ -212,6 +219,10 @@ class MultiLakeTile(object):
         writer_command_file.write("[PATHS]\n")
         if self.param_file is not None:
             writer_command_file.write("param_file = %s\n" % self.param_file)
+        else:
+            # needed by jenkins script
+            writer_command_file.write("param_file = " + os.path.join(sys.path[0], "lake_tile_param.cfg") + "\n")
+
         writer_command_file.write("PIXC file = " + pixc_file + "\n")
         writer_command_file.write("PIXCVecRiver file = " + os.path.join(self.pixc_vec_river_dir, self.list_pixc_vec_river[indf]) + "\n")
         writer_command_file.write("Output directory = " + self.output_dir + "\n")
@@ -228,6 +239,9 @@ class MultiLakeTile(object):
         writer_command_file.write("# Shapefile with polygons of continents\n")
         if self.continent_file is not None:
             writer_command_file.write("CONTINENT_FILE = " + self.continent_file + "\n")
+        else:
+            # needed by script for Jenkins
+            writer_command_file.write("CONTINENT_FILE = /work/ALT/swot/swotpub/BD/major_basins/FAO/major_hydrobasins.shp\n")
         writer_command_file.write("\n")
         
         # 5.3 - Fill OPTIONS section
@@ -243,14 +257,51 @@ class MultiLakeTile(object):
         writer_command_file.write("# Log level put inside the file\n")
         writer_command_file.write("logfilelevel = " + self.log_file_level + "\n")
         writer_command_file.write("# Is log console output ?\n")
-        writer_command_file.write("logConsole = " + self.log_console + "\n")
+        writer_command_file.write("logConsole = " + str(self.log_console) + "\n")
         writer_command_file.write("# Log level print in console\n")
         writer_command_file.write("logconsolelevel = " + self.log_console_level + "\n")
         
-        writer_command_file.close()  # Close command file
-        
-        return out_cmd_file
+        # 5.5 - Fill CRID section
+        writer_command_file.write("# CRID information\n")
+        writer_command_file.write("[CRID]\n")
+        writer_command_file.write("# Composite Release IDentifier for LakeTile processing\n")        
+        writer_command_file.write("LAKE_TILE_CRID = Dx0000 \n")
+        writer_command_file.write("# Composite Release IDentifier for LakeSP processing\n")
+        writer_command_file.write("LAKE_SP_CRID = Dx0000 # Product generator\n")
 
+        # 5.6 - Fill FILE_INFORMATION section
+        writer_command_file.write("# File informations\n")
+        writer_command_file.write("[FILE_INFORMATION]\n")
+        writer_command_file.write("# Product generator\n")
+        writer_command_file.write("PRODUCER = CNES\n")
+        writer_command_file.write("PIXC_PREFIX = SWOT_L2_HR_PIXC_\n")
+        writer_command_file.write('PIXC_PATTERN_PRINT = PIXC_PREFIX + "<CycleID>_<PassID>_<TileID>[L/R]_<RangeBeginDateTime>_<RangeEndingDateTime>_<CRID>_<ProductCounter>.nc"\n')
+        writer_command_file.write('# Indices when PIXC_PATTERN.split("_"); None if value not in filename\n')
+        writer_command_file.write('PIXC_PATTERN_IND = {"cycle": 4, "pass": 5, "tile_ref": 6, "start_date": 7, "stop_date": 8, "crid": 9, "counter": 10} \n')
+        writer_command_file.write('PIXCVEC_RIVER_PREFIX = SWOT_L2_HR_PIXCVecRiver_\n')
+        writer_command_file.write('PIXCVEC_RIVER_PATTERN_PRINT = PIXCVEC_RIVER_PREFIX + "<CycleID>_<PassID>_<TileID>[L/R]_<RangeBeginDateTime>_<RangeEndingDateTime>_<CRID>_<ProductCounter>.nc"\n')
+        writer_command_file.write('# Indices when PIXCVEC_RIVER_PATTERN.split("_"); None if value not in filename\n')
+        writer_command_file.write('PIXCVEC_RIVER_PATTERN_IND = {"cycle": 4, "pass": 5, "tile_ref": 6, "start_date": 7, "stop_date": 8, "crid": 9, "counter": 10}\n')
+        writer_command_file.write('LAKE_TILE_PREFIX = SWOT_L2_HR_LakeTile_\n')
+        writer_command_file.write("# LakeTile filename with %03d=cycle number %03d=pass number %s=tile ref %s=swath %s=begin date %s=end date %s=CRID %s=counter %s=suffix \n")
+        writer_command_file.write('LAKE_TILE_PATTERN = LAKE_TILE_PREFIX + "%03d_%03d_%s_%s_%s_%s_%02d%s"\n')
+        writer_command_file.write('LAKE_TILE_PATTERN_PRINT = LAKE_TILE_PREFIX + "%s<CycleID>_<PassID>_<TileID>[L/R]_<RangeBeginDateTime>_<RangeEndingDateTime>_<CRID>_<ProductCounter>"\n')
+        writer_command_file.write('# Indices when LAKE_TILE_*_PATTERN.split("_"); None if value not in filename \n')
+        writer_command_file.write('LAKE_TILE_PATTERN_IND = {"cycle": 4, "pass": 5, "tile_ref": 6, "start_date": 7, "stop_date": 8, "crid": 9, "counter": 10}\n')
+        writer_command_file.write('LAKE_TILE_SHP_SUFFIX = .shp\n')
+        writer_command_file.write('LAKE_TILE_SHP_META_SUFFIX = .shp.xml\n')
+        writer_command_file.write('LAKE_TILE_EDGE_SUFFIX = _edge.nc\n')
+        writer_command_file.write('LAKE_TILE_PIXCVEC_SUFFIX = _pixcvec.nc\n')
+        writer_command_file.write("PIXCVEC_PREFIX = SWOT_L2_HR_PIXCVec_\n")
+        writer_command_file.write("PIXCVEC_SUFFIX = .nc\n")
+        writer_command_file.write("# PIXCVec filename with %03d=cycle number %03d=pass number %s=tile ref %s=begin date %s=end date %s=CRID %s=counter  \n")
+        writer_command_file.write('PIXCVEC_PATTERN = PIXCVEC_PREFIX + "%03d_%03d_%s_%s_%s_%s_%02d" + PIXCVEC_SUFFIX \n')
+        writer_command_file.write("LAKE_SP_PREFIX = SWOT_L2_HR_LakeSP_\n")
+        writer_command_file.write("# LakeSP filename with %03d=cycle number %03d=pass number %s=continent %s=begin date %s=end date %s=CRID %s=counter \n")
+        writer_command_file.write('LAKE_SP_PATTERN = LAKE_SP_PREFIX + "%03d_%03d_%s_%s_%s_%s_%02d.shp"\n')
+        writer_command_file.write("#######################################\n")
+        writer_command_file.close()  # Close command file
+        return out_cmd_file
 
 #######################################
         
@@ -278,6 +329,10 @@ def read_command_file(in_filename):
     out_params["pass_num"] = None
     out_params["tile_ref"] = None
     out_params["flag_prod_shp"] = False
+    out_params["logFile"] = None
+    out_params["logfilelevel"] = "DEBUG"
+    out_params["logConsole"] = True
+    out_params["logconsolelevel"] = "DEBUG"
 
     # 1 - Read parameter file
     config = cfg.ConfigParser()
@@ -323,13 +378,17 @@ def read_command_file(in_filename):
         if "produce shp" in list_options:
             out_params["flag_prod_shp"] = config.getboolean("OPTIONS", "Produce shp")
 
+    # 5 - Retrieve optionnal CONFIG_OVERWRITE
+    # Still useful?
+    #my_var.overwriteConfig_from_cfg(config)
     # 6 - Retrieve LOGGING
-    out_params["logFile"] = config.get("LOGGING", "logFile")
-    if out_params["logFile"] is not None:
-        out_params["logFile"] = out_params["logFile"].replace("<date>", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-    out_params["logfilelevel"] = config.get("LOGGING", "logfilelevel")
-    out_params["logConsole"] = config.get("LOGGING", "logConsole")
-    out_params["logconsolelevel"] = config.get("LOGGING", "logconsolelevel")
+    if "LOGGING" in config.sections():
+        out_params["logFile"] = config.get("LOGGING", "logFile")
+        if out_params["logFile"] is not None:
+            out_params["logFile"] = out_params["logFile"].replace("<date>", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+        out_params["logfilelevel"] = config.get("LOGGING", "logfilelevel")
+        out_params["logConsole"] = config.get("LOGGING", "logConsole")
+        out_params["logconsolelevel"] = config.get("LOGGING", "logconsolelevel")
 
     return out_params
 

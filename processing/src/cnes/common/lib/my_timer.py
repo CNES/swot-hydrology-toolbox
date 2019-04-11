@@ -2,14 +2,16 @@
 """
 .. module:: my_timer.py
     :synopsis: Gestion du temps d'execution d'un code
-    Version 2.0 = Modification de la fonction "info" (prise en compte d'un parametre pour indique si on donne la duree depuis la date start ou depuis le dernier info)
-    Version 1.0 = Created on 03/06/2016
+     Version 2.0 = Modification de la fonction "info" (prise en compte d'un parametre 
+     pour indiquer si on donne la duree depuis la date start ou depuis le dernier info)
+     Version 1.0 = Created on 2016/03/06
 
 .. moduleauthor:: Claire POTTIER - CNES DCT/SI/TR
 
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
 
 """
@@ -20,14 +22,17 @@ import math
 
 
 class Timer(object):
-
+    """
+        class Timer
+    """
     def __init__(self):
         """
         Constructeur du timer
 
-        ** Attributes **
-        - start_time : debut d'execution du code
-        - tmp_time : temps intermediaire
+
+        Variables of the object:
+         - start_time : debut d'execution du code
+         - tmp_time : temps intermediaire
         """
         self.start_time = 0.0
         self.tmp_time = 0.0
@@ -42,22 +47,23 @@ class Timer(object):
 
     # ----------------------------------------
 
-    def info(self, IN_flagDebut=1):
+    def info(self, in_flag_debut=1):
         """
         Calcule la duree depuis une date de reference:
-        - la derniere info demandee (ou debut d'execution pour la 1e info depuis la date d'execution) si IN_flagDebut=0
-        - la date de debut d'execution si IN_flagDebut=1
+         - la derniere info demandee (ou debut d'execution pour la 1e info depuis la date d'execution) si in_flag_debut=0
+         - la date de debut d'execution si in_flag_debut=1
+         
         La date de l'execution de cette fonction est sauvegardee en tant que date intermediaire pour une utilisation ulterieure.
 
-        :param IN_flagDebut: =0 si la date de reference correspond a la derniere info demandee, =1 si elle correspond a la date de debut d'execution
-        :type IN_flagDebut: int
+        :param in_flag_debut: =0 si la date de reference correspond a la derniere info demandee, =1 si elle correspond a la date de debut d'execution
+        :type in_flag_debut: int
 
         :return: la duree depuis la date de reference
         :rtype: str
         """
 
         # 1 - On calcule la duree
-        if (self.tmp_time == 0) or (IN_flagDebut == 1):
+        if (self.tmp_time == 0) or (in_flag_debut == 1):
             cur_time = time.time() - self.start_time
         else:
             cur_time = time.time() - self.tmp_time
@@ -66,7 +72,7 @@ class Timer(object):
         self.tmp_time = time.time()
 
         # 3 - Retourne la duree au format hh:mm:ss
-        return "[Timer-INFO] Step executed in %s" % self.printDelay(int(cur_time))
+        return "[Timer-INFO] Step executed in %s" % self.print_delay(int(cur_time))
 
     def stop(self):
         """
@@ -80,11 +86,11 @@ class Timer(object):
         total_time = time.time() - self.start_time
 
         # 2 - Retourne la duree au format hh:mm:ss
-        return "[Timer-INFO] Total execution time in %s" % self.printDelay(int(total_time))
+        return "[Timer-INFO] Total execution time in %s" % self.print_delay(int(total_time))
 
     # ----------------------------------------
 
-    def printDelay(self, in_time):
+    def print_delay(self, in_time):
         """
         Convertit la duree en parametre d'entree en chaine de caracteres
 

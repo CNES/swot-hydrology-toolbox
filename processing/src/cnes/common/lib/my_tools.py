@@ -2,16 +2,14 @@
 """
 .. module:: my_tools.py
     :synopsis: library with generic functions
-    Created on 03/02/2017
+     Created on 2017/03/02
 
 .. moduleauthor:: Claire POTTIER - CNES DSO/SI/TR
 
-.. todo:: faire une version alpha_shape / concavHull commune avec Damien et Emmanuelle (utilisation sur le floodplain DEM)
-
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
-
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
 """
 
@@ -31,10 +29,13 @@ if skimage.__version__ >= "0.11":
 else:
     from skimage.filter.rank import median as median_filter
 
-import cnes.common.lib.my_variables as my_var
-import cnes.common.lib_lake.locnes_variables as my_var2
 import cnes.common.service_error as service_error
+import cnes.common.service_config_file as service_config_file
+import cnes.common.lib.my_variables as my_var
+from functools import partial
 import pyproj
+from shapely.ops import transform
+
 
 def testFile(in_file, IN_extent=None):
     """
@@ -58,7 +59,6 @@ def testFile(in_file, IN_extent=None):
         message = "ERROR = %s doesn't exist" % in_file
         raise service_error.ProcessingError(message, logger)
 
-
 def testDir(in_dir):
     """
     Test if input path is an existing directory
@@ -75,7 +75,7 @@ def testDir(in_dir):
     else:
         message = "ERROR = %s doesn't exist" % in_dir
         raise service_error.ProcessingError(message, logger)
-
+        
 
 #######################################
 
@@ -87,7 +87,7 @@ def deg2rad(in_deg):
     :param in_deg: angles to convert
     :type in_deg: scalar or 1D-array
 
-    :return angles in radians
+    :return: angles in radians
     :rtype: same as input
     """
     return in_deg * np.pi / 180.
@@ -100,7 +100,7 @@ def rad2deg(in_rad):
     :param in_rad: angles to convert
     :type in_rad: scalar or 1D-array
 
-    :return angles in degrees
+    :return: angles in degrees
     :rtype: same as input
     """
     return in_rad * 180. / np.pi
@@ -121,8 +121,8 @@ def convert_to_m180_180(in_long):
     """
     
     out_long = in_long
-    ind = np.where(in_long > 180.0)
-    if ind is not None:
+    ind = np.where(in_long > 180.0)[0]
+    if len(ind) > 0:
         out_long[ind] -= 360.
         
     return out_long
@@ -365,11 +365,13 @@ def relabelLakeUsingSegmentationHeigth(in_x, in_y, in_height):
     """
     This function main interest is to determine the number of lakes inside a subset of PixC in radar geometry.
     In most of the cases, only one lake is located in the given subset, but in some case of different lakes can be gather inside one because of radar geometric distortions or in the case a of a dam.
+
     Steps :
-        1. Creates a 2D height matrix from X and Y 1D vectors
-        2. Unsupervised heigth classification to determine number a classes to get an STD over each classe lower than STD_HEIGHT_MAX
-        3. Smooth result using a 2D median filter
-        4. Return labels
+    
+     1. Creates a 2D height matrix from X and Y 1D vectors
+     2. Unsupervised heigth classification to determine number a classes to get an STD over each classe lower than STD_HEIGHT_MAX
+     3. Smooth result using a 2D median filter
+     4. Return labels
 
     :param in_x: X indices of "1" pixels
     :type in_x: 1D vector of int
@@ -381,6 +383,8 @@ def relabelLakeUsingSegmentationHeigth(in_x, in_y, in_height):
     :return: labels recomputed over 1 of several lakes
     :rtype: 1D vector of int
     """
+    # Get instance of service config file
+    cfg = service_config_file.get_instance()
     logger = logging.getLogger("my_tools")
     logger.debug("- start -")
 
@@ -409,13 +413,14 @@ def relabelLakeUsingSegmentationHeigth(in_x, in_y, in_height):
     std_heigth = np.std(in_height)
     nb_classes = 1
 
+    std_height_max = cfg.getfloat('CONFIG_PARAMS', 'STD_HEIGHT_MAX')
     # 2.1 - Cas with only one class
-    if std_heigth < my_var2.STD_HEIGHT_MAX:  # If only one lake is in the given pixc subset
+    if std_heigth < std_height_max:  # If only one lake is in the given pixc subset
         retour = np.ones(nb_pts)  # Return one unique label for all pixc
     else:
         # 2.2 - Init a k-means classifier
         kmeans_classif = KMeans()
-        while std_heigth > my_var2.STD_HEIGHT_MAX:
+        while std_heigth > std_height_max:
 
             nb_classes += 1
 
@@ -485,7 +490,6 @@ def convert2dMatIn1dVec(in_x, in_y, in_mat):
 
 
 #######################################
-
 
 def compute_mean_2sigma(in_v_val, in_nan=None):
     """
@@ -605,7 +609,7 @@ def computeAz(in_lon, in_lat, in_v_nadir_lon, in_v_nadir_lat):
     :param in_v_nadir_lat: latitude of each nadir point in degrees north
     :type in_v_nadir_lat: 1D-array
 
-    :return out_idx_min: azimuth index corresponding to input point (in_lon, in_lat)
+    :return: out_idx_min azimuth index corresponding to input point (in_lon, in_lat)
     :type: int
     """
 
@@ -645,7 +649,7 @@ def computeDist(in_lon1, in_lat1, in_lon2, in_lat2):
     :param in_lat2: latitude of P2 in degrees north
     :type in_lat2: float
 
-    :return the spherical distance (in meters) between P1 and P2
+    :return: the spherical distance (in meters) between P1 and P2
     :type: float
     """
 
@@ -722,10 +726,57 @@ def getArea(in_polygon, in_centroid):
     # 2 - Compute and return area
     return in_polygon.GetArea()
 
-
 #######################################
 
+def get_utm_coords_from_lonlat(in_long, in_lat):
+    """
+    This function projects coordinates from geographic coordinate into UTM zone corresponding to the mean of in_lon, in, lat.
 
+    :param in_long: longitudes of points
+    :type in_long: 1D-array of float
+    :param in_lat: latitudes of points
+    :type in_lat: 1D-array of float
+
+    :return: X coordinates, Y coordintes, UTM_epsg_code
+    :rtype: tuple of (1D-array of float, 1D-array of float, int)
+    """
+    logger = logging.getLogger("my_tools")
+
+    lat_mean = np.mean(in_lat)
+    lon_mean = np.mean(in_long)
+
+    latlon_proj = pyproj.Proj(init="epsg:4326")
+    utm_epsg_code = getUTM_EPSG_Code(lon_mean, lat_mean)
+    logger.debug("Convert coordinates into epsg code : %s" % (utm_epsg_code))
+    utm_proj = pyproj.Proj(init='epsg:' + utm_epsg_code)
+
+    X, Y = pyproj.transform(latlon_proj, utm_proj, in_long, in_lat)
+
+    return X, Y, utm_epsg_code
+
+
+def get_lon_lat_polygon_from_utm(in_utm_poly, in_utm_epsg_code):
+    """
+    This function projects polygon from UTM projection given in in_utm_epsg_code into lon lat coordinates.
+
+    :param in_utm_poly: utm polygon
+    :type in_utm_poly: shapely Polygon or Multipolygon geometry
+    :param in_utm_epsg_code: code of utm zone
+    :type in_utm_epsg_code: int
+
+    :return: polygon in geographical lon lat coordinates
+    :rtype: shapely Polygon or Multipolygon geometry
+    """
+    utm_proj = pyproj.Proj(init='epsg:' + in_utm_epsg_code)
+    latlon_proj_wrap = pyproj.Proj('+init=epsg:4326 +lon_wrap=180')
+    projection_wm_func = partial(pyproj.transform, utm_proj, latlon_proj_wrap)
+
+    lonlat_poly = transform(projection_wm_func, in_utm_poly)
+
+    return lonlat_poly
+
+
+#######################################
 if __name__ == '__main__':
 
     a = np.arange(10)

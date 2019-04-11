@@ -2,22 +2,21 @@
 """
 .. module:: my_basins.py
     :synopsis: Deal with river basins shapefile.
-    Created on 09/11/2018
+     Created on 2018/11/09
 
 .. moduleauthor:: Claire POTTIER - CNES DSO/SI/TR
 
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
 """
 
 import logging
+import cnes.common.service_config_file as service_config_file
 from osgeo import ogr
 
-import cnes.common.lib_lake.locnes_variables as my_var
-
-    
 def link_poly_to_continent(in_poly):
     """
     Link a polygon to a list of continent(s) by considering intersection of both
@@ -28,18 +27,24 @@ def link_poly_to_continent(in_poly):
     :return: list of continent(s) associated to polygon
     :rtype: list of string
     """
+    # Get instance of service config file
+    cfg = service_config_file.get_instance()
     logger = logging.getLogger("my_bassin")
     
+    # Retrieve continent file
+    continent_file = cfg.get("DATABASES", "CONTINENT_FILE")
+    
     # Case when no continent file
-    if my_var.CONTINENT_FILE is None:
+    if continent_file is None:
         logger.debug("> No continent file")
         retour = None
+        
     else:
-        logger.debug("> Continent file = %s" % my_var.CONTINENT_FILE)
+        logger.debug("> Continent file = %s" % continent_file)
         
         # 1 - Open continent shapefile in read-only mode
         shp_driver = ogr.GetDriverByName(str("ESRI Shapefile"))
-        data_source = shp_driver.Open(my_var.CONTINENT_FILE, 0)
+        data_source = shp_driver.Open(continent_file, 0)
         continent_layer = data_source.GetLayer()
         
         # 2 - Compute intersection
@@ -54,7 +59,10 @@ def link_poly_to_continent(in_poly):
         data_source.Destroy()
     
         # 5 - Return continent
-        retour = out_continent[0]
+        if len(out_continent) == 0:
+            retour = "OCEAN"
+        else:
+            retour = out_continent[0]
 
     return retour
 

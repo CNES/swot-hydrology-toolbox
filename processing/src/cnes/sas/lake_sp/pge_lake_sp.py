@@ -270,9 +270,9 @@ class Processing(object):
             if os.path.exists(my_var.LAKE_DB):
                 type_db = my_var.LAKE_DB.split('.')[-1]  # Type of database
                 if type_db == "shp":  # Shapefile format
-                    self.objLakeDb = lake_db.LakeDb_shp(my_var.LAKE_DB)
+                    self.objLakeDb = lake_db.LakeDbShp(my_var.LAKE_DB)
                 elif type_db == "sqlite":  # SGLite format
-                    self.objLakeDb = lake_db.LakeDb_sqlite(my_var.LAKE_DB)
+                    self.objLakeDb = lake_db.LakeDbSqlite(my_var.LAKE_DB)
                 else:
                     my_api.exitWithError("[lakeTileProcessing] Lake a priori database format (%s) is unknown: must be .shp or .sqlite" % type_db)
             else:

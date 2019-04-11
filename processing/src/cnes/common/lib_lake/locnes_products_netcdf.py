@@ -190,9 +190,9 @@ class LakeTilePixcvec_product(NetCDF_product):
             'long_name': "longitude (degrees East)",
             'standard_name': "longitude",
             'units': "degrees_east",
-            'valid_min': 0,
-            'valid_max': 360,
-            'comment': "Improved longitude [0,360) (east of the Greenwich meridian) of the pixel."}
+            'valid_min': -180.0,
+            'valid_max': 180.0,
+            'comment': "Improved longitude [-180,180( of the pixel."}
         self.variables["height_vectorproc"] = {'dtype': np.float,
             'long_name': "height above reference ellipsoid",
             'units': "m",
@@ -374,14 +374,14 @@ class LakeTileEdge_product(NetCDF_product):
             'units': "degrees_north",
             'valid_min': -90.0,
             'valid_max': 90.0,
-            'comment': "Geodetic latitude [-90,90] (degrees north of equator) of the pixel."}
+            'comment': "Geodetic latitude [-90,90] of the pixel."}
         self.variables["longitude"] = {'dtype': np.double,
             'long_name': "longitude (degrees East)",
             'standard_name': "longitude",
             'units': "degrees_east",
-            'valid_min': 0,
-            'valid_max': 360,
-            'comment': "Longitude [0,360) (east of the Greenwich meridian) of the pixel."}
+            'valid_min': -180.0,
+            'valid_max': 180.0,
+            'comment': "Longitude [-180,180( of the pixel."}
         self.variables["height"] = {'dtype': np.float,
             'long_name': "height above reference ellipsoid",
             'units': "m",
@@ -585,9 +585,9 @@ class LakeTileEdge_product(NetCDF_product):
             'long_name': "longitude (degrees East) of the spacecraft",
             'standard_name': "longitude",
             'units': "degrees_east",
-            'valid_min': 0.0,
-            'valid_max': 360.0,
-            'comment': "Longitude of the KMSF origin, with positive values indicating longitudes east of the Greenwich meridian."}
+            'valid_min': -180.0,
+            'valid_max': 180.0,
+            'comment': "Longitude of the KMSF origin."}
         self.variables["nadir_x"] = {'dtype': np.double,
             'long_name': "x coordinate of the spacecraft in the ECEF frame",
             'units': "m",

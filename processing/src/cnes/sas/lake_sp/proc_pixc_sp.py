@@ -1,14 +1,15 @@
 # -*- coding: utf8 -*-
 """
 .. module:: proc_pixc_sp.py
-    :synopsis: Deals with subset of pixel cloud, for objects located at top or bottom edge of a tile; i.e. gather pixels involved in edge lake product retrieved from all tiles of L2_HR_LakeTile_edge files
+   :synopsis: Deals with subset of pixel cloud, for objects located at top or bottom edge of a tile; i.e. gather pixels involved in edge lake product retrieved from all tiles of L2_HR_LakeTile_edge files
     Created on 27/09/2017
 
 .. moduleauthor:: Cécile Cazals - CS
 
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
 
 """
@@ -26,10 +27,13 @@ class PixC_Edge_SP(object):
     def __init__(self, IN_ascending, IN_lake_tile_edge_path_list):
         """
         This class is designed to process all L2_HR_LakeTile edge files of one swath. LakeTile edge files contain pixel cloud information (from L2_HR_PIXC) for pixels involved in lakes located at the top/bottom edges of tiles.
+
         The LakeTile edge file contains only PixC variables needed information, but also additional information like:
+
             - edge_loc field, the edge location of the lake : top of the tile, bottom of the tile or both top and bottom (0=bottom 1=top 2=both)
             - edge_label contains the object labels retrieved from PGE_LakeTile labeling process.
             - edge_idx contains the L2_HR_PIXC initial pixels indices. This information is needed to update the improved geoloc and tag fields of LakeTile pixcvec files.
+
         This class processes all LakeTile edge files of a single swath to gather all entities at the edge of tile into lake entities.
         
         :param IN_ascending: orbit orientation (True = ascending, False = descending)
@@ -37,38 +41,38 @@ class PixC_Edge_SP(object):
         :param IN_lake_tile_edge_path_list: list of LakeTile edge files full path
         :type IN_lake_tile_edge_path_list: list of string
 
+
         Variables of the object:
+        
             - From L2_HR_LakeTile edge file:
-            
-                Global attributes :
-                    nb_pix_range / int: number of pixels in range dimension (= global attribute named nb_pix_range in LakeTile_edge)
-                    nb_pix_azimuth / int: number of pixels in azimuth dimension (= global attribute named nb_pix_azimuth in LakeTile_edge)
-                    cycle_num / int: cycle number (= global attribute named cycle_number in LakeTile_edge)
-                    pass_num / int: pass number (= global attribute named pass_number in LakeTile_edge)
-
-                Variables :
-                    range_idx / 1D-array of int: range indices of water pixels (= variable named range_index in  LakeTile_edge)
-                    azimuth_idx / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in LakeTile_edge)
-                    pixel_area / 1D-array of int: area of water pixels (= variable named pixel_area in LakeTile_edge)
-                    height / 1D-array of float: height of water pixels (= variable named height_medium in L2_HR_PIXC_main and LakeTile_edge)
-                    crosstrack / 1D-array of float: cross-track distance from nadir to center of water pixels (= variable named crosstrack_medium in LakeTile_edge)
-                    nadir_time / 1D-array of float: observation time of each nadir pixel (= variable named time in LakeTile_edge)
-                    nadir_longitude / 1D-array of float: longitude of each nadir pixel (= variable named nadir_lon in LakeTile_edge)
-                    nadir_lattitude / 1D-array of float: latitude of each nadir pixel (= variable named latitude in LakeTile_edge)
-                    nadir_[x|y|z] / 1D-array of float: [x|y|z] cartesian coordinates of each nadir pixel (= variables named nadir_[x|y|z] in LakeTile_edge)
-                    nadir_[vx|vy|vz] / 1D-array of float: velocity vector of each nadir pixel in cartesian coordinates (= variables named nadir_[vx|vy|vz] in LakeTile_edge)
-                    nadir_alt / 1D-array of float: satellite altitude at each nadir point (= variable named nadir_alt in LakeTile_edge)
-                    near_range / 1D-array of float: near range distance for each nadir point (= variable named nadir_near_range in LakeTile_edge)
-                    latitude / 1D-array of float: latitude of water pixels (= variable named latitude_medium in L2_HR_PIXC_main and LakeTile_edge)
-                    longitude / 1D-array of float: longitude of water pixels (= variable named longitude_medium in L2_HR_PIXC_main and LakeTile_edge)
-
-        - From process:
-            tile_ref / list of string : list of tile references to process ex: ['42N-R', '43N-R', '44N-R', '45N-R']
-            nb_tiles / int : number of tiles to process
-            nb_pixels / int : number of pixels to process
-            tile_idx / tuple of ndarrays : indices of tile for each pixel
-            ascending / bool : orbit orientation (True = ascending, False=descending)
-            labels / 1D-array of int : arrays of new labels
+                - Global attributes :
+                    - nb_pix_range / int: number of pixels in range dimension (= global attribute named nb_pix_range in LakeTile_edge)
+                    - nb_pix_azimuth / int: number of pixels in azimuth dimension (= global attribute named nb_pix_azimuth in LakeTile_edge)
+                    - cycle_num / int: cycle number (= global attribute named cycle_number in LakeTile_edge)
+                    - pass_num / int: pass number (= global attribute named pass_number in LakeTile_edge)
+                - Variables :
+                    - range_idx / 1D-array of int: range indices of water pixels (= variable named range_index in  LakeTile_edge)
+                    - azimuth_idx / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in LakeTile_edge)
+                    - pixel_area / 1D-array of int: area of water pixels (= variable named pixel_area in LakeTile_edge)
+                    - height / 1D-array of float: height of water pixels (= variable named height_medium in L2_HR_PIXC_main and LakeTile_edge)
+                    - crosstrack / 1D-array of float: cross-track distance from nadir to center of water pixels (= variable named crosstrack_medium in LakeTile_edge)
+                    - nadir_time / 1D-array of float: observation time of each nadir pixel (= variable named time in LakeTile_edge)
+                    - nadir_longitude / 1D-array of float: longitude of each nadir pixel (= variable named nadir_lon in LakeTile_edge)
+                    - nadir_lattitude / 1D-array of float: latitude of each nadir pixel (= variable named latitude in LakeTile_edge)
+                    - nadir_[x|y|z] / 1D-array of float: [x|y|z] cartesian coordinates of each nadir pixel (= variables named nadir_[x|y|z] in LakeTile_edge)
+                    - nadir_[vx|vy|vz] / 1D-array of float: velocity vector of each nadir pixel in cartesian coordinates (= variables named nadir_[vx|vy|vz] in LakeTile_edge)
+                    - nadir_alt / 1D-array of float: satellite altitude at each nadir point (= variable named nadir_alt in LakeTile_edge)
+                    - near_range / 1D-array of float: near range distance for each nadir point (= variable named nadir_near_range in LakeTile_edge)
+                    - latitude / 1D-array of float: latitude of water pixels (= variable named latitude_medium in L2_HR_PIXC_main and LakeTile_edge)
+                    - longitude / 1D-array of float: longitude of water pixels (= variable named longitude_medium in L2_HR_PIXC_main and LakeTile_edge)
+            - From process:
+                - tile_ref / list of string : list of tile references to process ex: ['42N-R', '43N-R', '44N-R', '45N-R']
+                - nb_tiles / int : number of tiles to process
+                - nb_pixels / int : number of pixels to process
+                - tile_idx / tuple of ndarrays : indices of tile for each pixel
+                - ascending / bool : orbit orientation (True = ascending, False=descending)
+                - labels / 1D-array of int : arrays of new labels
+        
         """
         my_api.printInfo("[PixelCloudSP] == INIT ==")
 
