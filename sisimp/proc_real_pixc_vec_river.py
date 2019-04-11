@@ -21,6 +21,7 @@ from osgeo import ogr, osr
 
 import lib.my_api as my_api
 import lib.my_netcdf_file as my_nc
+import lib.my_variables as my_var
 
 
 def fill_vector_param(IN_variable, IN_variable_name, IN_ref_size, IN_data_param):
@@ -103,23 +104,17 @@ class l2_hr_pixc_vec_river(object):
         self.nb_pix_river = 0  # Number of PixC associated to river
         self.pixc_river_idx = None  # Indices of pixels in the L2_HR_PIXC product associated to a river
 
-    def write_file(self, IN_output_file, noval, compress=False):
+    def write_file(self, IN_output_file, compress=False):
         """
         Write the pixel cloud vector attribute for river product (L2_HR_PIXCVecRiver product)
         NB: if there is no river pixels, write an empty file (with points = 0)
 
         :param IN_output_file: output full path
         :type IN_output_file: string
-        :param noval: No data value
-        :type noval: float
         :param compress: parameter the define to compress or not the file
         :type compress: boolean
         """ 
         my_api.printInfo("[l2_hr_pixc_vec_river] == write_file : %s ==" % IN_output_file)
-        
-        # 0 - Init noval if necessary
-        if noval is None:
-            noval = -999000000.
     
         # 1 - Open NetCDF file in writing mode
         data = my_nc.myNcWriter(IN_output_file)
@@ -156,30 +151,30 @@ class l2_hr_pixc_vec_river(object):
 
             data.add_dimension('points', self.nb_pix_river)
     
-            data.add_variable('pixc_index', np.int32, 'points', np.int(noval), compress)
+            data.add_variable('pixc_index', np.int32, 'points', my_var.FV_NETCDF["int32"], compress)
             fill_vector_param(self.pixc_river_idx, 'pixc_index', self.nb_pix_river, data)
-            data.add_variable('azimuth_index', np.int32, 'points', np.int(noval), compress)
+            data.add_variable('azimuth_index', np.int32, 'points', my_var.FV_NETCDF["int32"], compress)
             fill_vector_param(self.azimuth_index[self.pixc_river_idx], 'azimuth_index', self.nb_pix_river, data)
-            data.add_variable('range_index', np.int32, 'points', np.int(noval), compress)
+            data.add_variable('range_index', np.int32, 'points', my_var.FV_NETCDF["int32"], compress)
             fill_vector_param(self.range_index[self.pixc_river_idx], 'range_index', self.nb_pix_river, data)
         
-            data.add_variable('latitude_vectorproc', np.double, 'points', noval, compress)
+            data.add_variable('latitude_vectorproc', np.float64, 'points', my_var.FV_NETCDF["float64"], compress)
             data.add_variable_attribute('latitude_vectorproc', 'units', 'degrees_north')
             fill_vector_param(self.latitude_vectorproc[self.pixc_river_idx], 'latitude_vectorproc', self.nb_pix_river, data)
-            data.add_variable('longitude_vectorproc', np.double, 'points', noval, compress)
+            data.add_variable('longitude_vectorproc', np.float64, 'points', my_var.FV_NETCDF["float64"], compress)
             data.add_variable_attribute('longitude_vectorproc', 'units', 'degrees_east')
             fill_vector_param(self.longitude_vectorproc[self.pixc_river_idx], 'longitude_vectorproc', self.nb_pix_river, data)
-            data.add_variable('wse_vectorproc', np.float32, 'points', np.float(noval), compress)
+            data.add_variable('wse_vectorproc', np.float32, 'points', np.float(my_var.FV_NETCDF["float32"]), compress)
             data.add_variable_attribute('wse_vectorproc', 'units', 'm')
             fill_vector_param(self.height_vectorproc[self.pixc_river_idx], 'wse_vectorproc', self.nb_pix_river, data)
         
             data.add_variable('node_id', str, 'points', "", compress)
             fill_vector_param(self.river_tag[self.pixc_river_idx], 'node_id', self.nb_pix_river, data)
-            data.add_variable('lake_flag', str, 'points', "", compress)
+            data.add_variable('lake_flag', np.int8, 'points', my_var.FV_NETCDF["int8"], compress)
             fill_vector_param(np.zeros(self.nb_pix_river), 'lake_flag', self.nb_pix_river, data)
-            data.add_variable('climato_ice_flag', str, 'points', "", compress)
+            data.add_variable('climato_ice_flag', np.int8, 'points', my_var.FV_NETCDF["int8"], compress)
             fill_vector_param(np.zeros(self.nb_pix_river), 'climato_ice_flag', self.nb_pix_river, data)
-            data.add_variable('dynamic_ice_flag', str, 'points', "", compress)
+            data.add_variable('dynamic_ice_flag', np.int8, 'points', my_var.FV_NETCDF["int8"], compress)
             fill_vector_param(np.zeros(self.nb_pix_river), 'dynamic_ice_flag', self.nb_pix_river, data)
         
         # 4 - Close output file
@@ -213,21 +208,21 @@ class l2_hr_pixc_vec_river(object):
             srs.ImportFromEPSG(4326)  # WGS84
             outLayer = outDataSource.CreateLayer(str(os.path.basename(IN_output_file).split(".")[0]), srs, geom_type=ogr.wkbPoint)
             # 1.4 - Creation des attributs
-            outLayer.CreateField(ogr.FieldDefn(str('AZ_INDEX'), ogr.OFTInteger))
-            outLayer.CreateField(ogr.FieldDefn(str('R_INDEX'), ogr.OFTInteger))
-            tmpField = ogr.FieldDefn(str('LAT2'), ogr.OFTReal)
+            outLayer.CreateField(ogr.FieldDefn(str('az_index'), ogr.OFTInteger))
+            outLayer.CreateField(ogr.FieldDefn(str('r_index'), ogr.OFTInteger))
+            tmpField = ogr.FieldDefn(str('lat2'), ogr.OFTReal)
             tmpField.SetWidth(10)
             tmpField.SetPrecision(6)
             outLayer.CreateField(tmpField)
-            tmpField = ogr.FieldDefn(str('LONG2'), ogr.OFTReal)
+            tmpField = ogr.FieldDefn(str('long2'), ogr.OFTReal)
             tmpField.SetWidth(10)
             tmpField.SetPrecision(6)
             outLayer.CreateField(tmpField)
-            tmpField = ogr.FieldDefn(str('HEIGHT2'), ogr.OFTReal)
+            tmpField = ogr.FieldDefn(str('wse2'), ogr.OFTReal)
             tmpField.SetWidth(10)
             tmpField.SetPrecision(6)
             outLayer.CreateField(tmpField)
-            outLayer.CreateField(ogr.FieldDefn(str('TAG'), ogr.OFTString))
+            outLayer.CreateField(ogr.FieldDefn(str('node_id'), ogr.OFTString))
             outLayerDefn = outLayer.GetLayerDefn()
             
             # 2 - On traite point par point
@@ -239,12 +234,12 @@ class l2_hr_pixc_vec_river(object):
                 point.AddPoint(self.longitude_vectorproc[indp], self.latitude_vectorproc[indp])
                 outFeature.SetGeometry(point)
                 # 2.3 - On lui assigne les attributs
-                outFeature.SetField(str('AZ_INDEX'), int(self.azimuth_index[indp]))
-                outFeature.SetField(str('R_INDEX'), int(self.range_index[indp]))
-                outFeature.SetField(str('LAT2'), float(self.latitude_vectorproc[indp]))
-                outFeature.SetField(str('LONG2'), float(self.longitude_vectorproc[indp]))
-                outFeature.SetField(str('HEIGHT2'), float(self.height_vectorproc[indp]))
-                outFeature.SetField(str('TAG'), str(self.river_tag[indp]))
+                outFeature.SetField(str('az_index'), int(self.azimuth_index[indp]))
+                outFeature.SetField(str('r_index'), int(self.range_index[indp]))
+                outFeature.SetField(str('lat2'), float(self.latitude_vectorproc[indp]))
+                outFeature.SetField(str('long2'), float(self.longitude_vectorproc[indp]))
+                outFeature.SetField(str('wse2'), float(self.height_vectorproc[indp]))
+                outFeature.SetField(str('node_id'), str(self.river_tag[indp]))
                 # 2.4 - On ajoute l'objet dans la couche de sortie
                 outLayer.CreateFeature(outFeature)
             
