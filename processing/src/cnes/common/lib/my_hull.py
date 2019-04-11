@@ -15,8 +15,6 @@ Library uses alpha_shape implementation based CGAL See https://www.cgal.org/
 
 """
 
-#from CGAL import CGAL_Alpha_shape_2
-#from CGAL.CGAL_Kernel import Point_2, Polygon_2, Vector_2
 import logging
 import math
 import numpy as np
@@ -725,8 +723,15 @@ def get_concave_hull_from_cgal_triangulation(in_v_long, in_v_lat, in_range, in_a
     :return the hull of the input set of points
     :rtype: OGRMultiPolygon
     """
+    
     logger = logging.getLogger("my_hull")
-
+    try:
+        from CGAL import CGAL_Alpha_shape_2
+        from CGAL.CGAL_Kernel import Point_2, Polygon_2, Vector_2
+    except:
+        logger.error("CGAL library must be install to use this option, use an other HULL_METHOD")
+        raise
+        
     # Transform lonlat coordinates to UTM coordinates
     coords = np.zeros((in_v_long.size, 2))
     coords[:, 0], coords[:, 1], utm_epsg_code = my_tools.get_utm_coords_from_lonlat(in_v_long, in_v_lat)
@@ -857,11 +862,21 @@ def get_angle(p, q, r):
     :param r: Point
     :return angle
     '''
+    
+    logger = logging.getLogger("my_hull")
+    try:
+        from CGAL import CGAL_Alpha_shape_2
+        from CGAL.CGAL_Kernel import Point_2, Polygon_2, Vector_2
+    except:
+        logger.error("CGAL library must be install to use this option, use an other HULL_METHOD")
+        raise
+        
     v1 = Vector_2(q, p)
     v2 = Vector_2(q, r)
-    cross = v1.x() * v2.y() - v1.y() * v2.x();
+    
+    crossproduct = v1.x() * v2.y() - v1.y() * v2.x();
     dot = v1.x() * v2.x() + v1.y() * v2.y();
-    angle = math.atan2(cross, dot)
+    angle = math.atan2(crossproduct, dot)
     if angle < 0.0:
         angle += 2 * np.pi
     return angle
@@ -874,6 +889,15 @@ def find_rings(vertices, edges):
     :param edges: List of edges
     :return rings
     '''
+    
+    logger = logging.getLogger("my_hull")
+    try:
+        from CGAL import CGAL_Alpha_shape_2
+        from CGAL.CGAL_Kernel import Point_2, Polygon_2, Vector_2
+    except:
+        logger.error("CGAL library must be install to use this option, use an other HULL_METHOD")
+        raise
+        
     # Create a dataframe for segments
     df_edges = pd.DataFrame(data=[[edge.source(),
                                    edge.target(),
@@ -941,6 +965,15 @@ def find_polygons(rings):
     :param rings: List of rings
     :return polygons
     '''
+    
+    logger = logging.getLogger("my_hull")
+    try:
+        from CGAL import CGAL_Alpha_shape_2
+        from CGAL.CGAL_Kernel import Point_2, Polygon_2, Vector_2
+    except:
+        logger.error("CGAL library must be install to use this option, use an other HULL_METHOD")
+        raise
+        
     polygons = []
     # Create dataframe
     df = pd.DataFrame(data=rings, columns=['ring'])
@@ -984,6 +1017,16 @@ def alpha_shape_with_cgal(coords, alpha):
         Too large, and you lose everything!
     :return Shapely.MultiPolygons which is the hull of the input set of points
     '''
+    
+    
+    logger = logging.getLogger("my_hull")
+    try:
+        from CGAL import CGAL_Alpha_shape_2
+        from CGAL.CGAL_Kernel import Point_2, Polygon_2, Vector_2
+    except:
+        logger.error("CGAL library must be install to use this option, use an other HULL_METHOD")
+        raise
+        
     alpha_value = np.mean(alpha)
     # Convert to CGAL point
     points = [Point_2(pt[0], pt[1]) for pt in coords]
