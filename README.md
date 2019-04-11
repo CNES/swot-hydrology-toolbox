@@ -91,6 +91,7 @@ The dependencies of swot-hydrology-toolbox are:
 * netcdf
 * proj4
 * libspatialindex
+* CGAL (optional, if using HULL_METHOD=1.0)
 * and the following Python modules:
   * numpy
   * scipy

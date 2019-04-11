@@ -49,3 +49,4 @@ PROJ.4 (https://proj4.org/), distributed under licence MIT (https://proj4.org/ab
 PySAL (http://pysal.org/), distributed under licence BSD 3 clauses (https://github.com/pysal/pysal/blob/master/LICENSE.txt)
 
 
+Optional (if using HULL_METHOD=1.0): CGAL (https://www.cgal.org/), distributed under licence GPL (https://www.cgal.org/license.html). Be careful: if you use this library, your code will be under licence GPL.
