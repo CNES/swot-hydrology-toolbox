@@ -380,7 +380,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     if IN_attributes.tropo_model == 'map':
         my_api.printInfo("Applying wet tropo map gaussian model")
         tropo = Tropo_module(IN_attributes.tropo_model)
-        tropo_error = tropo.calculate_tropo_error_map(np.mean(lat) * RAD2DEG, az, r, IN_attributes.tropo_error_map_file, IN_attributes.tropo_error_correlation)
+        tropo_error = tropo.calculate_tropo_error_map(np.mean(lat)* RAD2DEG, az, r, IN_attributes.tropo_error_map_file, IN_attributes.tropo_error_correlation) 
+        delta_h += tropo_error
 
     # 5.3 - Compute final noisy heights (elevation + thermal noise + roll error + height model) 
     elevation_tab_noisy = elevation_tab + delta_h           
