@@ -43,7 +43,7 @@ class Tropo_module(object):
         delta_wtc_MEAN = ds.variables['delta_wtc_MEAN'][:]
         delta_wtc_STD = ds.variables['delta_wtc_STD'][:]
         latitude = ds.variables['latitude'][:]
-        
+
         f=scipy.interpolate.interp1d(latitude, delta_wtc_MEAN,kind='linear')
         delta_wtc_MEAN_local=f(latmin)        
         f=scipy.interpolate.interp1d(latitude, delta_wtc_STD,kind='linear')
