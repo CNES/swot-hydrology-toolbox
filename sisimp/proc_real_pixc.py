@@ -22,6 +22,7 @@ from osgeo import ogr, osr
 
 import lib.my_api as my_api
 import lib.my_netcdf_file as my_nc
+import lib.my_variables as my_var
 
 
 def fill_vector_param(variable, variable_name, ref_size, data_param, group=None):
@@ -36,6 +37,8 @@ def fill_vector_param(variable, variable_name, ref_size, data_param, group=None)
     :type ref_size: int
     :param data_param: pointer to the NetCDF writer (=NcWrite(OUT_file))
     :type data_param: -
+    :param group:
+    :type group:
     """
     if variable is not None:
         xsize = len(variable)
@@ -51,8 +54,8 @@ def fill_vector_param(variable, variable_name, ref_size, data_param, group=None)
 
 class l2_hr_pixc(object):
 
-    def __init__(self, IN_azimuth_index, IN_range_index, IN_classification, IN_pixel_area, IN_latitude, IN_longitude, IN_height, IN_crosstrack, \
-                 IN_nadir_time, IN_nadir_latitude, IN_nadir_longitude, IN_nadir_altitude, IN_nadir_heading, IN_nadir_x, IN_nadir_y, IN_nadir_z, IN_nadir_vx, IN_nadir_vy, IN_nadir_vz, IN_nadir_near_range, \
+    def __init__(self, IN_azimuth_index, IN_range_index, IN_classification, IN_pixel_area, IN_latitude, IN_longitude, IN_height, IN_crosstrack,
+                 IN_nadir_time, IN_nadir_latitude, IN_nadir_longitude, IN_nadir_altitude, IN_nadir_heading, IN_nadir_x, IN_nadir_y, IN_nadir_z, IN_nadir_vx, IN_nadir_vy, IN_nadir_vz, IN_nadir_near_range,
                  IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_nb_pix_range, IN_nb_pix_azimuth, IN_azimuth_spacing, IN_range_spacing, IN_near_range):
         """
         Constructor of the pixel cloud product
@@ -136,8 +139,6 @@ class l2_hr_pixc(object):
         
         for i in range(self.illumination_time.size):
             self.illumination_time[i] = self.nadir_time[self.sensor_s[i]]
-
-        #self.illumination_time = [self.nadir_time[self.sensor_s[i]] for i in range((self.illumination_time).size)]
             
         self.nadir_latitude = IN_nadir_latitude
         self.nadir_longitude = IN_nadir_longitude
@@ -165,33 +166,29 @@ class l2_hr_pixc(object):
     
     #----------------------------------
 
-    def write_pixc_file(self, IN_output_file, noval, compress=False):
+    def write_pixc_file(self, IN_output_file, compress=False):
         """
         Write the main file of real pixel cloud product (L2_HR_PIXC product, main file)
 
         :param IN_output_file: output full path
         :type IN_output_file: string
-        :param noval: No data value
-        :type noval: float
         :param compress: parameter the define to compress or not the file
         :type compress: boolean
         """
-        my_api.printInfo("[proc_real_pixc] == write_pixc_file : %s ==" % IN_output_file) 
+        my_api.printInfo("[proc_real_pixc] == write_pixc_file : %s ==" % IN_output_file)
     
+        # 1 - Open NetCDF file in writing mode
         data = my_nc.myNcWriter(IN_output_file)
-        
-        if noval is None:
-            noval = -999000000.
         
         # Global attributes
         data.add_global_attribute('Conventions', 'CF-1.7')
-        data.add_global_attribute('title', 'Level 2 Pixel Clould Data Product')
-        data.add_global_attribute('institution', 'JPL')
+        data.add_global_attribute('title', 'Level 2 KaRIn High Rate Water Mask Pixel Clould Data Product')
+        data.add_global_attribute('institution', 'CNES - Large scale simulator')
         data.add_global_attribute('source', 'Ka-band radar interferometer')
-        data.add_global_attribute('history', 'None')
+        data.add_global_attribute('history', "%sZ: Creation" % datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
         data.add_global_attribute('mission_name', "SWOT")
-        data.add_global_attribute('references', 'None')
-        data.add_global_attribute('reference_document', 'None')
+        data.add_global_attribute('references', 'Large scale simulator')
+        data.add_global_attribute('reference_document', 'JPL D-56411 - Initial release - February 11, 2019')
         data.add_global_attribute('contact', 'None')
         data.add_global_attribute('cycle_number', self.cycle_num)
         data.add_global_attribute('pass_number', np.int(self.pass_num))
@@ -199,248 +196,256 @@ class l2_hr_pixc(object):
         data.add_global_attribute('swath_side', self.tile_ref[-1])
         data.add_global_attribute('tile_name', "%03d_%03d%s" % (np.int(self.pass_num), int(self.tile_ref[0:-1]), self.tile_ref[-1]))
         data.add_global_attribute("wavelength", 0.008385803020979)
-        ### WARNING HERE, TO BE CHANGED
-        data.add_global_attribute('near_range', np.min(self.near_range))
-        ### WARNING HERE, TO BE CHANGED       
+        data.add_global_attribute('near_range', np.min(self.near_range))  # TODO: improve
         data.add_global_attribute('nominal_slant_range_spacing', self.range_spacing)
         data.add_global_attribute('start_time', self.computeDate(self.nadir_time[0]))    
         data.add_global_attribute('stop_time', self.computeDate(self.nadir_time[-1]))  
         data.add_global_attribute('polarization', 'None')         
-        data.add_global_attribute('transmit_antenna', 'plus_y')
+        data.add_global_attribute('transmit_antenna', 'None')
         data.add_global_attribute('processing_beamwidth', 'None')
-        ### WARNING HERE, TO BE CHANGED       
-        data.add_global_attribute('ephemeris', "0LL")    
-        data.add_global_attribute('yaw_flip', "0LL")    
-        data.add_global_attribute('hpa_cold', "0LL")    
-        data.add_global_attribute('processing_beamwidth', "0LL")
-        ### WARNING HERE, TO BE CHANGED       
-        data.add_global_attribute("inner_first_latitude", self.latitude[np.argmin(self.latitude)])
-        data.add_global_attribute("inner_first_longitude", self.longitude[np.argmin(self.longitude)])
-
-        data.add_global_attribute("outer_first_latitude", self.latitude[np.argmin(self.latitude)])
-        data.add_global_attribute("outer_first_longitude", self.longitude[np.argmax(self.longitude)])
-
-        data.add_global_attribute("outer_last_latitude", self.latitude[np.argmax(self.latitude)])
-        data.add_global_attribute("outer_last_longitude", self.longitude[np.argmax(self.longitude)])
-
-        data.add_global_attribute("inner_last_latitude", self.latitude[np.argmax(self.latitude)])
-        data.add_global_attribute("inner_last_longitude", self.longitude[np.argmin(self.longitude)])
-
+        data.add_global_attribute("inner_first_latitude", self.latitude[np.argmin(self.latitude)])  # TODO: improve
+        data.add_global_attribute("inner_first_longitude", self.longitude[np.argmin(self.longitude)])  # TODO: improve
+        data.add_global_attribute("inner_last_latitude", self.latitude[np.argmax(self.latitude)])  # TODO: improve
+        data.add_global_attribute("inner_last_longitude", self.longitude[np.argmin(self.longitude)])  # TODO: improve
+        data.add_global_attribute("outer_first_latitude", self.latitude[np.argmin(self.latitude)])  # TODO: improve
+        data.add_global_attribute("outer_first_longitude", self.longitude[np.argmax(self.longitude)])  # TODO: improve
+        data.add_global_attribute("outer_last_latitude", self.latitude[np.argmax(self.latitude)])  # TODO: improve
+        data.add_global_attribute("outer_last_longitude", self.longitude[np.argmax(self.longitude)])  # TODO: improve
         data.add_global_attribute("slc_first_line_index_in_tvp", 'None')
         data.add_global_attribute("slc_last_line_index_in_tvp", 'None')
-        data.add_global_attribute("xref_input_l1b_hr_slc", 'None')
-        data.add_global_attribute("xref_static_karin_cal_file", 'None')
-        data.add_global_attribute("xref_ref_dem_file", 'None')
-        data.add_global_attribute("xref_water_mask_file", 'None')
-        data.add_global_attribute("xref_static_geophys_file", 'None')
-        data.add_global_attribute("xref_dynamic_geophys_file", 'None')
-        data.add_global_attribute("xref_int_lr_xover_cal_file", 'None')
+        data.add_global_attribute("xref_input_l1b_hr_slc_file", 'None')
+        data.add_global_attribute("xref_input_static_karin_cal_file", 'None')
+        data.add_global_attribute("xref_input_ref_dem_file", 'None')
+        data.add_global_attribute("xref_input_water_mask_file", 'None')
+        data.add_global_attribute("xref_input_static_geophys_file", 'None')
+        data.add_global_attribute("xref_input_dynamic_geophys_file", 'None')
+        data.add_global_attribute("xref_input_int_lr_xover_cal_file", 'None')
         data.add_global_attribute("xref_l2_hr_pixc_config_parameters_file", 'None')
         data.add_global_attribute("ellipsoid_semi_major_axis", 'None')
         data.add_global_attribute("ellipsoid_flattening", 'None')
 
-        # Group pixel_cloud
-
+        # =======================
+        # == Group pixel_cloud ==
+        # =======================
         pixc = data.add_group("pixel_cloud")
+        
+        # Group attributes
+        data.add_global_attribute('description', 'cloud of geolocated interferogram pixels', group=pixc)     
+        data.add_global_attribute('interferogram_size_azimuth', self.nb_pix_azimuth, group=pixc) 
+        data.add_global_attribute('interferogram_size_range', self.nb_pix_range, group=pixc)      
+        data.add_global_attribute('looks_to_efflooks', 1.75, group=pixc)   
   
+        # Group dimensions
         data.add_dimension('points', self.nb_water_pix, group=pixc)
         data.add_dimension('depth', 2, group=pixc)
         
-        data.add_variable('azimuth_index', np.int64, 'points', np.int(noval), compress, group=pixc)
+        # Group variables
+        data.add_variable('azimuth_index', np.int32, 'points', my_var.FV_NETCDF["int32"], compress, group=pixc)
         fill_vector_param(self.azimuth_index, 'azimuth_index', self.nb_water_pix, data, group=pixc)
-        data.add_variable('range_index', np.int64, 'points', np.int(noval), compress, group=pixc)
+        data.add_variable('range_index', np.int32, 'points', my_var.FV_NETCDF["int32"], compress, group=pixc)
         fill_vector_param(self.range_index, 'range_index', self.nb_water_pix, data, group=pixc)
-        data.add_variable('interferogram', np.int64, ('points', 'depth'), np.float(noval), compress, group=pixc)
+        
+        data.add_variable('interferogram', np.float32, ('points', 'depth'), my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros([self.nb_water_pix, 2]), 'interferogram', self.nb_water_pix, data, group=pixc)
-        data.add_variable('power_plus_y', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('power_plus_y', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'power_plus_y', self.nb_water_pix, data, group=pixc)
-        data.add_variable('power_minus_y', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('power_minus_y', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'power_minus_y', self.nb_water_pix, data, group=pixc)
-        data.add_variable('coherent_power', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('coherent_power', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'coherent_power', self.nb_water_pix, data, group=pixc)
-        data.add_variable('x_factor_plus_y', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('x_factor_plus_y', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'x_factor_plus_y', self.nb_water_pix, data, group=pixc)
-        data.add_variable('x_factor_minus_y', np.float64, 'points', np.float(noval), compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'x_factor_minus_y', self.nb_water_pix, data, group=pixc)        
-        data.add_variable('water_frac', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('x_factor_minus_y', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        fill_vector_param(np.zeros(self.nb_water_pix), 'x_factor_minus_y', self.nb_water_pix, data, group=pixc)  
+        
+        data.add_variable('water_frac', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.ones(self.nb_water_pix), 'water_frac', self.nb_water_pix, data, group=pixc)       
-        data.add_variable('water_frac_uncert', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('water_frac_uncert', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'water_frac_uncert', self.nb_water_pix, data, group=pixc)              
-        data.add_variable('classification', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('classification', np.int8, 'points', my_var.FV_NETCDF["int8"], compress, group=pixc)
         fill_vector_param(self.classification, 'classification', self.nb_water_pix, data, group=pixc) 
-        data.add_variable('false_detection_rate', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('false_detection_rate', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'false_detection_rate', self.nb_water_pix, data, group=pixc)
-        data.add_variable('missed_detection_rate', np.byte, 'points', None, compress, group=pixc)
+        data.add_variable('missed_detection_rate', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'missed_detection_rate', self.nb_water_pix, data, group=pixc)
-        data.add_variable('prior_water_prob', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('prior_water_prob', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'prior_water_prob', self.nb_water_pix, data, group=pixc)
-        data.add_variable('bright_land_flag', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('bright_land_flag', np.int8, 'points', my_var.FV_NETCDF["int8"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'bright_land_flag', self.nb_water_pix, data, group=pixc)          
-        data.add_variable('layover_impact', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('layover_impact', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'layover_impact', self.nb_water_pix, data, group=pixc)
-        data.add_variable('num_rare_looks', np.float64, 'points', np.int(noval), compress, group=pixc)
-        fill_vector_param(np.full(self.nb_water_pix, 7.), 'num_rare_looks', self.nb_water_pix, data, group=pixc)        
-        data.add_variable('latitude', np.float64, 'points', np.float(noval), compress, group=pixc)
+        
+        data.add_variable('num_rare_looks', np.int8, 'points', my_var.FV_NETCDF["int8"], compress, group=pixc)
+        fill_vector_param(np.full(self.nb_water_pix, 7.), 'num_rare_looks', self.nb_water_pix, data, group=pixc) 
+        
+        data.add_variable('latitude', np.float64, 'points', my_var.FV_NETCDF["float64"], compress, group=pixc)
         data.add_variable_attribute('latitude', 'units', 'degrees_north', group=pixc)
         fill_vector_param(self.latitude, 'latitude', self.nb_water_pix, data, group=pixc)
-        data.add_variable('longitude', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('longitude', np.float64, 'points', my_var.FV_NETCDF["float64"], compress, group=pixc)
         data.add_variable_attribute('longitude', 'units', 'degrees_east', group=pixc)
         fill_vector_param(self.longitude, 'longitude', self.nb_water_pix, data, group=pixc)
-        data.add_variable('height', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('height', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         data.add_variable_attribute('height', 'units', 'm', group=pixc)
         fill_vector_param(self.height, 'height', self.nb_water_pix, data, group=pixc)
-        data.add_variable('cross_track', np.float64, 'points', np.float(noval), compress, group=pixc)
+        
+        data.add_variable('cross_track', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(self.crosstrack, 'cross_track', self.nb_water_pix, data, group=pixc)
-        data.add_variable('pixel_area', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('pixel_area', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(self.pixel_area, 'pixel_area', self.nb_water_pix, data, group=pixc)        
-        data.add_variable('inc', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('inc', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'inc', self.nb_water_pix, data, group=pixc)
-        data.add_variable('phase_noise_std', np.float64, 'points', np.float(noval), compress, group=pixc)
+        
+        data.add_variable('phase_noise_std', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'phase_noise_std', self.nb_water_pix, data, group=pixc)        
-        data.add_variable('dlatitude_dphase', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('dlatitude_dphase', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'dlatitude_dphase', self.nb_water_pix, data, group=pixc)
-        data.add_variable('dlongitude_dphase', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('dlongitude_dphase', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'dlongitude_dphase', self.nb_water_pix, data, group=pixc)                  
-        data.add_variable('dheight_dphase', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('dheight_dphase', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'dheight_dphase', self.nb_water_pix, data, group=pixc)  
-        data.add_variable('dheight_droll', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('dheight_droll', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'dheight_droll', self.nb_water_pix, data, group=pixc)
-        data.add_variable('dheight_dbaseline', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('dheight_dbaseline', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'dheight_dbaseline', self.nb_water_pix, data, group=pixc)                  
-        data.add_variable('dheight_drange', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('dheight_drange', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'dheight_drange', self.nb_water_pix, data, group=pixc)       
-        data.add_variable('darea_dheight', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('darea_dheight', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'darea_dheight', self.nb_water_pix, data, group=pixc)
         
-        ### WARNING HERE, TO BE CHANGED                        
-        data.add_variable('illumination_time', np.float64, 'points', np.float(noval), compress, group=pixc)
-        fill_vector_param(self.illumination_time, 'illumination_time', self.nb_water_pix, data, group=pixc)
-        data.add_variable('illumination_time_tai', np.float64, 'points', np.float(noval), compress, group=pixc)
-        fill_vector_param(self.illumination_time, 'illumination_time_tai', self.nb_water_pix, data, group=pixc)        
-        data.add_variable('num_med_looks', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('illumination_time', np.float64, 'points', my_var.FV_NETCDF["float64"], compress, group=pixc)
+        fill_vector_param(self.computeTime_UTC(self.illumination_time), 'illumination_time', self.nb_water_pix, data, group=pixc)
+        data.add_variable('illumination_time_tai', np.float64, 'points', my_var.FV_NETCDF["float64"], compress, group=pixc)
+        fill_vector_param(self.computeTime_TAI(self.illumination_time), 'illumination_time_tai', self.nb_water_pix, data, group=pixc)  # TODO: to improve
+        
+        data.add_variable('num_med_looks', np.int32, 'points', my_var.FV_NETCDF["int32"], compress, group=pixc)
         fill_vector_param(np.full(self.nb_water_pix, 63.), 'num_med_looks', self.nb_water_pix, data, group=pixc)
-        ### WARNING HERE, TO BE CHANGED       
-        data.add_variable('sig0', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('sig0', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'sig0', self.nb_water_pix, data, group=pixc)
-        data.add_variable('phase_unwrapping_region', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('phase_unwrapping_region', np.int32, 'points', my_var.FV_NETCDF["int32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'phase_unwrapping_region', self.nb_water_pix, data, group=pixc)
-        data.add_variable('instrument_range_cor', np.float64, 'points', np.float(noval), compress, group=pixc)
+        
+        data.add_variable('instrument_range_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'instrument_range_cor', self.nb_water_pix, data, group=pixc)
-        data.add_variable('instrument_phase_cor', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('instrument_phase_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'instrument_phase_cor', self.nb_water_pix, data, group=pixc)
-        data.add_variable('instrument_baseline_cor', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('instrument_baseline_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'instrument_baseline_cor', self.nb_water_pix, data, group=pixc)
-        data.add_variable('instrument_attitude_cor', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('instrument_attitude_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'instrument_attitude_cor', self.nb_water_pix, data, group=pixc)
 
-        data.add_variable('model_dry_tropo_cor', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('model_dry_tropo_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'model_dry_tropo_cor', self.nb_water_pix, data, group=pixc)
-        data.add_variable('model_wet_tropo_cor', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('model_wet_tropo_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'model_wet_tropo_cor', self.nb_water_pix, data, group=pixc)
-        data.add_variable('iono_cor_gim_ka', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('iono_cor_gim_ka', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'iono_cor_gim_ka', self.nb_water_pix, data, group=pixc)     
-        data.add_variable('xover_height_cor', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('xover_height_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'xover_height_cor', self.nb_water_pix, data, group=pixc)
-        data.add_variable('load_tide_sol1', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('load_tide_sol1', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'load_tide_sol1', self.nb_water_pix, data, group=pixc)
-        data.add_variable('load_tide_sol2', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('load_tide_sol2', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'load_tide_sol2', self.nb_water_pix, data, group=pixc)
-        data.add_variable('pole_tide', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('pole_tide', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'pole_tide', self.nb_water_pix, data, group=pixc)
-        data.add_variable('solid_earth_tide', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('solid_earth_tide', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'solid_earth_tide', self.nb_water_pix, data, group=pixc)
-        data.add_variable('geoid', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('geoid', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'geoid', self.nb_water_pix, data, group=pixc)
-        data.add_variable('surface_type_flag', np.float64, 'points', np.float(noval), compress, group=pixc)
+        data.add_variable('surface_type_flag', np.int8, 'points', my_var.FV_NETCDF["int8"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'surface_type_flag', self.nb_water_pix, data, group=pixc)
-        data.add_variable('pixc_qual', np.float64, 'points', np.float(noval), compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'pixc_qual', self.nb_water_pix, data, group=pixc)        
-        # some new vars 11/01/2019
-        data.add_global_attribute('description', 'cloud of geolocated interferogram pixels', group=pixc)    
-        data.add_global_attribute('interferogram_size_range', self.nb_pix_range, group=pixc)    
-        data.add_global_attribute('interferogram_size_azimuth', self.nb_pix_azimuth, group=pixc)    
-        data.add_global_attribute('looks_to_efflooks', 1.75, group=pixc)   
+        data.add_variable('pixc_qual', np.int8, 'points', my_var.FV_NETCDF["int8"], compress, group=pixc)
+        fill_vector_param(np.zeros(self.nb_water_pix), 'pixc_qual', self.nb_water_pix, data, group=pixc) 
         
-        # Group TVP
-        
+        # ===============
+        # == Group TVP ==
+        # ===============
         sensor = data.add_group("tvp")
+        
+        # Group attributes
+        data.add_global_attribute('description', 'Time varying parameters group including spacecraft attitude, position, velocity, and antenna position information', group=sensor)
+
+        # Group dimension
         data.add_dimension('num_tvps', self.nb_nadir_pix, group=sensor)
 
-        data.add_variable('time', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
-        fill_vector_param(self.nadir_time, 'time', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable('time_tai', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
-        fill_vector_param(self.nadir_time, 'time_tai', self.nb_nadir_pix, data, group=sensor)
+        # Group variables
+        data.add_variable('time', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        fill_vector_param(self.computeTime_UTC(self.nadir_time), 'time', self.nb_nadir_pix, data, group=sensor)
+        data.add_variable('time_tai', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        fill_vector_param(self.computeTime_TAI(self.nadir_time), 'time_tai', self.nb_nadir_pix, data, group=sensor)
         
-        data.add_variable('latitude', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('latitude', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         data.add_variable_attribute('latitude', 'units', 'degrees_north', group=sensor)
         fill_vector_param(self.nadir_latitude, 'latitude', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable('longitude', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('longitude', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         data.add_variable_attribute('longitude', 'units', 'degrees_east', group=sensor)
         fill_vector_param(self.nadir_longitude, 'longitude', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable('height', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
-        fill_vector_param(self.nadir_altitude, 'height', self.nb_nadir_pix, data, group=sensor)
+        data.add_variable('altitude', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        fill_vector_param(self.nadir_altitude, 'altitude', self.nb_nadir_pix, data, group=sensor)
         
-        data.add_variable('roll', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('roll', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         data.add_variable_attribute('roll', 'units', 'degrees', group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'roll', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable('pitch', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('pitch', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         data.add_variable_attribute('pitch', 'units', 'degrees', group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'pitch', self.nb_nadir_pix, data, group=sensor)  
-        data.add_variable('yaw', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('yaw', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         data.add_variable_attribute('yaw', 'units', 'degrees', group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'yaw', self.nb_nadir_pix, data, group=sensor)   
-        data.add_variable('velocity_heading', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('velocity_heading', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         fill_vector_param(self.nadir_heading, 'velocity_heading', self.nb_nadir_pix, data, group=sensor)
         data.add_variable_attribute('velocity_heading', 'units', 'degrees', group=sensor)
         
-        data.add_variable('x', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('x', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         fill_vector_param(self.nadir_x, 'x', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable('y', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('y', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         fill_vector_param(self.nadir_y, 'y', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable('z', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('z', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         fill_vector_param(self.nadir_z, 'z', self.nb_nadir_pix, data, group=sensor)
     
-        data.add_variable('vx', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('vx', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         fill_vector_param(self.nadir_vx, 'vx', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable('vy', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('vy', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         fill_vector_param(self.nadir_vy, 'vy', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable('vz', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('vz', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         fill_vector_param(self.nadir_vz, 'vz', self.nb_nadir_pix, data, group=sensor)
         
-        data.add_variable('plus_y_antenna_x', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('plus_y_antenna_x', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'plus_y_antenna_x', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable('plus_y_antenna_y', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('plus_y_antenna_y', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'plus_y_antenna_y', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable('plus_y_antenna_z', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('plus_y_antenna_z', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'plus_y_antenna_z', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable('minus_y_antenna_x', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('minus_y_antenna_x', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'minus_y_antenna_x', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable('minus_y_antenna_y', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('minus_y_antenna_y', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'minus_y_antenna_y', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable('minus_y_antenna_z', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('minus_y_antenna_z', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'minus_y_antenna_z', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable('record_counter', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('record_counter', np.int32, 'num_tvps', my_var.FV_NETCDF["int32"], compress, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'record_counter', self.nb_nadir_pix, data, group=sensor) 
-        data.add_variable('sc_event_flag', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('sc_event_flag', np.int8, 'num_tvps', my_var.FV_NETCDF["int8"], compress, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'sc_event_flag', self.nb_nadir_pix, data, group=sensor) 
-        data.add_variable('tvp_qual', np.float64, 'num_tvps', np.float(noval), compress, group=sensor)
+        data.add_variable('tvp_qual', np.int8, 'num_tvps', my_var.FV_NETCDF["int8"], compress, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'tvp_qual', self.nb_nadir_pix, data, group=sensor) 
                 
-        data.add_global_attribute('description', 'Time varying parameters group  including spacecraft attitude, position, velocity,  and antenna position information', group = sensor)    
- 
-        # Group Noise
-        
+        # =================
+        # == Group Noise ==
+        # =================
         noise = data.add_group("noise")
-        data.add_dimension('num_lines', self.nb_nadir_pix, group=noise)
         
+        # Group attributes
+        data.add_global_attribute('description', 'Measured noise power for each recieve echo of the plus_y and minus_y SLC channels', group=noise)
+ 
+        # Group dimension        
+        data.add_dimension('num_lines', self.nb_nadir_pix, group=noise)
 
-        data.add_variable('noise_plus_y', np.float64, 'num_lines', np.float(noval), compress, group=noise)
+        # Group variables
+        data.add_variable('noise_plus_y', np.float32, 'num_lines', my_var.FV_NETCDF["float32"], compress, group=noise)
         fill_vector_param(np.full(self.nb_nadir_pix, -116.845780895788), 'noise_plus_y', self.nb_nadir_pix, data, group=noise)
-        data.add_variable('noise_minus_y', np.float64, 'num_lines', np.float(noval), compress, group=noise)
+        data.add_variable('noise_minus_y', np.float32, 'num_lines', my_var.FV_NETCDF["float32"], compress, group=noise)
         fill_vector_param(np.full(self.nb_nadir_pix, -116.845780895788), 'noise_minus_y', self.nb_nadir_pix, data, group=noise)
 
-        data.add_global_attribute('description', 'Measured noise power for each recieve  echo of the plus_y and minus_y SLC channels', group = noise)    
- 
+        # Close NetCDF file
         data.close()
     
     #----------------------------------
@@ -484,26 +489,26 @@ class l2_hr_pixc(object):
         srs.ImportFromEPSG(4326)  # WGS84
         outLayer = outDataSource.CreateLayer(str(os.path.basename(IN_output_file).split('.')[0]+"_pixc"), srs, geom_type=ogr.wkbPoint)
         # 1.4 - Creation des attributs
-        outLayer.CreateField(ogr.FieldDefn(str('AZ_INDEX'), ogr.OFTInteger))  # Azimuth index
-        outLayer.CreateField(ogr.FieldDefn(str('R_INDEX'), ogr.OFTInteger))  # Range index
-        outLayer.CreateField(ogr.FieldDefn(str('CLASSIF'), ogr.OFTInteger))  # Classification
-        tmpField = ogr.FieldDefn(str('PIX_AREA'), ogr.OFTReal)  # Pixel area
-        tmpField.SetWidth(10)
-        tmpField.SetPrecision(5)
-        outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('LAT'), ogr.OFTReal)  # Latitude
-        tmpField.SetWidth(10)
+        outLayer.CreateField(ogr.FieldDefn(str('az_index'), ogr.OFTInteger))  # Azimuth index
+        outLayer.CreateField(ogr.FieldDefn(str('r_index'), ogr.OFTInteger))  # Range index
+        outLayer.CreateField(ogr.FieldDefn(str('classif'), ogr.OFTInteger))  # Classification
+        tmpField = ogr.FieldDefn(str('pix_area'), ogr.OFTReal)  # Pixel area
+        tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('LONG'), ogr.OFTReal)  # Longitude
-        tmpField.SetWidth(10)
+        tmpField = ogr.FieldDefn(str('lat'), ogr.OFTReal)  # Latitude
+        tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('HEIGHT'), ogr.OFTReal)  # Hauteur
-        tmpField.SetWidth(10)
+        tmpField = ogr.FieldDefn(str('long'), ogr.OFTReal)  # Longitude
+        tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('CR_TRACK'), ogr.OFTReal) # Distance dans la fauchee
+        tmpField = ogr.FieldDefn(str('wse'), ogr.OFTReal)  # Hauteur
+        tmpField.SetWidth(15)
+        tmpField.SetPrecision(6)
+        outLayer.CreateField(tmpField)
+        tmpField = ogr.FieldDefn(str('cr_track'), ogr.OFTReal)  # Distance dans la fauchee
         tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
@@ -519,14 +524,14 @@ class l2_hr_pixc(object):
             point.AddPoint(lng, lat)
             outFeature.SetGeometry(point)
             # 2.3 - On lui assigne les attributs
-            outFeature.SetField(str('AZ_INDEX'), float(az_ind))
-            outFeature.SetField(str('R_INDEX'), float(range_index))
-            outFeature.SetField(str('CLASSIF'), float(classif))
-            outFeature.SetField(str('PIX_AREA'), float(pixel_area))
-            outFeature.SetField(str('LAT'), float(lat))
-            outFeature.SetField(str('LONG'), float(lng))
-            outFeature.SetField(str('HEIGHT'), float(height))
-            outFeature.SetField(str('CR_TRACK'), float(crosstrack))
+            outFeature.SetField(str('az_index'), float(az_ind))
+            outFeature.SetField(str('r_index'), float(range_index))
+            outFeature.SetField(str('classif'), float(classif))
+            outFeature.SetField(str('pix_area'), float(pixel_area))
+            outFeature.SetField(str('lat'), float(lat))
+            outFeature.SetField(str('long'), float(lng))
+            outFeature.SetField(str('wse'), float(height))
+            outFeature.SetField(str('cr_track'), float(crosstrack))
             # 2.4 - On ajoute l'objet dans la couche de sortie
             outLayer.CreateFeature(outFeature)
             
@@ -550,29 +555,28 @@ class l2_hr_pixc(object):
             shpDriver.DeleteDataSource(IN_output_file)
         outDataSource = shpDriver.CreateDataSource(IN_output_file)
         # 1.3 - Creation de la couche
-        #print '> Creating layer pixel_cloud'
         srs = osr.SpatialReference()
         srs.ImportFromEPSG(4326)  # WGS84
         outLayer = outDataSource.CreateLayer(str(os.path.basename(IN_output_file).split('.')[0]+"_tvp"), srs, geom_type=ogr.wkbPoint)
         # 1.4 - Creation des attributs
-        tmpField = ogr.FieldDefn(str('TIME'), ogr.OFTReal)  # Time
-        tmpField.SetWidth(10)
-        tmpField.SetPrecision(2)
-        outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('LAT'), ogr.OFTReal) # Latitude
-        tmpField.SetWidth(10)
+        tmpField = ogr.FieldDefn(str('time'), ogr.OFTReal)  # Time
+        tmpField.SetWidth(20)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('LONG'), ogr.OFTReal)   # Longitude
-        tmpField.SetWidth(10)
+        tmpField = ogr.FieldDefn(str('lat'), ogr.OFTReal)  # Latitude
+        tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('ALTITUDE'), ogr.OFTReal)  # Altitude
-        tmpField.SetWidth(10)
-        tmpField.SetPrecision(3)
+        tmpField = ogr.FieldDefn(str('long'), ogr.OFTReal)   # Longitude
+        tmpField.SetWidth(15)
+        tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('HEADING'), ogr.OFTReal)  # Heading
-        tmpField.SetWidth(10)
+        tmpField = ogr.FieldDefn(str('altitude'), ogr.OFTReal)  # Altitude
+        tmpField.SetWidth(15)
+        tmpField.SetPrecision(6)
+        outLayer.CreateField(tmpField)
+        tmpField = ogr.FieldDefn(str('heading'), ogr.OFTReal)  # Heading
+        tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
         # 1.5 - On recupere la definition de la couche
@@ -588,11 +592,11 @@ class l2_hr_pixc(object):
             point.AddPoint(lng, lat)
             outFeature.SetGeometry(point)
             # 2.3 - On lui assigne les attributs
-            outFeature.SetField(str('TIME'), float(t)) 
-            outFeature.SetField(str('LAT'), float(lat)) 
-            outFeature.SetField(str('LONG'), float(lng)) 
-            outFeature.SetField(str('ALTITUDE'), float(alt)) 
-            outFeature.SetField(str('HEADING'), float(heading))
+            outFeature.SetField(str('time'), float(t)) 
+            outFeature.SetField(str('lat'), float(lat)) 
+            outFeature.SetField(str('long'), float(lng)) 
+            outFeature.SetField(str('altitude'), float(alt)) 
+            outFeature.SetField(str('heading'), float(heading))
             # 2.4 - On ajoute l'objet dans la couche de sortie
             outLayer.CreateFeature(outFeature)
             
@@ -618,58 +622,52 @@ class l2_hr_pixc(object):
         
         # Format
         return datetime.strftime(date_in_sec, '%Y%m%dT%H%M%S')
-
-
-##########################
         
+    def computeTime_UTC(self, IN_sec_from_start):
+        """
+        Compute time in seconds from 01/01/2000 00:00:00
+        
+        :param IN_sec_from_start: number of seconds from mission start time
+        :type IN_sec_from_start: int
+        
+        :return: time in seconds in UTC time scale
+        :rtype: float
+        """
+        
+        # Convert mission start time to datetime
+        tmp_time_split = self.mission_start_time.split("-")
+        mission_start_time = datetime(int(tmp_time_split[0]), int(tmp_time_split[1]), int(tmp_time_split[2]))
+        
+        # Convert reference to datetime
+        ref_time = datetime(2000,1,1)
+        
+        # Compute difference
+        diff = mission_start_time - ref_time
+        
+        # Return number of seconds of difference
+        return IN_sec_from_start + diff.total_seconds()
+        
+    def computeTime_TAI(self, IN_sec_from_start):
+        """
+        Compute time in seconds from 01/01/2000 00:00:32
+        
+        :param IN_sec_from_start: number of seconds from mission start time
+        :type IN_sec_from_start: int
+        
+        :return: time in seconds in TAI time scale
+        :rtype: float
+        """
+        
+        # Convert mission start time to datetime
+        tmp_time_split = self.mission_start_time.split("-")
+        mission_start_time = datetime(int(tmp_time_split[0]), int(tmp_time_split[1]), int(tmp_time_split[2]))
+        
+        # Convert reference to datetime
+        ref_time = datetime(2000,1,1,0,0,32)
+        
+        # Compute difference
+        diff = mission_start_time - ref_time
+        
+        # Return number of seconds of difference
+        return IN_sec_from_start + diff.total_seconds()
 
-if __name__ == '__main__':
-    
-    noval = -999900000
-
-    points = 10
-    azimuth_index = np.arange(points)
-    range_index = np.ones(points)+50.
-    classification = np.ones(points)
-    pixel_area = np.ones(points)+10.
-    ambiguity_altitude = np.ones(points)+3.
-    latitude = np.arange(points)+10.
-    longitude = np.arange(points)+50.
-    height = np.ones(points)+50.
-    crosstrack = np.ones(points)+20.
-    range_tab = np.ones(points)+50.
-    
-    points = 200
-    nadir_time = np.ones(points)+10000.
-    nadir_latitude = np.arange(points)+10.
-    nadir_longitude = np.arange(points)+50.
-    nadir_altitude = np.ones(points)*890.
-    nadir_heading = np.ones(points)*77.6
-    nadir_x = np.ones(points)*20.
-    nadir_y = np.ones(points)*30.
-    nadir_z = np.ones(points)*40.
-    nadir_vx = np.ones(points)*20.
-    nadir_vy = np.ones(points)*30.
-    nadir_vz = np.ones(points)*40.
-    nadir_near_range = np.ones(points)*10.0
-    
-    cycle_num = 1
-    pass_num = 10
-    tile_ref = "45N-L"
-    nb_pix_range = 200
-    nb_pix_azimuth = 20
-    mission_start_time = 0
-    cycle_duration = 21.0
-    azimuth_spacing = 21.875
-    range_spacing = 0.7
-    near_range = np.ones(points)*10.0
-    
-    print("Current directory = %s" % os.getcwd()) 
-    
-    my_pixc = l2_hr_pixc(azimuth_index, range_index, classification, pixel_area, latitude, longitude, height, crosstrack, \
-                 nadir_time, nadir_latitude, nadir_longitude, nadir_altitude, nadir_heading, nadir_x, nadir_y, nadir_z, nadir_vx, nadir_vy, nadir_vz, nadir_near_range, \
-                 mission_start_time, cycle_duration, cycle_num, pass_num, tile_ref, nb_pix_range, nb_pix_azimuth, azimuth_spacing, range_spacing, near_range)
-    my_pixc.write_main(os.getcwd(), noval, True)
-    my_pixc.write_sensor(os.getcwd(), noval, True)
-    my_pixc.write_main_asShp(os.getcwd())
-    my_pixc.write_sensor_asShp(os.getcwd())

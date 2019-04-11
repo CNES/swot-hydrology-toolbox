@@ -2,13 +2,14 @@
 """
 .. module:: my_api.py
     :synopsis: Use appropriate functions as the run environment is stand-alone or SAM  
-    Created on 02/01/2018
+     Created on 2018/02/01
 
 .. moduleauthor:: Claire POTTIER - CNES DSO/SI/TR
 
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
 
 """

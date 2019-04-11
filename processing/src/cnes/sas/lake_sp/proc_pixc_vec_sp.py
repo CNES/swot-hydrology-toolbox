@@ -1,14 +1,15 @@
 # -*- coding: utf8 -*-
 """
 .. module:: proc_pixc_vec_sp.py
-    :synopsis: Deals with SWOT pixel cloud complementary files (L2_HR_PIXCVec product) related to 1 single-pass and 1 swath (Left or Right)
+   :synopsis: Deals with SWOT pixel cloud complementary files (L2_HR_PIXCVec product) related to 1 single-pass and 1 swath (Left or Right)
     Created on 27/09/2017
 
 .. moduleauthor:: Cécile Cazals - CS
 
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
 
 """
@@ -27,35 +28,39 @@ class PixC_Vec_SP(object):
 
     def __init__(self, IN_lake_tile_pixcvec_file_list, IN_objPixcEdgeSP, IN_lake_sp_dir, IN_continent):
         """
-            This class is designed to process L2_HR_PIXCVec product .
-            All pixels involved in entities covering more than one tile are processed here.
-            The geolocation of pixels is improved for those pixels and PIXCVec NetCDF file is updated.
-            The initialization of a PixC_Vec_SP consists in:
-                - set class attributes
-                - copy input LakeTile_pixcvec files into PIXCVec files
-            NP: this object is related to one swath
-                
+        This class is designed to process L2_HR_PIXCVec product .
+        All pixels involved in entities covering more than one tile are processed here.
+        The geolocation of pixels is improved for those pixels and PIXCVec NetCDF file is updated.
+        
+        The initialization of a PixC_Vec_SP consists in:
+         - set class attributes
+         - copy input LakeTile_pixcvec files into PIXCVec files
+
+        NP: this object is related to one swath
+        
         :param IN_lake_tile_pixcvec_file_list: list of LakeTile_pixcvec files full path concerning current swath
-        :type IN_lake_tile_pixcvec_file_list:list of string
+        :type IN_lake_tile_pixcvec_file_list: list of string
         :param IN_objPixcEdgeSP: list of subset of PixC for edge objects current swath
-        :type IN_objPixcEdgeSP: list of PixC_Edge_SP.PixC_Edge_SP objects
+        :type IN_objPixcEdgeSP: proc_pixc_sp.PixC_Edge_SP
         :param IN_lake_sp_dir: output LakeSP directory
         :type IN_lake_sp_dir: string
         :param IN_continent: continent covered by the tile (if global var CONTINENT_FILE exists)
         :type IN_continent: string
 
+
         Variables of the object:
+        
             - From LakeTile_pixcvec file
-                longitude_vectorproc / 1D-array of float: improved longitude of water pixels (= variable named longitude_vectorproc in LakeTile_pixcvec file)
-                latitude_vectorproc / 1D-array of float: improved latitude of water pixels (= variable named latitude_vectorproc in LakeTile_pixcvec file)
-                height_vectorproc / 1D-array of float: improved height of water pixels (= variable named height_vectorproc in LakeTile_pixcvec file)
-                river_lake_other_tag / 1D-array of float: tag associated to river and lake databases (= variable named river_lake_other_tag in LakeTile_pixcvec file)
+                - longitude_vectorproc / 1D-array of float: improved longitude of water pixels (= variable named longitude_vectorproc in LakeTile_pixcvec file)
+                - latitude_vectorproc / 1D-array of float: improved latitude of water pixels (= variable named latitude_vectorproc in LakeTile_pixcvec file)
+                - height_vectorproc / 1D-array of float: improved height of water pixels (= variable named height_vectorproc in LakeTile_pixcvec file)
+                - river_lake_other_tag / 1D-array of float: tag associated to river and lake databases (= variable named river_lake_other_tag in LakeTile_pixcvec file)
 
             - From process:
-                lake_tile_pixcvec_file_list / list of str : list of input LakeTile_pixcvec files
-                pixc_vec_file_list / list of str : list of output PIXCVec files
-                objPixcEdgeSP / PixC_Edge_SP.PixC_Edge_SP object : subset of PixC related to pixels of objects at top/bottom edge of a PixC tile (output of PGE_LakeTile)
-                nb_water_pix / int : number of pixels to process
+                - lake_tile_pixcvec_file_list / list of str : list of input LakeTile_pixcvec files
+                - pixc_vec_file_list / list of str : list of output PIXCVec files
+                - objPixcEdgeSP / PixC_Edge_SP.PixC_Edge_SP object : subset of PixC related to pixels of objects at top/bottom edge of a PixC tile (output of PGE_LakeTile)
+                - nb_water_pix / int : number of pixels to process
         """
         my_api.printInfo("[PixelCloudVecEdge] == INIT ==")
         

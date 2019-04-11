@@ -214,7 +214,17 @@ def pointcloud_height_geoloc(p_noisy, h_noisy,
 
 
 
-
+def project_array(coordinates, srcp='geocent', dstp='latlon'):
+    """
+    Project a numpy (n,2) array in projection srcp to projection dstp
+    Returns a numpy (n,2) array.
+    """
+    p1 = pyproj.Proj(proj=srcp, datum='WGS84')
+    p2 = pyproj.Proj(proj=dstp, datum='WGS84')
+    fx, fy, fz = pyproj.transform(p1, p2, coordinates[:,0], coordinates[:,1], coordinates[:,2])
+    # Re-create (n,2) coordinates
+    # Inversion of lat and lon !
+    return np.dstack([fy, fx, fz])[0]
 
 
 
@@ -368,18 +378,6 @@ def pointcloud_height_geoloc_vect(p_noisy, h_noisy,
         #~ p_final_llh[i] = convert_ecef2llh(p_mu[i,0], p_mu[i,1], p_mu[i,2], GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
     
     
-
-    def project_array(coordinates, srcp='geocent', dstp='latlon'):
-        """
-        Project a numpy (n,2) array in projection srcp to projection dstp
-        Returns a numpy (n,2) array.
-        """
-        p1 = pyproj.Proj(proj=srcp, datum='WGS84')
-        p2 = pyproj.Proj(proj=dstp, datum='WGS84')
-        fx, fy, fz = pyproj.transform(p1, p2, coordinates[:,0], coordinates[:,1], coordinates[:,2])
-        # Re-create (n,2) coordinates
-        # Inversion of lat and lon !
-        return np.dstack([fy, fx, fz])[0]
 
     p_final_llh = project_array(p_mu)
     

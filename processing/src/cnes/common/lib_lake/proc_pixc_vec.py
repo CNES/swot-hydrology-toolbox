@@ -2,13 +2,14 @@
 """
 .. module:: proc_pixc_vec.py
     :synopsis: Deals with SWOT pixel cloud complementary file
-    Created on 09/15/2017
+     Created on 2017/09/15
 
 .. moduleauthor: Claire POTTIER - CNES DSO/SI/TR
 
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
 """
 
@@ -20,13 +21,16 @@ import logging
 import cnes.modules.geoloc.lib.geoloc as my_geoloc
 
 import cnes.common.lib.my_netcdf_file as my_nc
+import cnes.common.service_config_file as service_config_file
 import cnes.common.lib.my_tools as my_tools
-import cnes.common.lib.my_variables as my_var
 import cnes.common.lib_lake.locnes_products_netcdf as nc_file
+import cnes.common.lib.my_variables as my_var
 
 
 class PixelCloudVec(object):
-
+    """
+        class PixelCloudVec
+    """
     def __init__(self, in_productType, in_pixcvec_file=None):
         """
         Constructor: init variables and set them with data retrieved from pixel cloud complementary file if asked
@@ -38,33 +42,32 @@ class PixelCloudVec(object):
                                     or LakeTile_piexcvec if from PGE_LakeTile)
         :type in_pixcvec_file: string
         
+
         Variables of the object:
-            
-        - From L2_HR_PIXCVecRiver:
-            river_index / 1D-array of int: indices of river pixels within PIXC arrays (= variable named pixc_index in L2_HR_PIXCVecRiver only)
         
+        - From L2_HR_PIXCVecRiver
+            - river_idx / 1D-array of int: indices of river pixels within PIXC arrays (= variable named pixc_index in L2_HR_PIXCVecRiver only)
         - From both L2_HR_PIXCVecRiver and LakeTile_pixcvec:
-            range_index / 1D-array of int: range indices of water pixels (= variable named range_index in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
-            azimuth_index / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
-            longitude_vectorproc / 1D-array of float: improved longitude of water pixels (= variable named longitude_vectorproc in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
-            latitude_vectorproc / 1D-array of float: improved latitude of water pixels (= variable named latitude_vectorproc in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
-            height_vectorproc / 1D-array of float: improved height of water pixels (= variable named height_vectorproc in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
-            river_reach_tag / 1D-array of float: tag associated to river reach database (= variable named reach_index in L2_HR_PIXCVecRiver and river_reach_tag in LakeTile_pixcvec)
-            river_node_tag / 1D-array of float: tag associated to river node database (= variable named node_index in L2_HR_PIXCVecRiver and river_node_tag in LakeTile_pixcvec)
-            pixcvec_metadata / dict: dictionary of PIXCVec file metadata
-        
+            - range_idx / 1D-array of int: range indices of water pixels (= variable named range_index in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
+            - azimuth_idx / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
+            - longitude_vectorproc / 1D-array of float: improved longitude of water pixels (= variable named longitude_vectorproc in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
+            - latitude_vectorproc / 1D-array of float: improved latitude of water pixels (= variable named latitude_vectorproc in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
+            - height_vectorproc / 1D-array of float: improved height of water pixels (= variable named height_vectorproc in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
+            - river_reach_tag / 1D-array of float: tag associated to river reach database (= variable named reach_index in L2_HR_PIXCVecRiver and river_reach_tag in LakeTile_pixcvec)
+            - river_node_tag / 1D-array of float: tag associated to river node database (= variable named node_index in L2_HR_PIXCVecRiver and river_node_tag in LakeTile_pixcvec)
+            - pixcvec_metadata / dict: dictionary of PIXCVec file metadata
         - From L2_HR_PIXC:
-            continent / string: continent covered by the tile (if global var CONTINENT_FILE exists)
-        
+            - continent / string: continent covered by the tile (if global var CONTINENT_FILE exists)
         - From processing:
-            nb_water_pix / int: number of water pixels
-            reject_index / 1D-array of int: indices of pixels that are river only, ie not reservoirs or dams
-            nb_river_pix / int: number of river pixels
-            greenwich_idx / 1D-array of int: indices of pixels related to lakes crossing Greenwich meridian
-            lake_tag / 1D-array of str: tag associated to lake database (= variable named lake_tag in LakeTile_pixcvec)
-            other_tag / 1D-array of str: tag associated to unknown object (= variable named other_tag in LakeTile_pixcvec)
-            prior_ice_flag / 1D-array of int: TBD
+            - nb_water_pix / int: number of water pixels
+            - reject_index / 1D-array of int: indices of pixels that are river only, ie not reservoirs or dams
+            - nb_river_pix / int: number of river pixels
+            - lake_tag / 1D-array of str: tag associated to lake database (= variable named lake_tag in LakeTile_pixcvec)
+            - other_tag / 1D-array of str: tag associated to unknown object (= variable named other_tag in LakeTile_pixcvec)
+            - prior_ice_flag / 1D-array of int: TBD
         """
+        # Get instance of service config file
+        self.cfg = service_config_file.get_instance()
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("- start -")
         
@@ -90,12 +93,12 @@ class PixelCloudVec(object):
         self.other_tag = None
         self.prior_ice_flag = None
         
+        self.pixcvec_metadata = {}
         # Fill variables if filename available
         if in_pixcvec_file is not None:
             self.set_from_pixcvec_file(in_pixcvec_file)
             
         # Init dictionary of PIXCVec metadata
-        self.pixcvec_metadata = {}
         self.pixcvec_metadata["cycle_number"] = -9999
         self.pixcvec_metadata["pass_number"] = -9999
         self.pixcvec_metadata["tile_number"] = -9999
@@ -123,7 +126,6 @@ class PixelCloudVec(object):
             self.nb_river_pix = 0  # Number of river pixels (used for TILE processing)
             self.river_index = None  # Indices of pixels processed by RiverTile (used in TILE processing)
             self.reject_index = None  # Indices of river pixels (not reservoirs)
-            self.greenwich_idx = []  # Indices of pixels related to lakes crossing Greenwich meridian
             
     def set_from_pixcvec_file(self, in_pixcvec_file):
         """
@@ -167,7 +169,7 @@ class PixelCloudVec(object):
             # 4.2 - Azimuth index
             self.azimuth_index = pixcvec_reader.getVarValue("azimuth_index")
             # 4.3 - Longitude
-            self.longitude_vectorproc = pixcvec_reader.getVarValue("longitude_vectorproc")
+            self.longitude_vectorproc = my_tools.convert_to_m180_180(pixcvec_reader.getVarValue("longitude_vectorproc"))
             # 4.4 - Latitude
             self.latitude_vectorproc = pixcvec_reader.getVarValue("latitude_vectorproc")
             # 4.5 - Height
@@ -289,7 +291,8 @@ class PixelCloudVec(object):
         """
         Getter of cycle_num, pass_num and tile_ref
         """
-        return self.cycle_num, self.pass_num, self.tile_ref
+        return self.pixcvec_metadata["cycle_number"], self.pixcvec_metadata["pass_number"], self.pixcvec_metadata["tile_number"]
+#        return self.cycle_num, self.pass_num, self.tile_ref
         
     # ----------------------------------------
     
@@ -368,12 +371,7 @@ class PixelCloudVec(object):
         tmp_idx2 = np.where(self.latitude_vectorproc[tmp_idx] < my_var.FV_DOUBLE)[0]
         indices_to_write = tmp_idx[tmp_idx2]
         
-        # 3 - Conversions
-        # 3.1 - Longitudes for objects crossing Greenwich meridian
-        tmp_longitude = self.longitude_vectorproc
-        if len(self.greenwich_idx) > 0:
-            tmp_longitude = my_tools.convert_to_m180_180(self.longitude_vectorproc[self.greenwich_idx])
-        # 3.2 - Fill values
+        # 3 - Conversions of fill values
         tmp_height2 = my_tools.convert_fillvalue(self.height_vectorproc)
         tmp_reach_tag = my_tools.convert_fillvalue(self.river_reach_tag)
         tmp_node_tag = my_tools.convert_fillvalue(self.river_node_tag)
@@ -387,7 +385,7 @@ class PixelCloudVec(object):
             outFeature = ogr.Feature(outLayerDefn)
             # 4.2 - Set point with improved geoloc as geometry
             point = ogr.Geometry(ogr.wkbPoint)
-            point.AddPoint(tmp_longitude[indp], self.latitude_vectorproc[indp])
+            point.AddPoint(self.longitude_vectorproc[indp], self.latitude_vectorproc[indp])
             outFeature.SetGeometry(point)
             # 4.3 - Set attributes
             outFeature.SetField(str('az_index'), int(self.azimuth_index[indp]))
@@ -434,7 +432,9 @@ def computeImpGeoloc(in_productType, in_objPixc, in_indices, in_height):
         
     # 1 - Prepare data for Damien's algo
     # 1.1 - Convert geodetic coordinates (lat, lon, height) to cartesian coordinates (x, y, z)
-    x, y, z = my_geoloc.convert_llh2ecef(in_objPixc.latitude[in_indices], in_objPixc.longitude[in_indices], in_objPixc.height[in_indices], my_var.GEN_RAD_EARTH_EQ, my_var.GEN_RAD_EARTH_POLE)
+    x, y, z = my_geoloc.convert_llh2ecef(in_objPixc.latitude[in_indices], in_objPixc.longitude[in_indices],
+                                         in_objPixc.height[in_indices], my_var.GEN_RAD_EARTH_EQ,
+                                         my_var.GEN_RAD_EARTH_POLE)
     # 1.2 - Get position of associated along-track pixels (in cartesian coordinates)
     nadir_x = in_objPixc.nadir_x[in_indices]
     nadir_y = in_objPixc.nadir_y[in_indices]
@@ -461,5 +461,5 @@ def computeImpGeoloc(in_productType, in_objPixc, in_indices, in_height):
     # 2.3 - Save output variables
     out_lat_corr, out_lon_corr, out_height_corr = np.transpose(p_final_llh)
     
-    # 2.4 - Return output between 0 and 360 degrees (pixel cloud format)
-    return my_tools.convert_to_0_360(out_lon_corr), out_lat_corr, out_height_corr
+    # 2.4 - Return output (pixel cloud format)
+    return out_lon_corr, out_lat_corr, out_height_corr
