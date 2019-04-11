@@ -71,7 +71,7 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     heading = np.zeros(n)
     lat[1:-1], lon[1:-1], alt[1:-1], heading[1:-1] = [lat1, lon1, alt1, heading1]
 
-    sign = [-1,1][lat1[-1] < lat1[0]]
+    sign = [-1, 1][lat1[-1] < lat1[0]]
     lat[0] = lat[1] + sign * 70000.0 / GEN_APPROX_RAD_EARTH*sin(heading1[0])
     lat[-1] = lat[-2] - sign * 70000.0 / GEN_APPROX_RAD_EARTH*sin(heading1[-1])
 
@@ -95,8 +95,7 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     OUT_attributes.lon = OUT_attributes.lon_init = lon 
     OUT_attributes.lat = OUT_attributes.lat_init = lat
     OUT_attributes.alt = alt 
-    OUT_attributes.heading = OUT_attributes.heading_init =  heading
- 
+    OUT_attributes.heading = OUT_attributes.heading_init = heading
  
     OUT_attributes.cosphi_init = np.cos(lon)
     OUT_attributes.sinphi_init = np.sin(lon)
@@ -104,10 +103,11 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     OUT_attributes.sintheta_init = np.sin(np.pi/2-lat)
     OUT_attributes.cospsi_init = np.cos(heading)
     OUT_attributes.sinpsi_init = np.sin(heading)
-
-    OUT_attributes
     
     return OUT_attributes
+                
+
+#######################################
 
 
 def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attributes):
@@ -122,9 +122,6 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
     :type IN_orbit_number: int
     :param IN_attributes
     :type IN_attributes
-
-    :param OUT_swath_polygons
-    :type OUT_swath_polygons
     """
     my_api.printInfo("[sisimp_function] == make_pixel_cloud ==")
     my_api.printInfo(str("> Working on the " + IN_side_name + " swath"))
@@ -141,7 +138,7 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
         return IN_attributes
     
     # 2 - Compute the intersection between the radar grid and the water bodies
-    water_pixels, IN_attributes.height_model_a_tab,  IN_attributes.code, IN_attributes.ind_lac, IN_attributes = write_poly.compute_pixels_in_water(fshp_reproj, False, IN_attributes)
+    water_pixels, IN_attributes.height_model_a_tab, IN_attributes.code, IN_attributes.ind_lac, IN_attributes = write_poly.compute_pixels_in_water(fshp_reproj, False, IN_attributes)
     
     #~ if IN_attributes.create_pixc_vec_river:
         #~ water_pixels_river, height_model_a_river_only, code_a_river_only, ind_lac_a_river_only, IN_attributes = write_poly.compute_pixels_in_water(fshp_reproj, True, IN_attributes)
@@ -159,6 +156,9 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
         write_poly.write_water_pixels_realPixC(water_pixels, swath, IN_cycle_number, IN_orbit_number, IN_attributes)
     
     return IN_attributes
+                
+
+#######################################
 
 
 def write_swath_polygons(IN_attributes):

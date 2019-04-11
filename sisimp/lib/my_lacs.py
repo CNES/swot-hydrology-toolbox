@@ -1,6 +1,5 @@
 import mathematical_function as math_fct
 import numpy as np
-import lib.my_api as my_api
 import lib.height_model as height_model
 import lib.true_height_model as true_height_model
 import scipy
@@ -8,7 +7,7 @@ import time
 import pyproj
 import utm
 
-from lib.my_variables import COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST, FACT_ECHELLE
+from lib.my_variables import COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST
 
 
 class Lac:

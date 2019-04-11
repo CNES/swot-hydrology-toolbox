@@ -33,7 +33,7 @@ Dark water percentage = 5
 Dark water detected percentage = 90
 Dark water detected noise factor = 4
 Scale factor non detected dw = 0.5
-Dark water correlation length = 500
+Dark water correlation length = 50
 
 !Dark water seed = 12345678
 
@@ -46,7 +46,7 @@ Tropo model  = map
 Tropo error stdv = 0.03
 Tropo error mean = 0.01
 Tropo error correlation = 5000
-Tropo error map file = /work/ALT/swot/swotdev/desrochesd/swot-hydrology-toolbox/sisimp/data/tropo_map/zonal_delta_wtc_J2.nc
+Tropo error map file = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tropo_map/zonal_delta_wtc_J2.nc
 
 !### Files in output
 Create shapefile = yes !Produce output files also as shapefiles

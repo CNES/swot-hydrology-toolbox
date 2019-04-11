@@ -51,7 +51,6 @@ COEFF_Y = 5.e-4
 COEFF_XY = 1.e-5
 COEFF_CST = 0.
 
-
 # Dark water
 FACT_ECHELLE_DW = 2.
 DW_PERCENT = 10.
@@ -59,13 +58,11 @@ DARKWATER_FLAG = 24
 SCALE_FACTOR_NON_DETECTED_DW = 0.5
 DW_DETECTED_PERCENT = 90
 DW_DETECTED_NOISE_FACTOR = 5
-DW_CORRELATION_LENGTH = 500
+DW_CORRELATION_LENGTH = 50
 
 # Gaussian parameter for gaussian model
 FACT_ECHELLE = 2.
 HEIGHT_MODEL_STDV = 0.1
-
-## Error models
 
 # Water flag
 WATER_FLAG = 4  # Water flag
@@ -73,6 +70,31 @@ WATER_FLAG = 4  # Water flag
 # Degrees / radians convertors
 RAD2DEG = 180. / pi
 DEG2RAD = pi / 180.
+
+# FillValues for NetCDF files 
+FV_DOUBLE = 9.9692099683868690e+36
+FV_FLOAT = 9.96921e+36
+FV_INT = 2147483647
+FV_UINT = 4294967295
+FV_SHORT = 32767
+FV_USHORT = 65535
+FV_BYTE = 127
+FV_UBYTE = 255
+FV_CHAR = ""
+FV_STRING = ""
+FV_NETCDF = {'int8': FV_BYTE,
+              'int16': FV_SHORT,
+              'int32': FV_INT,
+              'uint8': FV_UBYTE,
+              'uint16': FV_USHORT,
+              'uint32': FV_UINT,
+              'float': FV_FLOAT,
+              'float32': FV_FLOAT,
+              'double': FV_DOUBLE,
+              'float64': FV_DOUBLE,
+              'str': FV_STRING,
+              'str32': FV_STRING,
+              'object': FV_STRING}
 
 # Filenames pattern
 PATTERN_FOOTPRINT = "footprint_%03d_%03d.shp"  # Footprint filename with %03d=cycle number %03d=pass number

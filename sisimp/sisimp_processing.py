@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 # -*- coding : utf8 -*-
 """
-module sisimp_processing.py
-module author Capgemini
+.. module sisimp_processing.py
+    :synopsis: Main steps of SWOT large scale simulator
+
+.. module author: Capgemini
+
 This file is part of the SWOT Hydrology Toolbox
  Copyright (C) 2018 Centre National d’Etudes Spatiales
  This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
-
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -19,6 +21,7 @@ import zipfile
 
 import lib.my_api as my_api
 import lib.my_filenames as my_names
+import lib.my_variables as my_var
 import lib.my_passplan as my_plan
 import lib.my_rdf_file as my_rdf
 import lib.my_tools as my_tools
@@ -26,21 +29,19 @@ import lib.my_tools as my_tools
 import sisimp_function as sisimp_fct
 from write_polygons import orbitAttributes
 
-from lib.my_variables import SWATH_WIDTH, NR_CROSS_TRACK, SENSOR_WAVELENGTH, NB_PIX_RANGE, ORBIT_JITTER, HEIGHT_MODEL_A, \
-        HEIGHT_MODEL_t0, HEIGHT_MODEL_PERIOD, HEIGHT_MODEL_MIN_AREA, HEIGHT_BIAS_STD, NOISE_MULTIPLIER_FACTOR, RANGE_SAMPLING, \
-        WATER_FLAG, MULTIPLE_ORBIT, COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST, GEOLOCATION_IMPROVEMENT, \
-        FACT_ECHELLE, HEIGHT_MODEL, HEIGHT_MODEL_STDV, GEN_APPROX_RAD_EARTH, RAD2DEG, DEG2RAD, FACT_ECHELLE_DW, DW_PERCENT, DARKWATER_FLAG, \
-        SCALE_FACTOR_NON_DETECTED_DW, DW_DETECTED_PERCENT, DW_DETECTED_NOISE_FACTOR, DW_CORRELATION_LENGTH
-
 
 def read_parameter(IN_rdf_reader, IN_instrument_name, IN_instrument_default_value, read_type):
     try:
         OUT_instrument_param = read_type(IN_rdf_reader.getValue(IN_instrument_name))
-        my_api.printInfo("%s : %s" % (IN_instrument_name ,str(OUT_instrument_param)))
+        my_api.printInfo("%s : %s" % (IN_instrument_name, str(OUT_instrument_param)))
     except:
         OUT_instrument_param = IN_instrument_default_value
-        my_api.printInfo("Default value for %s : %s" % (IN_instrument_name ,str(OUT_instrument_param)))
+        my_api.printInfo("Default value for %s : %s" % (IN_instrument_name, str(OUT_instrument_param)))
     return OUT_instrument_param
+                
+
+#######################################
+    
 
 class Processing(object):
 
@@ -100,7 +101,7 @@ class Processing(object):
                 my_api.printInfo("roll_repo_name not set, roll error won't be applied")
 
             # Orbit parameters
-            self.my_attributes.multi_orbit_option = read_parameter(parameters, "Multiple orbit", MULTIPLE_ORBIT, str).lower()
+            self.my_attributes.multi_orbit_option = read_parameter(parameters, "Multiple orbit", my_var.MULTIPLE_ORBIT, str).lower()
             if self.my_attributes.multi_orbit_option not in ['no', 'yes', 'passplan']:
                 self.my_attributes.multi_orbit_option = 'yes'
 
@@ -109,7 +110,7 @@ class Processing(object):
                     self.my_attributes.orbit_number = int(parameters.getValue("Orbit"))
                     my_api.printInfo("Orbit number : %d" % self.my_attributes.orbit_number)
                 except:
-                     my_api.exitWithError("Multiple orbit = no => Orbit number should be set")
+                    my_api.exitWithError("Multiple orbit = no => Orbit number should be set")
 
                 try:
                     self.my_attributes.cycle_number = int(parameters.getValue("Cycle number"))
@@ -117,7 +118,6 @@ class Processing(object):
                 except:
                     my_api.printInfo("Multiple orbit = no => Cycle number should be set. Set to default value : 1")
                     self.my_attributes.cycle_number = 1
-                     
                                  
             if self.my_attributes.multi_orbit_option == 'passplan':
                 try:
@@ -130,15 +130,15 @@ class Processing(object):
                         my_api.exitWithError("Multiple orbit = passplan => no passplan in orbit repo")
                         
             # Simulation parameters
-            self.my_attributes.swath_width = read_parameter(parameters, "Swath width", SWATH_WIDTH, float) 
-            self.my_attributes.nr_cross_track = read_parameter(parameters, "NR cross track", NR_CROSS_TRACK, float)
-            self.my_attributes.sensor_wavelength = read_parameter(parameters, "Sensor wavelength", SENSOR_WAVELENGTH, float)
-            self.my_attributes.range_sampling = read_parameter(parameters, "Range sampling", RANGE_SAMPLING, float)
-            self.my_attributes.nb_pix_range = read_parameter(parameters, "Number of pixels in range", NB_PIX_RANGE, int)
-            self.my_attributes.orbit_jitter = read_parameter(parameters, "Orbit jitter", ORBIT_JITTER, float)
+            self.my_attributes.swath_width = read_parameter(parameters, "Swath width", my_var.SWATH_WIDTH, float) 
+            self.my_attributes.nr_cross_track = read_parameter(parameters, "NR cross track", my_var.NR_CROSS_TRACK, float)
+            self.my_attributes.sensor_wavelength = read_parameter(parameters, "Sensor wavelength", my_var.SENSOR_WAVELENGTH, float)
+            self.my_attributes.range_sampling = read_parameter(parameters, "Range sampling", my_var.RANGE_SAMPLING, float)
+            self.my_attributes.nb_pix_range = read_parameter(parameters, "Number of pixels in range", my_var.NB_PIX_RANGE, int)
+            self.my_attributes.orbit_jitter = read_parameter(parameters, "Orbit jitter", my_var.ORBIT_JITTER, float)
 
             # Height model parameter
-            self.my_attributes.height_model = read_parameter(parameters, "Height model", HEIGHT_MODEL, str)
+            self.my_attributes.height_model = read_parameter(parameters, "Height model", my_var.HEIGHT_MODEL, str)
     
             # True height file
             try:
@@ -148,22 +148,22 @@ class Processing(object):
                 self.my_attributes.trueheight_file = None
                 my_api.printInfo("True height file not set, True height model won't be applied")
             # Dark water
-            self.my_attributes.dark_water = read_parameter(parameters, "Dark water",'No' , str)
-            self.my_attributes.dw_pourcent = read_parameter(parameters, "Dark water percentage",DW_PERCENT,float)
-            self.my_attributes.darkwater_flag = read_parameter(parameters, "Dark water flag", DARKWATER_FLAG, int)
-            self.my_attributes.dw_seed=read_parameter(parameters, "Dark water seed", None, float)
-            self.my_attributes.scale_factor_non_detected_dw = read_parameter(parameters, "Scale factor non detected dw", SCALE_FACTOR_NON_DETECTED_DW,float)
-            self.my_attributes.dw_detected_percent = read_parameter(parameters, "Dark water detected percentage", DW_DETECTED_PERCENT, float)
-            self.my_attributes.dw_detected_noise_factor = read_parameter(parameters, "Dark water detected noise factor", DW_DETECTED_NOISE_FACTOR, float)
-            self.my_attributes.dw_correlation_length = read_parameter(parameters, "Dark water correlation length", DW_CORRELATION_LENGTH, int)
+            self.my_attributes.dark_water = read_parameter(parameters, "Dark water", 'No', str)
+            self.my_attributes.dw_pourcent = read_parameter(parameters, "Dark water percentage", my_var.DW_PERCENT, float)
+            self.my_attributes.darkwater_flag = read_parameter(parameters, "Dark water flag", my_var.DARKWATER_FLAG, int)
+            self.my_attributes.dw_seed = read_parameter(parameters, "Dark water seed", None, float)
+            self.my_attributes.scale_factor_non_detected_dw = read_parameter(parameters, "Scale factor non detected dw", my_var.SCALE_FACTOR_NON_DETECTED_DW, float)
+            self.my_attributes.dw_detected_percent = read_parameter(parameters, "Dark water detected percentage", my_var.DW_DETECTED_PERCENT, float)
+            self.my_attributes.dw_detected_noise_factor = read_parameter(parameters, "Dark water detected noise factor", my_var.DW_DETECTED_NOISE_FACTOR, float)
+            self.my_attributes.dw_correlation_length = read_parameter(parameters, "Dark water correlation length", my_var.DW_CORRELATION_LENGTH, int)
 
             # Water flag
-            self.my_attributes.water_flag = read_parameter(parameters, "Water flag", WATER_FLAG, float)
+            self.my_attributes.water_flag = read_parameter(parameters, "Water flag", my_var.WATER_FLAG, float)
 
             # Noise parameters
-            self.my_attributes.height_bias_std = read_parameter(parameters, "Height bias std", HEIGHT_BIAS_STD, float)
-            self.my_attributes.noise_multiplier_factor = read_parameter(parameters, "Noise multiplier factor", NOISE_MULTIPLIER_FACTOR, float)
-            self.my_attributes.geolocalisation_improvement = read_parameter(parameters, "Geolocalisation improvement", GEOLOCATION_IMPROVEMENT, str)
+            self.my_attributes.height_bias_std = read_parameter(parameters, "Height bias std", my_var.HEIGHT_BIAS_STD, float)
+            self.my_attributes.noise_multiplier_factor = read_parameter(parameters, "Noise multiplier factor", my_var.NOISE_MULTIPLIER_FACTOR, float)
+            self.my_attributes.geolocalisation_improvement = read_parameter(parameters, "Geolocalisation improvement", my_var.GEOLOCATION_IMPROVEMENT, str)
             
             # Tropo model
             self.my_attributes.tropo_model = read_parameter(parameters, "Tropo model", None, str)
@@ -173,7 +173,8 @@ class Processing(object):
                 self.my_attributes.tropo_error_stdv = read_parameter(parameters, "Tropo error stdv", None, float)
                 self.my_attributes.tropo_error_mean = read_parameter(parameters, "Tropo error mean", None, float)
             if self.my_attributes.tropo_model == 'map':
-                self.my_attributes.tropo_error_map_file = os.path.expandvars(parameters.getValue("Tropo error map file")  )           
+                self.my_attributes.tropo_error_map_file = os.path.expandvars(parameters.getValue("Tropo error map file"))
+                
             # Height model parameters
             
             # More complex model
@@ -182,27 +183,27 @@ class Processing(object):
             if self.my_attributes.height_model is None:
                 my_api.printInfo("Height only given by a simple model A/t0/T")
                 # Simple model
-                self.my_attributes.height_model_a = read_parameter(parameters, "Constant height model A", HEIGHT_MODEL_A, float)
-                self.my_attributes.height_model_t0 = read_parameter(parameters, "Constant height model t0", HEIGHT_MODEL_t0, float)
-                self.my_attributes.height_model_period = read_parameter(parameters, "Constant height model period", HEIGHT_MODEL_PERIOD, float)
+                self.my_attributes.height_model_a = read_parameter(parameters, "Constant height model A", my_var.HEIGHT_MODEL_A, float)
+                self.my_attributes.height_model_t0 = read_parameter(parameters, "Constant height model t0", my_var.HEIGHT_MODEL_t0, float)
+                self.my_attributes.height_model_period = read_parameter(parameters, "Constant height model period", my_var.HEIGHT_MODEL_PERIOD, float)
             
             else:
                 
                 if self.my_attributes.height_model in ["polynomial", "gaussian"]:
                     # Simple model
-                    self.my_attributes.height_model_a = read_parameter(parameters, "Constant height model A", HEIGHT_MODEL_A, float)
-                    self.my_attributes.height_model_t0 = read_parameter(parameters, "Constant height model t0", HEIGHT_MODEL_t0, float)
-                    self.my_attributes.height_model_period = read_parameter(parameters, "Constant height model period", HEIGHT_MODEL_PERIOD, float)
+                    self.my_attributes.height_model_a = read_parameter(parameters, "Constant height model A", my_var.HEIGHT_MODEL_A, float)
+                    self.my_attributes.height_model_t0 = read_parameter(parameters, "Constant height model t0", my_var.HEIGHT_MODEL_t0, float)
+                    self.my_attributes.height_model_period = read_parameter(parameters, "Constant height model period", my_var.HEIGHT_MODEL_PERIOD, float)
                     # Specific attributes
-                    self.my_attributes.height_model_min_area = read_parameter(parameters, "Height 2d model min area", HEIGHT_MODEL_MIN_AREA, float)
+                    self.my_attributes.height_model_min_area = read_parameter(parameters, "Height 2d model min area", my_var.HEIGHT_MODEL_MIN_AREA, float)
                     # Only for gaussian model
                     if self.my_attributes.height_model == "gaussian":
-                        self.my_attributes.height_model_stdv = read_parameter(parameters, "Height 2d model stdv", HEIGHT_MODEL_STDV, float)
+                        self.my_attributes.height_model_stdv = read_parameter(parameters, "Height 2d model stdv", my_var.HEIGHT_MODEL_STDV, float)
                     
                 elif self.my_attributes.height_model == "reference_height":
                     self.my_attributes.height_name = read_parameter(parameters, "Height shp attribute name", "HEIGHT", str)
                     
-                elif self.my_attributes.height_model == "reference_file": # True height file
+                elif self.my_attributes.height_model == "reference_file":  # True height file
                     self.my_attributes.trueheight_file = os.path.expandvars(parameters.getValue("True height file"))
                     if self.my_attributes.trueheight_file is None:
                         my_api.exitWithError("True height file not filled")
@@ -211,7 +212,6 @@ class Processing(object):
                 else:
                     my_api.exitWithError("Height model value UNKNOWN => should be one of polynomial / gaussian / reference_height / reference_file")
                 
-            
         except IOError:
             my_api.exitWithError("[sisimp_processing/run_preprocessing] Parameter file not found = %s" % IN_paramFile)
 
@@ -245,21 +245,16 @@ class Processing(object):
             if self.my_attributes.height_name not in field_names:
                 my_api.exitWithError("%s attribute not found in %s; reference_height model option can't be applied" % (self.my_attributes.height_name, self.my_attributes.shapefile_path+".shp"))
 
-
         # Load the noise tab
-        noise_file_path = ""
         try:
             self.my_attributes.noise_height = np.loadtxt(os.path.expandvars(parameters.getValue("Noise file path")), skiprows=1)
             self.my_attributes.noise_height[:, 1] = self.my_attributes.noise_multiplier_factor * self.my_attributes.noise_height[:, 1]
             self.my_attributes.dw_detected_noise_height = np.loadtxt(os.path.expandvars(parameters.getValue("Noise file path")), skiprows=1)
-            self.my_attributes.dw_detected_noise_height[:,1]=self.my_attributes.dw_detected_noise_factor*self.my_attributes.noise_height[:,1]
-            
+            self.my_attributes.dw_detected_noise_height[:, 1] = self.my_attributes.dw_detected_noise_factor * self.my_attributes.noise_height[:, 1]
         except IOError:
-            my_api.exitWithError("Noise file %s not found in the folder %s " % (noise_file_path, os.path.dirname(__file__)))
-
+            my_api.exitWithError("Noise file not found")
 
         # Load the tile database file
-        noise_file_path = ""
         try:
             archive = zipfile.ZipFile(os.path.expandvars(parameters.getValue("Tile database path")), "r")
             imgfile = archive.open("tiles_full.txt")
@@ -267,11 +262,12 @@ class Processing(object):
         except IOError:
             my_api.exitWithError("Tile database not found ")
             
-            
         # Orbit processing
         # For loop on orbit_file generated
         if self.my_attributes.multi_orbit_option == 'yes' or self.my_attributes.multi_orbit_option == 'passplan':
+            
             try:
+                
                 # Retrieve all orbit files
                 for path, subdirs, files in (os.walk(run_directory_for_orbits)):
                     for file in files:
@@ -281,7 +277,6 @@ class Processing(object):
                             orbit_cycle = int(file_name[-16:-13])
                             self.my_attributes.orbit_list.append([orbit_cycle, orbit_number, file_name])
 
-                            
                 # When passplan option is selected: self.orbit_files corresponds to the passplan
                 if self.my_attributes.multi_orbit_option == 'passplan':
                     try:
@@ -337,7 +332,6 @@ class Processing(object):
         if self.my_attributes.create_pixc_vec_river and (wb_layer.FindFieldIndex(str("RIV_FLAG"), True) != -1):
             self.my_attributes.compute_pixc_vec_river = True
 
-
     def run_processing(self):
         """Main process, computations are done here"""
         my_api.printInfo("")
@@ -358,7 +352,7 @@ class Processing(object):
             self.my_attributes.sisimp_filenames = my_names.sisimpFilenames(self.my_attributes.out_dir, self.my_attributes.mission_start_time, self.my_attributes.cycle_duration, elem[0], elem[1])
             
             # 3 - Process right swath
-            self.my_attributes = sisimp_fct.make_pixel_cloud("Right", elem[0], elem[1],self.my_attributes)
+            self.my_attributes = sisimp_fct.make_pixel_cloud("Right", elem[0], elem[1], self.my_attributes)
             my_api.printInfo("")
             
             # 4 - Process left swath
@@ -369,7 +363,7 @@ class Processing(object):
             sisimp_fct.write_swath_polygons(self.my_attributes)
             my_api.printInfo("")
             my_api.printInfo("")
-
+            
     def run_postprocessing(self):
         """
         Run post-processing

@@ -3,10 +3,7 @@
 .. module proc_real_pixc_vec_river.py
     :synopsis: Deal with data file complementary to pixel cloud files (L2_HR_PIXCVecRiver)
     Created on 08/29/2017
-    2018/11/30 (D. Desroches, V. Poughon, C. Pottier - CNES): change variables names wrt to new PIXCVecRiver naming convention
-                                                                    + write only river pixels (if empty, produce NetCDF file with record = 0)
-                                                                    + add pixc_index field = indices of river pixels within the L2_HR_PIXC product
-
+    
 .. module author: Claire POTTIER - CNES DSO/SI/TR
 
 This file is part of the SWOT Hydrology Toolbox
@@ -17,12 +14,14 @@ This file is part of the SWOT Hydrology Toolbox
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from datetime import datetime
 import numpy as np
 import os
 from osgeo import ogr, osr
 
 import lib.my_api as my_api
 import lib.my_netcdf_file as my_nc
+import lib.my_variables as my_var
 
 
 def fill_vector_param(IN_variable, IN_variable_name, IN_ref_size, IN_data_param):
@@ -46,14 +45,14 @@ def fill_vector_param(IN_variable, IN_variable_name, IN_ref_size, IN_data_param)
             exit(exc)
         else:
             IN_data_param.fill_variable(IN_variable_name, IN_variable)
-
-
-#----------------------------------------
+            
+            
+#################################################
 
 
 class l2_hr_pixc_vec_river(object):
 
-    def __init__(self, IN_azimuth_index, IN_range_index, \
+    def __init__(self, IN_azimuth_index, IN_range_index,
                  IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_nb_pix_range, IN_nb_pix_azimuth):
         """
         Constructor of the pixel cloud vector attribute product
@@ -105,23 +104,17 @@ class l2_hr_pixc_vec_river(object):
         self.nb_pix_river = 0  # Number of PixC associated to river
         self.pixc_river_idx = None  # Indices of pixels in the L2_HR_PIXC product associated to a river
 
-    def write_file(self, IN_output_file, noval, compress=False):
+    def write_file(self, IN_output_file, compress=False):
         """
         Write the pixel cloud vector attribute for river product (L2_HR_PIXCVecRiver product)
-        NB: if there is no river pixels, write an empty file (with record = 0)
+        NB: if there is no river pixels, write an empty file (with points = 0)
 
         :param IN_output_file: output full path
         :type IN_output_file: string
-        :param noval: No data value
-        :type noval: float
         :param compress: parameter the define to compress or not the file
         :type compress: boolean
         """ 
         my_api.printInfo("[l2_hr_pixc_vec_river] == write_file : %s ==" % IN_output_file)
-        
-        # 0 - Init noval if necessary
-        if noval is None:
-            noval = -999000000.
     
         # 1 - Open NetCDF file in writing mode
         data = my_nc.myNcWriter(IN_output_file)
@@ -130,40 +123,16 @@ class l2_hr_pixc_vec_river(object):
         self.pixc_river_idx = np.where(self.river_tag != "")[0]  # Indices of river pixels in the L2_HR_PIXC product
         self.nb_pix_river = len(self.pixc_river_idx)  # Number of river pixels
         
-        # 3 - Write file depending on the number of river pixels
-        if self.nb_pix_river == 0:
-            
-            my_api.printInfo("NO river pixels => empty PIXCVecRiver file generated")
-            data.add_dimension('record', 0)
-            
-        else:
-
-            data.add_dimension('record', self.nb_pix_river)
-    
-            data.add_variable('pixc_index', np.int32, 'record', np.int(noval), compress)
-            fill_vector_param(self.pixc_river_idx, 'pixc_index', self.nb_pix_river, data)
-            data.add_variable('azimuth_index', np.int32, 'record', np.int(noval), compress)
-            fill_vector_param(self.azimuth_index[self.pixc_river_idx], 'azimuth_index', self.nb_pix_river, data)
-            data.add_variable('range_index', np.int32, 'record', np.int(noval), compress)
-            fill_vector_param(self.range_index[self.pixc_river_idx], 'range_index', self.nb_pix_river, data)
-        
-            data.add_variable('latitude_vectorproc', np.double, 'record', noval, compress)
-            data.add_variable_attribute('latitude_vectorproc', 'units', 'degrees_north')
-            fill_vector_param(self.latitude_vectorproc[self.pixc_river_idx], 'latitude_vectorproc', self.nb_pix_river, data)
-            data.add_variable('longitude_vectorproc', np.double, 'record', noval, compress)
-            data.add_variable_attribute('longitude_vectorproc', 'units', 'degrees_east')
-            fill_vector_param(self.longitude_vectorproc[self.pixc_river_idx], 'longitude_vectorproc', self.nb_pix_river, data)
-            data.add_variable('height_vectorproc', np.float32, 'record', np.float(noval), compress)
-            data.add_variable_attribute('height_vectorproc', 'units', 'm')
-            fill_vector_param(self.height_vectorproc[self.pixc_river_idx], 'height_vectorproc', self.nb_pix_river, data)
-        
-            data.add_variable('river_tag', str, 'record', "", compress)
-            fill_vector_param(self.river_tag[self.pixc_river_idx], 'river_tag', self.nb_pix_river, data)
-        
-        # Write global attributes even if empty
-        data.add_global_attribute('description', 'L2_HR_PIXCVecRiver product obtained by CNES/LEGOS Large Scale Simulator')
-        data.add_global_attribute('mission_start_time', self.mission_start_time)
-        data.add_global_attribute('repeat_cycle_period', self.cycle_duration)
+        # 3 - Write global attributes even if empty
+        data.add_global_attribute('Conventions', 'CF-1.7')
+        data.add_global_attribute('title', 'Level 2 KaRIn high rate pixel cloud vector attribute river product')
+        data.add_global_attribute('institution', 'CNES - Large scale simulator')
+        data.add_global_attribute('source', 'Ka-band radar interferometer')
+        data.add_global_attribute('history', "%sZ: Creation" % datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
+        data.add_global_attribute('mission_name', "SWOT")
+        data.add_global_attribute('references', 'Large scale simulator')
+        data.add_global_attribute('reference_document', 'JPL D-56415')
+        data.add_global_attribute('contact', 'None')
         data.add_global_attribute('cycle_number', self.cycle_num)
         data.add_global_attribute('pass_number', np.int(self.pass_num))
         data.add_global_attribute('tile_number', int(self.tile_ref[0:-1]))
@@ -171,6 +140,42 @@ class l2_hr_pixc_vec_river(object):
         data.add_global_attribute('tile_name', "%03d_%03d%s" % (np.int(self.pass_num), int(self.tile_ref[0:-1]), self.tile_ref[-1]))
         data.add_global_attribute('interferogram_size_range', self.nb_pix_range)    
         data.add_global_attribute('interferogram_size_azimuth', self.nb_pix_azimuth)   
+        
+        # 4 - Write file depending on the number of river pixels
+        if self.nb_pix_river == 0:
+            
+            my_api.printInfo("NO river pixels => empty PIXCVecRiver file generated")
+            data.add_dimension('points', 0)
+            
+        else:
+
+            data.add_dimension('points', self.nb_pix_river)
+    
+            data.add_variable('pixc_index', np.int32, 'points', my_var.FV_NETCDF["int32"], compress)
+            fill_vector_param(self.pixc_river_idx, 'pixc_index', self.nb_pix_river, data)
+            data.add_variable('azimuth_index', np.int32, 'points', my_var.FV_NETCDF["int32"], compress)
+            fill_vector_param(self.azimuth_index[self.pixc_river_idx], 'azimuth_index', self.nb_pix_river, data)
+            data.add_variable('range_index', np.int32, 'points', my_var.FV_NETCDF["int32"], compress)
+            fill_vector_param(self.range_index[self.pixc_river_idx], 'range_index', self.nb_pix_river, data)
+        
+            data.add_variable('latitude_vectorproc', np.float64, 'points', my_var.FV_NETCDF["float64"], compress)
+            data.add_variable_attribute('latitude_vectorproc', 'units', 'degrees_north')
+            fill_vector_param(self.latitude_vectorproc[self.pixc_river_idx], 'latitude_vectorproc', self.nb_pix_river, data)
+            data.add_variable('longitude_vectorproc', np.float64, 'points', my_var.FV_NETCDF["float64"], compress)
+            data.add_variable_attribute('longitude_vectorproc', 'units', 'degrees_east')
+            fill_vector_param(self.longitude_vectorproc[self.pixc_river_idx], 'longitude_vectorproc', self.nb_pix_river, data)
+            data.add_variable('wse_vectorproc', np.float32, 'points', np.float(my_var.FV_NETCDF["float32"]), compress)
+            data.add_variable_attribute('wse_vectorproc', 'units', 'm')
+            fill_vector_param(self.height_vectorproc[self.pixc_river_idx], 'wse_vectorproc', self.nb_pix_river, data)
+        
+            data.add_variable('node_id', str, 'points', "", compress)
+            fill_vector_param(self.river_tag[self.pixc_river_idx], 'node_id', self.nb_pix_river, data)
+            data.add_variable('lake_flag', np.int8, 'points', my_var.FV_NETCDF["int8"], compress)
+            fill_vector_param(np.zeros(self.nb_pix_river), 'lake_flag', self.nb_pix_river, data)
+            data.add_variable('climato_ice_flag', np.int8, 'points', my_var.FV_NETCDF["int8"], compress)
+            fill_vector_param(np.zeros(self.nb_pix_river), 'climato_ice_flag', self.nb_pix_river, data)
+            data.add_variable('dynamic_ice_flag', np.int8, 'points', my_var.FV_NETCDF["int8"], compress)
+            fill_vector_param(np.zeros(self.nb_pix_river), 'dynamic_ice_flag', self.nb_pix_river, data)
         
         # 4 - Close output file
         data.close()
@@ -203,21 +208,21 @@ class l2_hr_pixc_vec_river(object):
             srs.ImportFromEPSG(4326)  # WGS84
             outLayer = outDataSource.CreateLayer(str(os.path.basename(IN_output_file).split(".")[0]), srs, geom_type=ogr.wkbPoint)
             # 1.4 - Creation des attributs
-            outLayer.CreateField(ogr.FieldDefn(str('AZ_INDEX'), ogr.OFTInteger))
-            outLayer.CreateField(ogr.FieldDefn(str('R_INDEX'), ogr.OFTInteger))
-            tmpField = ogr.FieldDefn(str('LAT2'), ogr.OFTReal)
-            tmpField.SetWidth(10)
+            outLayer.CreateField(ogr.FieldDefn(str('az_index'), ogr.OFTInteger))
+            outLayer.CreateField(ogr.FieldDefn(str('r_index'), ogr.OFTInteger))
+            tmpField = ogr.FieldDefn(str('lat2'), ogr.OFTReal)
+            tmpField.SetWidth(15)
             tmpField.SetPrecision(6)
             outLayer.CreateField(tmpField)
-            tmpField = ogr.FieldDefn(str('LONG2'), ogr.OFTReal)
-            tmpField.SetWidth(10)
+            tmpField = ogr.FieldDefn(str('long2'), ogr.OFTReal)
+            tmpField.SetWidth(15)
             tmpField.SetPrecision(6)
             outLayer.CreateField(tmpField)
-            tmpField = ogr.FieldDefn(str('HEIGHT2'), ogr.OFTReal)
-            tmpField.SetWidth(10)
+            tmpField = ogr.FieldDefn(str('wse2'), ogr.OFTReal)
+            tmpField.SetWidth(15)
             tmpField.SetPrecision(6)
             outLayer.CreateField(tmpField)
-            outLayer.CreateField(ogr.FieldDefn(str('TAG'), ogr.OFTString))
+            outLayer.CreateField(ogr.FieldDefn(str('node_id'), ogr.OFTString))
             outLayerDefn = outLayer.GetLayerDefn()
             
             # 2 - On traite point par point
@@ -229,12 +234,12 @@ class l2_hr_pixc_vec_river(object):
                 point.AddPoint(self.longitude_vectorproc[indp], self.latitude_vectorproc[indp])
                 outFeature.SetGeometry(point)
                 # 2.3 - On lui assigne les attributs
-                outFeature.SetField(str('AZ_INDEX'), int(self.azimuth_index[indp]))
-                outFeature.SetField(str('R_INDEX'), int(self.range_index[indp]))
-                outFeature.SetField(str('LAT2'), float(self.latitude_vectorproc[indp]))
-                outFeature.SetField(str('LONG2'), float(self.longitude_vectorproc[indp]))
-                outFeature.SetField(str('HEIGHT2'), float(self.height_vectorproc[indp]))
-                outFeature.SetField(str('TAG'), str(self.river_tag[indp]))
+                outFeature.SetField(str('az_index'), int(self.azimuth_index[indp]))
+                outFeature.SetField(str('r_index'), int(self.range_index[indp]))
+                outFeature.SetField(str('lat2'), float(self.latitude_vectorproc[indp]))
+                outFeature.SetField(str('long2'), float(self.longitude_vectorproc[indp]))
+                outFeature.SetField(str('wse2'), float(self.height_vectorproc[indp]))
+                outFeature.SetField(str('node_id'), str(self.river_tag[indp]))
                 # 2.4 - On ajoute l'objet dans la couche de sortie
                 outLayer.CreateFeature(outFeature)
             
@@ -276,37 +281,3 @@ class l2_hr_pixc_vec_river(object):
         
         # Set tag of river pixels to a specific prefix
         self.river_tag[TMP_river_idx] = "1_"
-                
-
-#######################################
-
-
-if __name__ == '__main__':
-    
-    noval = -999900000
-
-    record = 10
-    azimuth_index = np.ones(record)+50.
-    range_index = np.ones(record)+50.
-    latitude = np.arange(record)+10.
-    longitude = np.arange(record)+50.
-    height = np.ones(record)+50.
-    
-    cycle_num = 1
-    pass_num = 10
-    tile_ref = "45N-L"
-    nb_pix_range = 200
-    nb_pix_azimuth = 20
-    
-    # Test avec vrai PixC
-    pixc_file = os.path.join(os.getcwd(), "SWOT_L2_HR_PIXC_001_010_45N-L_main.nc")
-    coord = my_nc.myNcReader(pixc_file)
-    # Init PIXCVecRiver product
-    my_pixc_vec = l2_hr_pixc_vec_river(coord.get_variable("azimuth_index"), \
-                                       coord.get_variable("range_index"), \
-                                       coord.get_global_attribute("cycle_number"), \
-                                       coord.get_global_attribute("pass_number"), \
-                                       coord.get_global_attribute("tile_ref"), \
-                                       coord.get_global_attribute("nb_pix_range"), \
-                                       coord.get_global_attribute("nb_pix_azimuth"))
-    

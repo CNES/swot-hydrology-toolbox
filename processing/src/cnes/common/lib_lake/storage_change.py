@@ -3,13 +3,15 @@
 """
 .. module:: storage_change.py
     :synopsis: STOCC module = deal with storage change computation wrt to a reference
-    Created on 12/19/2019
+     Created on 2019/12/19
 
 .. moduleauthor:: Manon QUELLEC (LEGOS) & Claire POTTIER (CNES DSO/SI/TR)
 
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 

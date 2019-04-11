@@ -14,18 +14,14 @@
 #
 # FIN-HISTORIQUE
 # ======================================================
-'''
- This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
-'''
-
-
-
 """
 .. module:: service_logger.py
     :synopsis: logging class for Swot
-
+.. moduleauthor:: capgemini
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 """
 
 import sys
@@ -54,6 +50,9 @@ class ServiceLogger(logging.getLoggerClass()):
     """
     instance = None
     def __new__(cls):
+        """
+            __new__ method for class ServiceLogger
+        """
         if cls.instance is None:
             cls.instance = object.__new__(cls)
         return cls.instance
@@ -61,12 +60,11 @@ class ServiceLogger(logging.getLoggerClass()):
     def __init__(self):
         """
             Init class ServiceLogger
-            :param name: name of the logger
         """
         THIS.klass = self
         cfg = service_config_file.get_instance()
-        # logging format
-        # LEVEL : DEBUG, INFO, WARNING, ERROR
+        # logging level
+        # LEVEL : DEBUG, INFO, WARNING, ERROR, SIGMSG
         # log format :
         # YYYY-MM-DDThh:mm:ss.mmm     LEVEL:ClassName:FunctionName: message
         self.log_formatter = logging.Formatter(fmt='%(asctime)s.%(msecs)03d     %(levelname)s | %(name)s::%(funcName)s | %(message)s',
@@ -74,6 +72,25 @@ class ServiceLogger(logging.getLoggerClass()):
 
         # set the name of the class in log messages
         self.root_logger = logging.getLogger()
+
+        # Define SIGMSG level
+        SIGMSG_LEVEL_NUM = 45
+        logging.SIGMSG = SIGMSG_LEVEL_NUM
+        levelName = "SIGMSG"
+        logging.addLevelName(SIGMSG_LEVEL_NUM, levelName)
+        def log_sigmsg(self, message, *args, **kwargs):
+            """
+               Local function sigmsg log
+               :param message: log message
+               :type message: string
+               :param *args: number of argument
+               :type *args: *int
+               :param **kwargs: list of argument
+               :type **kwargs: **type
+            """
+            self._log(logging.SIGMSG, message, args, **kwargs)
+        logging.Logger.sigmsg = log_sigmsg
+
         # set the logging level from the configuration file
         self.root_logger.setLevel(cfg.get('LOGGING', 'logFileLevel'))
         if not hasattr(self, 'first'):
@@ -118,6 +135,7 @@ class ServiceLogger(logging.getLoggerClass()):
         del self.first
         self.instance = None
         THIS.klass = None
+
 ####################################################################
 ####################################################################
 

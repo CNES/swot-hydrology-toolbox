@@ -58,7 +58,12 @@ They are:
 * __MIN_SIZE__ is the minimum size for a lake to generate a lake product (=polygon + attributes) for it
 * __STD_HEIGHT_MAX__ is the maximal standard deviation of height inside a lake; this value is used to distinguish different lakes that may be merged in the radar geometry
 * __IMP_GEOLOC__ is the flag to improve PixC golocation (=True) or not (=False)
-* __HULL_METHOD__ is the method to compute lake boundary (or polygon hull): 0=convex hull 1=concav hull (1.0=with alpha param (default) 1.1=without) 2=concav hull radar vectorisation
+* __HULL_METHOD__ is the method to compute lake boundary (or polygon hull): 
+  * 0 = convex hull
+  * 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library (default)
+  * 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track
+  * 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - without alpha parameter varying across-track
+  * 2 = edge computed in radar geometry, then converted in ground geometry
 * __BIGLAKE_MODEL, BIGLAKE_MIN_SIZE, BIGLAKE_GRID_SPACING, BIGLAKE_GRID_RES__ are parameters specific to the processing of "big" lakes, ie. lakes with an area greater than BIGLAKE_MIN_SIZE
 * __NB_DIGITS__ are the number of digits for a counter of lakes in a tile or pass, used in the LakeID of each observed lake
 * __PATTERN[...]__ are patterns for filenames used in LOCNES

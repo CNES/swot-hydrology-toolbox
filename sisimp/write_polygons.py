@@ -23,18 +23,16 @@ import pyproj
 from scipy.spatial import cKDTree
 import time
 
-
+import lib.dark_water_functions as dark_water
 import lib.my_api as my_api
-import lib.my_tools as my_tools
 from lib.my_lacs import Constant_Lac, Reference_height_Lac, Gaussian_Lac, Polynomial_Lac, Height_in_file_Lac
 from lib.my_variables import RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
 from lib.roll_module import Roll_module
 from lib.tropo_module import Tropo_module
-import lib.dark_water_functions as dark_water
-import proc_real_pixc
-import proc_real_pixc_vec_river
 
 import mathematical_function as math_fct
+import proc_real_pixc
+import proc_real_pixc_vec_river
 
 
 class orbitAttributes:
@@ -65,11 +63,11 @@ class orbitAttributes:
         # 1.4 - Height parameters
         self.trueheight_file = None  # True height file
         self.height_model = None  # Height model
-        self.height_name = None # Height field name
+        self.height_name = None  # Height field name
         self.height_model_min_area = None  # Optionnal argument to add complex 2D height model
         # Constant height model (always applied, set HEIGHT_MODEL_A to 0 to desactivate)
         self.height_model_a = None  # Height model A
-        self.height_model_a_tab = None # Height model from shapefile
+        self.height_model_a_tab = None  # Height model from shapefile
         self.height_model_t0 = None  # Height model t0
         self.height_model_period = None  # Height model period
         # Gaussian parameter for gaussian model
@@ -108,7 +106,7 @@ class orbitAttributes:
         self.near_range = None
         self.swath_polygons = {}  # Dictionnary for storing swath polygons
         
-        self.dw_detected_noise_height = None # dw detected noise tab
+        self.dw_detected_noise_height = None  # dw detected noise tab
 
         # 3.1 - From orbit file
         self.azimuth_spacing = None  # Azimuth spacing
@@ -132,6 +130,10 @@ class orbitAttributes:
 
         # 4 - List of each water body
         self.liste_lacs = None
+                
+
+#######################################
+        
 
 def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
     """
@@ -148,6 +150,8 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
     :type IN_fshp_reproj: string
     :param IN_pixc_vec_only: if set, deal only with polygons with field RIV_FLAG != 0
     :type IN_pixc_vec_only: boolean
+    :param IN_attributes:
+    :type IN_attributes:
 
     :return OUT_burn_data: the radar pixels that are inside a water body
     :rtype OUT_burn_data: 2D-array of int (0=land 1=water)
@@ -219,7 +223,12 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
  
     for i in IN_attributes.liste_lacs:
         i.compute_pixels_in_given_lac(OUT_ind_lac_data)
+
     return OUT_burn_data, OUT_height_data, OUT_code_data, OUT_ind_lac_data, IN_attributes
+                
+
+#######################################
+    
 
 def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_orbit_number, IN_attributes):
     """
@@ -235,6 +244,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     :type IN_cycle_number: int
     :param IN_orbit_number: orbit number
     :type IN_orbit_number: int
+    :param IN_attributes:
+    :type IN_attributes:
     """
     my_api.printInfo("[write_polygons] == write_water_pixels_realPixC ==")  
     
@@ -253,53 +264,50 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     river_flag = IN_water_pixels[ind]  # 1=lake and 2=river
     # Dark Water
     
-    ## check if dark water is simulated or not
-    if IN_attributes.dark_water.lower() == "yes" :
-        ### Simulate dark water if water pixel are present
-        ### to do integrer dans le if suivant après quand ça marche pour éviter les répétitions
+    # Check if dark water is simulated or not
+    if IN_attributes.dark_water.lower() == "yes":
+        # Simulate dark water if water pixel are present
+        # TODO: integrer dans le if suivant après quand ça marche pour éviter les répétitions
         if size_of_tabs != 0.:
             rmin, rmax, azmin, azmax = r.min(), r.max(), az.min(), az.max()
-            taille_r, taille_az = rmax-rmin+1, azmax-azmin+1
 
             # Simulate dark_water
-            dw_mask=dark_water.dark_water_simulation(1,azmin ,azmax+1,1, rmin, rmax+1,IN_attributes.dw_pourcent, IN_attributes.dw_seed, lcorr = IN_attributes.dw_correlation_length)
+            dw_mask = dark_water.dark_water_simulation(1, azmin, azmax+1, 1, rmin, rmax+1, IN_attributes.dw_pourcent, IN_attributes.dw_seed, lcorr=IN_attributes.dw_correlation_length)
     
-            ## Get water extent
+            # Get water extent
             indice_r = np.array(ind[0]-rmin)
             indice_az = np.array(ind[1]-azmin)
-            ## Randomly classify or erase dark water regions
-            ### Randomly erase DW regions in DW mask
+            # Randomly classify or erase dark water regions
+            # Randomly erase DW regions in DW mask
+            dw_mask = dark_water.dark_water_non_detected_simulation(dw_mask, 1, azmin, azmax+1, 1, rmin, rmax+1, IN_attributes.dw_detected_percent, IN_attributes.dw_seed, scale_factor=IN_attributes.scale_factor_non_detected_dw)
+            # Reshape dark_water to water extent
+            dw_mask = dw_mask[indice_az, indice_r]
 
-            dw_mask = dark_water.dark_water_non_detected_simulation(dw_mask,1,azmin ,azmax+1,1, rmin, rmax+1,IN_attributes.dw_detected_percent,IN_attributes.dw_seed, scale_factor = IN_attributes.scale_factor_non_detected_dw)
-            #reshape dark_water to water extent
-
-
-            dw_mask=dw_mask[indice_az,indice_r]
-            ### Update IN_water_pixels with the deleted water pixels
-            # check if dw pixels are deleted = dw_mask pixels set to 2
-            if np.where(dw_mask==2)[0].size > 0:
-                my_api.printInfo(str("Nb detected dark water pixels : %d" % np.where(dw_mask==1)[0].size ))
-                my_api.printInfo(str("Nb non detected dark water pixels : %d" % np.where(dw_mask==2)[0].size ))
-                ### Update river_flag and IN_water_pixels with the deleted water pixels
-                river_flag[np.where(dw_mask==2)]=0
-                IN_water_pixels[ind]=river_flag
-                # delete the corresponding pixels in the dw mask to update indices values
-                dw_mask=np.delete(dw_mask,np.where(dw_mask==2))
-                ## Update size of tabs etc... because water pixels were deleted
+            # Update IN_water_pixels with the deleted water pixels
+            # Check if dw pixels are deleted = dw_mask pixels set to 2
+            if np.where(dw_mask == 2)[0].size > 0:
+                my_api.printInfo(str("Nb detected dark water pixels : %d" % np.where(dw_mask == 1)[0].size))
+                my_api.printInfo(str("Nb non detected dark water pixels : %d" % np.where(dw_mask == 2)[0].size))
+                # Update river_flag and IN_water_pixels with the deleted water pixels
+                river_flag[np.where(dw_mask == 2)] = 0
+                IN_water_pixels[ind] = river_flag
+                # Delete the corresponding pixels in the dw mask to update indices values
+                dw_mask = np.delete(dw_mask, np.where(dw_mask == 2))
+                # Update size of tabs etc... because water pixels were deleted
                 size_of_tabs = np.count_nonzero(IN_water_pixels)
                 my_api.printInfo(str("Nb water pixels: %d" % size_of_tabs))
                 ind = np.nonzero(IN_water_pixels)
                 r, az = [ind[0], ind[1]]
                 river_flag = IN_water_pixels[ind]
-            ###  Build the classification array with water flag Dark_water flag
+            # Build the classification array with water flag Dark_water flag
             classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag  # Classification as water
-            #locate DW pixels
-            dark_water_loc = np.where(dw_mask==1)
-            #update classification value for dark water pixels with DW flag
-            classification_tab[dark_water_loc]= IN_attributes.darkwater_flag
-        else :
+            # Locate DW pixels
+            dark_water_loc = np.where(dw_mask == 1)
+            # Update classification value for dark water pixels with DW flag
+            classification_tab[dark_water_loc] = IN_attributes.darkwater_flag
+        else:
             classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag
-    else :
+    else:
         classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag
         my_api.printInfo(str("No Dark Water will be simulated"))
 
@@ -327,25 +335,23 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         
         indice = np.where(np.logical_and(np.isin(r, lac.pixels[0]), np.isin(az, lac.pixels[1])))  # Get indices 1=lake and 2=river (remove 0=land)
 
-        lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h = lac.hmean)
-        elevation_tab[indice] = (lac.compute_h)(lat[indice], lon[indice])
-      
+        lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
+        elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
       
     # 4.1 - Compute noise over height
-    if IN_attributes.dark_water.lower() == "yes" :
+    if IN_attributes.dark_water.lower() == "yes":
         noise_seed = int(str(time.time()).split('.')[1])
-        delta_h=np.zeros(elevation_tab.shape)
-        water_pixels=np.where(classification_tab==IN_attributes.water_flag)
-        dw_pixels=np.where(classification_tab==IN_attributes.darkwater_flag)
-        delta_h[water_pixels]=math_fct.calc_delta_h(angles[water_pixels],IN_attributes.noise_height,IN_attributes.height_bias_std, seed = noise_seed)
-        delta_h[dw_pixels]=math_fct.calc_delta_h(angles[dw_pixels],IN_attributes.dw_detected_noise_height,IN_attributes.height_bias_std, seed = noise_seed)
-    else : 
+        delta_h = np.zeros(elevation_tab.shape)
+        water_pixels = np.where(classification_tab == IN_attributes.water_flag)
+        dw_pixels = np.where(classification_tab == IN_attributes.darkwater_flag)
+        delta_h[water_pixels] = math_fct.calc_delta_h(angles[water_pixels], IN_attributes.noise_height, IN_attributes.height_bias_std, seed=noise_seed)
+        delta_h[dw_pixels] = math_fct.calc_delta_h(angles[dw_pixels], IN_attributes.dw_detected_noise_height, IN_attributes.height_bias_std, seed=noise_seed)
+    else:
         delta_h = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std)
 
     # 4.2 Add residual roll error
-    
     try:
-        if IN_attributes.roll_repo != None:
+        if IN_attributes.roll_repo is not None:
             
             my_api.printInfo("Applying roll residual error")
 
@@ -355,7 +361,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             
             # Apply roll for each pixel
             roll.interpolate_roll_on_pixelcloud(IN_attributes.orbit_time, IN_attributes.orbit_time[az], y)
-            delta_h_roll = (roll.roll1_err_cloud)
+            delta_h_roll = roll.roll1_err_cloud
             
             delta_h += delta_h_roll
 
@@ -366,23 +372,17 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         my_api.printInfo("No roll error applied")    
          
     # 4.3 Add tropospheric delay
-
     if IN_attributes.tropo_model == 'gaussian':
-
         my_api.printInfo("Applying wet tropo gaussian model")
         tropo = Tropo_module(IN_attributes.tropo_model)
         tropo_error = tropo.calculate_tropo_error_gaussian(az, r, IN_attributes.tropo_error_stdv, IN_attributes.tropo_error_mean, IN_attributes.tropo_error_correlation) 
         delta_h += tropo_error
-     
-        
     if IN_attributes.tropo_model == 'map':
-        
         my_api.printInfo("Applying wet tropo map gaussian model")
         tropo = Tropo_module(IN_attributes.tropo_model)
         tropo_error = tropo.calculate_tropo_error_map(np.mean(lat)* RAD2DEG, az, r, IN_attributes.tropo_error_map_file, IN_attributes.tropo_error_correlation) 
         delta_h += tropo_error
-        
-    
+
     # 5.3 - Compute final noisy heights (elevation + thermal noise + roll error + height model) 
     elevation_tab_noisy = elevation_tab + delta_h           
     
@@ -393,30 +393,24 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     vy = np.zeros(nb_pix_nadir)
     vz = np.zeros(nb_pix_nadir)
     # Compute first value
-    vx[0], vy[0], vz[0] = [(IN_attributes.x[1] - IN_attributes.x[0]), (IN_attributes.y[1] - IN_attributes.y[0]), (IN_attributes.z[1] - IN_attributes.z[0])]  / (IN_attributes.orbit_time[1] - IN_attributes.orbit_time[0])
+    vx[0], vy[0], vz[0] = [(IN_attributes.x[1] - IN_attributes.x[0]), (IN_attributes.y[1] - IN_attributes.y[0]), (IN_attributes.z[1] - IN_attributes.z[0])] / (IN_attributes.orbit_time[1] - IN_attributes.orbit_time[0])
     # Compute last value
     vx[-1], vy[-1], vz[-1] = [(IN_attributes.x[-1] - IN_attributes.x[-2]), (IN_attributes.y[-1] - IN_attributes.y[-2]), (IN_attributes.z[-1] - IN_attributes.z[-2])] / (IN_attributes.orbit_time[-1] - IN_attributes.orbit_time[-2])
     # Compute middle values
     for indp in range(1, nb_pix_nadir-1):
         vx[indp], vy[indp], vz[indp] = [(IN_attributes.x[indp+1] - IN_attributes.x[indp-1]), (IN_attributes.y[indp+1] - IN_attributes.y[indp-1]), (IN_attributes.z[indp+1] - IN_attributes.z[indp-1])] / (IN_attributes.orbit_time[indp+1] - IN_attributes.orbit_time[indp-1])
  
-
     # Convert nadir latitudes/longitudes in degrees
     nadir_lat_deg = IN_attributes.lat[1:-1] * RAD2DEG
     nadir_lon_deg = IN_attributes.lon[1:-1] * RAD2DEG
-    nadir_x = IN_attributes.x[1:-1]
-    nadir_y = IN_attributes.y[1:-1]
-    nadir_z = IN_attributes.z[1:-1]
         
     # Remove 1st and last values because just here for extrapolators (cf. read_orbit)
     nadir_alt = IN_attributes.alt[1:-1]
     nadir_heading = IN_attributes.heading[1:-1]
-     
  
-    lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, h = elevation_tab +delta_h)
+    lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, h=elevation_tab+delta_h)
     lon_noisy *= RAD2DEG  # Conversion in degrees
-    lat_noisy *= RAD2DEG  # Conversion in degrees 
-        
+    lat_noisy *= RAD2DEG  # Conversion in degrees
     
     ######################
     # Write output files #
@@ -433,7 +427,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         tmp_orbit_number = IN_orbit_number - 331  # Pass 1 in tile database file = pass 332 in last KML file (sept2015-v2)
         if tmp_orbit_number < 1:
             tmp_orbit_number += 584
-        tile_db_orbit = tile_db[np.where(tile_db[:,0] == tmp_orbit_number)[0],:]
+        tile_db_orbit = tile_db[np.where(tile_db[:, 0] == tmp_orbit_number)[0], :]
         # Compute the indices of nadir_lat_min and nadir_lat_max
         nadir_lat_argmin = int(np.argmin(nadir_lat_deg))
         nadir_lat_argmax = int(np.argmax(nadir_lat_deg))
@@ -444,25 +438,25 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         nadir_lat_deg_max = nadir_lat_deg[nadir_lat_argmax]
         nadir_lon_deg_max = nadir_lon_deg[nadir_lat_argmax]
         # Construct the kd-tree for quick nearest-neighbor lookup        
-        tree = cKDTree(tile_db_orbit[:,2:4])
+        tree = cKDTree(tile_db_orbit[:, 2:4])
         
         # Retrieve index of tile_db_orbit the nearest of nadir_min_lat
         ind_min = tree.query([nadir_lat_deg_min, nadir_lon_deg_min])
         # Retrieve index of tile_db_orbit the nearest of nadir_max_lat
         ind_max = tree.query([nadir_lat_deg_max, nadir_lon_deg_max])
-        tile_db_orbit_cropped = tile_db_orbit[max(0, min(ind_max[1], ind_min[1])-1):min(len(tile_db_orbit), max(ind_max[1], ind_min[1])+2),:]
-        vect_lat_lon_db_cropped = np.zeros([max(0,tile_db_orbit_cropped.shape[0]-1),2])
+        tile_db_orbit_cropped = tile_db_orbit[max(0, min(ind_max[1], ind_min[1])-1):min(len(tile_db_orbit), max(ind_max[1], ind_min[1])+2), :]
+        vect_lat_lon_db_cropped = np.zeros([max(0, tile_db_orbit_cropped.shape[0]-1), 2])
                  
-        for i in range(max(0,tile_db_orbit_cropped.shape[0]-1)):
-            vect_lat_lon_db_cropped[i,0] = tile_db_orbit_cropped[i+1,2]-tile_db_orbit_cropped[i,2]
-            vect_lat_lon_db_cropped[i,1] = tile_db_orbit_cropped[i+1,3]-tile_db_orbit_cropped[i,3]                 
-            nb_az_traj = max(nadir_lat_argmax,nadir_lat_argmin)- min(nadir_lat_argmax,nadir_lat_argmin)+1
+        for i in range(max(0, tile_db_orbit_cropped.shape[0]-1)):
+            vect_lat_lon_db_cropped[i,0] = tile_db_orbit_cropped[i+1, 2]-tile_db_orbit_cropped[i, 2]
+            vect_lat_lon_db_cropped[i,1] = tile_db_orbit_cropped[i+1, 3]-tile_db_orbit_cropped[i, 3]
+            nb_az_traj = max(nadir_lat_argmax, nadir_lat_argmin)- min(nadir_lat_argmax, nadir_lat_argmin) + 1
             tile_values = np.zeros(nb_az_traj, int)
-        for i in range(min(nadir_lat_argmax,nadir_lat_argmin), max(nadir_lat_argmax,nadir_lat_argmin)+1):
-            dist = np.abs(((nadir_lat_deg[i]-tile_db_orbit_cropped[:-1,2])*vect_lat_lon_db_cropped[:,0] + (nadir_lon_deg[i]-tile_db_orbit_cropped[:-1,3])*vect_lat_lon_db_cropped[:,1])/np.sqrt(vect_lat_lon_db_cropped[:,0]**2+vect_lat_lon_db_cropped[:,1]**2))
+        for i in range(min(nadir_lat_argmax, nadir_lat_argmin), max(nadir_lat_argmax, nadir_lat_argmin)+1):
+            dist = np.abs(((nadir_lat_deg[i]-tile_db_orbit_cropped[:-1, 2])*vect_lat_lon_db_cropped[:, 0] + (nadir_lon_deg[i]-tile_db_orbit_cropped[:-1, 3])*vect_lat_lon_db_cropped[:, 1])/np.sqrt(vect_lat_lon_db_cropped[:, 0]**2+vect_lat_lon_db_cropped[:, 1]**2))
             tile_values[i] = tile_db_orbit_cropped[np.argmin(dist),1]
         
-        ## If you want only one tile (for some tests)
+        # If you want only one tile (for some tests)
         #~ tile_values[:] = tile_values[0]
         tile_list = np.unique(tile_values)
         
@@ -494,7 +488,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 # Left / right swath flag
                 left_or_right = IN_swath.upper()[0]
                 
-                
                 # General tile reference
                 tile_ref = "%03d%s" % (tile_number, left_or_right)
                 
@@ -509,7 +502,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])
                 
                 # Write main file
-                my_pixc.write_pixc_file(IN_attributes.sisimp_filenames.pixc_file+".nc", None, True)
+                my_pixc.write_pixc_file(IN_attributes.sisimp_filenames.pixc_file+".nc", compress=True)
                 
                 # Write annotation file
                 my_pixc.write_annotation_file(IN_attributes.sisimp_filenames.file_annot_file, IN_attributes.sisimp_filenames.pixc_file+".nc")  
@@ -528,13 +521,16 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                     # Compute river_flag
                     my_pixc_vec.set_river_lake_tag(river_flag[az_indices]-1)  # -1 to have 0=lake and 1=river
                     # Write PIXCVec file
-                    my_pixc_vec.write_file(IN_attributes.sisimp_filenames.pixc_vec_river_file+".nc", None, True)
+                    my_pixc_vec.write_file(IN_attributes.sisimp_filenames.pixc_vec_river_file+".nc", compress=True)
                     # Write as shapefile if asked
                     if IN_attributes.create_shapefile:
                         my_pixc_vec.write_file_asShp(IN_attributes.sisimp_filenames.pixc_vec_river_file+".shp")
             
     else:  
-        my_api.printInfo("No output data file to write")   
+        my_api.printInfo("No output data file to write")
+                
+
+#######################################
 
 
 def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycle_number):
@@ -552,6 +548,10 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     :type IN_swath: string ("Left" or "Right")
     :param IN_driver: OGR driver
     :type IN_driver: -
+    :param IN_attributes:
+    :type IN_attributes:
+    :param IN_cycle_number:
+    :type IN_cycle_number:
     
     :return OUT_file/Getname: full path of the shapefile with the water body polygons in radar coordinates
     :rtype OUT_filename: string
@@ -598,14 +598,13 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
     # 4 - Convert coordinates for each water body polygon
     range_tab = []
-    OUT_near_range = None
     
-    heau = []
     liste_lac = []
     for ind, polygon_index in enumerate(layer):
         geom = polygon_index.GetGeometryRef()
         
         if geom is not None:  # Test geom.IsValid() not necessary
+            
             # 4.1 - Fill RIV_FLAG flag
             if IN_attributes.compute_pixc_vec_river:
                 riv_flag = polygon_index.GetField(str("RIV_FLAG"))
@@ -640,7 +639,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
                 ring_xy = ogr.Geometry(ogr.wkbLinearRing)
                 for i in range(len(X)):
-                    ring_xy.AddPoint(X[i],Y[i])
+                    ring_xy.AddPoint(X[i], Y[i])
                 poly_xy = ogr.Geometry(ogr.wkbPolygon)
                 poly_xy.AddGeometry(ring_xy)
                 
@@ -652,25 +651,21 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 #~ new_points = np.transpose(np.array(poly_xy.GetGeometryRef(0).GetPoints()))
                 #~ new_X, new_Y = new_points[0], new_points[1]
                 #~ new_lon, new_lat = pyproj.transform(utm_proj, latlon, new_X, new_Y) 
-                #~ layerDefn = layer.GetLayerDefn()
+                layerDefn = layer.GetLayerDefn()
                 #~ lon = new_lon * DEG2RAD
                 #~ lat = new_lat * DEG2RAD                
                 ###
                 
-                
                 lon = lon * DEG2RAD
                 lat = lat * DEG2RAD
-
-               
                 
                 lac = None
                 
-                if IN_attributes.height_model == None:
+                if IN_attributes.height_model is None:
                     lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
 
                 if IN_attributes.height_model == 'reference_height':
-
-                    lac = Reference_height_Lac(ind+1, polygon_index,layerDefn, IN_attributes)
+                    lac = Reference_height_Lac(ind+1, polygon_index, layerDefn, IN_attributes)
                 
                 if IN_attributes.height_model == 'gaussian': 
                     if area > IN_attributes.height_model_min_area:
@@ -693,9 +688,8 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                         lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
 
                 lac.set_hmean(np.mean(lac.compute_h(lat, lon)))
-                
        
-                az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, heau = lac.hmean)
+                az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
                 
                 range_tab = np.concatenate((range_tab, r), -1)
                 npoints = len(az)
@@ -708,6 +702,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 add_ring = True
                 # Add the reprojected ring to the output geometry
                 geom_out.AddGeometry(ring)
+                
             # 4.2.4 - Add Output geometry
             if add_ring:
                
@@ -720,38 +715,33 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 layerDefn = layer.GetLayerDefn()
                 for i in range(layerDefn.GetFieldCount()):
                     if IN_attributes.height_model == 'polynomial' or IN_attributes.height_model == 'gaussian':
-                        feature_out.SetField(str("CODE"),polygon_index.GetField("code"))
+                        feature_out.SetField(str("CODE"), polygon_index.GetField("code"))
                 if not height_from_shp:
                     IN_attributes.height_model_a_tab = None
                 
-                feature_out.SetField(str("IND_LAC"),ind+1)
+                feature_out.SetField(str("IND_LAC"), ind+1)
                 
                 # Add the output feature to the output layer
                 layerout.CreateFeature(feature_out)
                 liste_lac.append(lac)
+                
     IN_attributes.swath_polygons = OUT_swath_polygons
     IN_attributes.liste_lacs = liste_lac
     
     return OUT_filename, IN_attributes
+                
 
-def project_array(coordinates, srcp='latlon', dstp='geocent'):
-    """
-    Project a numpy (n,2) array in projection srcp to projection dstp
-    Returns a numpy (n,2) array.
-    """
-    p1 = pyproj.Proj(proj=srcp, datum='WGS84')
-    p2 = pyproj.Proj(proj=dstp, datum='WGS84')
-    fx, fy, fz = pyproj.transform(p1, p2, coordinates[:,1], coordinates[:,0], coordinates[:,2])
-    # Re-create (n,2) coordinates
-    # Inversion of lat and lon !
-    return np.dstack([fx, fy, fz])[0]
+#######################################
         
         
 def make_swath_polygon(IN_swath, IN_attributes):
-    """Make left of right swath polygon
+    """
+    Make left of right swath polygon
     
     :param IN_swath 
     :type IN_swath
+    :param IN_attributes:
+    :type IN_attributes:
     """
     sign = [-1, 1][IN_swath.lower() == 'right']
     ymin = sign * IN_attributes.nr_cross_track
@@ -777,8 +767,12 @@ def make_swath_polygon(IN_swath, IN_attributes):
     swath_polygon.AddGeometry(ring)
 
     return swath_polygon
+                
 
-def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau = 0.):
+#######################################
+    
+
+def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau=0.):
     """
     Convert coordinates from lon-lat to azimuth-range for a given track
     
@@ -788,6 +782,8 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau = 0.):
     :type IN_lat: 1D-array of float
     :param IN_attributes
     :type IN_attributes
+    :param heau:
+    :type heau:
     
     :return OUT_az: azimuth coordinate of given points
     :rtype OUT_az: 1D-array of float
@@ -802,7 +798,6 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau = 0.):
     # -----------
     nr = IN_attributes.nr_cross_track
     dr = IN_attributes.range_sampling
-    daz = IN_attributes.azimuth_spacing
     alt = IN_attributes.alt
     
     # ---------------------------------------------------------
@@ -814,46 +809,44 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau = 0.):
     psi = math_fct.linear_extrap(lat0, IN_attributes.lat_init, IN_attributes.heading_init)
     y = du * np.cos(psi)  # eq (3)
     OUT_azcoord = (math_fct.linear_extrap(lat0, IN_attributes.lat_init, np.arange(len(IN_attributes.lat_init))))
-    lat_0, lon_0 = IN_attributes.lat_init, IN_attributes.lon_init
     nb_points = 50
     gamma = np.zeros([len(IN_lat), nb_points])
     beta = np.zeros([len(IN_lat), nb_points])
   
     for i in range(nb_points):
         k = OUT_azcoord.astype('i4')+i-int(nb_points/2)
-        bad_ind = np.logical_or((k < 0) , (k > len(IN_attributes.costheta_init)-1))
+        bad_ind = np.logical_or((k < 0), (k > len(IN_attributes.costheta_init)-1))
         k[bad_ind] = 0.
 
         theta = np.pi/2. - IN_lat
-        theta_0 = np.pi/2. - lat_0[k,]
         phi = IN_lon
         
-        costheta_0 = IN_attributes.costheta_init[k,]
-        sintheta_0 = IN_attributes.sintheta_init[k,]
-        cosphi_0 = IN_attributes.cosphi_init[k,]
-        sinphi_0 = IN_attributes.sinphi_init[k,]
-        cospsi_0 = IN_attributes.cospsi_init[k,]
-        sinpsi_0 = IN_attributes.sinpsi_init[k,]
+        costheta_0 = IN_attributes.costheta_init[k, ]
+        sintheta_0 = IN_attributes.sintheta_init[k, ]
+        cosphi_0 = IN_attributes.cosphi_init[k, ]
+        sinphi_0 = IN_attributes.sinphi_init[k, ]
+        cospsi_0 = IN_attributes.cospsi_init[k, ]
+        sinpsi_0 = IN_attributes.sinpsi_init[k, ]
         
-        gamma[:,i] = (GEN_APPROX_RAD_EARTH+heau)*(np.sin(theta)*np.cos(phi)*(-cospsi_0*costheta_0*cosphi_0-sinpsi_0*sinphi_0) \
-                +np.sin(theta)*np.sin(phi)*(-cospsi_0*costheta_0*sinphi_0+sinpsi_0*cosphi_0) \
-                +np.cos(theta)*(cospsi_0*sintheta_0))
+        gamma[:, i] = (GEN_APPROX_RAD_EARTH+heau)*(np.sin(theta)*np.cos(phi)*(-cospsi_0*costheta_0*cosphi_0-sinpsi_0*sinphi_0) \
+                                                   + np.sin(theta)*np.sin(phi)*(-cospsi_0*costheta_0*sinphi_0+sinpsi_0*cosphi_0) \
+                                                   + np.cos(theta)*(cospsi_0*sintheta_0))
                 
-        beta[:,i]= (GEN_APPROX_RAD_EARTH+heau)*(np.sin(theta)*np.cos(phi)*(sinpsi_0*costheta_0*cosphi_0-cospsi_0*sinphi_0) \
-                +np.sin(theta)*np.sin(phi)*(sinpsi_0*costheta_0*sinphi_0+cospsi_0*cosphi_0) \
-                +np.cos(theta)*(-sinpsi_0*sintheta_0))
+        beta[:, i] = (GEN_APPROX_RAD_EARTH+heau)*(np.sin(theta)*np.cos(phi)*(sinpsi_0*costheta_0*cosphi_0-cospsi_0*sinphi_0) \
+                                                 + np.sin(theta)*np.sin(phi)*(sinpsi_0*costheta_0*sinphi_0+cospsi_0*cosphi_0) \
+                                                 + np.cos(theta)*(-sinpsi_0*sintheta_0))
 
-        gamma[bad_ind,i] = 9.99e20
-        beta[bad_ind,i] = 9.99e20
+        gamma[bad_ind, i] = 9.99e20
+        beta[bad_ind, i] = 9.99e20
                 
     ind = np.zeros(len(IN_lat), int)   
     y = np.zeros(len(IN_lat), float)   
              
     for i in range(len(IN_lat)):
-        indice = np.argmin(np.abs(gamma[i,:]))
+        indice = np.argmin(np.abs(gamma[i, :]))
         y[i] = beta[i, indice]
         ind[i] = indice - int(nb_points/2)
-    OUT_azcoord2 = OUT_azcoord  + ind
+    OUT_azcoord2 = OUT_azcoord + ind
     # Compute range coordinate (across track)
     
     H = alt[OUT_azcoord2.astype('i4')]
@@ -864,6 +857,9 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau = 0.):
     OUT_near_range = r0
     
     return OUT_azcoord2, OUT_rcoord, OUT_near_range
+                
+
+#######################################
 
 
 def all_linear_rings(geom):

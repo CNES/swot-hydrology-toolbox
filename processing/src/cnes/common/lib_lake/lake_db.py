@@ -2,13 +2,14 @@
 """
 .. module:: lake_db.py
     :synopsis: Deal with operationnal lake a priori database; consider shapefile and sqlite formats
-    Created on 08/27/2018
+     Created on 2018/08/27
 
 .. moduleauthor:: Claire POTTIER - CNES DSO/SI/TR
 
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
 """
 
@@ -18,12 +19,14 @@ import numpy as np
 from scipy.spatial import KDTree
 from osgeo import ogr
 import sqlite3
+import logging
+import cnes.common.service_config_file as service_config_file
 
-import cnes.common.lib_lake.locnes_variables as my_var
 
-
-class LakeDb_shp(object):
-    
+class LakeDbShp(object):
+    """
+        class LakeDbShp
+    """
     def __init__(self, in_filename, in_poly=None):
         """
         Constructor
@@ -33,13 +36,19 @@ class LakeDb_shp(object):
         :param in_poly: polygon to spatially select lakes from DB
         :type in_poly: ogr.Polygon
 
+
         Variables of the object:
-        filename / string: full path of the lake a priori database
-        dataSource / osgeo.ogr.DataSource: reader of lake database
-        layer / osgeo.ogr.Layer: layer of the lake database
+        
+         - filename / string: full path of the lake a priori database
+         - data_source / osgeo.ogr.DataSource: reader of lake database
+         - layer / osgeo.ogr.Layer: layer of the lake database
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("Lake DB = %s", in_filename)
+        # Get config file
+        cfg = service_config_file.get_instance()
+        # get lake_db_id parameter
+        self.lake_db_id = cfg.get("DATABASES", "LAKE_DB_ID")
         
         # Init with values
         self.filename = in_filename  # Full path of the lake a priori database
@@ -59,11 +68,11 @@ class LakeDb_shp(object):
         logger = logging.getLogger(self.__class__.__name__)
         
         # 1 - Open shapefile in read-only access
-        shpDriver = ogr.GetDriverByName(str('ESRI Shapefile'))  # Shapefile driver
-        shpDataSource = shpDriver.Open(self.filename, 0)
+        shp_driver = ogr.GetDriverByName(str('ESRI Shapefile'))  # Shapefile driver
+        shp_data_source = shp_driver.Open(self.filename, 0)
         
         # 2 - Get the layer
-        layer = shpDataSource.GetLayer()
+        layer = shp_data_source.GetLayer()
         logger.info("%d lakes stored in database", layer.GetFeatureCount())
         
         # 3 - Select some lakes among BD using in_poly
@@ -72,43 +81,43 @@ class LakeDb_shp(object):
             logger.info("%d lakes after focus over studied area", layer.GetFeatureCount())
         
         # 4 - Create an output datasource in memory
-        memDriver = ogr.GetDriverByName('MEMORY')  # Memory driver
-        self.dataSource = memDriver.CreateDataSource('memData')
+        mem_driver = ogr.GetDriverByName('MEMORY')  # Memory driver
+        self.data_source = mem_driver.CreateDataSource('memData')
 
         # 5 - Open the memory datasource with write access
-        tmp = memDriver.Open('memData', 1)
+        mem_driver.Open('memData', 1)
 
         # 6 - Copy the layer to memory
-        db_mem = self.dataSource.CopyLayer(layer, 'lake_db')
+        self.data_source.CopyLayer(layer, 'lake_db')
         
         # 7 - Get memory layer
-        self.layer = self.dataSource.GetLayer('lake_db')
+        self.layer = self.data_source.GetLayer('lake_db')
 
         # 8 - Close shapefile
-        shpDataSource.Destroy()
+        shp_data_source.Destroy()
         
     def close_db(self):
         """
         Close database
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")        
-        self.dataSource.Destroy()
+        logger.info("- close database -")        
+        self.data_source.Destroy()
 
     # ----------------------------------------
     
-    def getRefValues(self, in_id):
+    def get_ref_values(self, in_id):
         """
         Getter of reference height and area given the lake identifier
         
-        :return out_ref_height: reference height
-        :rtype out_ref_height: float
-        :return out_ref_area: reference area
-        :rtype out_ref_area: float
+        :return: out_ref_height reference height
+        :rtype: float
+        :return: out_ref_area: reference area
+        :rtype: float
         """
         
         # Select feature given its id
-        self.layer.SetAttributeFilter("%s = '%s'" % (my_var.LAKE_DB_ID, in_id))
+        self.layer.SetAttributeFilter("%s = '%s'" % (self.lake_db_id, in_id))
         prior_lake = self.layer.GetNextFeature()
         
         # Get reference height
@@ -129,7 +138,7 @@ class LakeDb_shp(object):
         return out_ref_height, out_ref_area
 
     # ----------------------------------------
-    def linkToDb(self, in_poly, in_lon, in_lat):
+    def link_to_db(self, in_poly, in_lon, in_lat):
         """
         Links polygon in_poly to a priori database, i.e. returns, when available, 
         the list of the ID(s) of the a priori lake(s) intersecting the input polygon,
@@ -152,12 +161,12 @@ class LakeDb_shp(object):
         :type in_lat: 1D array of float
 
         :return: out_prior_id = list of lake identifiers from the a priori database that intersect in_poly
-        :rtype: out_prior_id = list of string
+        :rtype: list of string
         :return: out_pixc_vec_tag = lake identifiers from the a priori database for each point of the PixC corresponding one-to-one with (in_lon, in_lat)
-        :rtype: out_pixc_vec_tag = list of string
+        :rtype: list of string
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("- start -")
+        logger.debug("== link_to_db ==")
 
         # 1 - Spatial filter of the lake DB over the area covered by the studied polygon
         self.layer.SetSpatialFilter(in_poly)
@@ -165,24 +174,31 @@ class LakeDb_shp(object):
         # 2 - Processing according to the number of a priori lakes intersecting polygon
         nb_lakes = self.layer.GetFeatureCount()
         
+        retour_1 = None
+        retour_2 = None
+        
         if nb_lakes == 0:  # Polygon matches no a priori lake
             self.layer.SetSpatialFilter(None)  # Delete spatial filter
-            return None, None
+            retour_1 = None
+            retour_2 = None
         
         elif nb_lakes == 1:  # Easy match: polygon matches only one a priori lake
-            for curLake_bd in self.layer:
-                # Get the a priori identifier
-                curCode = curLake_bd.GetField(my_var.LAKE_DB_ID)
-                # Test but should not occur...
-                if curCode is None:
-                    return None, None
+
+            cur_lake_bd = self.layer.GetNextFeature()
+            cur_id = cur_lake_bd.GetField(self.lake_db_id)
+
+            # Test but should not occur...
+            if cur_id is None:
+                retour_1 = None
+                retour_2 = None
+            else:
                 # Return output variables
                 self.layer.SetSpatialFilter(None)  # Delete spatial filter
                 # Compute PIXCVec_tag
-
                 out_pixc_vec_tag = np.empty(in_lon.shape, dtype=object)
-                out_pixc_vec_tag[:] = str(curCode)
-                return str(curCode), out_pixc_vec_tag
+                out_pixc_vec_tag[:] = str(cur_id)
+                retour_1 = str(cur_id)
+                retour_2 = out_pixc_vec_tag
             
         else:  # Many matches: polygon matches 2 or more a priori lakes
 
@@ -194,58 +210,66 @@ class LakeDb_shp(object):
             area_intersection = []  # List of area intersection between IN poly and each polygon of prior database
 
             # 2.2 - List area of intersections with a priori geometries and id of these geometries
-            for curLake_bd in self.layer:
+            for cur_lake_bd in self.layer:
                 # Get the a priori identifier
-                curId = curLake_bd.GetField(my_var.LAKE_DB_ID)
+                cur_id = cur_lake_bd.GetField(self.lake_db_id)
                 # Test but should not occur...
-                if curId is None:
-                    return None, None
-                # Get geometry
-                curGeom = curLake_bd.GetGeometryRef()
-                # Compute exact area of intersection
-                intersection = in_poly.Intersection(curGeom)
-                if intersection is not None:
-
-                    area_intersection.append(intersection.GetArea())  # Add the intersection area
-                    set_prior_id.add(str(curId))  # Add prior ID to set_prior_id
-
-                    # Get the coordinates with json library
-                    json_geom = curGeom.Clone().ExportToJson()
-                    multi_polygon = json.loads(json_geom)['coordinates']
-
-                    multi_polygon_array = np.array([])
-                    # Loop on multi_polygon in case of multi polygon geometry
-                    for poly in multi_polygon:
-                        multi_polygon_array = np.append(multi_polygon_array, poly[:-1])
-
-                    # Reshape the 1-D array into 2-D array
-                    multi_polygon_array = multi_polygon_array.reshape(int(multi_polygon_array.shape[0]/2), 2)
-                    prior_geom_coords.append(multi_polygon_array) # Add the coordinates of the curGeom to the list
+                if cur_id is None:
+                    retour_1 = None
+                    retour_2 = None
+                else:
+                    # Get geometry
+                    cur_geom = cur_lake_bd.GetGeometryRef()
+                    # Compute exact area of intersection
+                    intersection = in_poly.Intersection(cur_geom)
+                    if intersection is not None:
+    
+                        area_intersection.append(intersection.GetArea())  # Add the intersection area
+                        set_prior_id.add(str(cur_id))  # Add prior ID to set_prior_id
+    
+                        # Get the coordinates with json library
+                        json_geom = cur_geom.Clone().ExportToJson()
+                        multi_polygon = json.loads(json_geom)['coordinates']
+    
+                        multi_polygon_array = np.array([])
+                        # Loop on multi_polygon in case of multi polygon geometry
+                        for poly in multi_polygon:
+                            multi_polygon_array = np.append(multi_polygon_array, poly[:-1])
+    
+                        # Reshape the 1-D array into 2-D array
+                        multi_polygon_array = multi_polygon_array.reshape(int(multi_polygon_array.shape[0]/2), 2)
+                        prior_geom_coords.append(multi_polygon_array) # Add the coordinates of the cur_geom to the list
 
             self.layer.SetSpatialFilter(None)  # Delete spatial filter
 
             # If no true intersection
             if len(set_prior_id) == 0:
-                return None, None
-
-            # 2.3 - Put output in good format
-
-            # Compute closest prior lake of each point of pixel cloud
-            out_prior_id = list(set_prior_id)
-            out_pixc_vec_tag = computeClosestPolygonWithKDTree(in_lon, in_lat, prior_geom_coords, out_prior_id)
-
-            # Sort out_prior_id by decreasing area intersection
-            sorted_idx = sorted(range(len(area_intersection)), key=lambda k: area_intersection[k], reverse=True)
-            out_prior_id = [out_prior_id[idx] for idx in sorted_idx]
-
-            return out_prior_id, out_pixc_vec_tag
+                retour_1 = None
+                retour_2 = None
+            else:
+                # 2.3 - Put output in good format
+    
+                # Compute closest prior lake of each point of pixel cloud
+                out_prior_id = list(set_prior_id)
+                out_pixc_vec_tag = compute_closest_polygon_with_KDtree(in_lon, in_lat, prior_geom_coords, out_prior_id)
+    
+                # Sort out_prior_id by decreasing area intersection
+                sorted_idx = sorted(range(len(area_intersection)), key=lambda k: area_intersection[k], reverse=True)
+                out_prior_id = [out_prior_id[idx] for idx in sorted_idx]
+    
+                retour_1 = out_prior_id
+                retour_2 = out_pixc_vec_tag
+            
+        return retour_1, retour_2
         
 
 #######################################
 
 
-class LakeDb_sqlite(LakeDb_shp):
-    
+class LakeDbSqlite(LakeDbShp):
+    """
+        class LakeDbSqlite
+    """
     def __init__(self, in_filename, in_poly=None):
         """
         Constructor
@@ -255,24 +279,30 @@ class LakeDb_sqlite(LakeDb_shp):
         :param in_poly: polygon to spatially select lakes from DB
         :type in_poly: ogr.Polygon
 
+
         Variables of the object:
-        filename / string: full path of the lake a priori database
-        driver / string: driver to access to file
+        
+         - filename / string: full path of the lake a priori database
+         - driver / string: driver to access to file
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("Lake DB = %s", in_filename)
+        # Get config file
+        cfg = service_config_file.get_instance()
+        # get lake_db_id parameter
+        self.lake_db_id = cfg.get("DATABASES", "LAKE_DB_ID")
         
         # Init with values
         self.filename = in_filename  # Full path of the lake a priori database
         self.lake_db = None # store the lake database in SQLite format
-        self.dataSource = None # store the memory layer (shp file) from the lake database
+        self.data_source = None # store the memory layer (shp file) from the lake database
 
         # Open database
         self.open_db(in_poly)
 
     # ----------------------------------------
 
-    def open_db(self, IN_poly=None):
+    def open_db(self, in_poly=None):
         """
         Open database, optionnally spatially select polygons and copy layer to memory
         
@@ -289,19 +319,21 @@ class LakeDb_sqlite(LakeDb_shp):
         #
         # # Create the output ogr layer (in memory)
         # memDriver = ogr.GetDriverByName('MEMORY')  # Memory driver
-        # self.dataSource = memDriver.CreateDataSource('memData')
+        # self.data_source = memDriver.CreateDataSource('memData')
         #
         # # Open the memory datasource with write access
         # tmp = memDriver.Open('memData', 1)
         #
         # # Copy the SQLite layer to memory
-        # pipes_mem = self.dataSource.CopyLayer(inDB.GetLayer('lake'), 'lake', ['OVERWRITE=YES'])
+        # pipes_mem = self.data_source.CopyLayer(inDB.GetLayer('lake'), 'lake', ['OVERWRITE=YES'])
         #
-        # self.layer = self.dataSource.GetLayer('lake')
+        # self.layer = self.data_source.GetLayer('lake')
         # #######################################################################################
 
+        logger = logging.getLogger(self.__class__.__name__)
+        cfg = service_config_file.get_instance()
         # Transform 3D geometry into 2D geometry (necessary for spatialite query)
-        IN_poly.FlattenTo2D()
+        in_poly.FlattenTo2D()
 
         # Open the SQLite database and define the connector
         self.db_conn = sqlite3.connect(self.filename, timeout=10)
@@ -313,34 +345,32 @@ class LakeDb_sqlite(LakeDb_shp):
         # Define the cursor
         self.db_cur = self.db_conn.cursor()
 
-        """
-        if my_api.GEN_PRINT_LEVEL == 'DEBUG':
+        if cfg.get('LOGGING', 'logFileLevel') == 'DEBUG':
             (lakes_nb,) = self.db_cur.execute('SELECT count(*) from lake').fetchone()
-            my_api.printDebug("[LakeDb_sqlite] {} lakes stored in database".format(lakes_nb))
-        """
+            logger.debug("[LakeDbSqlite] {} lakes stored in database".format(lakes_nb))
 
         # Create an output datasource in memory
-        memDriver = ogr.GetDriverByName('MEMORY')  # Memory driver
+        mem_driver = ogr.GetDriverByName('MEMORY')  # Memory driver
 
         # Open the memory datasource with write access
-        self.dataSource = memDriver.CreateDataSource('memData')
+        self.data_source = mem_driver.CreateDataSource('memData')
 
         # Set spatial projection
         srs = ogr.osr.SpatialReference()
         srs.ImportFromEPSG(4326)
 
         # Creating memory layer
-        lyr = self.dataSource.CreateLayer(str('lake_db'), srs=srs, geom_type=ogr.wkbPolygon)
-        lyr.CreateField(ogr.FieldDefn(my_var.LAKE_DB_ID, ogr.OFTString))
+        lyr = self.data_source.CreateLayer(str('lake_db'), srs=srs, geom_type=ogr.wkbPolygon)
+        lyr.CreateField(ogr.FieldDefn(self.lake_db_id, ogr.OFTString))
 
         # Define the layer
         lyr_defn = lyr.GetLayerDefn()
 
-        if IN_poly is not None:
+        if in_poly is not None:
             
             self.db_cur.execute("SELECT {}, AsText(geometry) \
                                  FROM lake \
-                                 WHERE MBRIntersects(GeomFromText('{}'), lake.geometry);".format(my_var.LAKE_DB_ID, IN_poly.ExportToWkt()))
+                                 WHERE MBRIntersects(GeomFromText('{}'), lake.geometry);".format(self.lake_db_id, in_poly.ExportToWkt()))
 
             for row in self.db_cur:
                 
@@ -348,7 +378,7 @@ class LakeDb_sqlite(LakeDb_shp):
                 out_feat = ogr.Feature(lyr_defn)
 
                 # Fill feature with ID and geometry from SQLite request
-                out_feat.SetField(my_var.LAKE_DB_ID, str(row[0]))
+                out_feat.SetField(self.lake_db_id, str(row[0]))
                 multi_poly = ogr.CreateGeometryFromWkt(row[1])
                 out_feat.SetGeometry(multi_poly)
 
@@ -357,7 +387,7 @@ class LakeDb_sqlite(LakeDb_shp):
                 out_feat.Destroy()
 
             # Get memory layer
-            self.layer = self.dataSource.GetLayer('lake_db')
+            self.layer = self.data_source.GetLayer('lake_db')
 
             logger.info("%d lakes after focus over studied area" % self.layer.GetFeatureCount())
 
@@ -369,7 +399,9 @@ class LakeDb_sqlite(LakeDb_shp):
 
 
 class CollectCoordinates:
-
+    """
+        class CollectCoordinates
+    """
     def __init__(self, multi_polygon):
         """
         Constructor.
@@ -381,7 +413,6 @@ class CollectCoordinates:
         """
         
         self.list_coords = np.array([])
-        # self.multi_polygon = multi_polygon
 
         # Transform the list of lists into 1D array
         self.multipolygon2coordinates(multi_polygon)
@@ -415,20 +446,20 @@ class CollectCoordinates:
 #######################################
                 
 
-def computeClosestPolygonWithKDTree(IN_lon, IN_lat, prior_geom_coords, prior_id):
+def compute_closest_polygon_with_KDtree(in_lon, in_lat, prior_geom_coords, prior_id):
     """
-    Associate to each pixc_vec coordinate (IN_lon, IN_lat) the closest prior lake and its id
+    Associate to each pixc_vec coordinate (in_lon, in_lat) the closest prior lake and its id
 
-    :param IN_lon: improved longitude of PixC related to IN_poly
-    :type IN_lon: 1D array of float
-    :param IN_lat: improved latitude of PixC related to IN_poly
-    :type IN_lat: 1D array of float
+    :param in_lon: improved longitude of PixC related to in_poly
+    :type in_lon: 1D array of float
+    :param in_lat: improved latitude of PixC related to in_poly
+    :type in_lat: 1D array of float
     :param prior_geom_coords: List of coordinates of polygons of prior lake database selected
     :type prior_geom_coords: 2D array of float
     :param prior_id: List of prior ID from lake DB
     :type prior_id: 1D array of str
 
-    :return: list of the closest prior_id associated to the (IN_lon, IN_lat) points
+    :return: list of the closest prior_id associated to the (in_lon, in_lat) points
     :rtype: list of str
     """
     
@@ -442,7 +473,7 @@ def computeClosestPolygonWithKDTree(IN_lon, IN_lat, prior_geom_coords, prior_id)
     tree = KDTree(list(zip(lon_coords, lat_coords)))
 
     # Built the list point for the query
-    points_list = np.vstack((IN_lon, IN_lat)).T
+    points_list = np.vstack((in_lon, in_lat)).T
 
     # Apply K-d tree and get the result: distance and index
     _, kd_tree_idx = tree.query(points_list)
@@ -467,11 +498,11 @@ if __name__ == '__main__':
     poly = ogr.Geometry(ogr.wkbPolygon)
     poly.AddGeometry(ring)
     
-    lake_db = LakeDb_shp("C:\\Users\\pottierc\\Documents\\no_save\\data\\BD_lacs\\20181002_EU\\apriori_db_lakes_EU.shp", poly)
+    lake_db = LakeDbShp("C:\\Users\\pottierc\\Documents\\no_save\\data\\BD_lacs\\20181002_EU\\apriori_db_lakes_EU.shp", poly)
     print(lake_db.layer.GetFeatureCount())
     print()
     for lake in lake_db.layer:
         print(lake.GetField(str("lake_id")))
     print()
-    print(lake_db.getRefValues("44008001651"))
+    print(lake_db.get_ref_values("44008001651"))
     lake_db.close_db()
