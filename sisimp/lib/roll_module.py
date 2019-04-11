@@ -24,17 +24,9 @@ class Roll_module(object):
         self.In_repository = In_repository
         
 
-    def get_roll_file_associated_to_orbit_and_cycle(self, orbit_number, cycle_number, swap=True, delta_time = 0):
+    def get_roll_file_associated_to_orbit_and_cycle(self, orbit_number, cycle_number, delta_time = 0):
         root_name = "GLOBAL_swot292_c"
-        
-        ### TO BE VERIFIED !!!!
-        if swap == True:
-            orbit_number_corr = orbit_number - 332
-            if orbit_number_corr < 584:
-                orbit_number_corr += 584
-        else:
-            orbit_number_corr = orbit_number
-        file_name = os.path.join(self.In_repository, root_name + str(cycle_number).zfill(2) + "_p" + str(orbit_number_corr).zfill(3)) +".nc"
+        file_name = os.path.join(self.In_repository, root_name + str(cycle_number).zfill(2) + "_p" + str(orbit_number).zfill(3)) +".nc"
         my_api.printInfo("Roll file used : %s " % file_name)
         
         self.read_roll_file(file_name, delta_time = delta_time)
@@ -56,7 +48,7 @@ class Roll_module(object):
  
  
     def interpolate_roll_on_sensor_grid(self, sensor_time):
-                
+        
         self.roll1_err_sens = []
         for i in range(self.roll1_err.shape[1]):
             # Interpolate simulated roll variables on sensor time grid
