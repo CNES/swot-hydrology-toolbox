@@ -501,7 +501,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])
                 
                 # Write main file
-                my_pixc.write_pixc_file(IN_attributes.sisimp_filenames.pixc_file+".nc", None, True)
+                my_pixc.write_pixc_file(IN_attributes.sisimp_filenames.pixc_file+".nc", compress=True)
                 
                 # Write annotation file
                 my_pixc.write_annotation_file(IN_attributes.sisimp_filenames.file_annot_file, IN_attributes.sisimp_filenames.pixc_file+".nc")  
@@ -520,7 +520,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                     # Compute river_flag
                     my_pixc_vec.set_river_lake_tag(river_flag[az_indices]-1)  # -1 to have 0=lake and 1=river
                     # Write PIXCVec file
-                    my_pixc_vec.write_file(IN_attributes.sisimp_filenames.pixc_vec_river_file+".nc", None, True)
+                    my_pixc_vec.write_file(IN_attributes.sisimp_filenames.pixc_vec_river_file+".nc", compress=True)
                     # Write as shapefile if asked
                     if IN_attributes.create_shapefile:
                         my_pixc_vec.write_file_asShp(IN_attributes.sisimp_filenames.pixc_vec_river_file+".shp")
