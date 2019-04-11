@@ -489,26 +489,26 @@ class l2_hr_pixc(object):
         srs.ImportFromEPSG(4326)  # WGS84
         outLayer = outDataSource.CreateLayer(str(os.path.basename(IN_output_file).split('.')[0]+"_pixc"), srs, geom_type=ogr.wkbPoint)
         # 1.4 - Creation des attributs
-        outLayer.CreateField(ogr.FieldDefn(str('AZ_INDEX'), ogr.OFTInteger))  # Azimuth index
-        outLayer.CreateField(ogr.FieldDefn(str('R_INDEX'), ogr.OFTInteger))  # Range index
-        outLayer.CreateField(ogr.FieldDefn(str('CLASSIF'), ogr.OFTInteger))  # Classification
-        tmpField = ogr.FieldDefn(str('PIX_AREA'), ogr.OFTReal)  # Pixel area
-        tmpField.SetWidth(10)
-        tmpField.SetPrecision(5)
-        outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('LAT'), ogr.OFTReal)  # Latitude
-        tmpField.SetWidth(10)
+        outLayer.CreateField(ogr.FieldDefn(str('az_index'), ogr.OFTInteger))  # Azimuth index
+        outLayer.CreateField(ogr.FieldDefn(str('r_index'), ogr.OFTInteger))  # Range index
+        outLayer.CreateField(ogr.FieldDefn(str('classif'), ogr.OFTInteger))  # Classification
+        tmpField = ogr.FieldDefn(str('pix_area'), ogr.OFTReal)  # Pixel area
+        tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('LONG'), ogr.OFTReal)  # Longitude
-        tmpField.SetWidth(10)
+        tmpField = ogr.FieldDefn(str('lat'), ogr.OFTReal)  # Latitude
+        tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('HEIGHT'), ogr.OFTReal)  # Hauteur
-        tmpField.SetWidth(10)
+        tmpField = ogr.FieldDefn(str('long'), ogr.OFTReal)  # Longitude
+        tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('CR_TRACK'), ogr.OFTReal)  # Distance dans la fauchee
+        tmpField = ogr.FieldDefn(str('wse'), ogr.OFTReal)  # Hauteur
+        tmpField.SetWidth(15)
+        tmpField.SetPrecision(6)
+        outLayer.CreateField(tmpField)
+        tmpField = ogr.FieldDefn(str('cr_track'), ogr.OFTReal)  # Distance dans la fauchee
         tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
@@ -524,14 +524,14 @@ class l2_hr_pixc(object):
             point.AddPoint(lng, lat)
             outFeature.SetGeometry(point)
             # 2.3 - On lui assigne les attributs
-            outFeature.SetField(str('AZ_INDEX'), float(az_ind))
-            outFeature.SetField(str('R_INDEX'), float(range_index))
-            outFeature.SetField(str('CLASSIF'), float(classif))
-            outFeature.SetField(str('PIX_AREA'), float(pixel_area))
-            outFeature.SetField(str('LAT'), float(lat))
-            outFeature.SetField(str('LONG'), float(lng))
-            outFeature.SetField(str('HEIGHT'), float(height))
-            outFeature.SetField(str('CR_TRACK'), float(crosstrack))
+            outFeature.SetField(str('az_index'), float(az_ind))
+            outFeature.SetField(str('r_index'), float(range_index))
+            outFeature.SetField(str('classif'), float(classif))
+            outFeature.SetField(str('pix_area'), float(pixel_area))
+            outFeature.SetField(str('lat'), float(lat))
+            outFeature.SetField(str('long'), float(lng))
+            outFeature.SetField(str('wse'), float(height))
+            outFeature.SetField(str('cr_track'), float(crosstrack))
             # 2.4 - On ajoute l'objet dans la couche de sortie
             outLayer.CreateFeature(outFeature)
             
@@ -559,24 +559,24 @@ class l2_hr_pixc(object):
         srs.ImportFromEPSG(4326)  # WGS84
         outLayer = outDataSource.CreateLayer(str(os.path.basename(IN_output_file).split('.')[0]+"_tvp"), srs, geom_type=ogr.wkbPoint)
         # 1.4 - Creation des attributs
-        tmpField = ogr.FieldDefn(str('TIME'), ogr.OFTReal)  # Time
-        tmpField.SetWidth(10)
-        tmpField.SetPrecision(2)
-        outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('LAT'), ogr.OFTReal)  # Latitude
-        tmpField.SetWidth(10)
+        tmpField = ogr.FieldDefn(str('time'), ogr.OFTReal)  # Time
+        tmpField.SetWidth(20)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('LONG'), ogr.OFTReal)   # Longitude
-        tmpField.SetWidth(10)
+        tmpField = ogr.FieldDefn(str('lat'), ogr.OFTReal)  # Latitude
+        tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('ALTITUDE'), ogr.OFTReal)  # Altitude
-        tmpField.SetWidth(10)
-        tmpField.SetPrecision(3)
+        tmpField = ogr.FieldDefn(str('long'), ogr.OFTReal)   # Longitude
+        tmpField.SetWidth(15)
+        tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('HEADING'), ogr.OFTReal)  # Heading
-        tmpField.SetWidth(10)
+        tmpField = ogr.FieldDefn(str('altitude'), ogr.OFTReal)  # Altitude
+        tmpField.SetWidth(15)
+        tmpField.SetPrecision(6)
+        outLayer.CreateField(tmpField)
+        tmpField = ogr.FieldDefn(str('heading'), ogr.OFTReal)  # Heading
+        tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
         # 1.5 - On recupere la definition de la couche
@@ -592,11 +592,11 @@ class l2_hr_pixc(object):
             point.AddPoint(lng, lat)
             outFeature.SetGeometry(point)
             # 2.3 - On lui assigne les attributs
-            outFeature.SetField(str('TIME'), float(t)) 
-            outFeature.SetField(str('LAT'), float(lat)) 
-            outFeature.SetField(str('LONG'), float(lng)) 
-            outFeature.SetField(str('ALTITUDE'), float(alt)) 
-            outFeature.SetField(str('HEADING'), float(heading))
+            outFeature.SetField(str('time'), float(t)) 
+            outFeature.SetField(str('lat'), float(lat)) 
+            outFeature.SetField(str('long'), float(lng)) 
+            outFeature.SetField(str('altitude'), float(alt)) 
+            outFeature.SetField(str('heading'), float(heading))
             # 2.4 - On ajoute l'objet dans la couche de sortie
             outLayer.CreateFeature(outFeature)
             
