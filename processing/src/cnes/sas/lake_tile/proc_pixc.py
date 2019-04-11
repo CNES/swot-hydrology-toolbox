@@ -1,17 +1,18 @@
 # -*- coding: utf8 -*-
 """
-.. module proc_pixc.py
-    :synopsis: Deals with SWOT pixel cloud product
-    02/28/2017 - Creation
+.. module:: proc_pixc.py
+   :synopsis: Deals with SWOT pixel cloud product
+    2017/02/28 - Creation
 
-.. module author: Claire POTTIER - CNES DSO/SI/TR
-    
+.. moduleauthor:: Claire POTTIER - CNES DSO/SI/TR
+
 .. todo: sortir les pixels oceans de la liste des pixels à traiter
 .. todo: entités qui contiennent pixels rivière et autres
 
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -25,90 +26,107 @@ from scipy import interpolate
 import cnes.common.lib.my_basins as my_basins
 import cnes.common.lib.my_netcdf_file as my_nc
 import cnes.common.lib.my_tools as my_tools
+import cnes.common.service_config_file as service_config_file
 import cnes.common.lib.my_variables as my_var2
 import cnes.common.lib_lake.locnes_products_netcdf as nc_file
 import cnes.common.lib_lake.locnes_variables as my_var
 
 
 class PixelCloud(object):
-
+    """
+        class PixelCloud
+    """
     def __init__(self):
+#    def __init__(self, in_pixc_file, in_idx_reject, in_use_fractional_inundation=None):
+#        :param in_pixc_file: full path of L2_HR_PIXC file
+#        :type in_pixc_file: string
+#        :param in_idx_reject: list of indices to reject before all processing
+#        :type in_idx_reject: 1D-array of int
+#        :param in_use_fractional_inundation:
+#                For which classes should the inundation fraction be used?
+#                The default is to assume that interior pixels are 100% water,
+#                But to use both land and water edge pixels partially by using the fractional inundation kwd.
+#        :type in_use_fractional_inundation: bool list, default None
+
         """
         Constructor: init pixel cloud object
 
+<<<<<<< HEAD
+
         Variables of the object:
-            
+
         - From pixel_cloud group in L2_HR_PIXC file
-            nb_pix_range / int: number of pixels in range dimension (= global attribute named interferogram_size_range in L2_HR_PIXC)
-            nb_pix_azimuth / int: number of pixels in azimuth dimension (= global attribute named interferogram_size_azimuth in L2_HR_PIXC)
-            [origin_]classif / 1D-array of byte: classification value of pixels (= variable named classification in L2_HR_PIXC)
-            [origin_]range_index / 1D-array of int: range indices of water pixels (= variable named range_index in L2_HR_PIXC)
-            [origin_]azimuth_index / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in L2_HR_PIXC)
-            water_frac / 1D array of float: water fraction
-            water_frac_uncert / 1D array of float: water fraction uncertainty
-            false_detection_rate / 1D array of float: alse detection rate
-            missed_detection_rate / 1D array of float: missed detection rate
-            prior_water_prob / 1D array of float: prior water probability
-            bright_land_flag / 1D array of byte: bright land flag
-            layover_impact /1D array of float: layover impact
-            num_rare_looks / 1D array of byte: number of rare looks
-            [origin_]latitude / 1D-array of float: latitude of water pixels
-            [origin_]longitude / 1D-array of float: longitude of water pixels
-            height / 1D-array of float: height of water pixels
-            cross_track / 1D-array of float: cross-track distance from nadir to center of water pixels
-            pixel_area / 1D-array of int: area of water pixels
-            inc / 1D array of float: incidence angle
-            dheight_dphase / 1D array of float: sensitivity of height estimate to interferogram phase
-            dheight_droll / 1D array of float: sensitivity of height estimate to spacecraft roll
-            dheight_dbaseline / 1D array of float: sensitivity of height estimate to interferometric baseline
-            dheight_drange / 1D array of float: sensitivity of height estimate to range
-            darea_dheight / 1D array of float: sensitivity of pixel area to reference height
-            num_med_looks / 1D array of int: number of medium looks
-            sig0 / 1D array of float: sigma0
-            phase_unwrapping_region / 1D array of float: phase unwrapping region index
-            instrument_range_cor / 1D array of float: instrument range correction
-            instrument_phase_cor / 1D array of float: instrument phase correction
-            instrument_baseline_cor / 1D array of float: instrument baseline correction
-            instrument_attitude_cor / 1D array of float: instrument attitude correction
-            model_dry_tropo_cor / 1D array of float: dry troposphere vertical correction
-            model_wet_tropo_cor / 1D array of float: wet troposphere vertical correction
-            iono_cor_gim_ka / 1D array of float: ionosphere vertical correction
-            xover_height_cor / 1D array of float: crossover calibration height correction
-            load_tide_sol1 / 1D array of float: load tide height (GOT4.10)
-            load_tide_sol2 / 1D array of float: load tide height (FES2014)
-            pole_tide / 1D array of float: pole tide height
-            solid_earth_tide / 1D array of float: solid earth tide
-            geoid / 1D array of float: geoid
-            surface_type_flag / 1D array of byte: surface type flag
-            
+            - nb_pix_range / int: number of pixels in range dimension (= global attribute named interferogram_size_range in L2_HR_PIXC)
+            - nb_pix_azimuth / int: number of pixels in azimuth dimension (= global attribute named interferogram_size_azimuth in L2_HR_PIXC)
+            - [origin_]classif / 1D-array of byte: classification value of pixels (= variable named classification in L2_HR_PIXC)
+            - [origin_]range_index / 1D-array of int: range indices of water pixels (= variable named range_index in L2_HR_PIXC)
+            - [origin_]azimuth_index / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in L2_HR_PIXC)
+            - water_frac / 1D array of float: water fraction
+            - water_frac_uncert / 1D array of float: water fraction uncertainty
+            - false_detection_rate / 1D array of float: alse detection rate
+            - missed_detection_rate / 1D array of float: missed detection rate
+            - prior_water_prob / 1D array of float: prior water probability
+            - bright_land_flag / 1D array of byte: bright land flag
+            - layover_impact /1D array of float: layover impact
+            - num_rare_looks / 1D array of byte: number of rare looks
+            - [origin_]latitude / 1D-array of float: latitude of water pixels
+            - [origin_]longitude / 1D-array of float: longitude of water pixels
+            - height / 1D-array of float: height of water pixels
+            - cross_track / 1D-array of float: cross-track distance from nadir to center of water pixels
+            - pixel_area / 1D-array of int: area of water pixels
+            - inc / 1D array of float: incidence angle
+            - dheight_dphase / 1D array of float: sensitivity of height estimate to interferogram phase
+            - dheight_droll / 1D array of float: sensitivity of height estimate to spacecraft roll
+            - dheight_dbaseline / 1D array of float: sensitivity of height estimate to interferometric baseline
+            - dheight_drange / 1D array of float: sensitivity of height estimate to range
+            - darea_dheight / 1D array of float: sensitivity of pixel area to reference height
+            - num_med_looks / 1D array of int: number of medium looks
+            - sig0 / 1D array of float: sigma0
+            - phase_unwrapping_region / 1D array of float: phase unwrapping region index
+            - instrument_range_cor / 1D array of float: instrument range correction
+            - instrument_phase_cor / 1D array of float: instrument phase correction
+            - instrument_baseline_cor / 1D array of float: instrument baseline correction
+            - instrument_attitude_cor / 1D array of float: instrument attitude correction
+            - model_dry_tropo_cor / 1D array of float: dry troposphere vertical correction
+            - model_wet_tropo_cor / 1D array of float: wet troposphere vertical correction
+            - iono_cor_gim_ka / 1D array of float: ionosphere vertical correction
+            - xover_height_cor / 1D array of float: crossover calibration height correction
+            - load_tide_sol1 / 1D array of float: load tide height (GOT4.10)
+            - load_tide_sol2 / 1D array of float: load tide height (FES2014)
+            - pole_tide / 1D array of float: pole tide height
+            - solid_earth_tide / 1D array of float: solid earth tide
+            - geoid / 1D array of float: geoid
+            - surface_type_flag / 1D array of byte: surface type flag
         - From tvp group in L2_HR_PIXC file
-            nadir_time[_tai] / 1D-array of float: observation UTC [TAI] time of each nadir pixel (= variable named time[tai] in L2_HR_PIXC file)
-            nadir_longitude / 1D-array of float: longitude of each nadir pixel (= variable named longitude in L2_HR_PIXC file)
-            nadir_latitude / 1D-array of float: latitude of each nadir pixel (= variable named latitude in L2_HR_PIXC file)   
-            nadir_[x|y|z] / 1D-array of float: [x|y|z] cartesian coordinates of each nadir pixel (= variables named [x|y|z] in L2_HR_PIXC file)
-            nadir_[vx|vy|vz] / 1D-array of float: velocity vector of each nadir pixel in cartesian coordinates (= variables named velocity_unit_[x|y|z] in L2_HR_PIXC file)
-            nadir_sc_event_flag / 1D array of byte: spacecraft event flag
-            nadir_tvp_qual / 1D array of byte: quality flag
-            
+            - nadir_time[_tai] / 1D-array of float: observation UTC [TAI] time of each nadir pixel (= variable named time[tai] in L2_HR_PIXC file)
+            - nadir_longitude / 1D-array of float: longitude of each nadir pixel (= variable named longitude in L2_HR_PIXC file)
+            - nadir_latitude / 1D-array of float: latitude of each nadir pixel (= variable named latitude in L2_HR_PIXC file)   
+            - nadir_[x|y|z] / 1D-array of float: [x|y|z] cartesian coordinates of each nadir pixel (= variables named [x|y|z] in L2_HR_PIXC file)
+            - nadir_[vx|vy|vz] / 1D-array of float: velocity vector of each nadir pixel in cartesian coordinates (= variables named velocity_unit_[x|y|z] in L2_HR_PIXC file)
+            - nadir_sc_event_flag / 1D array of byte: spacecraft event flag
+            - nadir_tvp_qual / 1D array of byte: quality flag
         - From processing
-            tile_poly / ogr.Polygon: polygon of the PixC tile
-            continent / string: continent covered by the tile (if global var CONTINENT_FILE exists)
-            inundated_area / 1D-array of int: area of pixels covered by water
-            selected_index / 1D-array of int: indices from original 1D-arrays of not rejected pixels with specified classification indices
-            nb_selected / int: number of selected pixels (=selected_index.size)
-            nb_water_pix / int: number of water pixels
-            labels / 1D-array of int: labelled regions associated to each PixC water pixel; pixels of this vector correspond one-to-one to the pixels of data from L2_HR_PIXC and L2_HR_PIXC_VEC_RIVER
-            nb_obj / int : number of separate entities in the PixC tile
-            labels_inside / 1D-array of int: label of objects entirely inside the tile
-            nb_obj_inside / int : number of these objects
-            labels_[at_top|at_bottom|at_both]_edge / 1D-array of int: label of objects at the top/bottom/both edges of the tile
-            nb_obj_[at_top|at_bottom|at_both]_edge / int : number of these objects 
-            edge_index / 1D-array of int: indices of pixels contained in objects at top/bottom edges
-            edge_label / 1D-array of int: object label for each pixel contained in objects at top/bottom edges
-            edge_loc / 1D-array of int: object edge location (0=bottom 1=top 2=both) for each pixel contained in objects at top/bottom edges
-            nb_edge_pix / int: number of pixels contained in objects at top/bottom edges
+            - tile_poly / ogr.Polygon: polygon of the PixC tile
+            - continent / string: continent covered by the tile (if global var CONTINENT_FILE exists)
+            - inundated_area / 1D-array of int: area of pixels covered by water
+            - selected_index / 1D-array of int: indices from original 1D-arrays of not rejected pixels with specified classification indices
+            - nb_selected / int: number of selected pixels (=selected_index.size)
+            - nb_water_pix / int: number of water pixels
+            - labels / 1D-array of int: labelled regions associated to each PixC water pixel; pixels of this vector correspond one-to-one to the pixels of data from L2_HR_PIXC and L2_HR_PIXC_VEC_RIVER
+            - nb_obj / int : number of separate entities in the PixC tile
+            - labels_inside / 1D-array of int: label of objects entirely inside the tile
+            - nb_obj_inside / int : number of these objects
+            - labels_[at_top|at_bottom|at_both]_edge / 1D-array of int: label of objects at the top/bottom/both edges of the tile
+            - nb_obj_[at_top|at_bottom|at_both]_edge / int : number of these objects 
+            - edge_index / 1D-array of int: indices of pixels contained in objects at top/bottom edges
+            - edge_label / 1D-array of int: object label for each pixel contained in objects at top/bottom edges
+            - edge_loc / 1D-array of int: object edge location (0=bottom 1=top 2=both) for each pixel contained in objects at top/bottom edges
+            - nb_edge_pix / int: number of pixels contained in objects at top/bottom edges
         """
+        # Get instance of service config file
+        self.cfg = service_config_file.get_instance()
         logger = logging.getLogger(self.__class__.__name__)
+
         logger.info("- start -")
 
         # Init PIXC variables
@@ -260,11 +278,11 @@ class PixelCloud(object):
         # 3 - Continent overflown
         # Create polygon of tile from global attributes
         ring = ogr.Geometry(ogr.wkbLinearRing)
-        ring.AddPoint(float(pixc_reader.getAttValue("inner_first_longitude")), float(pixc_reader.getAttValue("inner_first_latitude")))
-        ring.AddPoint(float(pixc_reader.getAttValue("outer_first_longitude")), float(pixc_reader.getAttValue("outer_first_latitude")))
-        ring.AddPoint(float(pixc_reader.getAttValue("outer_last_longitude")), float(pixc_reader.getAttValue("outer_last_latitude")))
-        ring.AddPoint(float(pixc_reader.getAttValue("inner_last_longitude")), float(pixc_reader.getAttValue("inner_last_latitude")))
-        ring.AddPoint(float(pixc_reader.getAttValue("inner_first_longitude")), float(pixc_reader.getAttValue("inner_first_latitude")))
+        ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.getAttValue("inner_first_longitude"))), float(pixc_reader.getAttValue("inner_first_latitude")))
+        ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.getAttValue("outer_first_longitude"))), float(pixc_reader.getAttValue("outer_first_latitude")))
+        ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.getAttValue("outer_last_longitude"))), float(pixc_reader.getAttValue("outer_last_latitude")))
+        ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.getAttValue("inner_last_longitude"))), float(pixc_reader.getAttValue("inner_last_latitude")))
+        ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.getAttValue("inner_first_longitude"))), float(pixc_reader.getAttValue("inner_first_latitude")))
         self.tile_poly = ogr.Geometry(ogr.wkbPolygon)
         self.tile_poly.AddGeometry(ring)
         # Find associated continent
@@ -279,7 +297,7 @@ class PixelCloud(object):
         # 4.3 - Azimuth indices of water pixels
         self.origin_azimuth_index = pixc_reader.getVarValue("azimuth_index", in_group=pixc_group)
         # 4.4 - Longitude
-        origin_longitude = pixc_reader.getVarValue("longitude", in_group=pixc_group)
+        origin_longitude = my_tools.convert_to_m180_180(pixc_reader.getVarValue("longitude", in_group=pixc_group))
         # 4.4 - Azimuth indices of water pixels
         origin_latitude = pixc_reader.getVarValue("latitude", in_group=pixc_group)
                 
@@ -339,9 +357,7 @@ class PixelCloud(object):
 
         # 6 - Keep PixC data only for selected pixels
         if self.nb_selected != 0:
-            
             # 6.1 - In PixC group
-            
             # Classification flags
             self.classif = self.origin_classif[self.selected_index]
             # Range indices of water pixels
@@ -445,7 +461,7 @@ class PixelCloud(object):
             # Nadir time TAI
             self.nadir_time_tai = pixc_reader.getVarValue("time_tai", in_group=sensor_group)[nadir_index]
             # Nadir longitude
-            self.nadir_longitude = pixc_reader.getVarValue("longitude", in_group=sensor_group)[nadir_index]
+            self.nadir_longitude = my_tools.convert_to_m180_180(pixc_reader.getVarValue("longitude", in_group=sensor_group)[nadir_index])
             # Nadir latitude
             self.nadir_latitude = pixc_reader.getVarValue("latitude", in_group=sensor_group)[nadir_index]
             # Nadir cartesian coordinates
@@ -490,10 +506,10 @@ class PixelCloud(object):
         water_mask = self.computeWaterMask()
 
         # 2 - Identify all separate entities in a 2D binary mask
-        sepEntities, self.nb_obj = my_tools.labelRegion(water_mask)
+        sep_entities, self.nb_obj = my_tools.labelRegion(water_mask)
 
         # 3 - Convert 2D labelled mask in 1D-array layer of the same size of the L2_HR_PIXC layers
-        self.labels = my_tools.convert2dMatIn1dVec(self.range_index, self.azimuth_index, sepEntities)
+        self.labels = my_tools.convert2dMatIn1dVec(self.range_index, self.azimuth_index, sep_entities)
         self.labels = self.labels.astype(int)  # Conversion from float to integer
 
         # 4 - For each label : check if only one lake is in each label and relabels if necessary
@@ -719,72 +735,72 @@ class PixelCloud(object):
         # 1.2 - Create file
         if os.path.exists(in_filename):
             shpDriver.DeleteDataSource(in_filename)
-        outDataSource = shpDriver.CreateDataSource(in_filename)
+        out_data_source = shpDriver.CreateDataSource(in_filename)
         # 1.3 - Create layer
         srs = osr.SpatialReference()
         srs.ImportFromEPSG(4326)  # WGS84
-        outLayer = outDataSource.CreateLayer(str(str(os.path.basename(in_filename)).replace('.shp', '')), srs, geom_type=ogr.wkbPoint)
+        out_layer = out_data_source.CreateLayer(str(str(os.path.basename(in_filename)).replace('.shp', '')), srs, geom_type=ogr.wkbPoint)
         # 1.4 - Create attributes
-        outLayer.CreateField(ogr.FieldDefn(str('edge_index'), ogr.OFTInteger))
-        outLayer.CreateField(ogr.FieldDefn(str('edge_label'), ogr.OFTInteger))
-        outLayer.CreateField(ogr.FieldDefn(str('edge_loc'), ogr.OFTInteger))
-        outLayer.CreateField(ogr.FieldDefn(str('az_index'), ogr.OFTInteger))
-        outLayer.CreateField(ogr.FieldDefn(str('r_index'), ogr.OFTInteger))
-        outLayer.CreateField(ogr.FieldDefn(str('classif'), ogr.OFTInteger))
+        out_layer.CreateField(ogr.FieldDefn(str('edge_index'), ogr.OFTInteger))
+        out_layer.CreateField(ogr.FieldDefn(str('edge_label'), ogr.OFTInteger))
+        out_layer.CreateField(ogr.FieldDefn(str('edge_loc'), ogr.OFTInteger))
+        out_layer.CreateField(ogr.FieldDefn(str('az_index'), ogr.OFTInteger))
+        out_layer.CreateField(ogr.FieldDefn(str('r_index'), ogr.OFTInteger))
+        out_layer.CreateField(ogr.FieldDefn(str('classif'), ogr.OFTInteger))
         tmpField = ogr.FieldDefn(str('water_frac'), ogr.OFTReal)
         tmpField.SetWidth(10)
         tmpField.SetPrecision(6)
-        outLayer.CreateField(tmpField)
+        out_layer.CreateField(tmpField)
         tmpField = ogr.FieldDefn(str('crosstrack'), ogr.OFTReal)
         tmpField.SetWidth(12)
         tmpField.SetPrecision(4)
-        outLayer.CreateField(tmpField)
+        out_layer.CreateField(tmpField)
         tmpField = ogr.FieldDefn(str('pixel_area'), ogr.OFTReal)
         tmpField.SetWidth(12)
         tmpField.SetPrecision(6)
-        outLayer.CreateField(tmpField)
+        out_layer.CreateField(tmpField)
         tmpField = ogr.FieldDefn(str('height'), ogr.OFTReal)
         tmpField.SetWidth(12)
         tmpField.SetPrecision(4)
-        outLayer.CreateField(tmpField)
+        out_layer.CreateField(tmpField)
         tmpField = ogr.FieldDefn(str('nadir_t'), ogr.OFTReal)
         tmpField.SetWidth(13)
         tmpField.SetPrecision(3)
-        outLayer.CreateField(tmpField)
+        out_layer.CreateField(tmpField)
         tmpField = ogr.FieldDefn(str('nadir_long'), ogr.OFTReal)
         tmpField.SetWidth(10)
         tmpField.SetPrecision(6)
-        outLayer.CreateField(tmpField)
+        out_layer.CreateField(tmpField)
         tmpField = ogr.FieldDefn(str('nadir_lat'), ogr.OFTReal)
         tmpField.SetWidth(10)
         tmpField.SetPrecision(6)
-        outLayer.CreateField(tmpField)
-        outLayerDefn = outLayer.GetLayerDefn()
+        out_layer.CreateField(tmpField)
+        out_layer_defn = out_layer.GetLayerDefn()
 
         # 2 - On traite point par point
         for indp in range(self.nb_edge_pix):
             tmp_index = self.edge_index[indp]
             # 2.1 - On cree l'objet dans le format de la couche de sortie
-            outFeature = ogr.Feature(outLayerDefn)
+            out_feature = ogr.Feature(out_layer_defn)
             # 2.2 - On lui assigne le point
             point = ogr.Geometry(ogr.wkbPoint)
             point.AddPoint(self.longitude[tmp_index], self.latitude[tmp_index])
-            outFeature.SetGeometry(point)
+            out_feature.SetGeometry(point)
             # 2.3 - On lui assigne les attributs
-            outFeature.SetField(str('edge_index'), int(self.selected_index[tmp_index]))
-            outFeature.SetField(str('edge_label'), int(self.edge_label[indp]))
-            outFeature.SetField(str('edge_loc'), int(self.edge_loc[indp]))
-            outFeature.SetField(str('az_index'), int(self.azimuth_index[tmp_index]))
-            outFeature.SetField(str('classif'), int(self.classif[tmp_index]))
-            outFeature.SetField(str('water_frac'), float(self.water_frac[tmp_index]))
-            outFeature.SetField(str('crosstrack'), float(self.cross_track[tmp_index]))
-            outFeature.SetField(str('pixel_area'), float(self.pixel_area[tmp_index]))
-            outFeature.SetField(str('height'), float(self.height[tmp_index]))
-            outFeature.SetField(str('nadir_t'), float(self.nadir_time[tmp_index]))
-            outFeature.SetField(str('nadir_long'), float(self.nadir_longitude[tmp_index]))
-            outFeature.SetField(str('nadir_lat'), float(self.nadir_latitude[tmp_index]))
+            out_feature.SetField(str('edge_index'), int(self.selected_index[tmp_index]))
+            out_feature.SetField(str('edge_label'), int(self.edge_label[indp]))
+            out_feature.SetField(str('edge_loc'), int(self.edge_loc[indp]))
+            out_feature.SetField(str('az_index'), int(self.azimuth_index[tmp_index]))
+            out_feature.SetField(str('classif'), int(self.classif[tmp_index]))
+            out_feature.SetField(str('water_frac'), float(self.water_frac[tmp_index]))
+            out_feature.SetField(str('crosstrack'), float(self.cross_track[tmp_index]))
+            out_feature.SetField(str('pixel_area'), float(self.pixel_area[tmp_index]))
+            out_feature.SetField(str('height'), float(self.height[tmp_index]))
+            out_feature.SetField(str('nadir_t'), float(self.nadir_time[tmp_index]))
+            out_feature.SetField(str('nadir_long'), float(self.nadir_longitude[tmp_index]))
+            out_feature.SetField(str('nadir_lat'), float(self.nadir_latitude[tmp_index]))
             # 2.4 - On ajoute l'objet dans la couche de sortie
-            outLayer.CreateFeature(outFeature)
+            out_layer.CreateFeature(out_feature)
 
         # 3 - Destroy the data sources to free resources
-        outDataSource.Destroy()
+        out_data_source.Destroy()

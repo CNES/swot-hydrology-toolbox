@@ -2,24 +2,24 @@
 """
 .. module:: proc_lake.py
     :synopsis: Deals with LakeTile and LakeSP shapefile products
-    Created on 02/28/2017
+     Created on 2017/02/28
 
 .. moduleauthor: Claire POTTIER (CNES DSO/SI/TR) and Cécile CAZALS (CS)
-    
+
 .. todo:: revoir la date
 .. todo:: revoir le lien de màj du PIXC_VEC tag si plrs lacs associés à l'objet ou si aucun lac (on prend l'identifiant de la tuile ?)
 .. todo:: revoir le calcul des erreurs
 .. todo:: améliorer le calcul de la hauteur moyenne
 .. todo:: voir gestion des shapefiles avec Emmanuelle
 
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals 
+from __future__ import absolute_import, division, print_function, unicode_literals
 
-import math
 import numpy as np
 import logging
 
@@ -29,9 +29,9 @@ import cnes.common.lib.my_hull as my_hull
 import cnes.common.lib.my_tools as my_tools
 import cnes.common.lib.my_variables as my_var2
 import cnes.common.lib_lake.locnes_products_shapefile as shp_file
-import cnes.common.lib_lake.locnes_variables as my_var
 import cnes.common.lib_lake.proc_pixc_vec as proc_pixc_vec
 import cnes.common.lib_lake.storage_change as storage_change
+import cnes.common.service_config_file as service_config_file
 import cnes.common.service_error as service_error
 
 
@@ -42,7 +42,7 @@ class LakeProduct(object):
     def __init__(self, in_product_type, in_obj_pixc, in_obj_pixc_vec, in_obj_lake_db, in_layer_name, in_id_prefix=""):
         """
         Constructor
-        
+
         :param in_product_type: type of product among "SP"=LakeSP and "TILE"=LakeTile
         :type in_product_type: string
         :param in_obj_pixc: pixel cloud from which to compute lake products
@@ -51,20 +51,22 @@ class LakeProduct(object):
         :type in_obj_pixc_vec: proc_pixc_vec.PixelCloudVec or proc_pixc_vec_sp.PixelCloudVecSP object
         :param in_obj_lake_db: lake database
         :type in_obj_lake_db: lake_db.lakeDb_shp or lake_db.lakeDb_sqlite
-        :param in_layer_name: name for lake product layer        
+        :param in_layer_name: name for lake product layer
         :type in_layer_name: string
         :param in_id_prefix: prefix for the lake identifier (default="")
         :type in_id_prefix: string
 
         Variables of the object:
-        - type / string: 
-        - obj_pixc / proc_pixc.PixelCloud or proc_pixc_sp.PixelCloud: pixel cloud from which to compute lake products
-        - obj_pixc_vec / proc_pixc_vec.PixelCloudVec or proc_pixc_vec_sp.PixelCloudVec: extra info for pixel cloud
-        - obj_lake_db / lake_db.lakeDb_shp or lake_db.lakeDb_sqlite: lake database
-        - id_prefix / string: prefix for LAKE_ID
-        - shp_mem_layer / LakeTileShp_product: shapefile memory layer of the lake product
-        - uniq_prior_id / set: list of uniq prior identifiers linked to observed objects
+            - obj_pixc / proc_pixc.PixelCloud or proc_pixc_sp.PixelCloud: pixel cloud from which to compute lake products
+            - obj_pixc_vec / proc_pixc_vec.PixelCloudVec or proc_pixc_vec_sp.PixelCloudVec: extra info for pixel cloud
+            - obj_lake_db / lake_db.lakeDb_shp or lake_db.lakeDb_sqlite: lake database
+            - id_prefix / string: prefix for LAKE_ID
+            - shp_mem_layer / LakeTileShp_product: shapefile memory layer of the lake product
+            - id_prefix / string: prefix for LAKE_ID
+            - uniq_prior_id / set: list of uniq prior identifiers linked to observed objects
         """
+        # Get instance of service config file
+        self.cfg = service_config_file.get_instance()
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("- start -")
         
@@ -76,12 +78,12 @@ class LakeProduct(object):
         else:
             self.type = in_product_type
         # Pixel cloud object
-        self.obj_pixc = in_obj_pixc  
+        self.obj_pixc = in_obj_pixc
         # Pixel cloud complementary file object
-        self.obj_pixc_vec = in_obj_pixc_vec 
+        self.obj_pixc_vec = in_obj_pixc_vec
         # Lake database object
         self.obj_lake_db = in_obj_lake_db
-        
+
         # Prefix for lake identifier
         self.id_prefix = in_id_prefix  
         
@@ -92,42 +94,60 @@ class LakeProduct(object):
         # Other variables
         self.uniq_prior_id = set()  # List of uniq prior identifiers linked to observed objects
 
+        # Other variables
+#        self.data_source = None  # Data source of the product shapefile
+#        self.layer = None  # Layer of the product shapefile
+#        self.layer_defn = None  # Layer definition of the product shapefile
+
     # ----------------------------------------
-    
+
     def computeLakeProducts(self, in_list_labels):
         """
         Computes lake data products for pixels for which label is in in_list_labels.
         These products are stored in the shapefile defined by self.shpOut.
-        NB: This processing is limited to water bodies being of a minimum size defined by MIN_SIZE. 
-        NB2: Improved geolocation is computed for all entities
-        
+
+         - NB: This processing is limited to water bodies being of a minimum size defined by MIN_SIZE.
+         - NB2: Improved geolocation is computed for all entities
+
         :param in_list_labels: list of labels to process
         :type in_list_labels: 1D-array of int
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("Minimum size for lakes = %0.1f m2" % my_var.MIN_SIZE)
-        if my_var.IMP_GEOLOC:
+        logger.info("Minimum size for lakes = %0.1f ha" % self.cfg.getfloat('CONFIG_PARAMS', 'MIN_SIZE'))
+        if self.cfg.getboolean('CONFIG_PARAMS', 'IMP_GEOLOC'):
             logger.info("Improve geoloc = YES")
         else:
             logger.info("Improve geoloc = NO")
-        if my_var.HULL_METHOD == 0:
+        hull_method = self.cfg.getfloat("CONFIG_PARAMS", "HULL_METHOD")
+        # TODO : les égalités de réel ne sont pas autorisé changer il faut changer ces tests
+
+        if hull_method == 0:
             logger.info("Use of CONVEX HULL for lake boundaries")
-        elif math.floor(my_var.HULL_METHOD) == 1:
-            logger.info("Use of CONCAVE HULL for lake boundaries")
-        elif my_var.HULL_METHOD == 2:
-            logger.info("Use of CONCAVE HULL RADAR VECT for lake boundaries")
-        # elif my_var.HULL_METHOD == 3:
-        #     logger.info("Use of CONCAVE HULL CGAL triangulation for lake boundaries")
+        elif hull_method == 1.0:
+            logger.info("Use of CONCAVE HULL based on Delaunay triangulation with CGAL library for lake boundaries")
+        elif hull_method == 1.1:
+            logger.info("Use of CONCAVE HULL based on Delaunay triangulation with varying alpha param for lake boundaries")
+        elif hull_method == 1.2:
+            logger.info("Use of CONCAVE HULL based on basic Delaunay triangulation for lake boundaries")
+        elif hull_method == 2:
+            logger.info("Use of RADAR VECTORISATION for lake boundaries")
         else:
-            message = "HULL_METHOD values unkown (%d); should be 0(convex) 1(concav) 2(radar vect)" % my_var.HULL_METHOD
+            message = "HULL_METHOD values unkown (%d); should be 0(convex) 1(concave with CGAL) 2(radar vect)" % hull_method
             raise service_error.ProcessingError(message, logger)
-                    
+
         # 0 - Init variables
         cpt_too_small = 0  # Counter of too small objects
         cpt_obj = 1  # Counter of processed objects
-        
+
+        biglake_min_size = self.cfg.getfloat("CONFIG_PARAMS", "BIGLAKE_MIN_SIZE")
+        biglake_model = self.cfg.get("CONFIG_PARAMS", "BIGLAKE_MODEL")
+        biglake_grid_spacing = self.cfg.getint("CONFIG_PARAMS", "BIGLAKE_GRID_SPACING")
+        biglake_grid_res = self.cfg.getint("CONFIG_PARAMS", "BIGLAKE_GRID_RES")
+        min_size = self.cfg.getfloat('CONFIG_PARAMS', 'MIN_SIZE')
+        nb_digits = self.cfg.getint('ID', 'NB_DIGITS')
+
         for label in in_list_labels:  # Loop on inside tile objects
-            
+
             # 1 - Get pixels indices for associated to current label
             pix_index = np.where(self.obj_pixc.labels == label)[0]
             obj_nb_pix = pix_index.size
@@ -153,23 +173,24 @@ class LakeProduct(object):
             # == END-TODO ==
             
             # 5 - Compute improved geolocation if wanted
-            if my_var.IMP_GEOLOC:
-            
+            if self.cfg.getboolean('CONFIG_PARAMS', 'IMP_GEOLOC'):
+
                 # 5a - Fit lake height model depending on lake size
-                if (my_var.BIGLAKE_MODEL != 'no') and (obj_size >= my_var.BIGLAKE_MIN_SIZE):
-                    
-                    biglakemodel = BigLakeModel(my_var.BIGLAKE_MODEL)
+
+                if (biglake_model != 'no') and (obj_size >= biglake_min_size):
+
+                    biglakemodel = BigLakeModel(biglake_model)
                     height_model = biglakemodel.height_model
 
-                    logger.info("Using {} biglake model for improved geolocation (lake size {} m2)".format(height_model, obj_size))
-                    
+                    logger.info("Using {} biglake model for improved geolocation (lake size {} ha)".format(height_model, obj_size))
+
                     if height_model == 'grid':
                         height_model = biglakemodel.fit_biglake_model(self.obj_pixc,
                                                                       pix_index,
-                                                                      grid_spacing=my_var.BIGLAKE_GRID_SPACING,
-                                                                      grid_resolution=my_var.BIGLAKE_GRID_RES,
+                                                                      grid_spacing=biglake_grid_spacing,
+                                                                      grid_resolution=biglake_grid_res,
                                                                       plot=False)
-                        
+
                     elif height_model == 'polynomial':                                 
                         height_model = biglakemodel.fit_biglake_model_polyfit(self.obj_pixc, pix_index, classif)
                                                          
@@ -199,22 +220,22 @@ class LakeProduct(object):
             self.obj_pixc_vec.height_vectorproc[tmp_index] = imp_height
 
             # Compute lake product if object area large enough
-            if obj_size >= my_var.MIN_SIZE:
-                
+            if obj_size >= min_size:
+
                 # 6 - Compute lake identifier
                 if self.type == "TILE":  # "TILE" case: only add cpt_obj
-                    lake_id = "%s%s" % (self.id_prefix, str(cpt_obj).rjust(my_var.NB_DIGITS, str('0')))
+                    lake_id = "%s%s" % (self.id_prefix, str(cpt_obj).rjust(nb_digits, str('0')))
                 elif self.type == "SP":  # "SP" case: add main tile info
-                    lake_id = "%s%s_%s" % (self.id_prefix, self.obj_pixc.getMajorityPixelsTileRef(label), str(self.obj_pixc.getLakeTileLabel(label)).rjust(my_var.NB_DIGITS, str('0')))
-                
+                    lake_id = "%s%s_%s" % (self.id_prefix, self.obj_pixc.getMajorityPixelsTileRef(label), str(self.obj_pixc.getLakeTileLabel(label)).rjust(nb_digits, str('0')))
+
                 # 7 - Compute lake object (geometry and attributes)
                 # 7.1 - Test potential issue in output of impGeoloc
                 nan_index = np.where(np.isnan(imp_lon))[0]
                 nb_nan = len(nan_index)
                 # 7.2 - Process on non NaN points 
-                feature = None
+                feature_geom = None
                 if nb_nan == 0:
-                    feature, attributes = self.compute_product(lake_id, pix_index, classif, obj_size, mean_height, imp_lon, imp_lat)
+                    feature_geom, attributes = self.compute_product(lake_id, pix_index, classif, obj_size, mean_height, imp_lon, imp_lat)
                 else:
                     if nb_nan == obj_nb_pix:
                         logger.warning("!!! All the pixels have NaN for improved geolocation => object not computed")
@@ -222,21 +243,21 @@ class LakeProduct(object):
                         logger.warning("!!! %d pixels have NaN for improved geolocation => removed from computation" % nb_nan)
                         not_nan_index = np.where(np.isfinite(imp_lon))[0]
                         not_nan_classif = self.sortPixelsWrtClassifFlags(pix_index[not_nan_index])
-                        feature, attributes = self.compute_product(lake_id, pix_index[not_nan_index], not_nan_classif, obj_size, mean_height, imp_lon[not_nan_index], imp_lat[not_nan_index])
-                
+                        feature_geom, attributes = self.compute_product(lake_id, pix_index[not_nan_index], not_nan_classif, obj_size, mean_height, imp_lon[not_nan_index], imp_lat[not_nan_index])
+
                 # 8 - Add feature to layer, if it exists
-                if feature is not None:
-                    self.shp_mem_layer.add_feature(feature, attributes)
+                if feature_geom is not None:
+                    self.shp_mem_layer.add_feature(feature_geom, attributes)
                 
                 # 9 - Increase counter of processed objects
                 cpt_obj += 1
-                
+
             else:
                 logger.info("> Object %d too small (%d pixels = %.2f m2)" % (label, obj_nb_pix, obj_size))
                 cpt_too_small += 1  # Increase counter of too small objects
-        
+
         logger.info("> %d objects not processed because too small" % cpt_too_small)
-                
+
         # 10 - Compute storage change
         nb_linked = len(self.uniq_prior_id)
         if nb_linked == 0:
@@ -245,11 +266,11 @@ class LakeProduct(object):
             logger.info("%d objects linked to a priori lake" % nb_linked)
             logger.info("=> Compute storage change")
             self.computeStorageChange()
-    
+
     def compute_product(self, in_lake_id, in_indices, in_classif_dict, in_size, in_mean_height, in_imp_lon, in_imp_lat):
         """
         Computes lake product from a subset of pixel cloud, i.e. pixels for which self.obj_pixc.labels=in_label
-        
+
         :param in_lake_id: identifier for the lake
         :type in_lake_id: string
         :param in_indices: list of indices of pixels with a in_id label
@@ -264,12 +285,13 @@ class LakeProduct(object):
         :type in_imp_lon: 1D-array of float
         :param in_imp_lat: improved latitudes vector for pixels of the object
         :type in_imp_lat: 1D-array of float
-        
+
         :return: out_geom = lake geometry
         :rtype: OGRPolygon
         :return: out_attributes = lake attributes
         :rtype: dict
         """
+        
         logger = logging.getLogger(self.__class__.__name__)
             
         # 1 - Compute geometry
@@ -315,7 +337,7 @@ class LakeProduct(object):
         list_prior = None
         pixc_vec_tag = None
         if self.obj_lake_db is not None:
-            list_prior, pixc_vec_tag = self.obj_lake_db.linkToDb(out_geom, geom_long, in_imp_lat)
+            list_prior, pixc_vec_tag = self.obj_lake_db.link_to_db(out_geom, geom_long, in_imp_lat)
 
         if self.type == "SP":  # Indices of obj_pixc_vec change depending on product type
             tmp_index = in_indices
@@ -357,7 +379,7 @@ class LakeProduct(object):
         out_attributes["height_u"] = my_var2.FV_REAL
         
         # 2.5 - Height standard deviation (only for big lakes)
-        if in_size >= my_var.BIGLAKE_MIN_SIZE:
+        if in_size >= self.cfg.getfloat("CONFIG_PARAMS", "BIGLAKE_MIN_SIZE"):
             out_attributes["height_std"] = my_tools.compute_std(self.obj_pixc_vec.height_vectorproc[in_indices[in_classif_dict["water"]]], in_nan=my_var2.FV_FLOAT)
             
         # 2.6 - Area of detected water pixels and uncertainty
@@ -429,7 +451,7 @@ class LakeProduct(object):
         out_attributes["pole_tide"] = my_tools.compute_mean_2sigma(self.obj_pixc.pole_tide, in_nan=my_var2.FV_FLOAT)
         # 2.20 - Load tide
         out_attributes["load_tide1"] = my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_sol1, in_nan=my_var2.FV_FLOAT)
-        out_attributes["load_tide1"] = my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_sol2, in_nan=my_var2.FV_FLOAT)
+        out_attributes["load_tide2"] = my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_sol2, in_nan=my_var2.FV_FLOAT)
         
         # 2.21 - Dry tropo corr
         out_attributes["dry_trop_c"] = my_tools.compute_mean_2sigma(self.obj_pixc.model_dry_tropo_cor, in_nan=my_var2.FV_FLOAT)
@@ -463,22 +485,22 @@ class LakeProduct(object):
     def computeStorageChange(self):
         """
         Compute storage change for all objects linked to lakes in a priori database
-        
+
         Envisionned cases:
-        - 1 prior lake <=> 1 observed lake
-        - 1 prior lake <=> 2 or more observed lakes
-        - 1 observed lake <=> 2 or more prior lakes
-        - mixed lakes...
+            - 1 prior lake <=> 1 observed lake
+            - 1 prior lake <=> 2 or more observed lakes
+            - 1 observed lake <=> 2 or more prior lakes
+            - mixed lakes...
         """
         logger = logging.getLogger(self.__class__.__name__)
-        
+
         for p_id in self.uniq_prior_id:
-            
+
             logger.debug("Deal with prior lake %s" % p_id)
-            
+
             # 1 - Get reference height and area
-            ref_height, ref_area = self.obj_lake_db.getRefValues(p_id)
-            
+            ref_height, ref_area = self.obj_lake_db.get_ref_values(p_id)
+
             # 2 - Get observed lakes linked to this a priori lake
             self.shp_mem_layer.layer.SetAttributeFilter("prior_id LIKE '%{}%'".format(p_id))
             
@@ -486,18 +508,18 @@ class LakeProduct(object):
             nb_obs_lake = self.shp_mem_layer.layer.GetFeatureCount()
             
             # 4 - Process wrt to case
-            if nb_obs_lake == 1:  
-                
+            if nb_obs_lake == 1:
+
                 # Get lake feature and values
                 obs_lake = self.shp_mem_layer.layer.GetNextFeature()
                 obs_height = obs_lake.GetField(str("height"))
                 obs_area = obs_lake.GetField(str("area_total"))
-                
+
                 if ";" in obs_lake.GetField(str("prior_id")):  # Case 1 observed lake <=> 2 or more prior lakes
                     pass
-                    
+
                 else:  # Case 1 prior lake <=> 1 observed lake
-                    
+
                     # Compute linear storage change
                     stoc_val, stoc_u = storage_change.STOCC_linear(obs_height, obs_area, ref_height, ref_area)
                     # Fill associated field
@@ -505,7 +527,7 @@ class LakeProduct(object):
                         obs_lake.SetField(str("delta_s_L"), stoc_val)
                     if stoc_u is not None:
                         obs_lake.SetField(str("ds_L_u"), stoc_u)
-                    
+
                     # Compute quadratic storage change
                     stoc_val, stoc_u = storage_change.STOCC_quadratic(obs_height, obs_area, ref_height, ref_area)
                     # Fill associated field
@@ -513,7 +535,7 @@ class LakeProduct(object):
                         obs_lake.SetField(str("delta_s_Q"), stoc_val)
                     if stoc_u is not None:
                         obs_lake.SetField(str("ds_Q_u"), stoc_u)
-                
+
                 # Rewrite feature with storage change values
                 self.shp_mem_layer.layer.SetFeature(obs_lake)
                 
@@ -523,28 +545,30 @@ class LakeProduct(object):
             self.shp_mem_layer.layer.SetAttributeFilter(None)
 
     # ----------------------------------------
-    
+
     def sortPixelsWrtClassifFlags(self, in_ind):
         """
         Sort the subset of PixC with indices in_ind wrt classification flags
-        
+
         :param in_ind: indices of subset of PixC
         :type in_ind: 1D-array of int
         
         :return: dictionary of indices of pixels corresponding to categories "water" and "dark"
         :rtype: dict
         """
-        
+
         # 0 - Init output dictionary
         out_dict = {}
         out_dict["water"] = None
         out_dict["dark"] = None
-        
+
         # 1 - Get subset of PixC corresponding to input indices
         tmp_classif = self.obj_pixc.classif[in_ind]
-        
+
         # 2 - Deal with water flags
-        list_classif_flags = my_var.FLAG_WATER.replace('"','').split(";")
+        flag_water = self.cfg.get("CONFIG_PARAMS", "FLAG_WATER")
+        flag_dark = self.cfg.get("CONFIG_PARAMS", "FLAG_DARK")
+        list_classif_flags = flag_water.replace('"','').split(";")
         for classif_flag in list_classif_flags:
             v_ind = np.where(tmp_classif == int(classif_flag))[0]
             if v_ind.size != 0:
@@ -552,9 +576,9 @@ class LakeProduct(object):
                     out_dict["water"] = v_ind
                 else:
                     out_dict["water"] = np.concatenate((out_dict["water"], v_ind))
-        
+
         # 3 - Deal with dark water flags
-        list_classif_flags = my_var.FLAG_DARK.replace('"','').split(";")
+        list_classif_flags = flag_dark.replace('"','').split(";")
         for classif_flag in list_classif_flags:
             v_ind = np.where(tmp_classif == int(classif_flag))[0]
             if v_ind.size != 0:
@@ -562,46 +586,45 @@ class LakeProduct(object):
                     out_dict["dark"] = v_ind
                 else:
                     out_dict["dark"] = np.concatenate((out_dict["dark"], v_ind))
-                    
+
         return out_dict
 
     # ----------------------------------------
-    
+
     def computeCtTime(self, in_point):
         """
         Compute cross-track distance and observation time for the in_point among PixC around this point.
-        
+
         :param in_point: point coordinates
         :type in_point: OGRPoint
-        
-        :return: out_ct_dist = cross-track distance of the nearest PixC pixel (ie self.obj_pixc.crosstrack_medium)
+        :return: out_ct_dist cross-track distance of the nearest PixC pixel (ie self.obj_pixc.crosstrack_medium)
         :rtype: float
         :return: out_time = UTC time (ie self.obj_pixc.nadir_time) of the nadir point of the same azimuth index as the nearest PixC pixel
         :rtype: float
         :return: out_time_tai = TAI time (ie self.obj_pixc.nadir_time_tai) of the nadir point of the same azimuth index as the nearest PixC pixel
         :rtype: float
+
         """
-        
+
         # 1 - Get coordinates of the point
         centroid_lon = in_point[0]
         centroid_lat = in_point[1]
-        
+
         # 2 - Compute associated azimuth index
-        centroid_az = my_tools.computeAz(centroid_lon, centroid_lat, self.obj_pixc.nadir_longitude, self.obj_pixc.nadir_latitude) 
-        
+        centroid_az = my_tools.computeAz(centroid_lon, centroid_lat, self.obj_pixc.nadir_longitude, self.obj_pixc.nadir_latitude)
+
         # 3 - Get crosstrack distance
         out_ct_dist = my_tools.computeDist(centroid_lon, centroid_lat, self.obj_pixc.nadir_longitude[centroid_az], self.obj_pixc.nadir_latitude[centroid_az])
-        
+
         # 4 - Get observation time
         out_time = self.obj_pixc.nadir_time[centroid_az]
         out_time_tai = self.obj_pixc.nadir_time[centroid_az]
         
         return out_ct_dist, out_time, out_time_tai
 
-
 #######################################
-            
-    
+
+
 def selectWaterDarkPixels(in_classif_dict, in_flag_water=False, in_flag_dark=False):
     """
     Merge vectors of indices of classification dictionary wrt to kind of flags wanted
@@ -612,21 +635,20 @@ def selectWaterDarkPixels(in_classif_dict, in_flag_water=False, in_flag_dark=Fal
     :type in_flag_water: boolean
     :param in_flag_dark: =True if dark water flags selected; =False otherwise (default)
     :type in_flag_dark: boolean
-    
+
     :return: list of indices of selected pixels
     :rtype: 1D-array of int
     """
-    
+
     out_ind = []
-    
+
     if in_flag_water and (in_classif_dict["water"] is not None):
         out_ind = in_classif_dict["water"]
-    
+
     if in_flag_dark and (in_classif_dict["dark"] is not None):
         if len(out_ind) == 0:
             out_ind = in_classif_dict["dark"]
         else:
             out_ind = np.concatenate((out_ind, in_classif_dict["dark"]))
-            
     return out_ind
-    
+

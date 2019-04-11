@@ -14,16 +14,14 @@
 #
 # FIN-HISTORIQUE
 # ======================================================
-'''
- This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
-'''
-
-
 """
-   module:: service_config_file.py
-    :synopsis: Manage the configuration file for SWOT
+.. module:: service_config_file
+   :synopsis: Manage the configuration file for SWOT
+.. moduleauthor:: capgemini
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 """
 
 import sys
@@ -65,7 +63,9 @@ class ServiceConfigFile(RawConfigParser):
     def __init__(self, path_conf):
         """
             Init class ServiceConfigFile
+        
             :param path_conf: string path of the config file
+            :type path_conf: string
         """
         if THIS.path_conf is None:
             # first set of path_conf and cfg
@@ -85,23 +85,34 @@ class ServiceConfigFile(RawConfigParser):
     def __repr__(self):
         """
             Default message print
+            :return: message
+            :rtype: string
         """
         return "Configuration file : " + self.path_conf
 
     def test_var_config_file(self, section, variable, var_type, valeurs="",
-                             val_defaut=None, valid_min=None, valid_max=None):
+                             val_default=None, valid_min=None, valid_max=None,
+                             logger=None):
         """
             This function check if variable is in obj
             and if it has var_type type.
             Optionnaly it can check if variable has values in valeurs
             Exit the code if any error are detected
+            
             :param section: section name of the obj where to find
+            :type section: section
             :param variable: string name of the variable
+            :type variable: string
             :param var_type: type type of the variable for verification
+            :type var_type: type
             :param valeurs: string list of the possible value of variable
+            :type valeurs: string list
             :param val_defaut: value by default if variable is not in the configuration file
+            :type val_default: string, float or int
             :param valid_min: minimum value possible for this variable
+            :type valid_min: float or int
             :param valid_max: maximum value possible for this variable
+            :type valid_max: float or int
         """
         try:
             # get variable in function of type
@@ -112,10 +123,16 @@ class ServiceConfigFile(RawConfigParser):
             raise service_error.ConfigFileError("Section '" + str(section)
                                                + "' is not in the configuration file")
         except configparser.NoOptionError:
-            if val_defaut is not None:
+            if val_default is not None:
                 # Variable not exist, but a default value has been set
                 # create variable with this value
-                self.set(section, variable, str(val_defaut))
+                #self.set(section, variable, str(val_defaut))
+                self.set(section, variable, val_default)
+                tmp_var = val_default
+                if (logger != None):
+                    message = "Parameter" + str(variable) + " in section " + str(section) + " not found ! Default value (" +\
+                    str(val_default) + ") used !"
+                    logger.warning(message)
             else:
                 # Error variable not exist
                 message = "mandatory variable '" + str(variable) +\
@@ -155,9 +172,13 @@ class ServiceConfigFile(RawConfigParser):
     def get_var_from_type(self, section, variable, var_type):
         """
             This function return variable reading in function of type requested
+            
             :param section: section name of the obj where to find
+            :type section: section
             :param variable: string name of the variable
+            :type variable: string
             :param var_type: type type of the variable for verification
+            :type var_type: type
         """
         if var_type == int:
             tmp_var = self.getint(section, variable)

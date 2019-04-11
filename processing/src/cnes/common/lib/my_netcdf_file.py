@@ -2,20 +2,21 @@
 """
 .. module:: my_netcdf_file.py
     :synopsis: Deals with NetCDF files (reader and writer)
-    Created on 08/04/2016
+     Created on 2016/08/04
 
 .. moduleauthor:: Claire POTTIER - CNES DCT/SI/TR
 
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals 
 
 from netCDF4 import Dataset
-import numpy as np
+import numpy
 import logging
 
 import cnes.common.lib.my_variables as my_var
@@ -23,17 +24,20 @@ import cnes.common.service_error as service_error
 
 
 class myNcReader(object):
-
+    """
+        class myNcReader
+    """
     def __init__(self, in_filename):
         """
         Constructor
         
         :param in_filename: filename of the NetCDF file
         :type in_filename: string
-        
-        Variables:
-            filename / string: filename of the NetCDF file
-            content / netCDF4.Dataset: content of the NetCDF file
+
+
+        Variables of the object:   
+          - filename / string: filename of the NetCDF file
+          - content / netCDF4.Dataset: content of the NetCDF file
         """
         
         # Filename
@@ -186,7 +190,7 @@ class myNcReader(object):
         :type in_group: netCDF4.Group
         
         :return: out_data = formatted data
-        :rtype: [depend on the input variable]
+        :rtype: [depend on the inumpy.t variable]
         """
         logger = logging.getLogger(self.__class__.__name__)
 
@@ -197,11 +201,15 @@ class myNcReader(object):
             cur_content = in_group
         
         # 1 - Get data
-        out_data = np.copy(cur_content.variables[in_name][:])
-        # TODO: remove when input variables corrected (no NaN values anymore)
+        try:
+            out_data = numpy.copy(cur_content.variables[in_name][:])
+        except KeyError:
+            message = "Variable %s does not exist in netCDF file" % in_name
+            raise service_error.ProcessingError(message, logger)
+        # TODO: remove when inumpy.t variables corrected (no NaN values anymore)
         out_type = str(out_data.dtype)
         if out_type.startswith("float") or out_type.startswith("double"):
-            nan_idx = np.argwhere(np.isnan(out_data))
+            nan_idx = numpy.argwhere(numpy.isnan(out_data))
             nb_nan = len(nan_idx)
             if nb_nan > 0:
                 try:
@@ -214,8 +222,9 @@ class myNcReader(object):
         
         # 2 - Get not _FillValue indices
         fv_flag = False
+        # TODO Change that try/except/pass without error class is not allowed
         try:
-            not_nan_idx = np.where(out_data < cur_content.variables[in_name]._FillValue)
+            not_nan_idx = numpy.where(out_data < cur_content.variables[in_name]._FillValue)
             if len(not_nan_idx) < len(out_data):
                 fv_flag = True
         except:
@@ -243,7 +252,7 @@ class myNcReader(object):
         :type in_group: netCDF4.Group
         
         :return: out_data = formatted data or None
-        :rtype: [depend on the input variable]
+        :rtype: [depend on the inumpy.t variable]
         """
         logger = logging.getLogger(self.__class__.__name__)
         
@@ -261,7 +270,7 @@ class myNcReader(object):
                 if value.size > nb_records:
                     nb_records = value.size
             # Make empty array of int with _FillValue
-            out_data = np.zeros(nb_records, dtype=np.int32) + 2147483647
+            out_data = numpy.zeros(nb_records, dtype=numpy.int32) + 2147483647
             
         return out_data
     
@@ -296,7 +305,9 @@ class myNcReader(object):
 
 
 class myNcWriter(object):
-
+    """
+        class myNcWriter
+    """
     def __init__(self, in_filename):
         """
         Constructor
@@ -304,9 +315,10 @@ class myNcWriter(object):
         :param in_filename: full path of the NetCDF file
         :type in_filename: string
         
-        Variables:
-            filename / string: full path of the NetCDF file
-            content / netCDF4.Dataset: content of the NetCDF file
+
+        Variables of the object:
+         - filename / string: full path of the NetCDF file
+         - content / netCDF4.Dataset: content of the NetCDF file
         """
         
         # Filename
@@ -361,10 +373,18 @@ class myNcWriter(object):
         :param in_group: group which will contain the global attribute in_name
         :type in_group: netCDF4.Group
         """
+        
+        # Fix python_netcdf4 bug with in_value.encode('ascii')
         if in_group is None:
-            self.content.setncattr(in_name, in_value)
+            if type(in_value) is str:
+                self.content.setncattr(in_name, in_value.encode('utf-8'))
+            else:
+                self.content.setncattr(in_name, in_value)
         else:
-            in_group.setncattr(in_name, in_value)
+            if type(in_value) is str:
+                in_group.setncattr(in_name, in_value.encode('utf-8'))
+            else:
+                in_group.setncattr(in_name, in_value)
 
     #----------------------------------------
         
@@ -375,7 +395,7 @@ class myNcWriter(object):
         :param in_name: the name of the variable
         :type in_name: string
         :param in_datatype: the type of the variable
-        :type in_datatype: ex np.int32, ...
+        :type in_datatype: ex numpy.int32, ...
         :param in_dimensions: the name of the dimensions of the variable
         :type in_dimensions: string
         :param in_group: group which will contain the variable in_name
@@ -392,13 +412,48 @@ class myNcWriter(object):
             cur_content = self.content
         else:
             cur_content = in_group
-        
+        """        
+<<<<<<< HEAD
+        if (in_datatype is numpy.double) or (in_datatype is numpy.float64):
+            # double netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_DOUBLE)
+        elif (in_datatype is numpy.float):
+            # float netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_FLOAT)
+        elif (in_datatype is numpy.int32) or (in_datatype is int):
+            # int netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_INT)
+        elif (in_datatype is numpy.uint32):
+            # unsigned int netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_UINT)
+        elif (in_datatype is numpy.int16):
+            # short netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_SHORT)
+        elif (in_datatype is numpy.uint16):
+            # unsigned short netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_USHORT)
+        elif (in_datatype is numpy.int8):
+            # byte netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_BYTE)
+        elif (in_datatype is numpy.uint8):
+            # unsigned byte netCDF variable
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_UBYTE)
+        elif (in_datatype is str):
+            # char netCDF variable command below is not correctly support in python netCDF...
+            #cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_STRING)
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2)
+=======
+        """
         # Create variable depending on its type
-        if np.dtype(in_datatype).name in my_var.FV_NETCDF:
-            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_var.FV_NETCDF[np.dtype(in_datatype).name])
+        if in_datatype is str:
+            # char netCDF variable command below is not correctly support in python netCDF...
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2)
+        elif numpy.dtype(in_datatype).name in my_var.FV_NETCDF:
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_var.FV_NETCDF[numpy.dtype(in_datatype).name])
         else:
             # datatype not recognized !
-            message = "datatype not recognized : %s" % str(in_datatype)
+            message = "datatype not recognized : %s %s" % str(numpy.dtype(in_datatype).name)
+            print(str(my_var.FV_NETCDF))
             raise service_error.ProcessingError(message, logger)
             
         # Add variable attributes
@@ -429,7 +484,10 @@ class myNcWriter(object):
             cur_content = in_group
 
         if in_varname in cur_content.variables:
-            cur_content.variables[in_varname].setncattr(in_attname, in_value)
+            if type(in_value) is str:
+                cur_content.variables[in_varname].setncattr(in_attname, in_value.encode('ascii'))
+            else:
+                cur_content.variables[in_varname].setncattr(in_attname, in_value)
         else:
             # Variable not recognized !
             logger.debug("Could not add variable attribute %s because %s variable does not exist" % (in_attname, in_varname))
@@ -459,7 +517,7 @@ class myNcWriter(object):
             # Test existence of NaNs and replace them by _FillValue
             data_type = str(in_data.dtype)
             if data_type.startswith("float") or data_type.startswith("double"):
-                nan_idx = np.argwhere(np.isnan(in_data))
+                nan_idx = numpy.argwhere(numpy.isnan(in_data))
                 nb_nan = len(nan_idx)
                 if nb_nan > 0:
                     try:
