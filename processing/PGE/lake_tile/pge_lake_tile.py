@@ -568,11 +568,10 @@ class PGELakeTile():
             logger.debug('IMP_GEOLOC = ' + str(self.cfg.get('CONFIG_PARAMS', 'IMP_GEOLOC')))
             # Method to compute lake boundary or polygon hull
             # 0 = convex hull 
-            # 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library (default) 
-            # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track
-            # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - without alpha parameter varying across-track
+            # 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library
+            # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track (default)
             # 2 = edge computed in radar geometry, then converted in ground geometry
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'HULL_METHOD', float, valeurs=[0, 1.0, 1.1, 1.2, 2], val_default=1.0, logger=logger)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'HULL_METHOD', float, valeurs=[0, 1.0, 1.1, 2], val_default=1.1, logger=logger)
             logger.debug('HULL_METHOD = ' + str(self.cfg.get('CONFIG_PARAMS', 'HULL_METHOD')))
             # max number of pixel for hull computation 1            
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY', int, val_default=100000, logger=logger)

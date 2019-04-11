@@ -127,12 +127,10 @@ class LakeProduct(object):
             logger.info("Use of CONCAVE HULL based on Delaunay triangulation with CGAL library for lake boundaries")
         elif hull_method == 1.1:
             logger.info("Use of CONCAVE HULL based on Delaunay triangulation with varying alpha param for lake boundaries")
-        elif hull_method == 1.2:
-            logger.info("Use of CONCAVE HULL based on basic Delaunay triangulation for lake boundaries")
         elif hull_method == 2:
             logger.info("Use of RADAR VECTORISATION for lake boundaries")
         else:
-            message = "HULL_METHOD values unkown (%d); should be 0(convex) 1(concave with CGAL) 2(radar vect)" % hull_method
+            message = "HULL_METHOD values unkown (%d); should be 0(convex) 1(concave) 2(radar vect)" % hull_method
             raise service_error.ProcessingError(message, logger)
 
         # 0 - Init variables
