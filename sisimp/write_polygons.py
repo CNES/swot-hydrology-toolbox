@@ -337,7 +337,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
 
         lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
         elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
-      
+        print(elevation_tab)
+
     # 4.1 - Compute noise over height
     if IN_attributes.dark_water.lower() == "yes":
         noise_seed = int(str(time.time()).split('.')[1])
@@ -670,16 +671,16 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 if IN_attributes.height_model == 'gaussian': 
                     if area > IN_attributes.height_model_min_area:
                         my_api.printInfo(str("Gaussian model applied for big water body of size %f ha" % area))
-                        lac = Gaussian_Lac(ind+1, IN_attributes, lat, lon, IN_cycle_number)
+                        lac = Gaussian_Lac(ind+1, IN_attributes, lat * RAD2DEG, lon * RAD2DEG, IN_cycle_number)
                     else:
-                        lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
+                        lac = Constant_Lac(ind+1, IN_attributes, lat* RAD2DEG, IN_cycle_number)
                         
                 if IN_attributes.height_model == 'polynomial': 
                     if area > IN_attributes.height_model_min_area:
                         my_api.printInfo(str("Polynomial model applied for big water body of size %f ha" % area))
-                        lac = Polynomial_Lac(ind+1, IN_attributes, lat, lon, IN_cycle_number)
+                        lac = Polynomial_Lac(ind+1, IN_attributes, lat* RAD2DEG, lon* RAD2DEG, IN_cycle_number)
                     else:
-                        lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
+                        lac = Constant_Lac(ind+1, IN_attributes, lat* RAD2DEG, IN_cycle_number)
                 
                 if IN_attributes.height_model == "reference_file":
                     if IN_attributes.trueheight_file is not None:
@@ -687,7 +688,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     else:
                         lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
 
-                lac.set_hmean(np.mean(lac.compute_h(lat, lon)))
+                lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
        
                 az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
                 
