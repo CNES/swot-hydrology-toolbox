@@ -82,7 +82,7 @@ class Passplan(object):
         if self.mission_start_time > self.simulation_stop_time:
             raise ValueError(
                 "Simulation period (%s,%s) is BEFORE the mission start (%s)" %
-                (self.simulation_start_date, self.simulation_stop_date, self.mission_start_date))  
+                (self.simulation_start_time, self.simulation_stop_time, self.mission_start_time))  
             
         # Read the pass time (relative to the beginning of the cycle)
         tpass = []

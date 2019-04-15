@@ -78,9 +78,10 @@ def dark_water_non_detected_simulation(mask_dw, dlat, latmin, latmax, dlon, lonm
 
             #Simulate non detected dark water
             
-            lcorr_ = scale_factor*(size_y+size_x)/2.
+            lcorr_ = np.int(scale_factor*(size_y+size_x)/2.)
             if lcorr_ == 0:
                 lcorr_ = 1
+                
             profile_2d = height_model.generate_2d_profile_gaussian(1, minx, maxx+1, 1, miny, maxy+1,1, plot = False, lcorr = lcorr_, seed = seedvalue)
             
             profile_2d[np.where(mask_regions[minx:maxx+1,miny:maxy+1]!=i)]=-999
