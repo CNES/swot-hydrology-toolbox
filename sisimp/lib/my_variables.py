@@ -44,11 +44,11 @@ HEIGHT_MODEL_t0 = 47076  # Height model t0
 HEIGHT_MODEL_PERIOD = 365.25  # Height model period (days)
 
 # Polynomial parameters for polynomial model for big lake
-COEFF_X2 = 1.e-10
-COEFF_Y2 = 1.e-10
-COEFF_X = 1.e-5
-COEFF_Y = 1.e-5
-COEFF_XY = 1.e-8
+COEFF_X2 = 1.e-9
+COEFF_Y2 = 1.e-9
+COEFF_X = 5.e-5
+COEFF_Y = 5.e-5
+COEFF_XY = 1.e-9
 COEFF_CST = 0.
 
 # Dark water

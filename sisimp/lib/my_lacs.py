@@ -136,7 +136,7 @@ class Polynomial_Lac(Lac):
         self.COEFF_X2 = np.random.random(1)[0] * COEFF_X2
         self.COEFF_Y2 = np.random.random(1)[0] * COEFF_Y2
         self.COEFF_X = np.random.random(1)[0] * COEFF_X
-        self.COEFF_Y = np.random.random(1)[0] * COEFF_Y       
+        self.COEFF_Y = np.random.random(1)[0] * COEFF_Y 
         self.COEFF_XY = np.random.random(1)[0] * COEFF_XY
         self.COEFF_CST = np.random.random(1)[0] * COEFF_CST      
         
@@ -153,7 +153,7 @@ class Polynomial_Lac(Lac):
         
         
         height_water = height_model.generate_2d_profile_2nd_order_list(self.X0, self.Y0, X, Y, self.COEFF_X2, self.COEFF_Y2, self.COEFF_X, self.COEFF_Y, self.COEFF_XY, self.COEFF_CST)
-        print(h0 + height_water)
+        
         return h0 + height_water
 
 class Height_in_file_Lac(Lac):
