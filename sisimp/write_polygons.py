@@ -491,16 +491,14 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 
                 # General tile reference
                 tile_ref = "%03d%s" % (tile_number, left_or_right)
-
+                
                 # Init L2_HR_PIXC object
                 my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min, sub_r, classification_tab[az_indices], pixel_area[az_indices],
                                                     lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
                                                     IN_attributes.orbit_time[nadir_az], nadir_lat_deg[nadir_az], nadir_lon_deg[nadir_az], nadir_alt[nadir_az], nadir_heading[nadir_az],
                                                     IN_attributes.x[nadir_az], IN_attributes.y[nadir_az], IN_attributes.z[nadir_az], vx[nadir_az], vy[nadir_az], vz[nadir_az], r0[nadir_az],
                                                     IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size, IN_attributes.azimuth_spacing, IN_attributes.range_sampling, IN_attributes.near_range)
-
-                my_pixc.set_tile_boundaries(IN_attributes, az_min)
-
+                
                 # Update filenames with tile ref
                 IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])
                 
