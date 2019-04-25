@@ -23,8 +23,6 @@ from osgeo import ogr, osr
 import lib.my_api as my_api
 import lib.my_netcdf_file as my_nc
 import lib.my_variables as my_var
-import mathematical_function as math_fct
-from lib.my_variables import GEN_APPROX_RAD_EARTH
 
 
 def fill_vector_param(variable, variable_name, ref_size, data_param, group=None):
@@ -120,11 +118,6 @@ class l2_hr_pixc(object):
         + nb_water_pix(int) : number of water pixels, i.e. pixels in azimuth_index, ..., crosstrack vectors
         + nb_nadir_pix(int) : number of pixels on the nadir track, i.e. pixels in time, ..., near_range vectors
         + pattern(str): filename pattern
-        + tile_boundaries (list of tuple of float) : tile boundaries [inner_first, outer_first, inner_last, outer_last]
-            inner_first : lonlat(rg_min, az_min)
-            outer_first : lonlat(rg_max, az_min)
-            inner_last : lonlat(rg_min, az_max)
-            outer_last : lonlat(rg_max, az_max)
         """
         my_api.printInfo("[proc_real_pixc] == INIT ==") 
         
@@ -170,36 +163,8 @@ class l2_hr_pixc(object):
         self.azimuth_spacing = IN_azimuth_spacing
         self.range_spacing = IN_range_spacing
         self.near_range = IN_near_range 
-
-        self.tile_boundaries = []
+    
     #----------------------------------
-
-    def set_tile_boundaries(self, IN_attributes, min_az):
-        """
-        this function set tile boundaries in order to fill inner/outer first/last longitude/latitude of tile.
-
-        :param IN_attributes:
-        :type IN_attributes:
-        :param min_az: min azimuth at the begining of the tile
-        :type min_az: float
-        """
-        az = np.array([self.nb_pix_azimuth, self.nb_pix_azimuth, 0, 0]) + min_az
-        rg = np.array([0, self.nb_pix_range, 0, self.nb_pix_range])
-
-        if self.tile_ref[-1] == "L" :
-            swath = "Left"
-        else :
-            swath = "Right"
-
-        r0 = np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / ( 2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2)  # Radar to ground distance for near range pixels
-        ri = r0[az] + rg * IN_attributes.range_sampling  # Radar-to-ground distance
-
-        lon_list, lat_list = math_fct.lonlat_from_azy(az, ri, IN_attributes, swath, 0, "deg")
-
-        for i, lon in enumerate(lon_list):
-            lat = lat_list[i]
-            self.tile_boundaries.append((lon, lat))
-
 
     def write_pixc_file(self, IN_output_file, compress=False):
         """
@@ -238,16 +203,14 @@ class l2_hr_pixc(object):
         data.add_global_attribute('polarization', 'None')         
         data.add_global_attribute('transmit_antenna', 'None')
         data.add_global_attribute('processing_beamwidth', 'None')
-
-        data.add_global_attribute("inner_first_longitude", self.tile_boundaries[0][0])
-        data.add_global_attribute("inner_first_latitude", self.tile_boundaries[0][1])
-        data.add_global_attribute("inner_last_longitude", self.tile_boundaries[1][0])
-        data.add_global_attribute("inner_last_latitude", self.tile_boundaries[1][1])
-        data.add_global_attribute("outer_first_longitude", self.tile_boundaries[2][0])
-        data.add_global_attribute("outer_first_latitude", self.tile_boundaries[2][1])
-        data.add_global_attribute("outer_last_longitude", self.tile_boundaries[3][0])
-        data.add_global_attribute("outer_last_latitude", self.tile_boundaries[3][1])
-
+        data.add_global_attribute("inner_first_latitude", self.latitude[np.argmin(self.latitude)])  # TODO: improve
+        data.add_global_attribute("inner_first_longitude", self.longitude[np.argmin(self.longitude)])  # TODO: improve
+        data.add_global_attribute("inner_last_latitude", self.latitude[np.argmax(self.latitude)])  # TODO: improve
+        data.add_global_attribute("inner_last_longitude", self.longitude[np.argmin(self.longitude)])  # TODO: improve
+        data.add_global_attribute("outer_first_latitude", self.latitude[np.argmin(self.latitude)])  # TODO: improve
+        data.add_global_attribute("outer_first_longitude", self.longitude[np.argmax(self.longitude)])  # TODO: improve
+        data.add_global_attribute("outer_last_latitude", self.latitude[np.argmax(self.latitude)])  # TODO: improve
+        data.add_global_attribute("outer_last_longitude", self.longitude[np.argmax(self.longitude)])  # TODO: improve
         data.add_global_attribute("slc_first_line_index_in_tvp", 'None')
         data.add_global_attribute("slc_last_line_index_in_tvp", 'None')
         data.add_global_attribute("xref_input_l1b_hr_slc_file", 'None')
