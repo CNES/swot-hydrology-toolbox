@@ -14,8 +14,6 @@ This file is part of the SWOT Hydrology Toolbox
 """
 from __future__ import absolute_import, division, print_function, unicode_literals 
 
-import cnes.common.lib.my_api as my_api 
-
 
 class myRdfReader(object):
 
@@ -86,7 +84,7 @@ class myRdfReader(object):
                 if IN_key in key:
                     return self.parameters.get(key)
             # Key doesn't exist
-            my_api.printInfo("[my_rdf_file/getValue] Unkown key = %s" % IN_key)
+            print("[my_rdf_file/getValue] Unkown key = %s" % IN_key)
             return None
 
     def getFloatOrNone(self, key):
