@@ -140,10 +140,10 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
     # 2 - Compute the intersection between the radar grid and the water bodies
     water_pixels, IN_attributes.height_model_a_tab, IN_attributes.code, IN_attributes.ind_lac, IN_attributes = write_poly.compute_pixels_in_water(fshp_reproj, False, IN_attributes)
     
-    #~ if IN_attributes.create_pixc_vec_river:
-        #~ water_pixels_river, height_model_a_river_only, code_a_river_only, ind_lac_a_river_only, IN_attributes = write_poly.compute_pixels_in_water(fshp_reproj, True, IN_attributes)
-        #~ water_pixels = water_pixels + water_pixels_river  # Land=0 ; Lake and other=1 ; River=2
-    #~ my_api.printInfo("-> water_pixels : nb_lignes=%d nb_col=%d" % (water_pixels.shape[0], water_pixels.shape[1]))
+    if IN_attributes.create_pixc_vec_river:
+        water_pixels_river, height_model_a_river_only, code_a_river_only, ind_lac_a_river_only, IN_attributes = write_poly.compute_pixels_in_water(fshp_reproj, True, IN_attributes)
+        water_pixels = water_pixels + water_pixels_river  # Land=0 ; Lake and other=1 ; River=2
+    my_api.printInfo("-> water_pixels : nb_lignes=%d nb_col=%d" % (water_pixels.shape[0], water_pixels.shape[1]))
     
     # 3 - Delete temporary file
     driver.DeleteDataSource(fshp_reproj)
