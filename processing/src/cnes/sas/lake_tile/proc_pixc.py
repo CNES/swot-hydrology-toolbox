@@ -1,4 +1,14 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: proc_pixc.py
    :synopsis: Deals with SWOT pixel cloud product
@@ -37,21 +47,8 @@ class PixelCloud(object):
         class PixelCloud
     """
     def __init__(self):
-#    def __init__(self, in_pixc_file, in_idx_reject, in_use_fractional_inundation=None):
-#        :param in_pixc_file: full path of L2_HR_PIXC file
-#        :type in_pixc_file: string
-#        :param in_idx_reject: list of indices to reject before all processing
-#        :type in_idx_reject: 1D-array of int
-#        :param in_use_fractional_inundation:
-#                For which classes should the inundation fraction be used?
-#                The default is to assume that interior pixels are 100% water,
-#                But to use both land and water edge pixels partially by using the fractional inundation kwd.
-#        :type in_use_fractional_inundation: bool list, default None
-
         """
         Constructor: init pixel cloud object
-
-<<<<<<< HEAD
 
         Variables of the object:
 
@@ -357,7 +354,9 @@ class PixelCloud(object):
 
         # 6 - Keep PixC data only for selected pixels
         if self.nb_selected != 0:
+            
             # 6.1 - In PixC group
+            
             # Classification flags
             self.classif = self.origin_classif[self.selected_index]
             # Range indices of water pixels
@@ -499,6 +498,7 @@ class PixelCloud(object):
         """
         Identify all separate entities in the water mask
         """
+        cfg = service_config_file.get_instance()
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("- start -")
 
@@ -512,22 +512,32 @@ class PixelCloud(object):
         self.labels = my_tools.convert2dMatIn1dVec(self.range_index, self.azimuth_index, sep_entities)
         self.labels = self.labels.astype(int)  # Conversion from float to integer
 
-        # 4 - For each label : check if only one lake is in each label and relabels if necessary
-        labels_tmp = np.zeros(self.labels.shape)
+        # 4 - Relabel Lake Using Segmentation Heigth
+        # For each label : check if only one lake is in each label and relabels if necessary
 
-        for label in np.unique(self.labels):
-            idx = np.where(self.labels == label)
+        # 4.0. Check if lake segmentation following height needs to be run
+        std_height_max = cfg.getfloat('CONFIG_PARAMS', 'STD_HEIGHT_MAX')
+        # If STD_HEIGHT_MAX is -1, function unactivated
+        if std_height_max == -1.0:
+            logger.info("Lake segmentation following height unactivated")
+        # 4.1. If STD_HEIGHT_MAX not -1, relabel lake following segmentation height
+        else :
+            labels_tmp = np.zeros(self.labels.shape)
 
-            min_rg = min(self.range_index[idx])
-            min_az = min(self.azimuth_index[idx])
+            for label in np.unique(self.labels):
+                idx = np.where(self.labels == label)
 
-            relabel_obj = my_tools.relabelLakeUsingSegmentationHeigth(self.range_index[idx] - min_rg,
-                                                                      self.azimuth_index[idx] - min_az,
-                                                                      self.height[idx])
+                min_rg = min(self.range_index[idx])
+                min_az = min(self.azimuth_index[idx])
 
-            labels_tmp[self.labels == label] = np.max(labels_tmp) + relabel_obj
+                relabel_obj = my_tools.relabelLakeUsingSegmentationHeigth(self.range_index[idx] - min_rg,
+                                                                          self.azimuth_index[idx] - min_az,
+                                                                          self.height[idx], std_height_max)
 
-        self.labels = labels_tmp
+                labels_tmp[self.labels == label] = np.max(labels_tmp) + relabel_obj
+
+            self.labels = labels_tmp
+
         self.nb_obj = np.unique(self.labels).size
 
     def computeObjInsideTile(self):
