@@ -7,13 +7,12 @@ This file is part of the SWOT Hydrology Toolbox
 '''
 import argparse
 import glob
-import netCDF4 as nc
-import numpy as np
 import os
 import subprocess
-import sys
 
-import my_rdf
+import tools.my_filenames as my_names
+import tools.my_rdf as my_rdf
+
 import cnes.modules.geoloc.lib.pixc_to_shp
 
 #~ from cnes.sas.lib import base_classes
@@ -76,45 +75,34 @@ def main():
     else:
         print("> %d PixC annotation file(s) to deal with" % len(rdf_files))
     print()
-   
+    print()
+    
+    # Process per annotation file   
     for pixc_ann_file in rdf_files:
         
-        print("> Dealing with PixC annotation file %s" % pixc_ann_file)
+        print("***** Dealing with PixC annotation file %s *****" % pixc_ann_file)
         
         # Open and read RDF file
         rdf = my_rdf.myRdfReader(os.path.abspath(pixc_ann_file))
         ann_cfg = rdf.parameters
         
-        # Get value of orbit cycle, orbit number and latitude tile coordinates
-        
-        try:
-            pixc_ann_split = os.path.basename(pixc_ann_file).split(".")[0].split("_")
-            num_cycle = pixc_ann_split[2]
-            num_orbit = pixc_ann_split[3]
-            lat_tile = pixc_ann_split[4]
-            print("Cycle number = %s - Orbit number = %s - Tile ref = %s" % (num_cycle, num_orbit, lat_tile))
-            print()
-        except:
-            print("No information in pixc annotation file, assuming num_cycle = 0, num_orbit=0, lat_tile=0")
-            num_cycle = '0'
-            num_orbit = '0'
-            lat_tile = '0'
-            
-                        
-        #~ ann_cfg = rdf.parse(
-            #~ os.path.abspath(args['l2pixc_annotation_file']), comment='!')
-    
-        # Clone the tail of proc directory structure
-        river_dir = os.path.abspath(os.path.join(args['output_dir'], 'pixc'))
+        # Create output directories name
+        # For RiverTile products
+        river_dir = os.path.abspath(os.path.join(args['output_dir'], 'rivertile'))
         if not os.path.isdir(river_dir):
             os.makedirs(river_dir)
+        # For PIXCVec products
+        pixcvec_dir = os.path.abspath(os.path.join(args['output_dir'], 'pixcvec'))
+        if not os.path.isdir(pixcvec_dir):
+            os.makedirs(pixcvec_dir)
     
         # Prepare args for l2pixc_to_rivertile.py
         # File path
         pixc_file = os.path.abspath(ann_cfg['l2pixc file'])
-        output_riverobs = os.path.join(river_dir, "rivertile_" + num_cycle + "_" + num_orbit + "_" + lat_tile + ".nc")
-        output_pixcvec = os.path.join(river_dir, "pixcvec_" + num_cycle + "_" + num_orbit + "_" + lat_tile + ".nc")
-        river_ann_file = os.path.join(args['output_dir'],'river-annotation_' + num_cycle + '_' + num_orbit + '_' + lat_tile + '.rdf')
+        river_filenames = my_names.riverTileFilenames(IN_pixc_file=pixc_file)
+        output_riverobs = os.path.join(river_dir, river_filenames.rivertile_file)
+        output_pixcvec = os.path.join(pixcvec_dir, river_filenames.pixc_vec_river_file)
+        river_ann_file = os.path.join(args['output_dir'], river_filenames.annot_file)
         
         # Make rivertile sas with pixelcloud
         # Path to RiverObs
@@ -127,61 +115,54 @@ def main():
             path_to_riverobs,
             'src','bin','swot_pixc2rivertile.py')
         # Build command
-        cmd = "{} {} {} {} {}".format(prog_name,
-                                         pixc_file,
-                                         output_riverobs,
-                                         output_pixcvec,
-                                         os.path.abspath(args['parameter_riverobs']))
+        cmd = "{} {} {} {} {} --shpbasedir {}".format(prog_name,
+                                                      pixc_file,
+                                                      output_riverobs,
+                                                      output_pixcvec,
+                                                      os.path.abspath(args['parameter_riverobs']),
+                                                      river_dir)
         # Excute command
         print ("> executing:", cmd) 
         #subprocess.check_call(cmd, shell=True)
         execute(cmd)
         print("== Execution OK")
         print()
+        
+        # Rename the shapefiles
+        # Node files
+        new_nodes_files = glob.glob(os.path.join(river_dir, "nodes*"))
+        for node_file in new_nodes_files:
+            ext = node_file.split(".")[-1]
+            os.rename(node_file, os.path.join(river_dir, river_filenames.rivertile_nodes_file+"."+ext))
+        # Reach files
+        new_reaches_files = glob.glob(os.path.join(river_dir, "reaches*"))
+        for reach_file in new_reaches_files:
+            ext = reach_file.split(".")[-1]
+            os.rename(reach_file, os.path.join(river_dir, river_filenames.rivertile_reaches_file+"."+ext))
   
-        # Make the desired shape files
+        # Convert PIXCVecRiver into shapefile if wanted
         if not args["noshp"]:
-            print("> Converting .nc files to shapefiles...")
+            
+            # write pixcvec shapefile
+            print("> Converting PIXCVecRiver .nc file to shapefile...")
             pixcvec_vars = ["height_vectorproc", 
                            "node_index", 
                            "reach_index", 
                            "azimuth_index", 
                            "range_index"]
-            node_vars = ["time", 
-                         "height",
-                         "width", 
-                         "area_total",    
-                         "node_id", 
-                         "reach_id"]
-            reach_vars = ["reach_id","width","height","slope","area_total"]
-            
-            # write node shape file
-            print(". Node shapefile")
-            cnes.modules.geoloc.lib.pixc_to_shp.pixc_to_shp(
-                output_riverobs, 
-                output_riverobs.replace(".nc","_node.shp"), 
-                "latitude", "longitude", node_vars, group_name="nodes")
-            
-            # write reach shape file
-            print(". Reach shapefile")
-            cnes.modules.geoloc.lib.pixc_to_shp.pixc_to_shp(
-                output_riverobs, 
-                output_riverobs.replace(".nc","_reach.shp"), 
-                "p_latitud", "p_longitud", reach_vars, group_name="reaches")
-            
-            # write pixcvec shape file
-            print(". PIXCVec shapefile")
             cnes.modules.geoloc.lib.pixc_to_shp.pixc_to_shp(
                 output_pixcvec, 
                 output_pixcvec.replace(".nc",".shp"), 
                 "latitude_vectorproc", "longitude_vectorproc", 
                 pixcvec_vars, group_name=None)
 
-        
+        # Write annotation file
         write_annotation_file(
             river_ann_file, 
             pixc_file,
             output_pixcvec)
+        
+        print()
 
     print("")
     print("===== l2pixc_to_rivertile = END =====")
