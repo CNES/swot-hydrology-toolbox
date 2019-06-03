@@ -1,4 +1,14 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: my_netcdf_file.py
     :synopsis: Deals with NetCDF files (reader and writer)
@@ -27,12 +37,14 @@ class myNcReader(object):
     """
         class myNcReader
     """
-    def __init__(self, in_filename):
+    def __init__(self, in_filename, mode='r'):
         """
         Constructor
         
         :param in_filename: filename of the NetCDF file
         :type in_filename: string
+        :param mode: open mode of filename
+        :type mode: string
 
 
         Variables of the object:   
@@ -44,7 +56,7 @@ class myNcReader(object):
         self.filename = in_filename
         
         # Content
-        self.content = Dataset(in_filename, 'r')
+        self.content = Dataset(in_filename, mode)
         
     def close(self):
         """
@@ -446,7 +458,8 @@ class myNcWriter(object):
         """
         # Create variable depending on its type
         if in_datatype is str:
-            # char netCDF variable command below is not correctly support in python netCDF...
+            # string type is not allowed in netCDF, force NC_CHAR type
+            #cur_content.createVariable(in_name, 'c', in_dimensions, in_compress, 2)
             cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2)
         elif numpy.dtype(in_datatype).name in my_var.FV_NETCDF:
             cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_var.FV_NETCDF[numpy.dtype(in_datatype).name])

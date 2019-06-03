@@ -1,5 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: storage_change.py
     :synopsis: STOCC module = deal with storage change computation wrt to a reference
@@ -41,16 +51,18 @@ def STOCC_linear(in_height, in_area, in_ref_height, in_ref_area, in_ref_flood_de
     """
     
     if (in_height is None) or (in_area is None) or (in_ref_height is None) or (in_ref_area is None):
-        return None, None
-    
-    # Volume variation between both surfaces
-    out_stoc_val = (in_height - in_ref_height)/2. * (in_area + in_ref_area)
-    
-    # Associated uncertainty
-    out_stoc_u = -9999.
+        retour = None, None
+    else:
+        # Volume variation between both surfaces
+        out_stoc_val = (in_height - in_ref_height)/2. * (in_area + in_ref_area)
         
-    # Return
-    return out_stoc_val, out_stoc_u
+        # Associated uncertainty
+        out_stoc_u = -9999.
+            
+        # Return
+        retour = out_stoc_val, out_stoc_u
+    
+    return retour
 
 
 def STOCC_quadratic(in_height, in_area, in_ref_height, in_ref_area, in_ref_flood_dem=None):
@@ -76,13 +88,15 @@ def STOCC_quadratic(in_height, in_area, in_ref_height, in_ref_area, in_ref_flood
     """
     
     if (in_height is None) or (in_area is None) or (in_ref_height is None) or (in_ref_area is None):
-        return None, None
-    
-    # Volume variation between both surfaces
-    out_stoc_val = (in_height - in_ref_height)/3. * (in_area + in_ref_area + math.sqrt(in_area * in_ref_area))
-    
-    # Associated uncertainty
-    out_stoc_u = -9999.
+        retour = None, None
+    else:
+        # Volume variation between both surfaces
+        out_stoc_val = (in_height - in_ref_height)/3. * (in_area + in_ref_area + math.sqrt(in_area * in_ref_area))
         
-    # Return
-    return out_stoc_val, out_stoc_u
+        # Associated uncertainty
+        out_stoc_u = -9999.
+            
+        # Return
+        retour = out_stoc_val, out_stoc_u
+        
+    return retour

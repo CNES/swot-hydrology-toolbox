@@ -1,4 +1,14 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: locnes_variables.py
     :synopsis: Gather global variables used by LOCNES
@@ -22,6 +32,8 @@ import cnes.common.service_error as service_error
 
 # Lake a priori database
 LAKE_DB = "/work/ALT/swot/swotpub/BD/BD_lakes/20181002_EU/apriori_db_lakes_EU.shp"
+INFLUENCE_LAKE_DB = "/work/ALT/swot/swotpub/BD/BD_lakes/20181002_EU/influence_area_map.shp"
+
 # Lake identifier attribute name in the database
 LAKE_DB_ID = "lake_id"
 
@@ -41,20 +53,23 @@ IMP_GEOLOC = True
 # Method to compute lake boundary or polygon hull
 # 0 = convex hull 
 # 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library 
-# 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track (default)
-# 2 = edge computed in radar geometry, then converted in ground geometry
-HULL_METHOD = 1.1
-NB_PIX_MAX_DELAUNEY = 1e5 # max number of pixel for hull computation 1
-NB_PIX_MAX_CONTOUR = 8000 # max number of contour points for hull computation 2
+# 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track
+# 2 = edge computed in radar geometry, then converted in ground geometry (default)
+HULL_METHOD = 2
+# If HULL_METHOD=1.1: max number of pixels for Delaunay triangulation
+NB_PIX_MAX_DELAUNEY = 1e5
+# If HULL_METHOD=2: max number of contour points
+NB_PIX_MAX_CONTOUR = 8000  
 
-# Maximal standard deviation of height inside a lake
-STD_HEIGHT_MAX = 10
+# Maximal standard deviation of height inside a lake  (-1.0 = do not compute lake height segmentation)
+STD_HEIGHT_MAX = -1.0
 
 # Big lakes parameters for improved geoloc; used only if imp geoloc=1
 BIGLAKE_MODEL = "polynomial"  # =polynomial or =grid
 BIGLAKE_MIN_SIZE = 50000000  # In m^2; if None, disable biglake model
 BIGLAKE_GRID_SPACING = 4000  # Grid spacing for lake height smoothing; in m
 BIGLAKE_GRID_RES = 8000  # Grid resolution for lake height smoothing; in m
+
 
 # Filenames pattern
 PRODUCER = "CNES"  # Product generator
@@ -103,12 +118,18 @@ def tmpGetConfigFromServiceConfigFile():
     cfg = service_config_file.get_instance()
     logger = logging.getLogger("locnes_variables")
 
-    print(cfg)
+
     # Lake database
     global LAKE_DB
     lake_db_file = cfg.get("DATABASES", "LAKE_DB")
     LAKE_DB = lake_db_file
     logger.info("> LAKE_DB = %s" % LAKE_DB)
+
+    # Influence lake database
+    global INFLUENCE_LAKE_DB
+    influence_lake_db_file = cfg.get("DATABASES", "INFLUENCE_LAKE_DB")
+    INFLUENCE_LAKE_DB = influence_lake_db_file
+    logger.info("> INFLUENCE_LAKE_DB = %s" % INFLUENCE_LAKE_DB)
 
     # Lake identifier attribute name in the database
     global LAKE_DB_ID
@@ -190,7 +211,18 @@ def overwriteConfig_from_cfg(IN_config):
             print("> LAKE_DB = %s" % LAKE_DB)
         else:
             print("> Default value for LAKE_DB = %s" % LAKE_DB)
-        
+
+        # Influence lake database
+        if "influence_lake_db" in list_over:
+            global INFLUENCE_LAKE_DB
+            influence_lake_db_file = IN_config.get("CONFIG_PARAMS", "INFLUENCE_LAKE_DB")
+            import cnes.common.lib.my_tools as my_tools
+            my_tools.testFile(influence_lake_db_file)  # Test existence of file
+            INFLUENCE_LAKE_DB = influence_lake_db_file
+            print("> INFLUENCE_LAKE_DB = %s" % INFLUENCE_LAKE_DB)
+        else:
+            print("> Default value for INFLUENCE_LAKE_DB = %s" % INFLUENCE_LAKE_DB)
+
         # Lake identifier attribute name in the database
         if "lake_db_id" in list_over:
             global LAKE_DB_ID
@@ -295,6 +327,14 @@ def overwriteConfig_from_xml(IN_xml_tree):
     my_tools.testFile(lake_db_file)  # Test existence of file
     LAKE_DB = lake_db_file
     print("> LAKE_DB = %s" % LAKE_DB)
+
+    # Influence lake database
+    global INFLUENCE_LAKE_DB
+    influence_lake_db_file = IN_xml_tree.xpath("//LakeTile_shp/config_params/influence_lake_db")[0].text
+    import cnes.common.lib.my_tools as my_tools
+    my_tools.testFile(influence_lake_db_file)  # Test existence of file
+    INFLUENCE_LAKE_DB = influence_lake_db_file
+    print("> INFLUENCE_LAKE_DB = %s" % INFLUENCE_LAKE_DB)
         
     # Lake identifier attribute name in the database
     global LAKE_DB_ID
@@ -379,7 +419,13 @@ def compareConfig_to_xml(IN_xml_tree):
     if TMP_lake_db != LAKE_DB:
         message = "At least 2 different values of LAKE_DB for one processing: %s vs %s" % (LAKE_DB, TMP_lake_db)
         raise service_error.ProcessingError(message, logger)
-        
+
+    # Influence lake database
+    TMP_influence_lake_db = IN_xml_tree.xpath("//LakeTile_shp/config_params/influence_lake_db")[0].text
+    if TMP_influence_lake_db != INFLUENCE_LAKE_DB:
+        message = "At least 2 different values of INFLUENCE_LAKE_DB for one processing: %s vs %s" % (INFLUENCE_LAKE_DB, TMP_influence_lake_db)
+        raise service_error.ProcessingError(message, logger)
+
     # Lake identifier attribute name in the database
     TMP_lake_db_id = IN_xml_tree.xpath("//LakeTile_shp/config_params/lake_db_id")[0].text
     if TMP_lake_db_id != LAKE_DB_ID:

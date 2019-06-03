@@ -1,4 +1,14 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: my_variables.py
     :synopsis: Gather generic variables
@@ -53,8 +63,9 @@ FV_NETCDF = {'int': FV_INT,
               'object': FV_STRING}
 
 # FillValues for Shapefile
-FV_REAL = -9999.0
-FV_INT_SHP = -9999
+FV_REAL = -999999999999
+FV_INT_SHP = -999
+FV_STRING_SHP = "no_data"
 FV_SHP = {'int8': FV_INT_SHP,
           'int16': FV_INT_SHP,
           'int32': FV_INT_SHP,
@@ -65,9 +76,9 @@ FV_SHP = {'int8': FV_INT_SHP,
           'float32': FV_REAL,
           'double': FV_REAL,
           'float64': FV_REAL,
-          'str': FV_STRING,
-          'str32': FV_STRING,
-          'object': FV_STRING}
+          'str': FV_STRING_SHP,
+          'str32': FV_STRING_SHP,
+          'object': FV_STRING_SHP}
 FV_OGR = {ogr.OFTInteger: FV_INT_SHP,
           ogr.OFTReal: FV_REAL,
-          ogr.OFTString: FV_STRING}
+          ogr.OFTString: FV_STRING_SHP}
