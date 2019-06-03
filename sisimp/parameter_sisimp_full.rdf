@@ -41,10 +41,6 @@ Dark water correlation length = 500
 
 !Dark water seed = 12345678
 
-!### Error parameters
-Height bias std = 0.
-Noise multiplier factor = 0.5 !1/sqrt(Nl) where Nl is 4
-
 !### Tropo model
 Tropo model  = map
 Tropo error stdv = 0.03
