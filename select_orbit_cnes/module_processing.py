@@ -75,10 +75,10 @@ class Processing(object):
         # 2 - Find orbit directory path
         try:
             self.orbit_directory = param_reader.get_orbit_repository()
-            if os.path.exists(self.orbit_directory):
+            if not os.path.exists(self.orbit_directory):
                 raise FileNotFoundError("Orbit repository doesn't exist: %s" % self.orbit_directory)
         except:
-            self.api.error("orbits folder not found")
+            raise FileNotFoundError("Orbit repository not populated in the configuration file")
             return_code = 101
         
         # 3 - Set class attributes values
