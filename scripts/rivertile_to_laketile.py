@@ -13,7 +13,7 @@ import os
 from os.path import join, abspath
 import subprocess
 
-import my_rdf
+import tools.my_rdf as my_rdf
 
 
 def make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time):
@@ -23,6 +23,8 @@ def make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_n
         crid = "Dx0000"
         product_counter = "01"
         outname = name.format(cycle_number, pass_number, tile_number, start_time, stop_time, crid, product_counter)
+        if not os.path.isdir(links_dir):
+            os.makedirs(links_dir)
         outpath = join(links_dir, outname)
         if os.path.islink(outpath): # Overwrite if existing
             print("Overwritting existing {}".format(outpath))
@@ -69,8 +71,6 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cy
     
     # Create symlinks to input with the right name convention
     links_dir = join(lake_dir, "inputs")
-    if not os.path.isdir(links_dir):
-        os.makedirs(links_dir)
 
     pixcname, flag_rename_pixc, pixcvecname, flag_rename_pixcvec = make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time)
 
@@ -78,6 +78,8 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cy
     config.set('PATHS', "PIXC file", pixcname)
     config.set('PATHS', "PIXCVecRiver file", pixcvecname)
     config.set('PATHS', "Output directory", lake_dir)
+    logFile_path = config.get('LOGGING', "logFile").replace("REPLACE_ME/", lake_dir+os.path.sep)
+    config.set('LOGGING', "logFile", logFile_path)
         
     # Write the parameter file
     laketile_cfg = join(lake_dir, "laketile.cfg")

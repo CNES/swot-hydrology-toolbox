@@ -1,4 +1,14 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: my_shp_file.py
     :synopsis: Deal with shapefiles and memory layers
@@ -88,9 +98,8 @@ def merge_2_layers(in_layer1, in_layer2):
 
     # 2 - Check if layer definition of in_layer1 and in_layer2 are equal
     fields_name_1 = [layer_defn1.GetFieldDefn(i).GetName() for i in range(layer_defn1.GetFieldCount())]
-    print(fields_name_1)
     fields_name_2 = [layer_defn2.GetFieldDefn(i).GetName() for i in range(layer_defn2.GetFieldCount())]
-    print(fields_name_2)
+
     if fields_name_1 != fields_name_2:
         message = "[LakeProduct] ERROR = fields of layer %s and layer %s are not identical" % (layer_defn1.GetName(), layer_defn2.GetName())
         raise service_error.ProcessingError(message, logger)

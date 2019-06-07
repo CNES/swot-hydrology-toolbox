@@ -1,3 +1,14 @@
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 '''
  This file is part of the SWOT Hydrology Toolbox
  Copyright (C) 2018 Centre National d’Etudes Spatiales
@@ -9,14 +20,24 @@ import numpy as np
 import scipy.interpolate
 import utm
 import pyproj
+import os
 
 
 class BigLakeModel(object):
-    
+    """
+        class BigLakeModel
+    """
     def __init__(self, height_model):
+        """
+        Constructor of BigLakeModel
+         :param height_model: height model
+         :type height_model: string
+        Variables of the object:
+        - height_model / string: biglake height model
+        """
         self.height_model = height_model
         
-    def fit_biglake_model(self, pixc, pixc_mask, grid_spacing, grid_resolution, plot=False):
+    def fit_biglake_model(self, pixc, pixc_mask, grid_spacing, grid_resolution):
         """
         Compute new point heights using a 'big lake' model.
 
@@ -29,19 +50,19 @@ class BigLakeModel(object):
         using those pixels.
         Finally, new heights are interpolated for each pixel cloud coordinate (range, azimuth).
 
-        Args:
-            pixc: pixel cloud
-            pixc_mask: indices of pixels of current water body
-            grid_spacing spacing between averaging points in biglake model
-            grid_resolution: side length of square averaging box in biglake model
-            plot: debugging plots
 
-        returns:
-            1D array of new smooth heights for each pixel
+        :param pixc: pixel cloud from which to compute lake products
+        :type in_obj_pixc: proc_pixc_sp.PixelCloudSP object
+        :param pixc_mask: indices of pixels of current water body
+        :type pixc_mask: numpy 1D array of float
+        :param grid_spacing spacing between averaging points in biglake model
+        :type grid_spacing: float
+        :param grid_resolution: side length of square averaging box in biglake model
+        :type grid_resolution: float
+
+        return: new smooth heights for each
+        :rtype: numpy 1D array of float
         """
-
-        if grid_resolution < grid_spacing:
-            raise ValueError("grid resolution is less than grid spacing")
 
         # Center of lake in UTM
         x_c, y_c, zone_number, zone_letter = utm.from_latlon(
@@ -58,38 +79,10 @@ class BigLakeModel(object):
         min_x, max_x = np.min(X), np.max(X)
         min_y, max_y = np.min(Y), np.max(Y)
 
-        # The lake center and grid_spacing define our local grid
-        def local_to_utm(xi, yi):
-            return (x_c + xi*grid_spacing), (y_c + yi*grid_spacing)
-
-        def utm_to_local(x, y):
-            return (x - x_c) / grid_spacing, (y - y_c) / grid_spacing
-
         # Setup grid bounds in grid coordinates
         index_min_x, index_max_x = int((min_x - x_c)/grid_spacing - 0.5), int((max_x - x_c)/grid_spacing + 0.5)
         index_min_y, index_max_y = int((min_y - y_c)/grid_spacing - 0.5), int((max_y - y_c)/grid_spacing + 0.5)
 
-        if plot:
-            import matplotlib.pyplot as plt
-            f, ax = plt.subplots()
-
-            ax.plot(X[::100], Y[::100], color="k", linestyle="", marker=".")
-            ax.plot(x_c, y_c, markersize=5, marker="o", color="r", linestyle="")
-            ax.plot((min_x, min_x, max_x, max_x),
-                    (min_y, max_y, min_y, max_y),
-                    color="r", linestyle="", marker="o")
-
-            ax.plot(*local_to_utm(index_min_x, index_min_y),
-                    color="b", linestyle="", marker="o")
-
-            ax.plot(*local_to_utm(index_min_x, index_max_y),
-                    color="b", linestyle="", marker="o")
-
-            ax.plot(*local_to_utm(index_max_x, index_min_y),
-                    color="b", linestyle="", marker="o")
-
-            ax.plot(*local_to_utm(index_max_x, index_max_y),
-                    color="b", linestyle="", marker="o")
 
         # Points and values to be interpolated for the height model
         points = [] # mean range_index and azimuth index for each grid point
@@ -98,7 +91,8 @@ class BigLakeModel(object):
         # For each grid point
         for index_x in np.arange(index_min_x, index_max_x + 1):
             for index_y in np.arange(index_min_y, index_max_y + 1):
-                utm_index = np.array(local_to_utm(index_x, index_y))
+                # The lake center and grid_spacing define our local grid
+                utm_index = np.array([(x_c + index_x*grid_spacing), (y_c + index_y*grid_spacing)])
 
                 # Infinity norm is a square box around utm_index (center of grid point)
                 norm = np.linalg.norm(XY - utm_index, ord=np.Inf, axis=1)
@@ -117,15 +111,6 @@ class BigLakeModel(object):
                     points.append([range_index_mean, azimuth_index_mean])
                     values.append(h_mean)
 
-                if plot:
-                    r, g, b = np.random.rand(3)
-                    ax.plot(X[points_in_square_resolution], Y[points_in_square_resolution], marker=".", linestyle="", color=(r, g, b, 0.2))
-
-                    ax.plot(utm_index[0], utm_index[1], marker="x", color="k", linestyle="")
-
-        if plot:
-            plt.show(block=False)
-
         # interpolate new heights for each pixel in slant plane
         xi = np.vstack((pixc.range_idx[pixc_mask], pixc.azimuth_idx[pixc_mask])).T
 
@@ -140,38 +125,29 @@ class BigLakeModel(object):
         # replace nans from the cubic interpolation with the result of nearest interpolation
         res = np.where(outside, res_nearest, res_linear)
 
-        if plot:
-            image_noisy = np.full((pixc.nb_pix_azimuth, pixc.nb_pix_range), 0.0)
-            image_clean = np.full((pixc.nb_pix_azimuth, pixc.nb_pix_range), 0.0)
-
-            for i in range(len(res)):
-                if i % 200 == 0:
-                    image_noisy[pixc.azimuth_idx[pixc_mask][i], pixc.range_idx[pixc_mask][i]] = pixc.height[pixc_mask][i]
-                    image_clean[pixc.azimuth_idx[pixc_mask][i], pixc.range_idx[pixc_mask][i]] = res[i]
-
-            plt.figure()
-            plt.imshow(image_noisy, vmin=-3, vmax=-1, origin="lower")
-
-            plt.title("noisy")
-
-            plt.figure()
-            plt.imshow(image_clean, vmin=-3, vmax=-1, origin="lower")
-            plt.colorbar()
-
-            plt.plot(np.array(points)[:, 0], np.array(points)[:, 1],
-                    color="r", linestyle="", marker="+")
-
-            plt.title("clean")
-
-            plt.show(block=True)
 
         return res
 
     def fit_biglake_model_polyfit(self, pixc, pixc_mask, classif):
+        """
+        Compute new point heights using a 'big lake' model.
 
+        First, the model creates a grid of spacing 'grid_spacing', centered
+        at the lake centroid.
+        Then we perform a 2D polynomial fit of the heights on the grid on the ground
+        Finally, new heights are interpolated for each pixel cloud coordinate (range, azimuth).
+
+        :param pixc: pixel cloud from which to compute lake products
+        :type pixc: proc_pixc.PixelCloud
+        #TO do incorrect def pour pixc mask
+        :param pixc_mask: indices of pixels of current water body
+        :type in_obj_pixc: proc_pixc.PixelCloud or proc_pixc_sp.PixelCloudSP object
+
+        return: new smooth heights for each pixel
+        :rtype : 1D array
+        """
 
         # Center of lake in UTM and find the zone_number, zone_letter
-        
         latitude = pixc.latitude[pixc_mask]
         longitude = pixc.longitude[pixc_mask]
         Z = pixc.height[pixc_mask]
@@ -179,19 +155,17 @@ class BigLakeModel(object):
         # TBD : replace by a threshold od dark water %
         if classif["water"] is not None:
             good_ind = np.where(np.isnan(latitude[classif["water"]]) == False)
+
         else:
             good_ind = np.where(np.isnan(latitude) == False)
 
         ind = np.where(longitude > 180.)
+
         if ind is not None:
             longitude[ind]+= -360.
-        
         x_c, y_c, zone_number, zone_letter = utm.from_latlon(
                 np.nanmean(latitude),
                 np.nanmean(longitude))
-                
-        #~ pixc[pixc_mask[classif["water"]]])
-        
         
         # Convert pixel cloud to UTM (zone of the centroid)
         latlon = pyproj.Proj(init="epsg:4326")
@@ -200,12 +174,13 @@ class BigLakeModel(object):
 
         # 2D polynomial fitting of heights on the ground grid 
         # For now, degre 2, may be change
-        A = np.array([X[good_ind]*0+1, X[good_ind], Y[good_ind], X[good_ind]**2, X[good_ind]**2*Y[good_ind], X[good_ind]**2*Y[good_ind]**2, Y[good_ind]**2, X[good_ind]*Y[good_ind]**2, X[good_ind]*Y[good_ind]]).T
+        A = np.array([X[good_ind]*0+1, X[good_ind], Y[good_ind], X[good_ind]**2, X[good_ind]**2*Y[good_ind], X[good_ind]**2*Y[good_ind]**2,
+                      Y[good_ind]**2, X[good_ind]*Y[good_ind]**2, X[good_ind]*Y[good_ind]]).T
         B = Z[good_ind].flatten()
-
         coeff, r, rank, s = np.linalg.lstsq(A, B)
         
-        res = coeff[0]*(X*0+1) + coeff[1]*X + coeff[2]*Y + coeff[3]*(X**2) + coeff[4]*(X**2*Y) + coeff[5]*(X**2*Y**2) + coeff[6]*(Y**2) + coeff[7]*(X*Y**2) + coeff[8]*(X*Y)
+        res = coeff[0]*(X*0+1) + coeff[1]*X + coeff[2]*Y + coeff[3]*(X**2) + coeff[4]*(X**2*Y) + coeff[5]*(X**2*Y**2) + coeff[6]*(Y**2) + \
+              coeff[7]*(X*Y**2) + coeff[8]*(X*Y)
         
         return res
     

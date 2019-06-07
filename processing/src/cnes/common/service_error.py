@@ -1,17 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# $Id:
-#
 # ======================================================
 #
-# Project : SWOT
-# Program : common python modules
-# Produit par Capgemini.
+# Project : SWOT KARIN
 #
 # ======================================================
 # HISTORIQUE
-#
+# VERSION:1.0.0:::2019/05/17:version initiale.
 # FIN-HISTORIQUE
 # ======================================================
 """

@@ -1,4 +1,14 @@
 # -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: locnes_filenames.py
     :synopsis: Deal with filenames used by LOCNES. There is one specific class per processor.
@@ -183,7 +193,7 @@ class lakeTileFilenames(object):
         self.computeLakeTileFilename_pixcvec()  # LakeTile_pixcvec filename
 
         # 5 - Compute Lake Id prefix
-        self.computeLakeIdPrefix()
+        self.computeLakeIdPrefix() 
 
     #----------------------------------
 
@@ -225,7 +235,7 @@ class lakeTileFilenames(object):
         if os.path.exists(self.lake_tile_pixcvec_file):
             message = "ERROR = %s already exists" % self.lake_tile_pixcvec_file
             raise service_error.SASLakeTileError(message, logger)
-
+    
     #----------------------------------
 
     def computeLakeIdPrefix(self):
@@ -234,7 +244,7 @@ class lakeTileFilenames(object):
         Id pattern is: ttts_<increment_over_4_digits> where ttts is tile ref with swath (ex: 230L for Tile 230 Left swath)
         """
         self.lake_id_prefix = "%s_" % self.tile_ref
-    
+   
     #----------------------------------
 
     def testPixcVecRiverFilename(self):
@@ -252,24 +262,25 @@ class lakeTileFilenames(object):
         # 1 - Retrieve info from PIXCVecRiver filename
         tmp_dict = getInfoFromFilename(self.pixc_vec_river_file, "PIXCVecRiver")
         if len(tmp_dict) == 0:
-            return False
-        pixcvec_cycle_num = int(tmp_dict["cycle"])  # Cycle number
-        pixcvec_pass_num = int(tmp_dict["pass"])  # Pass number
-        pixcvec_tile_ref = tmp_dict["tile_ref"]  # Tile ref
+            out_ok = False
+        else:
+            pixcvec_cycle_num = int(tmp_dict["cycle"])  # Cycle number
+            pixcvec_pass_num = int(tmp_dict["pass"])  # Pass number
+            pixcvec_tile_ref = tmp_dict["tile_ref"]  # Tile ref
 
-        # 2 - Test each value
-        # 2.1 - Cycle number
-        if pixcvec_cycle_num != self.cycle_num:
-            out_ok = False
-            logger.info("WARNING: cycle number is not the same in PIXC (=%03d) and PIXCVecRiver (=%03d) filenames", self.cycle_num, pixcvec_cycle_num)
-        # 2.2 - Pass number
-        if pixcvec_pass_num != self.pass_num:
-            out_ok = False
-            logger.info("WARNING: pass number is not the same in PIXC (=%03d) and PIXCVecRiver (=%03d) filenames", self.pass_num, pixcvec_pass_num)
-        # 2.3 - Tile ref
-        if pixcvec_tile_ref != self.tile_ref:
-            out_ok = False
-            logger.info("WARNING: tile ref not the same in PIXC (=%s) and PIXCVecRiver (=%s) filenames", self.tile_ref, pixcvec_tile_ref)
+            # 2 - Test each value
+            # 2.1 - Cycle number
+            if pixcvec_cycle_num != self.cycle_num:
+                out_ok = False
+                logger.info("WARNING: cycle number is not the same in PIXC (=%03d) and PIXCVecRiver (=%03d) filenames", self.cycle_num, pixcvec_cycle_num)
+            # 2.2 - Pass number
+            if pixcvec_pass_num != self.pass_num:
+                out_ok = False
+                logger.info("WARNING: pass number is not the same in PIXC (=%03d) and PIXCVecRiver (=%03d) filenames", self.pass_num, pixcvec_pass_num)
+            # 2.3 - Tile ref
+            if pixcvec_tile_ref != self.tile_ref:
+                out_ok = False
+                logger.info("WARNING: tile ref not the same in PIXC (=%s) and PIXCVecRiver (=%s) filenames", self.tile_ref, pixcvec_tile_ref)
 
         return out_ok
 
@@ -296,18 +307,18 @@ class lakeSPFilenames(object):
         logger.info("- start -")
         # Get config file
         cfg = service_config_file.get_instance()
+        
         # 1 - Init variables
         self.lake_tile_file_list = IN_lake_tile_file_list  # list of LakeTile_shp files full path
         self.out_dir = IN_out_dir  # Output directory
         self.product_counter = 1  # Product counter
         # get parameters
         self.lake_sp_pattern = cfg.get("FILE_INFORMATION", "LAKE_SP_PATTERN")
-        self.lake_sp_pattern_no_cont = cfg.get("FILE_INFORMATION", "LAKE_SP_PATTERN_NO_CONT")
         self.lake_sp_prefix = cfg.get("FILE_INFORMATION", "LAKE_SP_PREFIX")
         self.lake_sp_pattern = self.lake_sp_pattern.replace("LAKE_SP_PREFIX + ", self.lake_sp_prefix).replace('"', '')
-        self.lake_sp_pattern_no_cont = self.lake_sp_pattern_no_cont.replace("LAKE_SP_PREFIX + ", self.lake_sp_prefix).replace('"', '')
-
         self.lake_sp_crid = cfg.get("CRID", "LAKE_TILE_CRID")
+        # Lake Id prefix
+        self.lake_id_prefix = ""
 
         # 2 - Retrieve info from LakeTile filename
         tmp_dict = getInfoFromFilename(self.lake_tile_file_list[0], "LakeTile")
@@ -345,9 +356,6 @@ class lakeSPFilenames(object):
 
         # 4 - Compute output filenames
         self.computeLakeSPFilename()  # LakeSP filename
-
-        # 5 - Compute Lake Id prefix
-        self.computeLakeIdPrefix()
 
     #----------------------------------
 
@@ -399,18 +407,6 @@ class lakeSPFilenames(object):
                 filename = self.lake_sp_pattern % (self.cycle_num, self.pass_num, self.continent, self.start_date, self.stop_date, self.lake_sp_crid, self.product_counter)
             self.lake_sp_file = os.path.join(self.out_dir, filename)
 
-    #----------------------------------
-
-    def computeLakeIdPrefix(self):
-        """
-        Compute ID prefix for LakeSP product
-        Id pattern is: 5_ccc_ppp_CC_<increment_over_4_digits> where ccc is cycle number, ppp is pass number and CC is continent ref
-        """
-        if self.continent is None:
-            self.lake_id_prefix = "5_%03d_%03d_" % (self.cycle_num, self.pass_num)
-        else:
-            self.lake_id_prefix = "5_%03d_%03d_%s_" % (self.cycle_num, self.pass_num, self.continent)
-
 
 #######################################
 
@@ -447,4 +443,3 @@ def computePixcvecFilename(in_laketile_pixcvec_filename, in_output_dir):
         out_filename = os.path.join(in_output_dir, filename)
 
     return out_filename
-

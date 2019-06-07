@@ -1,4 +1,14 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: locnes_products_netcdf.py
     :synopsis: Deals with SWOT NetCDF products
@@ -193,31 +203,34 @@ class LakeTilePixcvec_product(NetCDF_product):
             'valid_min': -180.0,
             'valid_max': 180.0,
             'comment': "Improved longitude [-180,180( of the pixel."}
-        self.variables["height_vectorproc"] = {'dtype': np.float,
-            'long_name': "height above reference ellipsoid",
+        self.variables["wse_vectorproc"] = {'dtype': np.float,
+            'long_name': "water surface elevation above reference ellipsoid",
             'units': "m",
             'valid_min': -999999,
             'valid_max': 999999,
-            'comment': "Improved height of the pixel above the reference ellipsoid."}
-        self.variables["river_reach_tag"] = {'dtype': np.int32,
-            'long_name': "identifier of the associated prior river reach",
-            'comment': "Identifier of the river reach (retrieved from the river reach a priori database) associated to the pixel."}
-        self.variables["river_node_tag"] = {'dtype': np.int32,
+            'comment': "Improved water surface elevation of the pixel above the reference ellipsoid."}
+        self.variables["node_id"] = {'dtype': str,
             'long_name': "identifier of the associated prior river node",
             'comment': "Identifier of the river node (retrieved from the river node a priori database) associated to the pixel."}
-        self.variables["lake_tag"] = {'dtype': str,
+        self.variables["lakedb_id"] = {'dtype': str,
              'long_name': "identifier of the associated prior lake",
              'comment': "Identifier of the lake (retrieved from the lake a priori database) associated to the pixel."}
-        self.variables["other_tag"] = {'dtype': str,
+        self.variables["lakeobs_id"] = {'dtype': str,
              'long_name': "identifier of the associated unknown object",
              'comment': "Tile-specific identifier of the unknown object (i.e. not referenced neither in the river a priori database, nor in the lake a priori database) associated to the pixel."}
-        self.variables["prior_ice_flag"] = {'dtype': np.int8,
-             'long_name': "ice flag",
-             'flag_meanings': "there is surely no ice; there might be ice",
+        self.variables["ice_climatological_flag"] = {'dtype': np.int8,
+             'long_name': "climatological ice cover flag",
+             'flag_meanings': "not ice covered; ice covered",
              'flag_values': "0 1",
              'institution': "University of North Carolina",
-             'comment': "Prior probability of ice occurring."}
-        
+             'comment': "Indicates if the surface is ice-covered on the day of the observation based on climatological ice coverage"}
+        self.variables["ice_dynamical_flag"] = {'dtype': np.int8,
+             'long_name': "dynamical ice cover flag",
+             'flag_meanings': "not ice covered; ice covered",
+             'flag_values': "0 1",
+             'institution': "University of North Carolina",
+             'comment': "Indicates if the surface is ice-covered on the day of the observation based on dynamical ice coverage, determined from analysis of optical channel satellite data"}
+                
         # 4 - Init metadata specific to LakeTile_pixcvec file
         # 4.1 - Update general metadata
         self.metadata["title"] = "Level 2 KaRIn high rate lake tile vector product – LakeTile_pixcvec"

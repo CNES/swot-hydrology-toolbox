@@ -6,18 +6,15 @@
 
 
 from netCDF4 import Dataset
-from os.path import join, abspath
+from os.path import abspath
 import argparse
 import numpy as np
-import os
 import shutil
-import lib.my_api as my_api
 import my_rdf
 
-from lib.my_variables import RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
+from lib.my_variables import RAD2DEG, DEG2RAD
 from lib.tropo_module import Tropo_module
 from lib.roll_module import Roll_module
-import mathematical_function as math_fct
 from write_polygons import orbitAttributes, project_array
 import cnes.modules.geoloc.lib.geoloc as my_geoloc
 
@@ -65,25 +62,25 @@ def main():
     
     if parameters['Tropo model'] == 'gaussian':
 
-        my_api.printInfo("Applying wet tropo gaussian model")
+        print("Applying wet tropo gaussian model")
         tropo = Tropo_module(parameters['Tropo model'])
         tropo_error = tropo.calculate_tropo_error_gaussian(az, col, parameters['Tropo error stdv'], parameters['Tropo error mean'],  parameters['Tropo error correlation']) 
         delta_h += tropo_error
         
     elif parameters['Tropo model'] == 'map':
         
-        my_api.printInfo("Applying wet tropo map gaussian model")
+        print("Applying wet tropo map gaussian model")
         tropo = Tropo_module(parameters['Tropo model'])
         tropo_error = tropo.calculate_tropo_error_map(np.nanmean(lat), az, col, parameters['Tropo error map file'], parameters['Tropo error correlation'])
         delta_h += tropo_error
         
     else:
-        my_api.printInfo("No tropo model applied")
+        print("No tropo model applied")
             
     
     if parameters['roll_repository_name'] != None:
             
-        my_api.printInfo("Applying roll residual error")
+        print("Applying roll residual error")
 
         roll = Roll_module(parameters['roll_repository_name'])
         roll.get_roll_file_associated_to_orbit_and_cycle(pass_number, cycle_number, delta_time = -1541.907908)
@@ -95,7 +92,7 @@ def main():
         delta_h += delta_h_roll
         
     else:
-        my_api.printInfo("No roll error applied")
+        print("No roll error applied")
 
     print(delta_h)   
 

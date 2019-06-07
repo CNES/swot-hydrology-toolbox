@@ -11,12 +11,13 @@
 # FIN-HISTORIQUE
 # ======================================================
 """
-.. module:: multi_lake_tile.py
-    :synopsis: Process PGE_L2_HR_LakeTile (i.e. generate L2_HR_LakeTile product from one tile of L2_HR_PIXC product and associated L2_HR_PIXCVec product) for multiple tiles
+.. module:: multi_lake_sp.py
+    :synopsis Process PGE_L2_HR_LakeSP, i.e. generate L2_HR_LakeSP
+    product from all tile of L2_HR_LAKE_TILE product
     Created on 08/23/2018
 
 .. moduleauthor:: Claire POTTIER - CNES DSO/SI/TR
-
+                  Cécile Cazals - C-S
 This file is part of the SWOT Hydrology Toolbox
  Copyright (C) 2018 Centre National d’Etudes Spatiales
  This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
@@ -34,10 +35,10 @@ import cnes.common.lib.my_tools as my_tools
 import cnes.common.lib.my_timer as my_timer
 import cnes.common.lib_lake.locnes_variables as my_var
 import cnes.common.lib_lake.locnes_filenames as locnes_filenames
-import pge_lake_tile
+import pge_lake_sp
 
 
-class MultiLakeTile(object):
+class MultiLakeSP(object):
     """
     Class MultiLakeTile
     Main class to run many SAS LakeTile processes
@@ -50,12 +51,13 @@ class MultiLakeTile(object):
         :param in_params: input parameters to run the processor
         :type in_params: dictionary
         """
-        print("[multiLakeTileProcessing] == INIT ==")
+        print("[multiLakeSPProcessing] == INIT ==")
 
         # Directories
         self.param_file = in_params["param_file"]  # Parameter file
-        self.pixc_dir = in_params["pixc_dir"]  # PIXC files directory
-        self.pixc_vec_river_dir = in_params["pixc_vec_river_dir"]  # PIXCVecRiver files directory
+        self.laketile_shp_dir = in_params["laketile_shp_dir"]  # PIXC files directory
+        self.laketile_edge_dir = in_params["laketile_edge_dir"]  # PIXCVecRiver files directory
+        self.laketile_pixcvec_dir = in_params["laketile_pixcvec_dir"]  # PIXCVecRiver files directory
         self.output_dir = in_params["output_dir"]  # Output directory
 
         # BDLac and continent file
@@ -67,7 +69,6 @@ class MultiLakeTile(object):
         # Tiles info
         self.cycle_num = in_params["cycle_num"]  # Cycle number
         self.pass_num = in_params["pass_num"]  # Pass number
-        self.tile_ref = in_params["tile_ref"]  # Tile id
 
         # Flag to produce LakeTile_edge and LakeTile_pixcvec shapefiles
         self.flag_prod_shp = in_params["flag_prod_shp"]
@@ -79,8 +80,9 @@ class MultiLakeTile(object):
         self.log_console_level = in_params["logconsolelevel"]
 
         # List of input files
-        self.list_pixc = []  # PIXC files
-        self.list_pixc_vec_river = []  # PIXCVecRiver
+        self.list_laketile_shp_files = []
+        self.list_laketile_edge_files = []
+        self.list_laketile_pixcvec_files = []
         self.nb_input = 0  # Nb of input files
 
     def run_preprocessing(self):
@@ -90,61 +92,77 @@ class MultiLakeTile(object):
 
         print("")
         print("")
-        print("[multiLakeTileProcessing] PRE-PROCESSING...")
+        print("[multiLakeSPProcessing] PRE-PROCESSING...")
         print("")
 
         # 1 - Test existence of directories
-        print("[multiLakeTileProcessing] > 1 - Testing existence of working directories...")
-        # 1.1 - PIXC directory
-        print("[multiLakeTileProcessing]   INPUT DIR for PIXC files = %s" % self.pixc_dir)
-        my_tools.testDir(self.pixc_dir)
-        # 1.3 - PIXCVecRiver directory
-        print("[multiLakeTileProcessing]   INPUT DIR for PIXCVecRiver files = %s" % self.pixc_vec_river_dir)
-        my_tools.testDir(self.pixc_vec_river_dir)
+        print("[multiLakeSPProcessing] > 1 - Testing existence of working directories...")
+        # 1.1 - LakeTile shp directory
+        print("[multiLakeSPProcessing]   INPUT DIR for LakeTile shp files = %s" % self.laketile_shp_dir)
+        my_tools.testDir(self.laketile_shp_dir)
+        # 1.2 - LakeTile egde directory
+        print("[multiLakeSPProcessing]   INPUT DIR for LakeTile edge files = %s" % self.laketile_edge_dir)
+        my_tools.testDir(self.laketile_edge_dir)
+        # 1.3 - LakeTile pixcvec directory
+        print("[multiLakeSPProcessing]   INPUT DIR for LakeTile pixcvec files = %s" % self.laketile_pixcvec_dir)
+        my_tools.testDir(self.laketile_pixcvec_dir)
         # 1.4 - Output directory
-        print("[multiLakeTileProcessing]   OUTPUT DIR = %s" % self.output_dir)
+        print("[multiLakeSPProcessing]   OUTPUT DIR = %s" % self.output_dir)
         my_tools.testDir(self.output_dir)
         print("")
 
         # 2 - Get input files
-        print("[multiLakeTileProcessing] > 2 - Retrieving input files...")
+        print("[multiLakeSPProcessing] > 2 - Retrieving input files ...")
 
-        # 2.1 - Compute file prefix regarding cycle / pass / tile conditions
-        cond_prefix = my_var.PIXC_PREFIX  # Deal with all PixC files in self.pixc_dir
+        # 2.1 - List all files in self.laketile_shp_dir
+        tmp_list = os.listdir(self.laketile_shp_dir)
+
+        # 2.2 - Compute file prefix regarding cycle / pass / tile conditions
+        cond_prefix = my_var.LAKE_TILE_PREFIX  # Deal with all laketile files in laketile directories
         if (self.cycle_num is None) or (self.cycle_num == "-1"):
-            print("[multiLakeTileProcessing]   All PixC files in the input directory")
-        else:  # Deal with PixC files with cycle = self.cycle_num
+            print("[multiLakeSPProcessing]   All LakeTile files in the input directories")
+
+        else:  # Deal with LakeTile files with cycle = self.cycle_num
             cond_prefix += "%03d" % self.cycle_num
             if (self.pass_num is None) or (self.pass_num == "-1"):
-                print("[multiLakeTileProcessing]   PixC files with cycle=%03d" % self.cycle_num)
-            else:  # Deal with PixC files with cycle = self.cycle_num and pass = self.pass_num
+                print("[multiLakeSPProcessing]   Lake tile files with cycle=%03d" % self.cycle_num)
+            else:  # Deal with LakeTile files with cycle = self.cycle_num and pass = self.pass_num
+                print("[multiLakeSPProcessing]   Lake tile files with cycle=%03d and pass=%03d" % (self.cycle_num, self.pass_num))
                 cond_prefix += "_%03d" % self.pass_num
-                if self.tile_ref is not None:  # Deal with PixC files with cycle = self.cycle_num, pass = self.pass_num and tile id = self.tile_ref
-                    print("[multiLakeTileProcessing]   PixC files with cycle=%03d , pass=%03d , tile=%s" % (self.cycle_num, self.pass_num, self.tile_ref))
-                    cond_prefix += "_%s" % self.tile_ref
-                else:
-                    print("[multiLakeTileProcessing]   PixC files with cycle=%03d and pass=%03d" % (self.cycle_num, self.pass_num))
 
-        # 2.2 - List all files in self.pixc_dir
-        tmp_list = os.listdir(self.pixc_dir)
-
-        # 2.3 - For each listed file, get related PIXCVecRiver files if they exist
-        cur_pixc_vec_river = None
+        # 2.3 - For each listed laketile shp file, get related laketile edge and pixcvec files if they exist
+        self.laketile_files_list = []
+        self.cycle_pass_list = []
+        self.nb_tiles_list= []
         for cur_item in tmp_list:
 
-            # Test if file meets the condition
-            if cur_item.startswith(cond_prefix):  # Test if it's a wanted PIXC file
+            # Test if file meets the condition of laketile shp file
+            if cur_item.startswith(cond_prefix) and cur_item.endswith(my_var.LAKE_TILE_SHP_SUFFIX):
+                # find edge and pixcvec associated files
+                cur_laketile_shp_file = os.path.join(self.laketile_shp_dir, cur_item)
+                cur_laketile_edge_file = os.path.join(self.laketile_edge_dir, cur_item.replace(my_var.LAKE_TILE_SHP_SUFFIX, my_var.LAKE_TILE_EDGE_SUFFIX))
+                cur_laketile_pixcvec_file = os.path.join(self.laketile_pixcvec_dir, cur_item.replace(my_var.LAKE_TILE_SHP_SUFFIX, my_var.LAKE_TILE_PIXCVEC_SUFFIX))
 
-                # Associated PIXCVecRiver file name
-                cur_pixc_vec_river = cur_item.replace(my_var.PIXC_PREFIX, my_var.PIXCVEC_RIVER_PREFIX)
+                # If associated edge and pixcvec associated files exist, add tuple of filenames
+                if os.path.exists(cur_laketile_edge_file) and os.path.exists(cur_laketile_edge_file):
+                    information = locnes_filenames.getInfoFromFilename(cur_item, "LakeTile")
+                    cycle_num = information["cycle"]
+                    pass_num = information["pass"]
 
-                # If associated PIXCVecRiver file exists, add pair of filenames
-                if os.path.exists(os.path.join(self.pixc_vec_river_dir, cur_pixc_vec_river)):
-                    self.list_pixc.append(cur_item)
-                    self.list_pixc_vec_river.append(cur_pixc_vec_river)
-                    self.nb_input += 1
+                    if (cycle_num, pass_num) not in self.cycle_pass_list : # if new pair of cycle and pass, create new list of tiles
+                        self.cycle_pass_list.append((cycle_num, pass_num))
+                        self.laketile_files_list.append(([cur_laketile_shp_file], [cur_laketile_edge_file], [cur_laketile_pixcvec_file]))
+                        self.nb_tiles_list.append(0)
+                    else : # if pair of (cycle and path) exists, add tile to the list
+                        cycle_pass_idx = self.cycle_pass_list.index((cycle_num, pass_num))
+                        self.laketile_files_list[cycle_pass_idx][0].append(cur_laketile_shp_file)
+                        self.laketile_files_list[cycle_pass_idx][1].append(cur_laketile_edge_file)
+                        self.laketile_files_list[cycle_pass_idx][2].append(cur_laketile_pixcvec_file)
+                        self.nb_tiles_list[cycle_pass_idx] += 1
 
-        print("[multiLakeTileProcessing]   --> %d tile(s) to deal with" % self.nb_input)
+        print("[multiLakeSPProcessing]   --> %d cycle and pass to deal with" % len(self.cycle_pass_list))
+        for i, (cycle_num, pass_num) in enumerate(self.cycle_pass_list):
+            print("[multiLakeSPProcessing]  cycle %s pass %s contains %d tiles" % (cycle_num, pass_num, self.nb_tiles_list[i]))
         print("")
 
     def run_processing(self):
@@ -153,74 +171,68 @@ class MultiLakeTile(object):
         """
         print("")
         print("")
-        print("[multiLakeTileProcessing] PROCESSING...")
+        print("[multiLakeSPProcessing] PROCESSING...")
         print("")
         print("")
 
         timer_proc = my_timer.Timer()
         timer_proc.start()
 
-        if self.nb_input != 0:
+        for i, (cycle_num, pass_num) in enumerate(self.cycle_pass_list):  # Deal with all selected files
 
-            for indf in range(self.nb_input):  # Deal with all selected files
-
-                print("****************************************************************************************************************")
-                print("***** Dealing with tile %d / %d = %s *****" % (indf+1, self.nb_input, self.list_pixc[indf]))
-                print("****************************************************************************************************************")
-                print("")
-                print("")
-
-                # 1 - Initialization
-                cmd_file = self.create_cmd_file(indf)
-                print(cmd_file)
-                my_lake_tile = pge_lake_tile.PGELakeTile(cmd_file)
-
-                # 2 - Run
-                my_lake_tile.start()
-
-                # 3 - Stop
-                my_lake_tile.stop()
-
-                print("")
-                print(timer.stop())
-                print("")
-                print("")
-
+            print("****************************************************************************************************************")
+            print("***** Dealing with cycle %s and pass %s *****" % (cycle_num, pass_num))
             print("****************************************************************************************************************")
             print("")
             print("")
 
+            # 1 - Initialization
+            cmd_file = self.create_cmd_file(i)
+
+            my_lake_tile = pge_lake_sp.PGELakeSP(cmd_file)
+
+            # 2 - Run
+            my_lake_tile.start()
+
+            # 3 - Stop
+            my_lake_tile.stop()
+
+            print("")
+            print(timer.stop())
+            print("")
+            print("")
+
+        print("****************************************************************************************************************")
+        print("")
+        print("")
+
     def create_cmd_file(self, indf):
         """
-        Create command file for PGE_L2_HR_LakeTile for each input tile
+        Create command file for PGE_L2_HR_LakeSP for each input cycle and pass
         
-        :param indf: index of current input PIXC file within the list of PIXC files
+        :param indf: index of current input cycle and pass
         :type indf: int
         
         :return: out_cmd_file = command file full path
         :rtype: string
         """
 
-        # 1 - Get PIXC file full path
-        pixc_file = os.path.join(self.pixc_dir, self.list_pixc[indf])
-        
-        # 2 - Retrieve tile info from the PIXC filename
-        information = locnes_filenames.getInfoFromFilename(pixc_file, "PIXC")
-        cycle_num = information["cycle"]
-        pass_num = information["pass"]
-        tile_ref = information["tile_ref"]
+        # 1 - Get LakeTile files full path
+        (laketile_shp_files, laketile_edge_files, laketile_pixcvec_files) = self.laketile_files_list[indf]
 
-        # 3 - Init log filename (without date because it is computed in pge_lake_tile.py)
+        # 2 - Retrieve SP infos
+        (cycle_num, pass_num) = self.cycle_pass_list[indf]
+
+        # 3 - Init log filename
         if self.log_file is None:
             log_file = os.path.join(self.output_dir, "LogFile_" + str(cycle_num) + "_" +
-                                    str(pass_num) + "_" + str(tile_ref) + ".log")
+                                    str(pass_num) + ".log")
+            print("Log file : " + log_file)
         else:
-            log_file = os.path.splitext(self.log_file)[0] + "_" + str(cycle_num) + "_" \
-                                        + str(pass_num) + "_" + str(tile_ref) + os.path.splitext(self.log_file)[1]
-        print("Log file: " + log_file)
-        
+            log_file = os.path.splitext(self.log_file)[0] + "_" + str(cycle_num) + "_" + str(pass_num) + os.path.splitext(self.log_file)[1]
+
         # 4 - Init command filename
-        cmd_filename = "lake_tile_command_" + str(cycle_num) + "_" + str(pass_num) + "_" + str(tile_ref) + ".cfg"
+        cmd_filename = "lake_sp_command_" + str(cycle_num) + "_" + str(pass_num) + ".cfg"
         out_cmd_file = os.path.join(self.output_dir, cmd_filename)
         
         # 5 - Write command variables in command file
@@ -232,13 +244,20 @@ class MultiLakeTile(object):
             writer_command_file.write("param_file = %s\n" % self.param_file)
         else:
             # needed by jenkins script
-            writer_command_file.write("param_file = " + os.path.join(sys.path[0], "lake_tile_param.cfg") + "\n")
+            writer_command_file.write("param_file = " + os.path.join(sys.path[0], "lake_sp_param.cfg") + "\n")
 
-        writer_command_file.write("PIXC file = " + pixc_file + "\n")
-        writer_command_file.write("PIXCVecRiver file = " + os.path.join(self.pixc_vec_river_dir, self.list_pixc_vec_river[indf]) + "\n")
+        writer_command_file.write("LakeTile shp files = " + ";".join(laketile_shp_files) + "\n")
+        writer_command_file.write("LakeTile edge files = " + ";".join(laketile_edge_files) + "\n")
+        writer_command_file.write("LakeTile pixcvec files = " + ";".join(laketile_pixcvec_files) + "\n")
         writer_command_file.write("Output directory = " + self.output_dir + "\n")
         writer_command_file.write("\n")
-        
+
+        writer_command_file.write("[TILES_INFOS]\n")
+        writer_command_file.write("Cycle number = " + cycle_num +"\n")
+        writer_command_file.write("Pass number = " + pass_num +"\n")
+        writer_command_file.write("\n")
+
+
         # 5.2 - Fill DATABASES section
         writer_command_file.write("[DATABASES]\n")
         writer_command_file.write("# Lake a priori database\n")
@@ -273,6 +292,7 @@ class MultiLakeTile(object):
         writer_command_file.write("logConsole = " + str(self.log_console) + "\n")
         writer_command_file.write("# Log level print in console\n")
         writer_command_file.write("logconsolelevel = " + self.log_console_level + "\n")
+        writer_command_file.write("\n")
         
         # 5.5 - Fill CRID section
         writer_command_file.write("# CRID information\n")
@@ -281,15 +301,18 @@ class MultiLakeTile(object):
         writer_command_file.write("LAKE_TILE_CRID = Dx0000 \n")
         writer_command_file.write("# Composite Release IDentifier for LakeSP processing\n")
         writer_command_file.write("LAKE_SP_CRID = Dx0000 # Product generator\n")
+        writer_command_file.write("\n")
 
         # 5.6 - Fill FILE_INFORMATION section
         writer_command_file.write("# File informations\n")
         writer_command_file.write("[FILE_INFORMATION]\n")
         writer_command_file.write("# Product generator\n")
         writer_command_file.write("PRODUCER = CNES\n")
+        writer_command_file.write("\n")
         writer_command_file.write("PIXC_PREFIX = SWOT_L2_HR_PIXC_\n")
         writer_command_file.write('PIXC_PATTERN_PRINT = PIXC_PREFIX + "<CycleID>_<PassID>_<TileID>[L/R]_<RangeBeginDateTime>_<RangeEndingDateTime>_<CRID>_<ProductCounter>.nc"\n')
         writer_command_file.write('# Indices when PIXC_PATTERN.split("_"); None if value not in filename\n')
+        writer_command_file.write("\n")
         writer_command_file.write('PIXC_PATTERN_IND = {"cycle": 4, "pass": 5, "tile_ref": 6, "start_date": 7, "stop_date": 8, "crid": 9, "counter": 10} \n')
         writer_command_file.write('PIXCVEC_RIVER_PREFIX = SWOT_L2_HR_PIXCVecRiver_\n')
         writer_command_file.write('PIXCVEC_RIVER_PATTERN_PRINT = PIXCVEC_RIVER_PREFIX + "<CycleID>_<PassID>_<TileID>[L/R]_<RangeBeginDateTime>_<RangeEndingDateTime>_<CRID>_<ProductCounter>.nc"\n')
@@ -297,25 +320,29 @@ class MultiLakeTile(object):
         writer_command_file.write('PIXCVEC_RIVER_PATTERN_IND = {"cycle": 4, "pass": 5, "tile_ref": 6, "start_date": 7, "stop_date": 8, "crid": 9, "counter": 10}\n')
         writer_command_file.write('LAKE_TILE_PREFIX = SWOT_L2_HR_LakeTile_\n')
         writer_command_file.write("# LakeTile filename with %03d=cycle number %03d=pass number %s=tile ref %s=swath %s=begin date %s=end date %s=CRID %s=counter %s=suffix \n")
+        writer_command_file.write("\n")
         writer_command_file.write('LAKE_TILE_PATTERN = LAKE_TILE_PREFIX + "%03d_%03d_%s_%s_%s_%s_%02d%s"\n')
         writer_command_file.write('LAKE_TILE_PATTERN_PRINT = LAKE_TILE_PREFIX + "%s<CycleID>_<PassID>_<TileID>[L/R]_<RangeBeginDateTime>_<RangeEndingDateTime>_<CRID>_<ProductCounter>"\n')
         writer_command_file.write('# Indices when LAKE_TILE_*_PATTERN.split("_"); None if value not in filename \n')
+        writer_command_file.write("\n")
         writer_command_file.write('LAKE_TILE_PATTERN_IND = {"cycle": 4, "pass": 5, "tile_ref": 6, "start_date": 7, "stop_date": 8, "crid": 9, "counter": 10}\n')
         writer_command_file.write('LAKE_TILE_SHP_SUFFIX = .shp\n')
         writer_command_file.write('LAKE_TILE_SHP_META_SUFFIX = .shp.xml\n')
         writer_command_file.write('LAKE_TILE_EDGE_SUFFIX = _edge.nc\n')
         writer_command_file.write('LAKE_TILE_PIXCVEC_SUFFIX = _pixcvec.nc\n')
+        writer_command_file.write("\n")
         writer_command_file.write("PIXCVEC_PREFIX = SWOT_L2_HR_PIXCVec_\n")
         writer_command_file.write("PIXCVEC_SUFFIX = .nc\n")
+        writer_command_file.write("\n")
         writer_command_file.write("# PIXCVec filename with %03d=cycle number %03d=pass number %s=tile ref %s=begin date %s=end date %s=CRID %s=counter  \n")
         writer_command_file.write('PIXCVEC_PATTERN = PIXCVEC_PREFIX + "%03d_%03d_%s_%s_%s_%s_%02d" + PIXCVEC_SUFFIX \n')
+        writer_command_file.write("\n")
         writer_command_file.write("LAKE_SP_PREFIX = SWOT_L2_HR_LakeSP_\n")
         writer_command_file.write("# LakeSP filename with %03d=cycle number %03d=pass number %s=continent %s=begin date %s=end date %s=CRID %s=counter \n")
         writer_command_file.write('LAKE_SP_PATTERN = LAKE_SP_PREFIX + "%03d_%03d_%s_%s_%s_%s_%02d.shp"\n')
         writer_command_file.write("#######################################\n")
         writer_command_file.close()  # Close command file
         return out_cmd_file
-    
 
 #######################################
         
@@ -330,7 +357,7 @@ def read_command_file(in_filename):
     :return: out_params = dictionary containing parameters
     :rtype: dict
     """
-    print("[multiLakeTileProcessing] == read_command_file = %s ==" % in_filename)
+    print("[multiLakeSPProcessing] == read_command_file = %s ==" % in_filename)
 
     # 0 - Init output dictionary
     out_params = {}
@@ -342,7 +369,6 @@ def read_command_file(in_filename):
     out_params["CONTINENT_FILE"] = None
     out_params["cycle_num"] = None
     out_params["pass_num"] = None
-    out_params["tile_ref"] = None
     out_params["flag_prod_shp"] = False
     out_params["logFile"] = None
     out_params["logfilelevel"] = "DEBUG"
@@ -357,10 +383,11 @@ def read_command_file(in_filename):
     list_paths = config.options("PATHS")
     if "param_file" in list_paths:
         out_params["param_file"] = config.get("PATHS", "param_file")
-    out_params["pixc_dir"] = config.get("PATHS", "PIXC directory")
-    out_params["pixc_vec_river_dir"] = config.get("PATHS", "PIXCVecRiver directory")
+    out_params["laketile_shp_dir"] = config.get("PATHS", "LakeTile shp directory")
+    out_params["laketile_edge_dir"] = config.get("PATHS", "LakeTile edge directory")
+    out_params["laketile_pixcvec_dir"] = config.get("PATHS", "LakeTile pixcvec directory")
     out_params["output_dir"] = config.get("PATHS", "Output directory")
-    
+
     # 3 - Retrieve DATABASES
     if "DATABASES" in config.sections():
         list_db = config.options("DATABASES")
@@ -384,14 +411,11 @@ def read_command_file(in_filename):
         # Pass number
         if "pass number" in list_options:
             out_params["pass_num"] = config.getint("TILES_INFOS", "Pass number")
-        # Tile ref
-        if "tile ref" in list_options:
-            out_params["tile_ref"] = config.get("TILES_INFOS", "Tile ref")
 
     # 5 - Retrieve OPTIONS
     if "OPTIONS" in config.sections():
         list_options = config.options("OPTIONS")
-        # Flag to also produce LakeTile_edge and LakeTile_pixcvec as shapefiles (=True); else=False (default)
+        # Flag to also produce PIXCVEC nc files as shapefiles (=True); else=False (default)
         if "produce shp" in list_options:
             out_params["flag_prod_shp"] = config.getboolean("OPTIONS", "Produce shp")
 
@@ -400,17 +424,12 @@ def read_command_file(in_filename):
     #my_var.overwriteConfig_from_cfg(config)
     # 6 - Retrieve LOGGING
     if "LOGGING" in config.sections():
-        list_options = config.options("LOGGING")
-        if "logFile" in list_options:
-            out_params["logFile"] = config.get("LOGGING", "logFile")
-            if out_params["logFile"] is not None:
-                out_params["logFile"] = out_params["logFile"].replace("<date>", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-        if "logfilelevel" in list_options:
-            out_params["logfilelevel"] = config.get("LOGGING", "logfilelevel")
-        if "logConsole" in list_options:
-            out_params["logConsole"] = config.get("LOGGING", "logConsole")
-        if "logconsolelevel" in list_options:
-            out_params["logconsolelevel"] = config.get("LOGGING", "logconsolelevel")
+        out_params["logFile"] = config.get("LOGGING", "logFile")
+        if out_params["logFile"] is not None:
+            out_params["logFile"] = out_params["logFile"].replace("<date>", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+        out_params["logfilelevel"] = config.get("LOGGING", "logfilelevel")
+        out_params["logConsole"] = config.get("LOGGING", "logConsole")
+        out_params["logconsolelevel"] = config.get("LOGGING", "logconsolelevel")
 
     return out_params
 
@@ -421,11 +440,11 @@ def read_command_file(in_filename):
 if __name__ == '__main__':
 
     # 0 - Parse inline parameters
-    parser = argparse.ArgumentParser(description="Compute SWOT LakeTile products from multiple tiles of PIXC products and their associated PIXCVecRiver products.")
+    parser = argparse.ArgumentParser(description="Compute multiple SWOT LakeSP products from multiple tiles of LAKE TILE product.")
     parser.add_argument("command_file", help="command file (*.cfg)")
     args = parser.parse_args()
 
-    print("===== multiLakeTileProcessing = BEGIN =====")
+    print("===== multiLakeSPProcessing = BEGIN =====")
     print("")
     timer = my_timer.Timer()
     timer.start()
@@ -437,15 +456,15 @@ if __name__ == '__main__':
     my_params = read_command_file(args.command_file)  # Read variables in command file
 
     # 2 - Initialization
-    multi_lake_tile = MultiLakeTile(my_params)
+    multi_lake_sp = MultiLakeSP(my_params)
     print(timer.info(0))
 
     # 3 - Run pre-processing
-    multi_lake_tile.run_preprocessing()
+    multi_lake_sp.run_preprocessing()
     print(timer.info(0))
 
     # 4 - Run processing
-    multi_lake_tile.run_processing()
+    multi_lake_sp.run_processing()
     print(timer.info(0))
 
     print("")

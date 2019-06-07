@@ -1,5 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: sas_lake_tile
    :synopsis: Process SAS_L2_HR_LakeTile, generate L2_HR_LakeTile product from one tile of L2_HR_PIXC product and associated L2_HR_PIXCVec product
@@ -52,11 +62,11 @@ class SASLakeTile(object):
         preprocessing lake_tile
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("")
-        logger.info("**************************")
-        logger.info("***** PRE-PROCESSING *****")
-        logger.info("**************************")
-        logger.info("")
+        logger.sigmsg("")
+        logger.sigmsg("**************************")
+        logger.sigmsg("***** PRE-PROCESSING *****")
+        logger.sigmsg("**************************")
+        logger.sigmsg("")
 
         try:
             # 1 - Reshape PIXCVec arrays
@@ -71,11 +81,11 @@ class SASLakeTile(object):
         Process SAS_L2_HR_LakeTile
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("")
-        logger.info("**********************")
-        logger.info("***** PROCESSING *****")
-        logger.info("**********************")
-        logger.info("")
+        logger.sigmsg("")
+        logger.sigmsg("**********************")
+        logger.sigmsg("***** PROCESSING *****")
+        logger.sigmsg("**********************")
+        logger.sigmsg("")
         timer_proc = my_timer.Timer()
         timer_proc.start()
 
@@ -123,10 +133,10 @@ class SASLakeTile(object):
             Nothing to do in lake_tile
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("")
-        logger.info("***************************")
-        logger.info("***** POST-PROCESSING *****")
-        logger.info("***************************")
-        logger.info("")
+        logger.sigmsg("")
+        logger.sigmsg("***************************")
+        logger.sigmsg("***** POST-PROCESSING *****")
+        logger.sigmsg("***************************")
+        logger.sigmsg("")
 
 #######################################
