@@ -337,7 +337,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
 
         lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
         elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
-      
+
     # 4.1 - Compute noise over height
     if IN_attributes.dark_water.lower() == "yes":
         noise_seed = int(str(time.time()).split('.')[1])
@@ -458,6 +458,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         
         # If you want only one tile (for some tests)
         #~ tile_values[:] = tile_values[0]
+        
         tile_list = np.unique(tile_values)
         
         for tile_number in tile_list:
@@ -490,16 +491,14 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 
                 # General tile reference
                 tile_ref = "%03d%s" % (tile_number, left_or_right)
-
+                
                 # Init L2_HR_PIXC object
                 my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min, sub_r, classification_tab[az_indices], pixel_area[az_indices],
                                                     lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
                                                     IN_attributes.orbit_time[nadir_az], nadir_lat_deg[nadir_az], nadir_lon_deg[nadir_az], nadir_alt[nadir_az], nadir_heading[nadir_az],
                                                     IN_attributes.x[nadir_az], IN_attributes.y[nadir_az], IN_attributes.z[nadir_az], vx[nadir_az], vy[nadir_az], vz[nadir_az], r0[nadir_az],
                                                     IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size, IN_attributes.azimuth_spacing, IN_attributes.range_sampling, IN_attributes.near_range)
-
-                my_pixc.set_tile_boundaries(IN_attributes, az_min)
-
+                
                 # Update filenames with tile ref
                 IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])
                 
@@ -648,16 +647,8 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 # area in ha
                 area = poly_xy.GetArea()/10000.
            
-                # Oversample the polygon to correctly reconstruct it in SAR geometry
-                #~ poly_xy.Segmentize(100.)
-                #~ new_points = np.transpose(np.array(poly_xy.GetGeometryRef(0).GetPoints()))
-                #~ new_X, new_Y = new_points[0], new_points[1]
-                #~ new_lon, new_lat = pyproj.transform(utm_proj, latlon, new_X, new_Y) 
                 layerDefn = layer.GetLayerDefn()
-                #~ lon = new_lon * DEG2RAD
-                #~ lat = new_lat * DEG2RAD                
-                ###
-                
+          
                 lon = lon * DEG2RAD
                 lat = lat * DEG2RAD
                 
@@ -672,16 +663,16 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 if IN_attributes.height_model == 'gaussian': 
                     if area > IN_attributes.height_model_min_area:
                         my_api.printInfo(str("Gaussian model applied for big water body of size %f ha" % area))
-                        lac = Gaussian_Lac(ind+1, IN_attributes, lat, lon, IN_cycle_number)
+                        lac = Gaussian_Lac(ind+1, IN_attributes, lat * RAD2DEG, lon * RAD2DEG, IN_cycle_number)
                     else:
-                        lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
+                        lac = Constant_Lac(ind+1, IN_attributes, lat* RAD2DEG, IN_cycle_number)
                         
                 if IN_attributes.height_model == 'polynomial': 
                     if area > IN_attributes.height_model_min_area:
                         my_api.printInfo(str("Polynomial model applied for big water body of size %f ha" % area))
-                        lac = Polynomial_Lac(ind+1, IN_attributes, lat, lon, IN_cycle_number)
+                        lac = Polynomial_Lac(ind+1, IN_attributes, lat* RAD2DEG, lon* RAD2DEG, IN_cycle_number)
                     else:
-                        lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
+                        lac = Constant_Lac(ind+1, IN_attributes, lat* RAD2DEG, IN_cycle_number)
                 
                 if IN_attributes.height_model == "reference_file":
                     if IN_attributes.trueheight_file is not None:
@@ -689,9 +680,13 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     else:
                         lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
 
-                lac.set_hmean(np.mean(lac.compute_h(lat, lon)))
+
+                lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
        
-                az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
+                if IN_attributes.height_model == 'polynomial' and area > IN_attributes.height_model_min_area: 
+                    az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.compute_h(lat* RAD2DEG, lon* RAD2DEG))
+                else:
+                    az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
                 
                 range_tab = np.concatenate((range_tab, r), -1)
                 npoints = len(az)
@@ -801,7 +796,6 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau=0.):
     nr = IN_attributes.nr_cross_track
     dr = IN_attributes.range_sampling
     alt = IN_attributes.alt
-    
     # ---------------------------------------------------------
     # Compute along-track (az) and across-track (y) coordinates
     # ---------------------------------------------------------
@@ -848,7 +842,7 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau=0.):
         indice = np.argmin(np.abs(gamma[i, :]))
         y[i] = beta[i, indice]
         ind[i] = indice - int(nb_points/2)
-    OUT_azcoord2 = OUT_azcoord + ind
+    OUT_azcoord2 = OUT_azcoord + ind -0.5
     # Compute range coordinate (across track)
     
     H = alt[OUT_azcoord2.astype('i4')]
