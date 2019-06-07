@@ -7,7 +7,7 @@ import time
 import pyproj
 import utm
 
-from lib.my_variables import COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST
+from lib.my_variables import COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COEFF_CST, RAD2DEG, DEG2RAD
 
 
 class Lac:
@@ -111,8 +111,10 @@ class Gaussian_Lac(Lac):
                 
 class Polynomial_Lac(Lac):
     
-    def __init__(self, num, IN_attributes, lat, lon, IN_cycle_number):
+    def __init__(self, num, IN_attributes, lat , lon, IN_cycle_number):
+        
         Lac.__init__(self, num)
+
         self.height_model_a = IN_attributes.height_model_a
         self.lat_init = IN_attributes.lat_init[1:-1]
         self.cycle_number = IN_cycle_number
@@ -123,7 +125,7 @@ class Polynomial_Lac(Lac):
         
         self.time = math_fct.linear_extrap(lat, self.lat_init, IN_attributes.orbit_time)
         self.mode = 'orbit_time'
-    
+        
         x_c, y_c, zone_number, zone_letter = utm.from_latlon(lat[0], lon[0])
         # Convert pixel cloud to UTM (zone of the centroid)
         self.latlon = pyproj.Proj(init="epsg:4326")
@@ -134,13 +136,12 @@ class Polynomial_Lac(Lac):
         self.COEFF_X2 = np.random.random(1)[0] * COEFF_X2
         self.COEFF_Y2 = np.random.random(1)[0] * COEFF_Y2
         self.COEFF_X = np.random.random(1)[0] * COEFF_X
-        self.COEFF_Y = np.random.random(1)[0] * COEFF_Y       
+        self.COEFF_Y = np.random.random(1)[0] * COEFF_Y 
         self.COEFF_XY = np.random.random(1)[0] * COEFF_XY
         self.COEFF_CST = np.random.random(1)[0] * COEFF_CST      
         
     def compute_h(self, lat, lon):
     
-
         if self.mode == 'az':
             self.time = math_fct.linear_extrap(lat, self.lat_init, self.orbit_time)
     
@@ -149,8 +150,10 @@ class Polynomial_Lac(Lac):
                         
         h0 = np.mean(self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period)
         X, Y = pyproj.transform(self.latlon, self.utm_proj, lon, lat)
+        
+        
         height_water = height_model.generate_2d_profile_2nd_order_list(self.X0, self.Y0, X, Y, self.COEFF_X2, self.COEFF_Y2, self.COEFF_X, self.COEFF_Y, self.COEFF_XY, self.COEFF_CST)
-
+        
         return h0 + height_water
 
 class Height_in_file_Lac(Lac):

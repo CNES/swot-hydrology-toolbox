@@ -30,11 +30,12 @@ Note that both algorithms and products are still under development and will be u
 * Potentially other modules in the future (for ex. floodplain DEM generation)
 
 ## Associated RiverObs version
-The RiverObs version compatible with the master branch of the swot-hydrology-toolbox is :
+commit f7ccd778924877f94da2f5a0dd57967713c1f510
+Author: Brent A Williams <bawillia@onde.jpl.nasa.gov>
+Date:   Tue May 21 16:33:13 2019 -0700
 
-commit eb1fc347bccf36f2db60f4bcbe08f02062203be9
-Author: Alexander Fore <Alexander.Fore@jpl.nasa.gov>
-Date:   Thu Feb 21 09:01:18 2019 -0800
+    added more functionality to plot_reach_stats
+
 
 ## Caveats
 Although the large-scale simulator included in the toolbox provides fairly representative statistical errors, several simplifications or approximations are made:
