@@ -1,4 +1,14 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: proc_pixc.py
    :synopsis: Deals with SWOT pixel cloud product
@@ -37,21 +47,8 @@ class PixelCloud(object):
         class PixelCloud
     """
     def __init__(self):
-#    def __init__(self, in_pixc_file, in_idx_reject, in_use_fractional_inundation=None):
-#        :param in_pixc_file: full path of L2_HR_PIXC file
-#        :type in_pixc_file: string
-#        :param in_idx_reject: list of indices to reject before all processing
-#        :type in_idx_reject: 1D-array of int
-#        :param in_use_fractional_inundation:
-#                For which classes should the inundation fraction be used?
-#                The default is to assume that interior pixels are 100% water,
-#                But to use both land and water edge pixels partially by using the fractional inundation kwd.
-#        :type in_use_fractional_inundation: bool list, default None
-
         """
         Constructor: init pixel cloud object
-
-<<<<<<< HEAD
 
         Variables of the object:
 
@@ -357,7 +354,9 @@ class PixelCloud(object):
 
         # 6 - Keep PixC data only for selected pixels
         if self.nb_selected != 0:
+            
             # 6.1 - In PixC group
+            
             # Classification flags
             self.classif = self.origin_classif[self.selected_index]
             # Range indices of water pixels
@@ -499,6 +498,7 @@ class PixelCloud(object):
         """
         Identify all separate entities in the water mask
         """
+        cfg = service_config_file.get_instance()
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("- start -")
 
@@ -512,22 +512,32 @@ class PixelCloud(object):
         self.labels = my_tools.convert2dMatIn1dVec(self.range_index, self.azimuth_index, sep_entities)
         self.labels = self.labels.astype(int)  # Conversion from float to integer
 
-        # 4 - For each label : check if only one lake is in each label and relabels if necessary
-        labels_tmp = np.zeros(self.labels.shape)
+        # 4 - Relabel Lake Using Segmentation Heigth
+        # For each label : check if only one lake is in each label and relabels if necessary
 
-        for label in np.unique(self.labels):
-            idx = np.where(self.labels == label)
+        # 4.0. Check if lake segmentation following height needs to be run
+        std_height_max = cfg.getfloat('CONFIG_PARAMS', 'STD_HEIGHT_MAX')
+        # If STD_HEIGHT_MAX is -1, function unactivated
+        if std_height_max == -1.0:
+            logger.info("Lake segmentation following height unactivated")
+        # 4.1. If STD_HEIGHT_MAX not -1, relabel lake following segmentation height
+        else :
+            labels_tmp = np.zeros(self.labels.shape)
 
-            min_rg = min(self.range_index[idx])
-            min_az = min(self.azimuth_index[idx])
+            for label in np.unique(self.labels):
+                idx = np.where(self.labels == label)
 
-            relabel_obj = my_tools.relabelLakeUsingSegmentationHeigth(self.range_index[idx] - min_rg,
-                                                                      self.azimuth_index[idx] - min_az,
-                                                                      self.height[idx])
+                min_rg = min(self.range_index[idx])
+                min_az = min(self.azimuth_index[idx])
 
-            labels_tmp[self.labels == label] = np.max(labels_tmp) + relabel_obj
+                relabel_obj = my_tools.relabelLakeUsingSegmentationHeigth(self.range_index[idx] - min_rg,
+                                                                          self.azimuth_index[idx] - min_az,
+                                                                          self.height[idx], std_height_max)
 
-        self.labels = labels_tmp
+                labels_tmp[self.labels == label] = np.max(labels_tmp) + relabel_obj
+
+            self.labels = labels_tmp
+
         self.nb_obj = np.unique(self.labels).size
 
     def computeObjInsideTile(self):
@@ -660,61 +670,62 @@ class PixelCloud(object):
 
         # 2 - Form dictionary with variables to write
         vars_to_write = {}
-        vars_to_write["edge_index"] = self.selected_index[self.edge_index]
-        vars_to_write["edge_label"] = self.edge_label
-        vars_to_write["edge_loc"] = self.edge_loc
-        vars_to_write["classification"] = self.classif[self.edge_index]
-        vars_to_write["range_index"] = self.range_index[self.edge_index]
-        vars_to_write["azimuth_index"] = self.azimuth_index[self.edge_index]
-        vars_to_write["water_frac"] = self.water_frac[self.edge_index]
-        vars_to_write["water_frac_uncert"] = self.water_frac_uncert[self.edge_index]
-        vars_to_write["false_detection_rate"] = self.false_detection_rate[self.edge_index]
-        vars_to_write["missed_detection_rate"] = self.missed_detection_rate[self.edge_index]
-        vars_to_write["prior_water_prob"] = self.prior_water_prob[self.edge_index]
-        vars_to_write["bright_land_flag"] = self.bright_land_flag[self.edge_index]
-        vars_to_write["layover_impact"] = self.layover_impact[self.edge_index]
-        vars_to_write["num_rare_looks"] = self.num_rare_looks[self.edge_index]
-        vars_to_write["latitude"] = self.latitude[self.edge_index]
-        vars_to_write["longitude"] = self.longitude[self.edge_index]
-        vars_to_write["height"] = self.height[self.edge_index]
-        vars_to_write["cross_track"] = self.cross_track[self.edge_index]
-        vars_to_write["pixel_area"] = self.pixel_area[self.edge_index]
-        vars_to_write["inc"] = self.inc[self.edge_index]
-        vars_to_write["dheight_dphase"] = self.dheight_dphase[self.edge_index]
-        vars_to_write["dheight_droll"] = self.dheight_droll[self.edge_index]
-        vars_to_write["dheight_dbaseline"] = self.dheight_dbaseline[self.edge_index]
-        vars_to_write["dheight_drange"] = self.dheight_drange[self.edge_index]
-        vars_to_write["darea_dheight"] = self.darea_dheight[self.edge_index]
-        vars_to_write["num_med_looks"] = self.num_med_looks[self.edge_index]
-        vars_to_write["sig0"] = self.sig0[self.edge_index]
-        vars_to_write["phase_unwrapping_region"] = self.phase_unwrapping_region[self.edge_index]
-        vars_to_write["instrument_range_cor"] = self.instrument_range_cor[self.edge_index]
-        vars_to_write["instrument_phase_cor"] = self.instrument_phase_cor[self.edge_index]
-        vars_to_write["instrument_baseline_cor"] = self.instrument_baseline_cor[self.edge_index]
-        vars_to_write["instrument_attitude_cor"] = self.instrument_attitude_cor[self.edge_index]
-        vars_to_write["model_dry_tropo_cor"] = self.model_dry_tropo_cor[self.edge_index]
-        vars_to_write["model_wet_tropo_cor"] = self.model_wet_tropo_cor[self.edge_index]
-        vars_to_write["iono_cor_gim_ka"] = self.iono_cor_gim_ka[self.edge_index]
-        vars_to_write["xover_height_cor"] = self.xover_height_cor[self.edge_index]
-        vars_to_write["load_tide_sol1"] = self.load_tide_sol1[self.edge_index]
-        vars_to_write["load_tide_sol2"] = self.load_tide_sol2[self.edge_index]
-        vars_to_write["pole_tide"] = self.pole_tide[self.edge_index]
-        vars_to_write["solid_earth_tide"] = self.solid_earth_tide[self.edge_index]
-        vars_to_write["geoid"] = self.geoid[self.edge_index]
-        vars_to_write["surface_type_flag"] = self.surface_type_flag[self.edge_index]
-        vars_to_write["pixc_qual"] = self.pixc_qual[self.edge_index]
-        vars_to_write["nadir_time"] = self.nadir_time[self.edge_index]
-        vars_to_write["nadir_time_tai"] = self.nadir_time_tai[self.edge_index]
-        vars_to_write["nadir_longitude"] = self.nadir_longitude[self.edge_index]
-        vars_to_write["nadir_latitude"] = self.nadir_latitude[self.edge_index]
-        vars_to_write["nadir_x"] = self.nadir_x[self.edge_index]
-        vars_to_write["nadir_y"] = self.nadir_y[self.edge_index]
-        vars_to_write["nadir_z"] = self.nadir_z[self.edge_index]
-        vars_to_write["nadir_vx"] = self.nadir_vx[self.edge_index]
-        vars_to_write["nadir_vy"] = self.nadir_vy[self.edge_index]
-        vars_to_write["nadir_vz"] = self.nadir_vz[self.edge_index]
-        vars_to_write["nadir_sc_event_flag"] = self.nadir_sc_event_flag[self.edge_index]
-        vars_to_write["nadir_tvp_qual"] = self.nadir_tvp_qual[self.edge_index]
+        if self.nb_selected != 0:
+            vars_to_write["edge_index"] = self.selected_index[self.edge_index]
+            vars_to_write["edge_label"] = self.edge_label
+            vars_to_write["edge_loc"] = self.edge_loc
+            vars_to_write["classification"] = self.classif[self.edge_index]
+            vars_to_write["range_index"] = self.range_index[self.edge_index]
+            vars_to_write["azimuth_index"] = self.azimuth_index[self.edge_index]
+            vars_to_write["water_frac"] = self.water_frac[self.edge_index]
+            vars_to_write["water_frac_uncert"] = self.water_frac_uncert[self.edge_index]
+            vars_to_write["false_detection_rate"] = self.false_detection_rate[self.edge_index]
+            vars_to_write["missed_detection_rate"] = self.missed_detection_rate[self.edge_index]
+            vars_to_write["prior_water_prob"] = self.prior_water_prob[self.edge_index]
+            vars_to_write["bright_land_flag"] = self.bright_land_flag[self.edge_index]
+            vars_to_write["layover_impact"] = self.layover_impact[self.edge_index]
+            vars_to_write["num_rare_looks"] = self.num_rare_looks[self.edge_index]
+            vars_to_write["latitude"] = self.latitude[self.edge_index]
+            vars_to_write["longitude"] = self.longitude[self.edge_index]
+            vars_to_write["height"] = self.height[self.edge_index]
+            vars_to_write["cross_track"] = self.cross_track[self.edge_index]
+            vars_to_write["pixel_area"] = self.pixel_area[self.edge_index]
+            vars_to_write["inc"] = self.inc[self.edge_index]
+            vars_to_write["dheight_dphase"] = self.dheight_dphase[self.edge_index]
+            vars_to_write["dheight_droll"] = self.dheight_droll[self.edge_index]
+            vars_to_write["dheight_dbaseline"] = self.dheight_dbaseline[self.edge_index]
+            vars_to_write["dheight_drange"] = self.dheight_drange[self.edge_index]
+            vars_to_write["darea_dheight"] = self.darea_dheight[self.edge_index]
+            vars_to_write["num_med_looks"] = self.num_med_looks[self.edge_index]
+            vars_to_write["sig0"] = self.sig0[self.edge_index]
+            vars_to_write["phase_unwrapping_region"] = self.phase_unwrapping_region[self.edge_index]
+            vars_to_write["instrument_range_cor"] = self.instrument_range_cor[self.edge_index]
+            vars_to_write["instrument_phase_cor"] = self.instrument_phase_cor[self.edge_index]
+            vars_to_write["instrument_baseline_cor"] = self.instrument_baseline_cor[self.edge_index]
+            vars_to_write["instrument_attitude_cor"] = self.instrument_attitude_cor[self.edge_index]
+            vars_to_write["model_dry_tropo_cor"] = self.model_dry_tropo_cor[self.edge_index]
+            vars_to_write["model_wet_tropo_cor"] = self.model_wet_tropo_cor[self.edge_index]
+            vars_to_write["iono_cor_gim_ka"] = self.iono_cor_gim_ka[self.edge_index]
+            vars_to_write["xover_height_cor"] = self.xover_height_cor[self.edge_index]
+            vars_to_write["load_tide_sol1"] = self.load_tide_sol1[self.edge_index]
+            vars_to_write["load_tide_sol2"] = self.load_tide_sol2[self.edge_index]
+            vars_to_write["pole_tide"] = self.pole_tide[self.edge_index]
+            vars_to_write["solid_earth_tide"] = self.solid_earth_tide[self.edge_index]
+            vars_to_write["geoid"] = self.geoid[self.edge_index]
+            vars_to_write["surface_type_flag"] = self.surface_type_flag[self.edge_index]
+            vars_to_write["pixc_qual"] = self.pixc_qual[self.edge_index]
+            vars_to_write["nadir_time"] = self.nadir_time[self.edge_index]
+            vars_to_write["nadir_time_tai"] = self.nadir_time_tai[self.edge_index]
+            vars_to_write["nadir_longitude"] = self.nadir_longitude[self.edge_index]
+            vars_to_write["nadir_latitude"] = self.nadir_latitude[self.edge_index]
+            vars_to_write["nadir_x"] = self.nadir_x[self.edge_index]
+            vars_to_write["nadir_y"] = self.nadir_y[self.edge_index]
+            vars_to_write["nadir_z"] = self.nadir_z[self.edge_index]
+            vars_to_write["nadir_vx"] = self.nadir_vx[self.edge_index]
+            vars_to_write["nadir_vy"] = self.nadir_vy[self.edge_index]
+            vars_to_write["nadir_vz"] = self.nadir_vz[self.edge_index]
+            vars_to_write["nadir_sc_event_flag"] = self.nadir_sc_event_flag[self.edge_index]
+            vars_to_write["nadir_tvp_qual"] = self.nadir_tvp_qual[self.edge_index]
             
         # 3 - Write file
         edge_file.write_product(in_filename, self.nb_edge_pix, vars_to_write)

@@ -1,4 +1,14 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: my_tools.py
     :synopsis: library with generic functions
@@ -14,12 +24,15 @@
 """
 
 import datetime
+from functools import partial
 import logging
 import math
 import numpy as np
 import os
 from osgeo import osr
+import pyproj
 from scipy.ndimage.measurements import label
+from shapely.ops import transform
 from skimage.morphology import square
 from sklearn.cluster import KMeans
 
@@ -32,9 +45,6 @@ else:
 import cnes.common.service_error as service_error
 import cnes.common.service_config_file as service_config_file
 import cnes.common.lib.my_variables as my_var
-from functools import partial
-import pyproj
-from shapely.ops import transform
 
 
 def testFile(in_file, IN_extent=None):
@@ -58,6 +68,19 @@ def testFile(in_file, IN_extent=None):
     else:
         message = "ERROR = %s doesn't exist" % in_file
         raise service_error.ProcessingError(message, logger)
+
+def testListOfFiles(in_list_file, IN_extent=None):
+    """
+    Test if list of full paths in input is an existing file and, optionnally, a file in the awaited format
+
+    :param in_file: list of input full path separed with ";"
+    :type in_file: string
+    :param IN_extent: awaited format file (optionnal)
+    :type IN_extent: string
+    """
+
+    for file in in_list_file:
+        testFile(file, IN_extent)
 
 def testDir(in_dir):
     """
@@ -119,12 +142,15 @@ def convert_to_m180_180(in_long):
     :return: out_long = converted longitude
     :rtype: same as input = float or 1D-array of float
     """
-    
+
     out_long = in_long
-    ind = np.where(in_long > 180.0)[0]
-    if len(ind) > 0:
-        out_long[ind] -= 360.
-        
+    if np.iterable(in_long) :
+        ind = np.where(in_long > 180.0)[0]
+        if len(ind) > 0:
+            out_long[ind] -= 360.
+    else :
+        if in_long > 180.0:
+            out_long -= 360
     return out_long
     
 
@@ -140,10 +166,13 @@ def convert_to_0_360(in_long):
     """
     
     out_long = in_long
-    ind = np.where(in_long < 0.0)
-    if ind is not None:
-        out_long[ind] += 360.
-        
+    if np.iterable(in_long):
+        ind = np.where(in_long < 0.0)
+        if ind is not None:
+            out_long[ind] += 360.
+    else :
+        if in_long < 0.0:
+            out_long += 360.
     return out_long
 
 
@@ -361,7 +390,7 @@ def labelRegion(in_bin_mat):
     return out_m_label_regions, out_nb_obj
 
 
-def relabelLakeUsingSegmentationHeigth(in_x, in_y, in_height):
+def relabelLakeUsingSegmentationHeigth(in_x, in_y, in_height, in_std_height_max):
     """
     This function main interest is to determine the number of lakes inside a subset of PixC in radar geometry.
     In most of the cases, only one lake is located in the given subset, but in some case of different lakes can be gather inside one because of radar geometric distortions or in the case a of a dam.
@@ -379,6 +408,8 @@ def relabelLakeUsingSegmentationHeigth(in_x, in_y, in_height):
     :type in_y: 1D vector of int
     :param in_height: height of pixels
     :type in_height: 1D vector of float
+    :param in_std_height_max: maximal standard deviation of height inside a lake
+    :type in_std_height_max: float
 
     :return: labels recomputed over 1 of several lakes
     :rtype: 1D vector of int
@@ -387,8 +418,6 @@ def relabelLakeUsingSegmentationHeigth(in_x, in_y, in_height):
     cfg = service_config_file.get_instance()
     logger = logging.getLogger("my_tools")
     logger.debug("- start -")
-
-    logger.debug("Building heigth matrix")
 
     # 0 - Deal with exceptions
     # 0.1 - Input vectors size must be the same
@@ -399,6 +428,7 @@ def relabelLakeUsingSegmentationHeigth(in_x, in_y, in_height):
 
     # 1 - Compute height matrix
     # 1.1 - Init heigth image
+    logger.debug("Building heigth matrix")
     height_img = np.zeros((np.max(in_y) + 1, np.max(in_x) + 1))
     message = "> Height matrix size = (X=%d , Y=%d)" % (np.max(in_y.size) + 1, np.max(in_x.size) + 1)
     logger.debug(message)
@@ -413,14 +443,13 @@ def relabelLakeUsingSegmentationHeigth(in_x, in_y, in_height):
     std_heigth = np.std(in_height)
     nb_classes = 1
 
-    std_height_max = cfg.getfloat('CONFIG_PARAMS', 'STD_HEIGHT_MAX')
     # 2.1 - Cas with only one class
-    if std_heigth < std_height_max:  # If only one lake is in the given pixc subset
+    if std_heigth < in_std_height_max:  # If only one lake is in the given pixc subset
         retour = np.ones(nb_pts)  # Return one unique label for all pixc
     else:
         # 2.2 - Init a k-means classifier
         kmeans_classif = KMeans()
-        while std_heigth > std_height_max:
+        while std_heigth > in_std_height_max:
 
             nb_classes += 1
 
@@ -506,36 +535,40 @@ def compute_mean_2sigma(in_v_val, in_nan=None):
     """
     logger = logging.getLogger("my_tools")
     
+    retour = ""
     # 0 - Consider only non-NaN values
     v_val = in_v_val
     if in_nan is not None:
         not_nan_idx = np.where(v_val < in_nan)[0]
         if len(not_nan_idx) == 0:
-            return None
+            retour = None
         v_val = in_v_val[not_nan_idx]
+
+    if retour is not None:
+        # 1 - Compute statistical values over this vector
+        # 1.1 - Median
+        med = np.median(v_val)
+        # 1.2 - Standard deviation
+        std = np.std(v_val)
+        # 1.3 - Nb values
+        nb_val = v_val.size
     
-    # 1 - Compute statistical values over this vector
-    # 1.1 - Median
-    med = np.median(v_val)
-    # 1.2 - Standard deviation
-    std = np.std(v_val)
-    # 1.3 - Nb values
-    nb_val = v_val.size
-
-    # 2 - Remove indices with value out of 2 sigma
+        # 2 - Remove indices with value out of 2 sigma
+        
+        # 2.1 - Lower than mean - 2 sigma
+        idx_lower = np.where(v_val < med-2*std)[0]
+        v_indices = np.delete(np.arange(nb_val), idx_lower)
+        # 2.2 - Higher than mean + 2 sigma
+        idx_higher = np.where(v_val[v_indices] > med+2*std)[0]
+        v_indices = np.delete(v_indices, idx_higher)
     
-    # 2.1 - Lower than mean - 2 sigma
-    idx_lower = np.where(v_val < med-2*std)[0]
-    v_indices = np.delete(np.arange(nb_val), idx_lower)
-    # 2.2 - Higher than mean + 2 sigma
-    idx_higher = np.where(v_val[v_indices] > med+2*std)[0]
-    v_indices = np.delete(v_indices, idx_higher)
+        message = "%d / %d pixels used for mean computation" % (v_indices.size, nb_val)
+        logger.debug(message)
+    
+        # 3 - Return the mean of clean vector
+        retour = np.mean(v_val[v_indices])
 
-    message = "%d / %d pixels used for mean computation" % (v_indices.size, nb_val)
-    logger.debug(message)
-
-    # 3 - Return the mean of clean vector
-    return np.mean(v_val[v_indices])
+    return retour
 
 
 def compute_std(in_v_val, in_nan=None):
@@ -553,17 +586,19 @@ def compute_std(in_v_val, in_nan=None):
     :rtype: float
     """
     
+    retour = ""
     # Consider only non-NaN values
     v_val = in_v_val
     if in_nan is not None:
         not_nan_idx = np.where(v_val < in_nan)[0]
         if len(not_nan_idx) == 0:
-            return None
+            retour = None
         v_val = in_v_val[not_nan_idx]
-        
-    # Return the standard deviation of clean vector
-    return np.std(v_val)
 
+    # Return the standard deviation of clean vector
+    if retour is not None:
+        retour = np.std(v_val)
+    return retour
 
 def compute_sum(in_v_val, in_nan=None):
     
@@ -579,7 +614,8 @@ def compute_sum(in_v_val, in_nan=None):
     :return: the mean value (None if no finite value)
     :rtype: float
     """
-    
+
+    retour = ""
     # Consider only non-NaN values
     v_val = in_v_val
     if in_nan is not None:
@@ -589,8 +625,9 @@ def compute_sum(in_v_val, in_nan=None):
         v_val = in_v_val[not_nan_idx]
         
     # Return the sum of the clean vector elements
-    return np.sum(v_val)
-    
+    if retour is not None:
+        retour = np.sum(v_val)
+    return retour
 
 #######################################
 
@@ -668,6 +705,16 @@ def computeDist(in_lon1, in_lat1, in_lon2, in_lat2):
 #######################################
 
 def getUTM_EPSG_Code(lon, lat):
+    """
+    get EPSG code
+    :param lon: longitude of P1 in degrees east
+    :type lon: float
+    :param lat: latitude of P1 in degrees north
+    :type lat: float
+    
+    :return: ESPG code
+    :type: int
+    """
     utm_band = str((math.floor((lon + 180 )/6)%60)+1)
     if len(utm_band) == 1:
         utm_band = '0'+utm_band
@@ -680,6 +727,16 @@ def getUTM_EPSG_Code(lon, lat):
 #######################################
 
 def getUTMCoords(in_lon, in_lat):
+    """
+    get UTM coordinates
+    :param in_lon: longitude of P1 in degrees east
+    :type in_lon: float
+    :param in_lat: latitude of P1 in degrees north
+    :type in_lat: float
+    
+    :return: UTM coordinates
+    :type: float
+    """
     lat_mean = np.mean(in_lat)
     lon_mean = np.mean(in_lon)
 
@@ -728,7 +785,7 @@ def getArea(in_polygon, in_centroid):
 
 #######################################
 
-def get_utm_coords_from_lonlat(in_long, in_lat):
+def get_utm_coords_from_lonlat(in_long, in_lat, utm_epsg_code=None):
     """
     This function projects coordinates from geographic coordinate into UTM zone corresponding to the mean of in_lon, in, lat.
 
@@ -742,11 +799,12 @@ def get_utm_coords_from_lonlat(in_long, in_lat):
     """
     logger = logging.getLogger("my_tools")
 
-    lat_mean = np.mean(in_lat)
-    lon_mean = np.mean(in_long)
+    if utm_epsg_code == None :
+        lat_mean = np.mean(in_lat)
+        lon_mean = np.mean(in_long)
+        utm_epsg_code = getUTM_EPSG_Code(lon_mean, lat_mean)
 
     latlon_proj = pyproj.Proj(init="epsg:4326")
-    utm_epsg_code = getUTM_EPSG_Code(lon_mean, lat_mean)
     logger.debug("Convert coordinates into epsg code : %s" % (utm_epsg_code))
     utm_proj = pyproj.Proj(init='epsg:' + utm_epsg_code)
 

@@ -1,4 +1,14 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: locnes_products_shapefile.py
     :synopsis: Deals with SWOT shapefile products
@@ -6,9 +16,11 @@
 
 .. moduleauthor: Claire POTTIER - CNES DSO/SI/TR
 
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2019 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+
 """
 
 from collections import OrderedDict
@@ -19,6 +31,8 @@ from osgeo import ogr, osr
 
 import cnes.common.lib.my_tools as my_tools
 import cnes.common.lib.my_variables as my_var
+
+import cnes.common.service_error as service_error
 
         
 def set_dico_val(in_out_dico, in_values):
@@ -52,12 +66,12 @@ def convert_wrt_type(in_val, in_type):
     """
     
     if in_type == ogr.OFTInteger:
-        return int(in_val)
+        retour = int(in_val)
     elif in_type == ogr.OFTReal:
-        return float(in_val)
+        retour = float(in_val)
     else:
-        return str(in_val)
-        
+        retour = str(in_val)
+    return retour    
 
 #######################################
 
@@ -211,6 +225,9 @@ class Shapefile_product(object):
             
         # 4 - Add feature
         self.layer.CreateFeature(feature)
+        
+        # 5 - Destroy the feature to free resources
+        feature.Destroy()
 
     #----------------------------------------
     
@@ -239,20 +256,24 @@ class Shapefile_product(object):
 #######################################
 
 
-class LakeTileShp_product(Shapefile_product):
+class LakeSPShp_product(Shapefile_product):
     """
-    Deal with LakeTile_shp shapefile
+    Deal with LakeTile_shp shapefile and LakeSP product
     """
     
-    def __init__(self, in_layer_name, in_pixc_metadata=None, in_proc_metadata=None):
+    def __init__(self, in_product_type, in_layer_name, in_pixc_metadata=None, in_laketile_metadata=None, in_proc_metadata=None):
         """
-        Constructor; specific to LakeTile_shp shapefile
+        Constructor
         
+        :param in_product_type: type of product among "SP"=LakeSP and "TILE"=LakeTile
+        :type in_product_type: string
         :param in_layer_name: name for product layer        
         :type in_layer_name: string
         :param in_pixc_metadata: metadata specific to L2_HR_PIXC product
         :type in_pixc_metadata: dict
-        :param in_proc_metadata: metadata specific to LakeTile processing
+        :param in_laketile_metadata: metadata specific to L2_HR_LakeTile_shp shapefile
+        :type in_laketile_metadata: dict
+        :param in_proc_metadata: metadata specific to LakeTile or LakeSP processing
         :type in_proc_metadata: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
@@ -262,90 +283,123 @@ class LakeTileShp_product(Shapefile_product):
         super().__init__()
         
         # 2 - Init attributes info specific to LakeTile_shp file
-        # 2.1 - Object identifier
-        self.attributes["obslake_id"] = {'type': ogr.OFTString}
-        # 2.2 - List of lakes in the a priori DB related to the object
-        self.attributes["prior_id"] = {'type': ogr.OFTString}
-        # 2.3 - Mean date of observation
+        
+        # 2.1 - Identifiers
+        # Object identifier
+        self.attributes["lakeobs_id"] = {'type': ogr.OFTString}
+        # List of lakes in the a priori DB related to the object
+        self.attributes["lakedb_id"] = {'type': ogr.OFTString}
+        
+        # 2.2 - Mean datetime of observation
         self.attributes["time"] = {'type': ogr.OFTInteger}  # UTC time 
         self.attributes["time_tai"] = {'type': ogr.OFTInteger}  # TAI time
         self.attributes["time_str"] = {'type': ogr.OFTString}  # Time in UTC as a string
-        # 2.4 - Mean height over the lake and uncertainty
-        self.attributes["height"] = {'type': ogr.OFTReal, 'width': 14, 'precision': 2}
-        self.attributes["height_u"] = {'type': ogr.OFTReal, 'width': 14, 'precision': 2}
-        # 2.5 - Height standard deviation (only for big lakes)
-        self.attributes["height_std"] = {'type': ogr.OFTReal, 'width': 14, 'precision': 2}
-        # 2.6 - Area of detected water pixels and uncertainty
+        
+        # 2.3 - Measured hydrology parameters
+        # Mean water surface elevation of the lake and uncertainty
+        self.attributes["wse"] = {'type': ogr.OFTReal, 'width': 14, 'precision': 2}
+        self.attributes["wse_u"] = {'type': ogr.OFTReal, 'width': 14, 'precision': 2}
+        # Water surface elevation standard deviation (only for big lakes)
+        self.attributes["wse_std"] = {'type': ogr.OFTReal, 'width': 14, 'precision': 2}
+        # Area of detected water pixels and uncertainty
         self.attributes["area_detct"] = {'type': ogr.OFTReal, 'width': 14, 'precision': 2}
         self.attributes["area_det_u"] = {'type': ogr.OFTReal, 'width': 14, 'precision': 2}
-        # 2.7 - Total water area and uncertainty
+        # Total water area and uncertainty
         self.attributes["area_total"] = {'type': ogr.OFTReal, 'width': 14, 'precision': 2}
         self.attributes["area_tot_u"] = {'type': ogr.OFTReal, 'width': 14, 'precision': 2}
-        # 2.8 - Area of pixels used to compute height
-        self.attributes["area_of_ht"] = {'type': ogr.OFTReal, 'width': 14, 'precision': 2}
-        # 2.9 - Metric of layover effect
+        # Area of pixels used to compute water surface elevation
+        self.attributes["area_wse"] = {'type': ogr.OFTReal, 'width': 14, 'precision': 2}
+        # Metric of layover effect
         self.attributes["layovr_val"] = {'type': ogr.OFTReal, 'width': 14, 'precision': 2}
-        # 2.10 - Average distance from polygon centroid to the satellite ground track
+        # Average distance from polygon centroid to the satellite ground track
         self.attributes["xtrk_dist"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.11 - Storage change and uncertainty
+        
+        # 2.4 - Storage change and uncertainty
         # Linear model
         self.attributes["delta_s_L"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
         self.attributes["ds_L_u"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
         # Quadratic model
         self.attributes["delta_s_Q"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
         self.attributes["ds_Q_u"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.12 - Dark water flag
-        self.attributes["dark_f"] = {'type': ogr.OFTInteger}
-        # 2.13 - Ice flag
-        self.attributes["frozen_f"] = {'type': ogr.OFTInteger}
-        # 2.14 - Layover flag
-        self.attributes["layover_f"] = {'type': ogr.OFTInteger}
-        # 2.15 - Quality indicator
+        
+        # 2.5 - Quality indicators
+        # Summary quality indicator
         self.attributes["quality_f"] = {'type': ogr.OFTInteger}
-        # 2.16 - Partial flag: =1 if the lake is partially covered by the swath, 0 otherwise
+        # Fractional area of dark water
+        self.attributes["dark_frac"] = {'type': ogr.OFTReal, 'width': 8, 'precision': 6}
+        # Ice cover flags
+        self.attributes["ice_clim_f"] = {'type': ogr.OFTInteger}
+        self.attributes["ice_dyn_f"] = {'type': ogr.OFTInteger}
+        # Partial flag: =1 if the lake is partially covered by the swath, 0 otherwise
         self.attributes["partial_f"] = {'type': ogr.OFTInteger}
-        # 2.17 - Quality of cross-over calibrations
+        # Quality of cross-over calibrations
         self.attributes["xovr_cal_f"] = {'type': ogr.OFTInteger}
-        # 2.18 - Geoid model height
+        
+        # 2.6 - KaRIn sigma0 information
+        self.attributes["sig0"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 6}
+        self.attributes["sig0_u"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 6}
+        
+        # 2.7 - Geophysical references
+        # Geoid model height
         self.attributes["geoid"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.19 - Earth tide
+        # Solid earth tide
         self.attributes["earth_tide"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.20 - Pole tide
+        # Pole tide
         self.attributes["pole_tide"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.21 - Load tide
+        # Load tide
         self.attributes["load_tide1"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}  # GOT4.10
         self.attributes["load_tide2"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}  # FES2014
-        # 2.22 - Dry tropo corr
-        self.attributes["dry_trop_c"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.23 - Wet tropo corr
-        self.attributes["wet_trop_c"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.24 - Iono corr
-        self.attributes["iono_c"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.25 - KaRIn measured backscatter averaged for lake
-        self.attributes["sig0"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.26 - KaRIn measured backscatter uncertainty for lake 
-        self.attributes["sig0_u"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.27 - KaRin instrument sigma0 calibration 
-        self.attributes["sig0_cal"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.28 - sigma0 atmospheric correction within the swath from model data 
-        self.attributes["sig0_atm_c"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.29 - KaRIn correction from crossover cal processing evaluated for lake 
-        self.attributes["xovr_cal_c"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.30 - Height correction from KaRIn orientation (attitude) determination
-        self.attributes["kar_att_c"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.31 - Overall instrument system height bias
-        self.attributes["h_bias_c"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.32 - KaRIn to s/c CG correction to height
-        self.attributes["sys_cg_c"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
-        # 2.33 - Corrections on height deduced from instrument internal calibrations if applicable
-        self.attributes["intr_cal_c"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
         
-        # 3 - Init metadata specific to LakeTile_shp file
-        # 3.1 - Update general metadata
+        # 2.8 - Geophysical range corrections
+        # Dry tropo corr
+        self.attributes["dry_trop_c"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
+        # Wet tropo corr
+        self.attributes["wet_trop_c"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
+        # Iono corr
+        self.attributes["iono_c"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
+        
+        # 2.9 - Instrument corrections
+        # KaRIn correction from crossover cal processing evaluated for lake 
+        self.attributes["xovr_cal_c"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
+        
+        # 2.10 - Prior lake database information
+        # Lake name
+        self.attributes["p_name"] = {'type': ogr.OFTString}
+        # Dam identifier from GRanD database
+        self.attributes["grand_id"] = {'type': ogr.OFTString}
+        # Reference water surface elevation, used to compute storage change
+        self.attributes["p_wse"] = {'type': ogr.OFTReal, 'width': 13, 'precision': 3}
+        # Reference area, used to compute storag change
+        self.attributes["p_area"] = {'type': ogr.OFTReal, 'width': 14, 'precision': 2}
+        
+        # 3 - Init metadata depending on product type
+        if in_product_type == "TILE":
+            self.init_metadata_laketile(in_pixc_metadata=in_pixc_metadata, in_proc_metadata=in_proc_metadata)
+        elif in_product_type == "SP":
+            self.init_metadata_lakesp(in_laketile_metadata=in_laketile_metadata, in_proc_metadata=in_proc_metadata)
+        else:
+            message = "ERROR = product type is %s ; should be SP or TILE" % in_product_type
+            raise service_error.ProcessingError(message, logger)
+            
+        # 4 - Create memory layer
+        self.create_mem_layer(in_layer_name, ogr.wkbMultiPolygon)
+        
+    def init_metadata_laketile(self, in_pixc_metadata=None, in_proc_metadata=None):
+        """
+        Init metadata specific to LakeTile_shp shapefile
+        
+        :param in_pixc_metadata: metadata specific to L2_HR_PIXC product
+        :type in_pixc_metadata: dict
+        :param in_proc_metadata: metadata specific to LakeTile processing
+        :type in_proc_metadata: dict
+        """
+        
+        # 1 - Update general metadata
         self.metadata["general"]["title"] = "Level 2 KaRIn high rate lake tile vector product – LakeTile_shp"
-        #self.metadata["general"]["references"] = ""
+        self.metadata["general"]["references"] = ""
         self.metadata["general"]["reference_document"] = "SWOT-TN-CDM-0673-CNES"
-        # 3.2 - Metadata retrieved from L2_HR_PIXC product
+        
+        # 2 - Metadata retrieved from L2_HR_PIXC product
         self.metadata["granule"]["cycle_number"] = -9999
         self.metadata["granule"]["pass_number"] = -9999
         self.metadata["granule"]["tile_number"] = -9999
@@ -366,16 +420,49 @@ class LakeTileShp_product(Shapefile_product):
         self.metadata["granule"]["ellipsoid_flattening"] = ""
         if in_pixc_metadata is not None:
             set_dico_val(self.metadata["granule"], in_pixc_metadata)
-        # 3.3 - Processing metadata
+            
+        # 3 - Processing metadata
         self.metadata["processing"]["xref_static_lake_db_file"] = ""
         self.metadata["processing"]["xref_input_l2_hr_pixc_file"] = ""
         self.metadata["processing"]["xref_input_l2_hr_pixc_vec_river_file"] = ""
         self.metadata["processing"]["xref_l2_hr_lake_tile_param_file"] = ""
         if in_proc_metadata is not None:
             set_dico_val(self.metadata["processing"], in_proc_metadata)
+        
+    def init_metadata_lakesp(self, in_laketile_metadata=None, in_proc_metadata=None):
+        """
+        Init metadata specific to LakeSP shapefile
+        
+        :param in_laketile_metadata: metadata specific to L2_HR_LakeTile_shp shapefile
+        :type in_laketile_metadata: dict
+        :param in_proc_metadata: metadata specific to LakeSP processing
+        :type in_proc_metadata: dict
+        """
+        
+        # 1 - Update general metadata
+        self.metadata["general"]["title"] = "Level 2 KaRIn high rate lake single pass vector product"
+        self.metadata["general"]["references"] = ""
+        self.metadata["general"]["reference_document"] = "SWOT-TN-CDM-0673-CNES"
+        
+        # 2 - Metadata retrieved from L2_HR_PIXC product
+        self.metadata["granule"]["cycle_number"] = -9999
+        self.metadata["granule"]["pass_number"] = -9999
+        self.metadata["granule"]["start_time"] = ""
+        self.metadata["granule"]["stop_time"] = ""
+        self.metadata["granule"]["polygon"] = ""
+        self.metadata["granule"]["continent"] = ""
+        self.metadata["granule"]["ellipsoid_semi_major_axis"] = ""
+        self.metadata["granule"]["ellipsoid_flattening"] = ""
+        if in_laketile_metadata is not None:
+            set_dico_val(self.metadata["granule"], in_laketile_metadata)
             
-        # 4 - Create memory layer
-        self.create_mem_layer(in_layer_name, ogr.wkbMultiPolygon)
+        # 3 - Processing metadata
+        self.metadata["processing"]["xref_static_lake_db_file"] = ""
+        self.metadata["processing"]["xref_input_l2_hr_pixc_file"] = ""
+        self.metadata["processing"]["xref_input_l2_hr_pixc_vec_river_file"] = ""
+        self.metadata["processing"]["xref_l2_hr_lake_sp_param_file"] = ""
+        if in_proc_metadata is not None:
+            set_dico_val(self.metadata["processing"], in_proc_metadata)
 
     #----------------------------------------
         
@@ -390,11 +477,12 @@ class LakeTileShp_product(Shapefile_product):
         :param in_proc_metadata: metadata specific to LakeTile processing
         :type in_proc_metadata: dict
         """
-        
+
         # Update metadata
         if in_pixc_metadata is not None:
             set_dico_val(self.metadata["granule"], in_pixc_metadata)
         if in_proc_metadata is not None:
             set_dico_val(self.metadata["processing"], in_proc_metadata)
-            
+
         self.write_metadata_file(in_filename)
+        
