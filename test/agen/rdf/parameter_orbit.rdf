@@ -1,7 +1,6 @@
 !== Mission specific parameters ==
-Mission start time = 2014-01-01                                                 
-Cycle duration (sec) = 1802645.8059698 
-
+Mission name = SWOT
+Mission start time = 2022-04-01
 
 !== Orbit parameters ==
 
@@ -22,8 +21,8 @@ NR cross track (m) = 10000.000
 
 !== Pass plan parameters ==
 passplan = yes
-simulation_start_time = 2015-04-01
-simulation_stop_time = 2015-05-01
+simulation_start_time = 2022-08-01
+simulation_stop_time = 2022-09-01
 
 
 !== Output parameters ==
