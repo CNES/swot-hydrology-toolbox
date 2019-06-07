@@ -77,7 +77,7 @@ class Input_Reader(object):
         self.mission_start_time = parameter_file.get_parameter_or_default(RDF_DEFAULT, MISSION_START_TIME, None)
         
         # 2.2 - Orbit parameters
-        self.orbit_repository = parameter_file.get_parameter_or_default(RDF_DEFAULT, ORBIT_REPOSITORY, None)
+        self.orbit_repository = os.path.expandvars(parameter_file.get_parameter_or_default(RDF_DEFAULT, ORBIT_REPOSITORY, None))
 
         self.latitude_south = parameter_file.get_parameter(RDF_DEFAULT, LAT_SOUTH)
         self.latitude_north = parameter_file.get_parameter(RDF_DEFAULT, LAT_NORTH)

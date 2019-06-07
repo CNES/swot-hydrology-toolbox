@@ -46,8 +46,7 @@ class Constant_Lac(Lac):
     
         if self.mode == 'orbit_time':
             self.mode = 'az' 
-            
-        return self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period
+        return self.height_model_a + self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period
 
 
 class Reference_height_Lac(Lac):
