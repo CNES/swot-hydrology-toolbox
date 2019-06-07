@@ -1,0 +1,30 @@
+!== Mission specific parameters ==
+Mission start time = 2014-01-01                                                 
+Cycle duration (sec) = 1802645.8059698 
+
+
+!== Orbit parameters ==
+
+!Directory of theoretical orbit files
+Orbit repository = $SWOT_HYDROLOGY_TOOLBOX/select_orbit_cnes/swot_science_orbit_june_2015
+
+!Studied area bounding box
+DEM south latitude (deg) = -1.98
+DEM north latitude (deg) = 0.80
+DEM west longitude (deg) = -67.88
+DEM east longitude (deg) = -66.0
+
+!PixC mapping parameters
+Azimuth spacing (m) = 21.875000 
+Swath width (m) = 120000.000000
+NR cross track (m) = 10000.000
+
+
+!== Pass plan parameters ==
+passplan = yes
+simulation_start_time = 2015-04-01
+simulation_stop_time = 2015-05-01
+
+
+!== Output parameters ==
+GDEM Orbit prefix = test.gdem_orbit 
