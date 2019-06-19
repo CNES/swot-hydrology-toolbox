@@ -220,10 +220,10 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
     
     # Close the raster
     ds = None
- 
-    for i in IN_attributes.liste_lacs:
-        i.compute_pixels_in_given_lac(OUT_ind_lac_data)
-
+    if not IN_pixc_vec_only:
+    
+        for i in IN_attributes.liste_lacs:
+            i.compute_pixels_in_given_lac(OUT_ind_lac_data)
     return OUT_burn_data, OUT_height_data, OUT_code_data, OUT_ind_lac_data, IN_attributes
                 
 
@@ -332,9 +332,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     elevation_tab = np.zeros(len(az))
         
     for lac in IN_attributes.liste_lacs:
-        
         indice = np.where(np.logical_and(np.isin(r, lac.pixels[0]), np.isin(az, lac.pixels[1])))  # Get indices 1=lake and 2=river (remove 0=land)
-
         lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
         elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
 
@@ -679,7 +677,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                         lac = Height_in_file_Lac(ind+1, IN_attributes)
                     else:
                         lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
-
 
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
        
