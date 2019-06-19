@@ -100,7 +100,6 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cy
         pge_lake_tile = '/work/ALT/swot/swotdev/desrochesd/swot-sds/swotCNES/PGE/lake_tile/pge_lake_tile.py'
     else:
         pge_lake_tile = join(tbx_path, 'processing', 'PGE', 'lake_tile', 'pge_lake_tile.py')
-
         
     # Build command
     cmd = "{} {}".format(pge_lake_tile, laketile_cfg)
