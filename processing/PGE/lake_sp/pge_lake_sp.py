@@ -227,6 +227,7 @@ class PGELakeSP():
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("> 3 - Open a priori lake databases for each continent ...")
+        
         # 3 - Retrieve lake Db layer
         lake_db_file = self.cfg.get("DATABASES", "LAKE_DB")
         if (lake_db_file == "") or (lake_db_file is None):
@@ -239,11 +240,11 @@ class PGELakeSP():
                     if not (influence_lake_db_file == "") or not (influence_lake_db_file is None):
                         for cur_continent in self.continent_list:
                             self.obj_lake_db[cur_continent] = lake_db.LakeDbShp(lake_db_file,
-                                                                                in_influence_lake_db_filename = influence_lake_db_file,
+                                                                                in_influence_lake_db_filename=influence_lake_db_file,
                                                                                 in_poly = self.obj_pixc_sp[cur_continent].tile_poly)
                     else :
                         for cur_continent in self.continent_list:
-                            self.obj_lake_db[cur_continent] = lake_db.LakeDbShp(lake_db_file, in_poly = self.obj_pixc_sp[cur_continent].tile_poly)
+                            self.obj_lake_db[cur_continent] = lake_db.LakeDbShp(lake_db_file, in_poly=self.obj_pixc_sp[cur_continent].tile_poly)
                 elif type_db == "sqlite":  # SQLite format
                     for cur_continent in self.continent_list:
                         self.obj_lake_db[cur_continent] = lake_db.LakeDbSqlite(lake_db_file, self.obj_pixc_sp[cur_continent].tile_poly)

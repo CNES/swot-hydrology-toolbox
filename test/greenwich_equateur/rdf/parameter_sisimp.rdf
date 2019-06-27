@@ -1,0 +1,75 @@
+Run directory for orbits = $SWOT_HYDROLOGY_TOOLBOX/test/greenwich_equateur/output/orbit
+Shapefile path = $SWOT_HYDROLOGY_TOOLBOX/test/greenwich_equateur/data/new_project_water
+Output directory = $SWOT_HYDROLOGY_TOOLBOX/test/greenwich_equateur/output/simu
+
+!### Noise and error files 
+Noise file path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt
+roll_repository_name = /work/ALT/swot/swototar/XOVERCAL/karin
+
+Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip
+
+!### Orbit parameters
+!3 options =
+!Multiple orbit = yes (default) => all orbit files in Orbit directory will be processed
+!Multiple orbit = no => set the Orbit to a correct number found in the Orbit directory; only this orbit file will be processed
+!Multiple orbit = passplan => orbit files will be processed according to passplan.txt file (generated if passplan = yes in select_orbit.rdf)
+Multiple orbit = yes
+Orbit = 14
+Cycle number = 1
+
+!### Simulation parameters
+Swath width = 120000.
+NR cross track = 10000.
+Sensor wavelength = 0.0084
+Range sampling = 0.75 !by default
+Number of pixels in range = 3117 !3117 (10-60km) or 3500 (extended swath 5-65km)
+Orbit jitter = 0
+Water flag = 4
+
+!### Dark water
+Dark water = yes
+Dark water flag = 24
+Dark water percentage = 5
+Dark water detected percentage = 90
+Dark water detected noise factor = 4
+Scale factor non detected dw = 0.5
+Dark water correlation length = 50
+
+!Dark water seed = 12345678
+
+!### Error parameters
+Height bias std = 0.
+Noise multiplier factor = 0.5 !1/sqrt(Nl) where Nl is 4
+
+!### Tropo model
+Tropo model  = map
+Tropo error stdv = 0.03
+Tropo error mean = 0.01
+Tropo error correlation = 5000
+Tropo error map file = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tropo_map/zonal_delta_wtc_J2.nc
+
+!### Files in output
+Create shapefile = yes !Produce output files also as shapefiles
+Create dummy pixc vec river file = yes !Produce L2_HR_PIXCVecRiver product associated to PixC files
+
+
+!== Height ==
+
+!### Option 1 - Constant height model, uniform over each water body; height varies sinusoidally with time
+!Specific option: [Height model A = 0.] & [!Height model] => no height applied, height in output onlyt contains errors
+!### Constant height model parameters (same height for each water body) 
+!Constant height model A = 50.  !=0 to disable
+Constant height model t0 = 47076
+Constant height model period (days) = 365.25
+!### Complex 2D height model parameters (2D variations added for lakes > [Height model min area]) 
+Height model = polynomial    !=polynomial or gaussian; if disabled, only constant height model
+Height 2d model min area = 100.     !(ha) min area of water bodies on which to add complex 2D height model (default=100.)
+Height 2d model stdv = 1.        !stdv for gaussian model (ie Height model = gaussian)
+
+!### Option 2 - Height is given from a specific attribute in the shapefile of water bodies
+!Height model = reference_height
+!Height shp attribute name = ref_height     !Name of the attribute (default=HEIGHT)
+
+!### Option 3 - Height is given in a NetCDF file
+!Height model = reference_file
+!True height file = $SWOT_HYDROLOGY_TOOLBOX/test/dem_generator/data/new_project_height.nc

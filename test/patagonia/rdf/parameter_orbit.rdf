@@ -1,0 +1,29 @@
+!== Mission specific parameters ==
+Mission name = SWOT
+Mission start time = 2022-04-01
+
+!== Orbit parameters ==
+
+!Directory of theoretical orbit files
+Orbit repository = $SWOT_HYDROLOGY_TOOLBOX/select_orbit_cnes/swot_science_orbit_june_2015
+
+!Studied area bounding box
+DEM south latitude (deg) = -50.1
+DEM north latitude (deg) = -49.6
+DEM west longitude (deg) = -72.2
+DEM east longitude (deg) = -72
+
+!PixC mapping parameters
+Azimuth spacing (m) = 21.875000 
+Swath width (m) = 120000.000000
+NR cross track (m) = 10000.000
+
+
+!== Pass plan parameters ==
+passplan = yes
+simulation_start_time = 2022-08-01
+simulation_stop_time = 2022-09-01
+
+
+!== Output parameters ==
+GDEM Orbit prefix = test.gdem_orbit 
