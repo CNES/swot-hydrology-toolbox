@@ -231,7 +231,7 @@ class PixelCloudVec(object):
         logger.info("- start -")
                 
         # Indices of pixels of PixC already processed by PGE_RiverTile
-        self.river_index = in_pixcvec_reader.getVarValue("pixc_index") 
+        self.river_index = in_pixcvec_reader.getVarValue("pixc_index")
         
         # Number of pixels of PixC already processed by PGE_RiverTile
         self.nb_river_pix = self.river_index.size

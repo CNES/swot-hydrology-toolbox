@@ -16,7 +16,7 @@
  This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 '''
 
-from cnes.modules.geoloc.lib.interface import Sensor, RiverTile, PixcvecRiver
+from cnes.modules.geoloc.lib.interface import Sensor, RiverTile, PixcvecRiver, PixelCloud
 import cnes.modules.geoloc.lib.geoloc as geoloc
 
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE

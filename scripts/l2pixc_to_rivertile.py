@@ -133,23 +133,31 @@ def main():
         new_nodes_files = glob.glob(os.path.join(river_dir, "nodes*"))
         for node_file in new_nodes_files:
             ext = node_file.split(".")[-1]
-            os.rename(node_file, os.path.join(river_dir, river_filenames.rivertile_nodes_file+"."+ext))
+            new_filename = os.path.join(river_dir, river_filenames.rivertile_nodes_file+"."+ext)
+            if os.path.exists(new_filename):
+                os.remove(new_filename)
+            os.rename(node_file, new_filename)
         # Reach files
         new_reaches_files = glob.glob(os.path.join(river_dir, "reaches*"))
         for reach_file in new_reaches_files:
             ext = reach_file.split(".")[-1]
-            os.rename(reach_file, os.path.join(river_dir, river_filenames.rivertile_reaches_file+"."+ext))
+            new_filename = os.path.join(river_dir, river_filenames.rivertile_reaches_file+"."+ext)
+            if os.path.exists(new_filename):
+                os.remove(new_filename)
+            os.rename(reach_file, new_filename)
   
         # Convert PIXCVecRiver into shapefile if wanted
         if not args["noshp"]:
             
             # write pixcvec shapefile
             print("> Converting PIXCVecRiver .nc file to shapefile...")
-            pixcvec_vars = ["height_vectorproc", 
-                           "node_index", 
-                           "reach_index", 
-                           "azimuth_index", 
-                           "range_index"]
+            pixcvec_vars = ["azimuth_index", 
+                            "range_index",
+                            "pixc_index",
+                            "height_vectorproc", 
+                            "lake_flag",
+                            "node_index",
+                            "reach_index"]
             cnes.modules.geoloc.lib.pixc_to_shp.pixc_to_shp(
                 output_pixcvec, 
                 output_pixcvec.replace(".nc",".shp"), 
