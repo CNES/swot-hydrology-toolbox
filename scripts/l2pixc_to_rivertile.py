@@ -147,28 +147,28 @@ def main():
                            "reach_index", 
                            "azimuth_index", 
                            "range_index"]
-            node_vars = ["time", 
-                         "height",
-                         "width", 
-                         "area_total",    
+            node_vars = ["time",
+                         "wse",
+                         "width",
+                         "area_total",
                          "node_id", 
                          "reach_id"]
-            reach_vars = ["reach_id","width","height","slope","area_total"]
-            
+            reach_vars = ["reach_id", "width", "wse", "slope", "area_total"]
+
             # write node shape file
             print(". Node shapefile")
             cnes.modules.geoloc.lib.pixc_to_shp.pixc_to_shp(
                 output_riverobs, 
                 output_riverobs.replace(".nc","_node.shp"), 
                 "latitude", "longitude", node_vars, group_name="nodes")
-            
+
             # write reach shape file
             print(". Reach shapefile")
             cnes.modules.geoloc.lib.pixc_to_shp.pixc_to_shp(
                 output_riverobs, 
                 output_riverobs.replace(".nc","_reach.shp"), 
                 "p_latitud", "p_longitud", reach_vars, group_name="reaches")
-            
+
             # write pixcvec shape file
             print(". PIXCVec shapefile")
             cnes.modules.geoloc.lib.pixc_to_shp.pixc_to_shp(
