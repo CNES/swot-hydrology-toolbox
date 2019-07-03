@@ -83,7 +83,7 @@ def main():
         print("Applying roll residual error")
 
         roll = Roll_module(parameters['roll_repository_name'])
-        roll.get_roll_file_associated_to_orbit_and_cycle(pass_number, cycle_number, delta_time = -1541.907908)
+        roll.get_roll_file_associated_to_orbit_and_cycle(pass_number, cycle_number)
         roll.interpolate_roll_on_sensor_grid(orbit_time)
         
         # Apply roll for each pixel
