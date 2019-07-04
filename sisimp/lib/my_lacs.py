@@ -19,7 +19,8 @@ class Lac:
         self.hmean = None
         
     def compute_pixels_in_given_lac(self, OUT_ind_lac_data):
-        self.pixels = np.where(OUT_ind_lac_data == self.num)        
+        self.pixels = np.where(OUT_ind_lac_data == self.num)
+
     def set_hmean(self, hmean):
         self.hmean = hmean
         
