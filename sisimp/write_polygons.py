@@ -25,6 +25,7 @@ import time
 
 import lib.dark_water_functions as dark_water
 import lib.my_api as my_api
+import lib.my_shp as my_shp
 from lib.my_lacs import Constant_Lac, Reference_height_Lac, Gaussian_Lac, Polynomial_Lac, Height_in_file_Lac
 from lib.my_variables import RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
 from lib.roll_module import Roll_module
@@ -223,9 +224,12 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
 
     # Close the raster
     ds = None
+
+    my_api.printInfo("Raster size is %d %d" %(OUT_ind_lac_data))
     if not IN_pixc_vec_only:
-        for i in IN_attributes.liste_lacs:
-            i.compute_pixels_in_given_lac(OUT_ind_lac_data)
+        for i, lake in enumerate(IN_attributes.liste_lacs):
+            my_api.printInfo("Processing %d over %d" %(i, len(IN_attributes.liste_lacs)))
+            lake.compute_pixels_in_given_lac(OUT_ind_lac_data)
             
     #~ import matplotlib.pyplot as plt
     #~ plt.imshow(OUT_ind_lac_data)
@@ -352,6 +356,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         
         lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
         elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
+
 
     # 4.1 - Compute noise over height
     if IN_attributes.dark_water.lower() == "yes":
@@ -754,8 +759,8 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
         return ds, lyr
 
     def intersect(input, output, indmax, overwrite=False):
-        ds = ogr.Open(input, 0)        
-        lyr = ds.GetLayer()
+        lyr, ds = my_shp.open_shp(input)
+
         out_ds, out_lyr = createDS(output, ds.GetDriver().GetName(), lyr.GetGeomType(), lyr.GetSpatialRef(), overwrite)
         
         defn = out_lyr.GetLayerDefn()
@@ -768,34 +773,46 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
         for k1, polygon_index_1 in polygons:
             flag_intersect = 0
+            geom_1 = polygon_index_1.GetGeometryRef()
+            if not geom_1.IsValid():
+                geom_1 = geom_1.Buffer(0)
+
             for k2, polygon_index_2 in polygons:
+                geom_2 = polygon_index_2.GetGeometryRef()
+                if not geom_2.IsValid():
+                    geom_2 = geom_2.Buffer(0)
+
                 if k1 != k2:
-                    intersects = polygon_index_1.GetGeometryRef().Intersects(polygon_index_2.GetGeometryRef())
+                    intersects = geom_1.Intersects(geom_2)
                     if intersects:
-                        intersection = polygon_index_1.GetGeometryRef().Intersection(polygon_index_2.GetGeometryRef())
-                        
-                        diff1 = polygon_index_1.GetGeometryRef().Difference(intersection)
-                        diff2 = polygon_index_2.GetGeometryRef().Difference(intersection)
-                        
-                        h1 = polygon_index_1.GetField(str("HEIGHT"))
-                        h2 = polygon_index_2.GetField(str("HEIGHT"))
-                        h = (h1+h2)/2
+                        intersection = geom_1.Intersection(geom_2)
+                        diff1 = geom_1.Difference(intersection)
+                        diff2 = geom_2.Difference(intersection)
+
+                        if IN_attributes.height_model == 'reference_height':
+                            h1 = polygon_index_1.GetField(str("HEIGHT"))
+                            h2 = polygon_index_2.GetField(str("HEIGHT"))
+                            h = (h1 + h2) / 2
+                        else :
+                            my_api.printError("Field HEIGHT do not exists in file. h is set to 0")
+                            h = 0
+
                         out_feat = ogr.Feature(defn)
 
                         out_feat.SetGeometry(intersection)
                         out_feat.SetField(str("IND_LAC"), indmax+1)
                         out_lyr.CreateFeature(out_feat)
-                        
+
                         out_feat1 = ogr.Feature(defn)
                         out_feat1.SetGeometry(diff1)
                         out_feat1.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
                         out_lyr.CreateFeature(out_feat1)
-                        
+
                         out_feat2 = ogr.Feature(defn)
                         out_feat2.SetGeometry(diff2)
                         out_feat2.SetField(str("IND_LAC"), polygon_index_2.GetField(str("IND_LAC")))
                         out_lyr.CreateFeature(out_feat2)
-                        
+
                         lac = Reference_height_Lac(indmax+1, intersection, defn, IN_attributes)
                         lac.height = h
                         lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
