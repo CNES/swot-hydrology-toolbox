@@ -328,8 +328,13 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         code_flag = IN_attributes.code[ind]
         
     # 2 - Compute radar variables for water pixels
-    r0 = np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2)  # Radar to ground distance for near range pixels
-    ri = r0[az] + r * IN_attributes.range_sampling  # Radar-to-ground distance
+    #~ r0 = np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2)  # Radar to ground distance for near range pixels
+    
+    #~ ri = r0[az] + r * IN_attributes.range_sampling  # Radar-to-ground distance
+    ri = IN_attributes.near_range + r * IN_attributes.range_sampling  # Radar-to-ground distance
+ 
+    
+    
     Hi = IN_attributes.alt[az]  # Altitude
     angles = np.arccos(Hi/ri)  # Look angles
     pixel_area = IN_attributes.azimuth_spacing * IN_attributes.range_sampling / np.sin(angles)  # Pixel area
@@ -511,7 +516,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min, sub_r, classification_tab[az_indices], pixel_area[az_indices],
                                                     lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
                                                     IN_attributes.orbit_time[nadir_az], nadir_lat_deg[nadir_az], nadir_lon_deg[nadir_az], nadir_alt[nadir_az], nadir_heading[nadir_az],
-                                                    IN_attributes.x[nadir_az], IN_attributes.y[nadir_az], IN_attributes.z[nadir_az], vx[nadir_az], vy[nadir_az], vz[nadir_az], r0[nadir_az],
+                                                    IN_attributes.x[nadir_az], IN_attributes.y[nadir_az], IN_attributes.z[nadir_az], vx[nadir_az], vy[nadir_az], vz[nadir_az], IN_attributes.near_range,
                                                     IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size, IN_attributes.azimuth_spacing, IN_attributes.range_sampling, IN_attributes.near_range)
                 
                 # Update filenames with tile ref
@@ -575,6 +580,10 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     :rtype OUT_swath_polygons
     """
     my_api.printInfo("[write_polygons] == reproject_shapefile ==")
+
+    # Compute near_range (assuming height is nul, should be done differrently to handle totpography)
+    
+    r0 = np.amin(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
 
     # 1 - Make swath polygons
     swath_polygon = make_swath_polygon(IN_swath, IN_attributes)
@@ -699,9 +708,9 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
        
                 if IN_attributes.height_model == 'polynomial' and area > IN_attributes.height_model_min_area: 
-                    az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.compute_h(lat* RAD2DEG, lon* RAD2DEG))
+                    az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, r0, heau=lac.compute_h(lat* RAD2DEG, lon* RAD2DEG))
                 else:
-                    az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
+                    az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, r0, heau=lac.hmean)
                 
                 range_tab = np.concatenate((range_tab, r), -1)
                 npoints = len(az)
@@ -744,7 +753,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     dataout.Destroy()
 
                 
-    def createDS(ds_name, ds_format, geom_type, srs, overwrite=False):
+    def overwrite_shapefile(ds_name, ds_format, geom_type, srs, overwrite=False):
         drv = ogr.GetDriverByName(ds_format)
         if os.path.exists(ds_name) and overwrite is True:
             deleteDS(ds_name)
@@ -754,9 +763,11 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
         return ds, lyr
 
     def intersect(input, output, indmax, overwrite=False):
+        # Function to modify polygon shapefile in radar geometry in order to detect overlapped polygons
+        # Only intersection between 2 polygons are considered, not multi
         ds = ogr.Open(input, 0)        
         lyr = ds.GetLayer()
-        out_ds, out_lyr = createDS(output, ds.GetDriver().GetName(), lyr.GetGeomType(), lyr.GetSpatialRef(), overwrite)
+        out_ds, out_lyr = overwrite_shapefile(output, ds.GetDriver().GetName(), lyr.GetGeomType(), lyr.GetSpatialRef(), overwrite)
         
         defn = out_lyr.GetLayerDefn()
         multi = ogr.Geometry(ogr.wkbMultiPolygon)
@@ -774,39 +785,43 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     if intersects:
                         intersection = polygon_index_1.GetGeometryRef().Intersection(polygon_index_2.GetGeometryRef())
                         
-                        diff1 = polygon_index_1.GetGeometryRef().Difference(intersection)
-                        diff2 = polygon_index_2.GetGeometryRef().Difference(intersection)
-                        
-                        h1 = polygon_index_1.GetField(str("HEIGHT"))
-                        h2 = polygon_index_2.GetField(str("HEIGHT"))
-                        h = (h1+h2)/2
-                        out_feat = ogr.Feature(defn)
+                        try:
+                            diff1 = polygon_index_1.GetGeometryRef().Difference(intersection)
+                            diff2 = polygon_index_2.GetGeometryRef().Difference(intersection)
+                            
+                            h1 = polygon_index_1.GetField(str("HEIGHT"))
+                            h2 = polygon_index_2.GetField(str("HEIGHT"))
+                            h = (h1+h2)/2
+                            out_feat = ogr.Feature(defn)
 
-                        out_feat.SetGeometry(intersection)
-                        out_feat.SetField(str("IND_LAC"), indmax+1)
-                        out_lyr.CreateFeature(out_feat)
-                        
-                        out_feat1 = ogr.Feature(defn)
-                        out_feat1.SetGeometry(diff1)
-                        out_feat1.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
-                        out_lyr.CreateFeature(out_feat1)
-                        
-                        out_feat2 = ogr.Feature(defn)
-                        out_feat2.SetGeometry(diff2)
-                        out_feat2.SetField(str("IND_LAC"), polygon_index_2.GetField(str("IND_LAC")))
-                        out_lyr.CreateFeature(out_feat2)
-                        
-                        lac = Reference_height_Lac(indmax+1, intersection, defn, IN_attributes)
-                        lac.height = h
-                        lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
-                        liste_lac.append(lac)
-                        indmax+=1
-                        flag_intersect = 1
+                            out_feat.SetGeometry(intersection)
+                            out_feat.SetField(str("IND_LAC"), indmax+1)
+                            out_lyr.CreateFeature(out_feat)
+                            
+                            out_feat1 = ogr.Feature(defn)
+                            out_feat1.SetGeometry(diff1)
+                            out_feat1.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
+                            out_lyr.CreateFeature(out_feat1)
+                            
+                            out_feat2 = ogr.Feature(defn)
+                            out_feat2.SetGeometry(diff2)
+                            out_feat2.SetField(str("IND_LAC"), polygon_index_2.GetField(str("IND_LAC")))
+                            out_lyr.CreateFeature(out_feat2)
+                            
+                            lac = Reference_height_Lac(indmax+1, intersection, defn, IN_attributes)
+                            lac.height = h
+                            lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
+                            liste_lac.append(lac)
+                            indmax+=1
+                            flag_intersect = 1
+                            
+                        except:
+                            print("strange thing appears")
             if flag_intersect==0:
 
                 out_feat = ogr.Feature(defn)                
                 out_feat.SetGeometry(polygon_index_1.GetGeometryRef())
-                out_feat.SetField(str("IND_LAC"), k1)
+                out_feat.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
                 out_lyr.CreateFeature(out_feat)
                     
         out_ds.Destroy()
@@ -815,7 +830,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
         return True
 
     safe_flag_layover = True
-    if safe_flag_layover ==True:
+    if (safe_flag_layover) & (IN_attributes.height_model == 'reference_height'):
         intersect(OUT_filename, OUT_filename, indmax)
     
     IN_attributes.swath_polygons = OUT_swath_polygons
@@ -843,6 +858,8 @@ def make_swath_polygon(IN_swath, IN_attributes):
     n = len(IN_attributes.lon_init) - 4
     az = np.arange(2, n + 2, 10)
     y = ymin * np.ones(len(az))
+    
+    
     lon1, lat1 = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
     y = ymax * np.ones(len(az))
     lon2, lat2 = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
@@ -865,7 +882,7 @@ def make_swath_polygon(IN_swath, IN_attributes):
 #######################################
     
 
-def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau=0.):
+def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, r0, heau=0.):
     """
     Convert coordinates from lon-lat to azimuth-range for a given track
     
@@ -939,11 +956,12 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau=0.):
         y[i] = beta[i, indice]
         ind[i] = indice - int(nb_points/2)
     OUT_azcoord2 = OUT_azcoord + ind -0.5
-    # Compute range coordinate (across track)
+    #~ # Compute range coordinate (across track)
+    OUT_azcoord2[np.where(OUT_azcoord2 < 0)] = 0
+    OUT_azcoord2[np.where(OUT_azcoord2 > len(alt)-1)] = len(alt)-1
     
     H = alt[OUT_azcoord2.astype('i4')]
     
-    r0 = np.sqrt((H + (nr ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + nr ** 2)
     rr = np.sqrt((H-heau + (y ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + y ** 2)  # eq (5b)
     OUT_rcoord = (rr - r0) / dr  # eq (4)
     OUT_near_range = r0
