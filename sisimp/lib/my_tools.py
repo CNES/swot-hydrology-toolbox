@@ -533,8 +533,8 @@ def coords_from_labels(matrix):
     labels_coords = {}
     for i in range(nb_col):
         for j in range(nb_line):
-            val = matrix(i, j)
-            labels_coords.setdefault(val, []).append(i,j)
+            val = matrix[i, j]
+            labels_coords.setdefault(val, []).append((i,j))
 
     return labels_coords
 

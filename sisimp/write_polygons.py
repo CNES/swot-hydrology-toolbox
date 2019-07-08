@@ -225,20 +225,24 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
 
     # Close the raster
     ds = None
-
-    my_api.printInfo("Raster size is %d %d" %(OUT_ind_lac_data))
+    nc, nl = OUT_ind_lac_data.shape
+    my_api.printInfo("Raster size is %d %d" %(nc, nl))
     if not IN_pixc_vec_only:
-        print("1")
-        labels_coords = my_tools.coords_from_labels(OUT_ind_lac_data)
-        print("2")
+        # print("1")
+        # labels_coords = my_tools.coords_from_labels(OUT_ind_lac_data)
+        #
+        # print("2")
 
         for i, lake in enumerate(IN_attributes.liste_lacs):
             my_api.printInfo("Processing %d over %d" %(i, len(IN_attributes.liste_lacs)))
 
-            print(labels_coords[lake.num])
+            # print(labels_coords[lake.num])
+            # print(np.array(labels_coords[lake.num]))
+            # print(np.array(labels_coords[lake.num]).transpose())
             lake.compute_pixels_in_given_lac(OUT_ind_lac_data)
-            print(lake.pixels)
-            exit()
+            # # set_pixels_coods
+            # print(lake.pixels)
+            # exit()
 #~ import matplotlib.pyplot as plt
 
     #~ plt.imshow(OUT_ind_lac_data)
