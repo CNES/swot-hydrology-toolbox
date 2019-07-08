@@ -190,7 +190,7 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
 
     # Burn with a value 1 the pixels that are in a polygon
     gdal.RasterizeLayer(ds, [1], layer, None, None, burn_values=[1])
-    #                                        , options=['ALL_TOUCHED=TRUE'])
+    #~ #                                        , options=['ALL_TOUCHED=TRUE'])
 
     # Convert the radar pixels touching water in lon-lat
     OUT_burn_data = ds.GetRasterBand(1).ReadAsArray()
@@ -200,13 +200,16 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
     OUT_code_data = None
     OUT_ind_lac_data = None
     
+    #not used, commented to improve speed
+    
     if IN_attributes.height_model == "reference_height":
         ds.GetRasterBand(2).WriteArray(cover_height)
         # Burn with height value pixels in the associated polygon
         gdal.RasterizeLayer(ds, [2], layer, None, options=["ATTRIBUTE=HEIGHT"])
         # Get height pixels in lon-lat
         OUT_height_data = ds.GetRasterBand(2).ReadAsArray()
-        
+    
+       
     if IN_attributes.height_model == "gaussian" or IN_attributes.height_model == "polynomial":
         ds.GetRasterBand(3).WriteArray(cover_code)
         # Burn with height value pixels in the associated polygon
@@ -217,13 +220,20 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
     ds.GetRasterBand(4).WriteArray(cover_ind_lac)
     gdal.RasterizeLayer(ds, [4], layer, None, options=["ATTRIBUTE=IND_LAC"])
     OUT_ind_lac_data = ds.GetRasterBand(4).ReadAsArray().astype(int)
-    
+
     # Close the raster
     ds = None
- 
-    for i in IN_attributes.liste_lacs:
-        i.compute_pixels_in_given_lac(OUT_ind_lac_data)
-
+    if not IN_pixc_vec_only:
+        for i in IN_attributes.liste_lacs:
+            i.compute_pixels_in_given_lac(OUT_ind_lac_data)
+            
+    #~ import matplotlib.pyplot as plt
+    #~ plt.imshow(OUT_ind_lac_data)
+    #~ plt.show()
+    #~ import matplotlib.pyplot as plt
+    #~ plt.imshow(OUT_height_data)
+    #~ plt.show()   
+            
     return OUT_burn_data, OUT_height_data, OUT_code_data, OUT_ind_lac_data, IN_attributes
                 
 
@@ -333,8 +343,13 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         
     for lac in IN_attributes.liste_lacs:
         
-        indice = np.where(np.logical_and(np.isin(r, lac.pixels[0]), np.isin(az, lac.pixels[1])))  # Get indices 1=lake and 2=river (remove 0=land)
-
+        def merge(a,b):
+            return a*100000+b
+            
+        titi = merge(lac.pixels[0], lac.pixels[1])
+        toto = merge(r, az)
+        indice = np.isin(toto,titi)
+        
         lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
         elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
 
@@ -601,6 +616,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     range_tab = []
     
     liste_lac = []
+    indmax = 0
     for ind, polygon_index in enumerate(layer):
         geom = polygon_index.GetGeometryRef()
         
@@ -680,7 +696,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     else:
                         lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
 
-
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
        
                 if IN_attributes.height_model == 'polynomial' and area > IN_attributes.height_model_min_area: 
@@ -702,7 +717,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 
             # 4.2.4 - Add Output geometry
             if add_ring:
-               
+                
                 # Add the output reprojected polygon to the output feature
                 feature_out.SetGeometry(geom_out)
                 # Set the RIV_FLAG field
@@ -718,10 +733,91 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 
                 feature_out.SetField(str("IND_LAC"), ind+1)
                 
+                #~ # Not used, commented to improve speed
+                if IN_attributes.height_model == 'reference_height':
+                    feature_out.SetField(str("HEIGHT"), lac.height)
+                
                 # Add the output feature to the output layer
                 layerout.CreateFeature(feature_out)
                 liste_lac.append(lac)
+                indmax += 1
+    dataout.Destroy()
+
                 
+    def createDS(ds_name, ds_format, geom_type, srs, overwrite=False):
+        drv = ogr.GetDriverByName(ds_format)
+        if os.path.exists(ds_name) and overwrite is True:
+            deleteDS(ds_name)
+        ds = drv.CreateDataSource(ds_name)
+        lyr_name = os.path.splitext(os.path.basename(ds_name))[0]
+        lyr = ds.CreateLayer(lyr_name, srs, geom_type)
+        return ds, lyr
+
+    def intersect(input, output, indmax, overwrite=False):
+        ds = ogr.Open(input, 0)        
+        lyr = ds.GetLayer()
+        out_ds, out_lyr = createDS(output, ds.GetDriver().GetName(), lyr.GetGeomType(), lyr.GetSpatialRef(), overwrite)
+        
+        defn = out_lyr.GetLayerDefn()
+        multi = ogr.Geometry(ogr.wkbMultiPolygon)
+        out_lyr.CreateField(ogr.FieldDefn(str('IND_LAC'), ogr.OFTInteger64))
+        
+        polygons = []
+        for i in enumerate(lyr):
+            polygons.append(i)
+
+        for k1, polygon_index_1 in polygons:
+            flag_intersect = 0
+            for k2, polygon_index_2 in polygons:
+                if k1 != k2:
+                    intersects = polygon_index_1.GetGeometryRef().Intersects(polygon_index_2.GetGeometryRef())
+                    if intersects:
+                        intersection = polygon_index_1.GetGeometryRef().Intersection(polygon_index_2.GetGeometryRef())
+                        
+                        diff1 = polygon_index_1.GetGeometryRef().Difference(intersection)
+                        diff2 = polygon_index_2.GetGeometryRef().Difference(intersection)
+                        
+                        h1 = polygon_index_1.GetField(str("HEIGHT"))
+                        h2 = polygon_index_2.GetField(str("HEIGHT"))
+                        h = (h1+h2)/2
+                        out_feat = ogr.Feature(defn)
+
+                        out_feat.SetGeometry(intersection)
+                        out_feat.SetField(str("IND_LAC"), indmax+1)
+                        out_lyr.CreateFeature(out_feat)
+                        
+                        out_feat1 = ogr.Feature(defn)
+                        out_feat1.SetGeometry(diff1)
+                        out_feat1.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
+                        out_lyr.CreateFeature(out_feat1)
+                        
+                        out_feat2 = ogr.Feature(defn)
+                        out_feat2.SetGeometry(diff2)
+                        out_feat2.SetField(str("IND_LAC"), polygon_index_2.GetField(str("IND_LAC")))
+                        out_lyr.CreateFeature(out_feat2)
+                        
+                        lac = Reference_height_Lac(indmax+1, intersection, defn, IN_attributes)
+                        lac.height = h
+                        lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
+                        liste_lac.append(lac)
+                        indmax+=1
+                        flag_intersect = 1
+            if flag_intersect==0:
+
+                out_feat = ogr.Feature(defn)                
+                out_feat.SetGeometry(polygon_index_1.GetGeometryRef())
+                out_feat.SetField(str("IND_LAC"), k1)
+                out_lyr.CreateFeature(out_feat)
+                    
+        out_ds.Destroy()
+        ds.Destroy()
+        
+        return True
+
+    safe_flag_layover = True
+    if safe_flag_layover ==True:
+        intersect(OUT_filename, OUT_filename, indmax)
+    
     IN_attributes.swath_polygons = OUT_swath_polygons
     IN_attributes.liste_lacs = liste_lac
     

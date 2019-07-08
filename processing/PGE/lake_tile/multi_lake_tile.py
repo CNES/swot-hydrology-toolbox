@@ -1,5 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: multi_lake_tile.py
     :synopsis: Process PGE_L2_HR_LakeTile (i.e. generate L2_HR_LakeTile product from one tile of L2_HR_PIXC product and associated L2_HR_PIXCVec product) for multiple tiles
@@ -50,6 +60,7 @@ class MultiLakeTile(object):
 
         # BDLac and continent file
         self.lake_db = in_params["LAKE_DB"]
+        self.influence_lake_db = in_params["INFLUENCE_LAKE_DB"]
         self.lake_db_id = in_params["LAKE_DB_ID"]
         self.continent_file = in_params["CONTINENT_FILE"]
 
@@ -203,10 +214,10 @@ class MultiLakeTile(object):
         if self.log_file is None:
             log_file = os.path.join(self.output_dir, "LogFile_" + str(cycle_num) + "_" +
                                     str(pass_num) + "_" + str(tile_ref) + ".log")
-            print("Log file : " + log_file)
         else:
             log_file = os.path.splitext(self.log_file)[0] + "_" + str(cycle_num) + "_" \
                                         + str(pass_num) + "_" + str(tile_ref) + os.path.splitext(self.log_file)[1]
+        print("Log file: " + log_file)
         
         # 4 - Init command filename
         cmd_filename = "lake_tile_command_" + str(cycle_num) + "_" + str(pass_num) + "_" + str(tile_ref) + ".cfg"
@@ -234,6 +245,8 @@ class MultiLakeTile(object):
         if self.lake_db is not None:
             writer_command_file.write("LAKE_DB = " + self.lake_db + "\n")
         writer_command_file.write("# Lake identifier attribute name in the database\n")
+        if self.influence_lake_db is not None:
+            writer_command_file.write("INFLUENCE_LAKE_DB = " + self.influence_lake_db + "\n")
         if self.lake_db_id is not None:
             writer_command_file.write("LAKE_DB_ID = " + self.lake_db_id + "\n")
         writer_command_file.write("# Shapefile with polygons of continents\n")
@@ -302,6 +315,7 @@ class MultiLakeTile(object):
         writer_command_file.write("#######################################\n")
         writer_command_file.close()  # Close command file
         return out_cmd_file
+    
 
 #######################################
         
@@ -323,6 +337,7 @@ def read_command_file(in_filename):
     # Default values
     out_params["param_file"] = None
     out_params["LAKE_DB"] = None
+    out_params["INFLUENCE_LAKE_DB"] = None
     out_params["LAKE_DB_ID"] = None
     out_params["CONTINENT_FILE"] = None
     out_params["cycle_num"] = None
@@ -352,6 +367,8 @@ def read_command_file(in_filename):
         # Lake a priori database
         if "lake_db" in list_db:
             out_params["LAKE_DB"] = config.get("DATABASES", "LAKE_DB")
+        if "influence_lake_db" in list_db:
+            out_params["INFLUENCE_LAKE_DB"] = config.get("DATABASES", "INFLUENCE_LAKE_DB")
         if "lake_db_id" in list_db:
             out_params["LAKE_DB_ID"] = config.get("DATABASES", "LAKE_DB_ID")
         # Continent file
@@ -383,12 +400,17 @@ def read_command_file(in_filename):
     #my_var.overwriteConfig_from_cfg(config)
     # 6 - Retrieve LOGGING
     if "LOGGING" in config.sections():
-        out_params["logFile"] = config.get("LOGGING", "logFile")
-        if out_params["logFile"] is not None:
-            out_params["logFile"] = out_params["logFile"].replace("<date>", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-        out_params["logfilelevel"] = config.get("LOGGING", "logfilelevel")
-        out_params["logConsole"] = config.get("LOGGING", "logConsole")
-        out_params["logconsolelevel"] = config.get("LOGGING", "logconsolelevel")
+        list_options = config.options("LOGGING")
+        if "logFile" in list_options:
+            out_params["logFile"] = config.get("LOGGING", "logFile")
+            if out_params["logFile"] is not None:
+                out_params["logFile"] = out_params["logFile"].replace("<date>", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+        if "logfilelevel" in list_options:
+            out_params["logfilelevel"] = config.get("LOGGING", "logfilelevel")
+        if "logConsole" in list_options:
+            out_params["logConsole"] = config.get("LOGGING", "logConsole")
+        if "logconsolelevel" in list_options:
+            out_params["logconsolelevel"] = config.get("LOGGING", "logconsolelevel")
 
     return out_params
 

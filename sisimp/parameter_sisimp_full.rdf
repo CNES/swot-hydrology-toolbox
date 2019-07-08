@@ -4,7 +4,7 @@ Output directory = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/simu
 
 !### Noise and error files 
 Noise file path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt
-roll_repository_name = /work/ALT/swot/swototar/XOVERCAL/karin
+roll_repository_name = /work/ALT/swot/swototar/XOVERCAL/lr_int_xcrosscal_tds/karin 
 
 Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip
 
@@ -40,10 +40,6 @@ Scale factor non detected dw = 0.5
 Dark water correlation length = 500
 
 !Dark water seed = 12345678
-
-!### Error parameters
-Height bias std = 0.
-Noise multiplier factor = 0.5 !1/sqrt(Nl) where Nl is 4
 
 !### Tropo model
 Tropo model  = map

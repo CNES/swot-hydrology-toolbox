@@ -1,4 +1,15 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 '''
  This file is part of the SWOT Hydrology Toolbox
  Copyright (C) 2018 Centre National d’Etudes Spatiales
@@ -35,7 +46,7 @@ def pixc_to_shp(input_name, output_name, lat_name, lon_name, var_names, group_na
     crs = fiona.crs.from_epsg(4326) # WGS84
 
     schema = {'properties': OrderedDict([(lon_name, 'float:24.15'), (lat_name, 'float:24.15')] + [(var_name, 'float:24.15') for var_name in var_names]), 'geometry': 'Point'}
-
+    
     sys.stdout.write("Writing shp points")
     with fiona.open(output_name,'w', driver=driver, crs=crs, schema=schema) as c:
         for i in range(nb_points):
@@ -45,9 +56,7 @@ def pixc_to_shp(input_name, output_name, lat_name, lon_name, var_names, group_na
                     lat_name: float(point.coords.xy[1][0])}
 
             for var_name, var_values in zip(var_names, variables):
-                if np.ma.is_masked(var_values[i]):
-                    prop[var_name] = float(-9999.)
-                elif math.isnan(var_values[i]):
+                if np.ma.is_masked(var_values[i]) or math.isnan(var_values[i]) :
                     prop[var_name] = float(-9999.)
                 else:
                     prop[var_name] = float(var_values[i])

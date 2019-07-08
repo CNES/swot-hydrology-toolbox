@@ -1,5 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: pge_lake_tile.py
     :synopsis: Process PGE_L2_HR_LakeTile, i.e. generate L2_HR_LakeTile
@@ -9,9 +19,10 @@
 
 .. moduleauthor:: Claire POTTIER - CNES DSO/SI/TR
 
-This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -21,6 +32,7 @@ import configparser
 import datetime
 import logging
 import os
+import sys
 
 import cnes.common.lib.my_timer as my_timer
 import cnes.common.lib.my_tools as my_tools
@@ -53,7 +65,7 @@ class PGELakeTile():
         :param cmdFile: command file full path
         :type cmdFile: string
         """
-        
+
         # 0 - Init timer
         self.timer = my_timer.Timer()
         self.timer.start()
@@ -92,9 +104,9 @@ class PGELakeTile():
         logger = logging.getLogger(self.__class__.__name__)
 
         # 5 - Print info
-        logger.info("======================================")
-        logger.info("===== lakeTileProcessing = BEGIN =====")
-        logger.info("======================================")
+        logger.sigmsg("======================================")
+        logger.sigmsg("===== lakeTileProcessing = BEGIN =====")
+        logger.sigmsg("======================================")
         message = "> Command file: " + str(self.cmd_file)
         logger.info(message)
         message = "> " + str(self.cfg)
@@ -174,8 +186,12 @@ class PGELakeTile():
         else:
             if os.path.exists(lake_db_file):
                 type_db = lake_db_file.split('.')[-1]  # Type of database
+                influence_lake_db_file = self.cfg.get("DATABASES", "INFLUENCE_LAKE_DB")
                 if type_db == "shp":  # Shapefile format
-                    self.obj_lake_db = lake_db.LakeDbShp(lake_db_file, self.obj_pixc.tile_poly)
+                    if not (influence_lake_db_file == "") or not (influence_lake_db_file is None):
+                        self.obj_lake_db = lake_db.LakeDbShp(lake_db_file, in_influence_lake_db_filename = influence_lake_db_file, in_poly = self.obj_pixc.tile_poly)
+                    else :
+                        self.obj_lake_db = lake_db.LakeDbShp(lake_db_file, in_poly = self.obj_pixc.tile_poly)
                 elif type_db == "sqlite":  # SQLite format
                     self.obj_lake_db = lake_db.LakeDbSqlite(lake_db_file, self.obj_pixc.tile_poly)
                 else:
@@ -202,12 +218,12 @@ class PGELakeTile():
                                               os.path.basename(self.lake_tile_filenames.lake_tile_shp_file).split(".")[0],
                                               in_id_prefix=self.lake_tile_filenames.lake_id_prefix)
 
-
     def _write_output_data(self, in_proc_metadata):
         """
         This method write output data
         """
         logger = logging.getLogger(self.__class__.__name__)
+        
         # 1 - Write LakeTile shapefile
         logger.info("9.1 - Writing LakeTile memory layer to shapefile...")
         my_shp.write_mem_layer_as_shp(self.obj_lake.shp_mem_layer.layer, self.lake_tile_filenames.lake_tile_shp_file)
@@ -219,6 +235,7 @@ class PGELakeTile():
         self.obj_lake.shp_mem_layer.update_and_write_metadata("%s.xml" % self.lake_tile_filenames.lake_tile_shp_file, 
                                                               in_pixc_metadata=self.obj_pixc.pixc_metadata,
                                                               in_proc_metadata=in_proc_metadata)
+        
         # 2 - Write PIXCVec for objects entirely inside tile
         logger.info("9.2 - Writing LakeTile_pixcvec file...")
         self.obj_pixc_vec.write_file(self.lake_tile_filenames.lake_tile_pixcvec_file, in_proc_metadata)
@@ -232,7 +249,6 @@ class PGELakeTile():
         if self.flag_prod_shp and (self.obj_pixc.nb_edge_pix != 0):
             self.obj_pixc.write_edge_file_asShp(self.lake_tile_filenames.lake_tile_edge_file.replace(".nc", ".shp"))
         logger.info("")
-
 
     def start(self):
         """
@@ -307,9 +323,9 @@ class PGELakeTile():
 
         logger.info("")
         logger.info(self.timer.stop())
-        logger.info("====================================")
-        logger.info("===== lakeTileProcessing = END =====")
-        logger.info("====================================")
+        logger.sigmsg("====================================")
+        logger.sigmsg("===== lakeTileProcessing = END =====")
+        logger.sigmsg("====================================")
 
         # 2 - Stop logger
         instance_logger = service_logger.get_instance()
@@ -347,13 +363,14 @@ class PGELakeTile():
         try:
             out_params["param_file"] = os.path.expandvars(config.get("PATHS", "param_file"))
         except:
-            out_params["param_file"] = "lake_tile_param.cfg"
+            out_params["param_file"] = os.path.join(sys.path[0], "lake_tile_param.cfg")
         out_params["pixc_file"] = config.get("PATHS", "PIXC file")
         out_params["pixc_vec_river_file"] = config.get("PATHS", "PIXCVecRiver file")
         out_params["output_dir"] = config.get("PATHS", "Output directory")
 
         # 3 - Retrieve DATABASES
         out_params["LAKE_DB"] = None
+        out_params["INFLUENCE_LAKE_DB"] = None
         out_params["LAKE_DB_ID"] = None
         out_params["CONTINENT_FILE"] = None
         # TODO : None in filename if no lake DATABASES or continent file
@@ -362,6 +379,8 @@ class PGELakeTile():
             # Lake a priori database
             if "lake_db" in list_db:
                 out_params["LAKE_DB"] = config.get("DATABASES", "LAKE_DB")
+            if "influence_lake_db" in list_db:
+                out_params["INFLUENCE_LAKE_DB"] = config.get("DATABASES", "INFLUENCE_LAKE_DB")
             if "lake_db_id" in list_db:
                 out_params["LAKE_DB_ID"] = config.get("DATABASES", "LAKE_DB_ID")
             # Continent file
@@ -452,8 +471,8 @@ class PGELakeTile():
             # Add DATABASES section and parameters
             section = "DATABASES"
             self.cfg.add_section(section)
-            print(param_list["LAKE_DB"])
             self.cfg.set(section, "LAKE_DB", param_list["LAKE_DB"])
+            self.cfg.set(section, "INFLUENCE_LAKE_DB", param_list["INFLUENCE_LAKE_DB"])
             self.cfg.set(section, "LAKE_DB_ID", param_list["LAKE_DB_ID"])
             self.cfg.set(section, "CONTINENT_FILE", param_list["CONTINENT_FILE"])
             
@@ -526,12 +545,15 @@ class PGELakeTile():
 
             # 1.2 - DATABASES section
             # Lake database full path
-            self.cfg.test_var_config_file('DATABASES', 'LAKE_DB', str)
-            my_tools.testFile(self.cfg.get('DATABASES', 'LAKE_DB'))
-            logger.debug('LAKE_DB = ' + str(self.cfg.get('DATABASES', 'LAKE_DB')))
-            # Lake identifier attribute name in the database
-            self.cfg.test_var_config_file('DATABASES', 'LAKE_DB_ID', str)
-            logger.debug('LAKE_DB_ID = ' + str(self.cfg.get('DATABASES', 'LAKE_DB_ID')))
+            if self.cfg.get('DATABASES', 'LAKE_DB') is None:
+                logger.debug('LAKE_DB not filled => LakeTile product not linked to a lake database')
+            else:
+                self.cfg.test_var_config_file('DATABASES', 'LAKE_DB', str)
+                my_tools.testFile(self.cfg.get('DATABASES', 'LAKE_DB'))
+                logger.debug('LAKE_DB = ' + str(self.cfg.get('DATABASES', 'LAKE_DB')))
+                # Lake identifier attribute name in the database
+                self.cfg.test_var_config_file('DATABASES', 'LAKE_DB_ID', str)
+                logger.debug('LAKE_DB_ID = ' + str(self.cfg.get('DATABASES', 'LAKE_DB_ID')))
             # Continent file if want LakeSP product split per continent
             if self.cfg.get('DATABASES', 'CONTINENT_FILE') is None:
                 logger.debug('CONTINENT_FILE not filled => LakeTile product not linked to a continent')
@@ -559,8 +581,8 @@ class PGELakeTile():
             # Min size for a lake to generate a lake product (=polygon + attributes) for it
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'MIN_SIZE', float, val_default=1.0, logger=logger)
             logger.debug('MIN_SIZE = ' + str(self.cfg.get('CONFIG_PARAMS', 'MIN_SIZE')))
-            # Maximal standard deviation of height inside a lake
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'STD_HEIGHT_MAX', float, val_default=10)
+            # Maximal standard deviation of height inside a lake (-1 = do not compute lake height segmentation)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'STD_HEIGHT_MAX', float, val_default=-1.0)
             logger.debug('STD_HEIGHT_MAX = ' + str(self.cfg.get('CONFIG_PARAMS', 'STD_HEIGHT_MAX')))
             
             # To improve PixC golocation (=True) or not (=False)
@@ -569,9 +591,9 @@ class PGELakeTile():
             # Method to compute lake boundary or polygon hull
             # 0 = convex hull 
             # 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library
-            # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track (default)
-            # 2 = edge computed in radar geometry, then converted in ground geometry
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'HULL_METHOD', float, valeurs=[0, 1.0, 1.1, 2], val_default=1.1, logger=logger)
+            # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track
+            # 2 = edge computed in radar geometry, then converted in ground geometry (default)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'HULL_METHOD', float, valeurs=[0, 1.0, 1.1, 2], val_default=2, logger=logger)
             logger.debug('HULL_METHOD = ' + str(self.cfg.get('CONFIG_PARAMS', 'HULL_METHOD')))
             # max number of pixel for hull computation 1            
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY', int, val_default=100000, logger=logger)

@@ -1,4 +1,14 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: my_hull.py
     :synopsis: deal with hull computation (=lake boundary computation)
@@ -65,7 +75,7 @@ def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix
         retour = get_convex_hull(in_v_long, in_v_lat)
         
     elif hull_method == 1.0:  # 1.0 : CONCAV HULL - Delaunay triangulation with CGAL
-        logger.debug("Hull computation method : Concav hull computed in ground geometry, based on Delaunay triangulation - using CGAL library (default)")
+        logger.debug("Hull computation method : Concav hull computed in ground geometry, based on Delaunay triangulation - using CGAL library")
         retour = get_concave_hull_from_cgal_triangulation(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix_range)
         
     elif hull_method == 1.1:  # 1.1 - CONCAV HULL - Delaunay triangulation 
@@ -73,7 +83,7 @@ def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix
         retour = get_concave_hull_from_basic_triangulation(in_v_long, in_v_lat, in_range, in_nb_pix_range)
 
     elif hull_method == 2:  # 2 - CONCAV HULL - Radar vectorisation method
-        logger.debug("Hull computation method : radar vectorization")
+        logger.debug("Hull computation method : radar vectorization (default)")
         retour = get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, in_v_lat)
 
     else:
@@ -87,7 +97,15 @@ def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix
 #######################################
 
 def remove_holes_triangles(polygon) :
+    """
+    Remove holes
 
+    :param polygon: polygon
+    :type polygon: geometry.polygon or geometry.MultiPolygon
+
+    :return polygon without triangle
+    :rtype: polygon
+    """
     polygon_without_triangle = polygon
 
     if type(polygon) == geometry.Polygon:
@@ -449,7 +467,7 @@ def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, i
 
             # Retrieve lon/lat coordinates from range and azimtu coordinates
             # if current range and azimuth are found in input range and azimuth list
-            if np.where(np.logical_and(lake_x == x, lake_y == y))[0]:
+            if np.where(np.logical_and(lake_x == x, lake_y == y))[0].any():
                 point_idx = np.where(np.logical_and(lake_x == x, lake_y == y))[0][0]
                 lon = in_v_long[point_idx]
                 lat = in_v_lat[point_idx]
@@ -531,6 +549,17 @@ def compute_segment_intersection(s1, s2):
     return inter
 
 def get_closest_point_from_list_of_ring(point, list_of_ring):
+    """
+    Return element of list_of_ring the closest of point
+
+    :param point: lon lat coordinates of point
+    :type point: tuple of 2 floats
+    :param list_of_ring: TODO
+    :type list_of_ring: TODO
+
+    :return: intersection point coordinates
+    :rtype: tuple of floats
+    """
     logger = logging.getLogger("my_hull")
     min_dist = 100000
     for i, ring in enumerate(list_of_ring):
@@ -794,12 +823,13 @@ def get_dist_if_neighbour(idx, in_X, in_range, in_azimuth):
     az = in_azimuth[idx]
     # Find pixel neighbour
     x_neighbour = np.where(np.logical_and(in_azimuth == az, in_range == rg+1))
+    dist = None
     if x_neighbour:
         # compute distance if neighbour exist
         dist = np.abs(in_X[idx] - in_X[x_neighbour])
-        return dist
-    else :
-        return None
+    else:
+        dist = None
+    return dist
 
 def evaluate_alpha_from_X_pixc_geolocation(in_X, in_range, in_azimuth):
     """
@@ -816,52 +846,53 @@ def evaluate_alpha_from_X_pixc_geolocation(in_X, in_range, in_azimuth):
     :rtype: tuple of (int, float)
     """
 
-    if len(in_X) == 0 :
-        return None, None
-
-    # dist_list contains distances between two neighbour pixel along the X dimension
-    # Only 20 measurements are needed
-    dist_list = []
-    cpt = 0
-    while(len(dist_list) < 20):
-        cpt += 1
-        if cpt > 30:
-            break
-        idx = randint(0, len(in_X)-1)
-        dist = get_dist_if_neighbour(idx, in_X, in_range, in_azimuth)
-        if dist:
-            dist_list.append(dist[0])
-
-    x_mean = np.mean(dist_list)
-    x_std = np.std(dist_list)
-
-    x_2sigma = x_mean + 2 * x_std
-
-    if not dist_list:
-        alpha = 5000
-    elif x_2sigma < 10 :
-        alpha = 250
-    elif x_2sigma > 10 and x_2sigma < 30 :
-        alpha = 500
-    elif x_2sigma > 30 and x_2sigma < 50 :
-        alpha = 1000
-    elif x_2sigma > 50 and x_2sigma < 100:
-        alpha = 2000
-    else :
-        alpha = 5000
+    if len(in_X) == 0:
+        alpha = None
+        x_2sigma = None
+    else:
+        # dist_list contains distances between two neighbour pixel along the X dimension
+        # Only 20 measurements are needed
+        dist_list = []
+        cpt = 0
+        while(len(dist_list) < 20):
+            cpt += 1
+            if cpt > 30:
+                break
+            idx = randint(0, len(in_X)-1)
+            dist = get_dist_if_neighbour(idx, in_X, in_range, in_azimuth)
+            if dist:
+                dist_list.append(dist[0])
+    
+        x_mean = np.mean(dist_list)
+        x_std = np.std(dist_list)
+    
+        x_2sigma = x_mean + 2 * x_std
+    
+        if not dist_list:
+            alpha = 5000
+        elif x_2sigma < 10 :
+            alpha = 250
+        elif x_2sigma > 10 and x_2sigma < 30 :
+            alpha = 500
+        elif x_2sigma > 30 and x_2sigma < 50 :
+            alpha = 1000
+        elif x_2sigma > 50 and x_2sigma < 100:
+            alpha = 2000
+        else :
+            alpha = 5000
 
     return alpha, x_2sigma
 
 def get_angle(p, q, r):
-    '''
+    """
     Compute angle between 3 points
     Function coming from https://github.com/pgRouting/pgrouting/blob/master/src/alpha_shape/alpha.c
 
     :param p: Point
     :param q: Point
     :param r: Point
-    :return angle
-    '''
+    :return: angle
+    """
     logger = logging.getLogger("my_hull")
 
     try:
@@ -882,13 +913,13 @@ def get_angle(p, q, r):
     return angle
 
 def find_rings(vertices, edges):
-    '''
+    """
     Identify rings from a list of vertices and edges
 
     :param vertices: List of vertices
     :param edges: List of edges
-    :return rings
-    '''
+    :return: rings
+    """
     logger = logging.getLogger("my_hull")
 
     try:
@@ -959,12 +990,13 @@ def find_rings(vertices, edges):
     return rings
 
 def find_polygons(rings):
-    '''
+    """
     Identify polygons from rings
 
     :param rings: List of rings
-    :return polygons
-    '''
+    :return: polygons
+    """
+
     logger = logging.getLogger("my_hull")
 
     try:
@@ -1006,17 +1038,16 @@ def find_polygons(rings):
     return polygons
 
 def alpha_shape_with_cgal(coords, alpha):
-    '''
+    """
     Compute the alpha shape of a set of points.
     Retrieved from http://blog.thehumangeo.com/2014/05/12/drawing-boundaries-in-python/
 
     :param coords : Coordinates of points
-    :param alpha: List of alpha values to influence the
-        gooeyness of the border. Smaller numbers
-        don't fall inward as much as larger numbers.
-        Too large, and you lose everything!
-    :return Shapely.MultiPolygons which is the hull of the input set of points
-    '''
+    :param alpha: List of alpha values to influence the gooeyness of the border. Smaller numbers don't fall inward as much as larger numbers. 
+    Too large, and you lose everything!
+    :return: Shapely.MultiPolygons which is the hull of the input set of points
+    """
+
     logger = logging.getLogger("my_hull")
 
     try:
@@ -1039,17 +1070,17 @@ def alpha_shape_with_cgal(coords, alpha):
     alpha_shape_vertices = [(vertex.point().x(), vertex.point().y()) for vertex in a.alpha_shape_vertices()]
 
     if len(alpha_shape_vertices) == 0:
-        return Polygon()
-
-    rings = find_rings(alpha_shape_vertices, alpha_shape_edges)
-    polygons_list = find_polygons(rings)
-
-    if not polygons_list:
         poly_shp = Polygon()
-    elif len(polygons_list) > 1 :
-        poly_shp = MultiPolygon(polygons_list)
-    else :
-        poly_shp = Polygon(polygons_list[0])
+    else:
+        rings = find_rings(alpha_shape_vertices, alpha_shape_edges)
+        polygons_list = find_polygons(rings)
+    
+        if not polygons_list:
+            poly_shp = Polygon()
+        elif len(polygons_list) > 1 :
+            poly_shp = MultiPolygon(polygons_list)
+        else :
+            poly_shp = Polygon(polygons_list[0])
 
     return poly_shp
 

@@ -1,4 +1,14 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:1.0.0:::2019/05/17:version initiale.
+# FIN-HISTORIQUE
+# ======================================================
 """
 my_basins
 ===================
@@ -24,13 +34,6 @@ my_timer
 my_variables
 ==============
 .. automodule:: cnes.common.lib.my_variables
-   :members:
-   :private-members:
-   :special-members:
-
-my_api
-==============
-.. automodule:: cnes.common.lib.my_api
    :members:
    :private-members:
    :special-members:
