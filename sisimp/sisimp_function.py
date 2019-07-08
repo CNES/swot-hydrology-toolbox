@@ -41,8 +41,8 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     :param OUT_attributes
     :type OUT_attributes
     """
-    my_api.printInfo("[sisimp_function] == read_orbit ==")
-    my_api.printInfo("Orbit file = %s" % IN_filename)
+    my_api.printInfo("[sisimp_function] [read_orbit] == read_orbit ==")
+    my_api.printInfo("[sisimp_function] [read_orbit] Orbit file = %s" % IN_filename)
 
     OUT_attributes = IN_attributes
 
@@ -61,7 +61,7 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     OUT_attributes.orbit_time = np.array(ds.variables['time']) + (IN_cycle_number-1)*OUT_attributes.cycle_duration
     
     OUT_attributes.x, OUT_attributes.y, OUT_attributes.z, OUT_attributes.azimuth_spacing = [np.array(ds.variables['x']), np.array(ds.variables['y']), np.array(ds.variables['z']), ds.getncattr('azimuth_spacing')]
-    my_api.printDebug(str("Nb points on nadir track = %d" % (len(OUT_attributes.orbit_time)))) 
+    my_api.printDebug("[sisimp_function] [read_orbit] Nb points on nadir track = %d" % (len(OUT_attributes.orbit_time)))
 
     # Add 2 points margin to avoid problems in azr_from_lonlat (interpolation)
     n = len(lat1) + 2
@@ -85,9 +85,9 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     heading[-1] = heading[-2] - x * (heading[-3] - heading[-2])
     
     # Add lon noise
-    my_api.printDebug("lon[0] before orbit jitter = %.6f" % (lon[0]))
+    my_api.printDebug("[sisimp_function] [read_orbit] lon[0] before orbit jitter = %.6f" % (lon[0]))
     lon = lon + math_fct.calc_delta_jitter(heading, lat, IN_attributes.orbit_jitter)
-    my_api.printDebug("lon[0] after orbit jitter = %.6f" % (lon[0]))
+    my_api.printDebug("[sisimp_function] [read_orbit] lon[0] after orbit jitter = %.6f" % (lon[0]))
     
     # !!! Do not forget that indices 0 and -1 correspond to fake values, just used for extrapolations
     # Variable name ended with _init will be use to linear_exptrap
@@ -123,39 +123,40 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
     :param IN_attributes
     :type IN_attributes
     """
-    my_api.printInfo("[sisimp_function] == make_pixel_cloud ==")
-    my_api.printInfo(str("> Working on the " + IN_side_name + " swath"))
+    my_api.printInfo("[sisimp_function] [make_pixel_cloud] == make_pixel_cloud ==")
+    my_api.printInfo("[sisimp_function] [make_pixel_cloud] > Working on the " + IN_side_name + " swath")
 
     swath = IN_side_name
-    
+
     # 1 - Reproject shapefile in radar coordinates
     fshp = IN_attributes.shapefile_path + ".shp"
     driver = ogr.GetDriverByName(str("ESRI Shapefile"))
+
     fshp_reproj, IN_attributes = write_poly.reproject_shapefile(fshp, swath, driver, IN_attributes, IN_cycle_number)
-    
+
     if fshp_reproj is None:  # No water body crossing the swath => stop process
-        my_api.printInfo("No output data file to write")
+        my_api.printInfo("[sisimp_function] [make_pixel_cloud] No output data file to write")
         return IN_attributes
-    
+
     # 2 - Compute the intersection between the radar grid and the water bodies
     water_pixels, IN_attributes.height_model_a_tab, IN_attributes.code, IN_attributes.ind_lac, IN_attributes = write_poly.compute_pixels_in_water(fshp_reproj, False, IN_attributes)
+
     if IN_attributes.create_pixc_vec_river:
         water_pixels_river, height_model_a_river_only, code_a_river_only, ind_lac_a_river_only, IN_attributes = write_poly.compute_pixels_in_water(fshp_reproj, True, IN_attributes)
         water_pixels = water_pixels + water_pixels_river  # Land=0 ; Lake and other=1 ; River=2
-    my_api.printInfo("-> water_pixels : nb_lignes=%d nb_col=%d" % (water_pixels.shape[0], water_pixels.shape[1]))
-    
+    my_api.printInfo("[sisimp_function] [make_pixel_cloud] -> water_pixels : nb_lignes=%d nb_col=%d" % (water_pixels.shape[0], water_pixels.shape[1]))
+
     #~ exit()
     # 3 - Delete temporary file
     driver.DeleteDataSource(fshp_reproj)
 
     # 4 - Convert water pixels in lon-lat and output them
-    nb_water_pixels = np.count_nonzero(water_pixels) 
+    nb_water_pixels = np.count_nonzero(water_pixels)
     if nb_water_pixels == 0:
-        my_api.printInfo("Nb water pixels = 0 -> No output data file to write")
+        my_api.printInfo("[sisimp_function] [make_pixel_cloud] Nb water pixels = 0 -> No output data file to write")
     else:
         write_poly.write_water_pixels_realPixC(water_pixels, swath, IN_cycle_number, IN_orbit_number, IN_attributes)
-        exit()
-    
+
     return IN_attributes
                 
 
@@ -169,7 +170,7 @@ def write_swath_polygons(IN_attributes):
     :param IN_attributes
     :type IN_attributes
     """
-    my_api.printInfo("[sisimp_function] == write_swath_polygons : %s ==" % IN_attributes.sisimp_filenames.footprint_file)
+    my_api.printInfo("[sisimp_function] [write_swath_polygons] == write_swath_polygons : %s ==" % IN_attributes.sisimp_filenames.footprint_file)
 
     shpDriver = ogr.GetDriverByName(str("ESRI Shapefile"))
 

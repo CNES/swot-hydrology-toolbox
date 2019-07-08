@@ -61,7 +61,7 @@ def get_tiles_from_orbit(my_attributes, orbit_number, no_tiling = False):
     else:
         tile_list = np.unique(tile_values)
         
-    my_api.printInfo(str("Simulation over tiles number: %s" % str(tile_list)))
+    my_api.printInfo("[my_tiling] [get_tiles_from_orbit] Simulation over tiles number: %s" % str(tile_list))
     
     return tile_values, tile_list
 
@@ -70,7 +70,7 @@ def crop_orbit(my_attributes, tile_values, tile_number):
     
     my_new_attributes = deepcopy(my_attributes)
 
-    my_api.printInfo("== Dealing with tile number %03d" % tile_number)
+    my_api.printInfo("[my_tiling] [crop_orbit] == Dealing with tile number %03d" % tile_number)
     nadir_az = np.where(tile_values == tile_number)[0]
     
         
@@ -87,7 +87,7 @@ def crop_orbit(my_attributes, tile_values, tile_number):
    
     # Get azimuth indices corresponding to this integer value of latitude
     az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth indices vector
-    my_api.printInfo("= %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
+    my_api.printInfo("[my_tiling] [crop_orbit] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
 
     # Cropping orbit to only simulate tile area
     
