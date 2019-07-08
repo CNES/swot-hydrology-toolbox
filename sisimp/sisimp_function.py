@@ -154,6 +154,7 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
         my_api.printInfo("Nb water pixels = 0 -> No output data file to write")
     else:
         write_poly.write_water_pixels_realPixC(water_pixels, swath, IN_cycle_number, IN_orbit_number, IN_attributes)
+        exit()
     
     return IN_attributes
                 
@@ -168,7 +169,7 @@ def write_swath_polygons(IN_attributes):
     :param IN_attributes
     :type IN_attributes
     """
-    my_api.printInfo("[sisimp_function] == write_swath_polygons : %s ==" % IN_attributes.sisimp_filenames.footprint_file) 
+    my_api.printInfo("[sisimp_function] == write_swath_polygons : %s ==" % IN_attributes.sisimp_filenames.footprint_file)
 
     shpDriver = ogr.GetDriverByName(str("ESRI Shapefile"))
 

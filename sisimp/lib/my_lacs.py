@@ -17,7 +17,8 @@ class Lac:
         self.num = num
         self.seed = int(str(time.time()).split('.')[1])
         self.hmean = None
-        
+        self.nb_pix = 0
+
     def compute_pixels_in_given_lac(self, OUT_ind_lac_data):
         self.pixels = np.where(OUT_ind_lac_data == self.num)
 
@@ -25,6 +26,7 @@ class Lac:
         coords_x = np.array(coords[0])
         coords_y = np.array(coords[1])
         self.pixels = [coords_x, coords_y]
+        self.nb_pix = len(coords[0])
 
     def set_hmean(self, hmean):
         self.hmean = hmean
@@ -68,7 +70,7 @@ class Reference_height_Lac(Lac):
                 if polygon_index.GetField(str(self.height_name)) is not None :
                     self.height = np.float(polygon_index.GetField(str(self.height_name)))
             
-    def compute_h(self, lat, lon):
+    def compute_h(self, lat = None, lon = None):
         return self.height
         
 class Gaussian_Lac(Lac):

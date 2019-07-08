@@ -166,9 +166,8 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
         my_api.printInfo("[write_polygons] == compute_pixels_in_water / all polygons ==")
 
     # 1 - Read the reprojected shapefile
-    driver = ogr.GetDriverByName(str("ESRI Shapefile"))
-    da_shapefile = driver.Open(IN_fshp_reproj, 0)  # 0 = read only
-    layer = da_shapefile.GetLayer()
+    layer, da_shapefile = my_shp.open_shp(IN_fshp_reproj)
+
     if IN_pixc_vec_only:
         layer.SetAttributeFilter(str("RIV_FLAG != '0'"))
         my_api.printInfo("compute_pixels_in_water / river pixels only - %d features to deal with" % layer.GetFeatureCount())
@@ -229,20 +228,14 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
     my_api.printInfo("Raster size is %d %d" %(nc, nl))
     if not IN_pixc_vec_only:
         # print("1")
-        # labels_coords = my_tools.coords_from_labels(OUT_ind_lac_data)
-        #
-        # print("2")
-
+        my_api.printInfo("Compute lakes labels")
+        labels_coords = my_tools.coords_from_labels(OUT_ind_lac_data)
         for i, lake in enumerate(IN_attributes.liste_lacs):
-            my_api.printInfo("Processing %d over %d" %(i, len(IN_attributes.liste_lacs)))
+            if lake.num in labels_coords:
+                lake.set_pixels_coods(np.array(labels_coords[lake.num]).transpose())
+            else :
+                lake.set_pixels_coods([[], []])
 
-            # print(labels_coords[lake.num])
-            # print(np.array(labels_coords[lake.num]))
-            # print(np.array(labels_coords[lake.num]).transpose())
-            lake.compute_pixels_in_given_lac(OUT_ind_lac_data)
-            # # set_pixels_coods
-            # print(lake.pixels)
-            # exit()
 #~ import matplotlib.pyplot as plt
 
     #~ plt.imshow(OUT_ind_lac_data)
@@ -362,19 +355,22 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     y = sign * np.sqrt((ri + Hi) * (ri - Hi) / (1. + Hi / GEN_APPROX_RAD_EARTH))
 
     elevation_tab = np.zeros(len(az))
-        
-    for lac in IN_attributes.liste_lacs:
-        
-        def merge(a,b):
-            return a*100000+b
-            
-        titi = merge(lac.pixels[0], lac.pixels[1])
-        toto = merge(r, az)
-        indice = np.isin(toto,titi)
-        
-        lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
-        elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
 
+    def merge(a, b):
+        return a * 100000 + b
+    toto = merge(r, az)
+
+    for i, lac in enumerate(IN_attributes.liste_lacs):
+        if i%100 == 0 :
+            print("Processing %d over %d" % (i, len(IN_attributes.liste_lacs)))
+
+        if lac.nb_pix > 0 :
+
+            titi = merge(lac.pixels[0], lac.pixels[1])
+            indice = np.isin(toto,titi)
+
+            lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
+            elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
 
     # 4.1 - Compute noise over height
     if IN_attributes.dark_water.lower() == "yes":
@@ -418,7 +414,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     if IN_attributes.tropo_model == 'map':
         my_api.printInfo("Applying wet tropo map gaussian model")
         tropo = Tropo_module(IN_attributes.tropo_model)
-        tropo_error = tropo.calculate_tropo_error_map(np.mean(lat), az, r, IN_attributes.tropo_error_map_file, IN_attributes.tropo_error_correlation) 
+        tropo_error = tropo.calculate_tropo_error_map(np.mean(lat), az, r, IN_attributes.tropo_error_map_file, IN_attributes.tropo_error_correlation)
         delta_h += tropo_error
 
     # 5.3 - Compute final noisy heights (elevation + thermal noise + roll error + height model) 
@@ -609,9 +605,8 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     OUT_swath_polygons[IN_swath] = swath_polygon
 
     # 2 - Select water bodies polygons in the swath
-    da_shapefile = IN_driver.Open(IN_filename, 0)  # 0 = read only
-    layer = da_shapefile.GetLayer()
-    layer.SetSpatialFilter(swath_polygon)
+    layer, da_shapefile = my_shp.open_shp(IN_filename, swath_polygon)
+
     nb_features = layer.GetFeatureCount()
     
     my_api.printInfo("There are %d feature(s) crossing %s swath" % (nb_features, IN_swath))
@@ -770,93 +765,9 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 indmax += 1
     dataout.Destroy()
 
-
-
-    def intersect(input, output, indmax, overwrite=False):
-
-        # Function to modify polygon shapefile in radar geometry in order to detect overlapped polygons
-        # Only intersection between 2 polygons are considered, not multi
-        lyr, ds = my_shp.open_shp(input)
-        lyr_bis, ds_bis = my_shp.open_shp(input)
-
-        out_ds, out_lyr = my_shp.overwrite_shapefile(output, ds.GetDriver().GetName(), lyr.GetGeomType(), lyr.GetSpatialRef(), overwrite)
-
-        defn = out_lyr.GetLayerDefn()
-        multi = ogr.Geometry(ogr.wkbMultiPolygon)
-        out_lyr.CreateField(ogr.FieldDefn(str('IND_LAC'), ogr.OFTInteger64))
-        
-        polygons = []
-
-        for i, polygon_index_1 in enumerate(lyr):
-            geom_1 = polygon_index_1.GetGeometryRef()
-            if not geom_1.IsValid():
-                geom_1 = geom_1.Buffer(0)
-
-            lyr_bis.SetSpatialFilter(polygon_index_1.GetGeometryRef())
-
-            if lyr_bis.GetFeatureCount() > 1 :
-                for polygon_index_2 in lyr_bis:
-                    if polygon_index_2.GetFID() != polygon_index_1.GetFID():
-                        geom_2 = polygon_index_2.GetGeometryRef()
-                        if not geom_2.IsValid():
-                            geom_2 = geom_2.Buffer(0)
-
-                        intersects = geom_1.Intersects(geom_2)
-                        try:
-                            if intersects:
-                                intersection = geom_1.Intersection(geom_2)
-                                diff1 = geom_1.Difference(intersection)
-                                diff2 = geom_2.Difference(intersection)
-
-                                if IN_attributes.height_model == 'reference_height':
-                                    h1 = polygon_index_1.GetField(str("HEIGHT"))
-                                    h2 = polygon_index_2.GetField(str("HEIGHT"))
-                                    h = (h1 + h2) / 2
-                                else :
-                                    my_api.printError("Field HEIGHT do not exists in file. h is set to 0")
-                                    h = 0
-
-
-                                out_feat = ogr.Feature(defn)
-
-                                out_feat.SetGeometry(intersection)
-                                out_feat.SetField(str("IND_LAC"), indmax+1)
-                                out_lyr.CreateFeature(out_feat)
-
-                                out_feat1 = ogr.Feature(defn)
-                                out_feat1.SetGeometry(diff1)
-                                out_feat1.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
-                                out_lyr.CreateFeature(out_feat1)
-                                out_feat2 = ogr.Feature(defn)
-                                out_feat2.SetGeometry(diff2)
-                                out_feat2.SetField(str("IND_LAC"), polygon_index_2.GetField(str("IND_LAC")))
-                                out_lyr.CreateFeature(out_feat2)
-
-                                lac = Reference_height_Lac(indmax+1, intersection, defn, IN_attributes)
-                                lac.height = h
-                                lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
-                                liste_lac.append(lac)
-                                indmax+=1
-                                flag_intersect = 1
-
-                        except:
-                            print("strange thing appears")
-
-            if flag_intersect==0:
-
-                out_feat = ogr.Feature(defn)                
-                out_feat.SetGeometry(polygon_index_1.GetGeometryRef())
-                out_feat.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
-                out_lyr.CreateFeature(out_feat)
-                    
-        out_ds.Destroy()
-        ds.Destroy()
-        
-        return True
-
     safe_flag_layover = True
-    if (safe_flag_layover) & (IN_attributes.height_model == 'reference_height'):
-        intersect(OUT_filename, OUT_filename, indmax)
+    if (safe_flag_layover) and (IN_attributes.height_model == 'reference_height'):
+        liste_lac = intersect(OUT_filename, OUT_filename, indmax, IN_attributes) + liste_lac
     
     IN_attributes.swath_polygons = OUT_swath_polygons
     IN_attributes.liste_lacs = liste_lac
@@ -1009,3 +920,86 @@ def all_linear_rings(geom):
     if geom.GetGeometryName() == 'POLYGON':
         for line_index in range(geom.GetGeometryCount()):
             yield geom.GetGeometryRef(line_index)
+
+
+def intersect(input, output, indmax, IN_attributes, overwrite=False):
+
+    # Function to modify polygon shapefile in radar geometry in order to detect overlapped polygons
+    # Only intersection between 2 polygons are considered, not multi
+
+    lyr, ds = my_shp.open_shp(input)
+    lyr_bis, ds_bis = my_shp.open_shp(input)
+
+    liste_lac = []
+
+    out_ds, out_lyr = my_shp.overwrite_shapefile(output, ds.GetDriver().GetName(), lyr.GetGeomType(),
+                                                 lyr.GetSpatialRef(), overwrite)
+
+    defn = out_lyr.GetLayerDefn()
+    multi = ogr.Geometry(ogr.wkbMultiPolygon)
+    out_lyr.CreateField(ogr.FieldDefn(str('IND_LAC'), ogr.OFTInteger64))
+
+    polygons = []
+
+    for i, polygon_index_1 in enumerate(lyr):
+        geom_1 = polygon_index_1.GetGeometryRef()
+
+        flag_intersect = 0
+
+        if not geom_1.IsValid():
+            geom_1 = geom_1.Buffer(0)
+
+        lyr_bis.SetSpatialFilter(geom_1)
+
+        for polygon_index_2 in lyr_bis:
+
+            # If same feature
+            if polygon_index_2.GetFID() == polygon_index_1.GetFID():
+                continue
+
+            geom_2 = polygon_index_2.GetGeometryRef()
+            if not geom_2.IsValid():
+                geom_2 = geom_2.Buffer(0)
+
+            if geom_1.Intersects(geom_2):
+                intersection = geom_1.Intersection(geom_2)
+                diff1 = geom_1.Difference(intersection)
+                diff2 = geom_2.Difference(intersection)
+
+                h1 = polygon_index_1.GetField(str("HEIGHT"))
+                h2 = polygon_index_2.GetField(str("HEIGHT"))
+                h = (h1 + h2) / 2
+
+                out_feat = ogr.Feature(defn)
+
+                out_feat.SetGeometry(intersection)
+                out_feat.SetField(str("IND_LAC"), indmax + 1)
+                out_lyr.CreateFeature(out_feat)
+
+                out_feat1 = ogr.Feature(defn)
+                out_feat1.SetGeometry(diff1)
+                out_feat1.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
+                out_lyr.CreateFeature(out_feat1)
+                out_feat2 = ogr.Feature(defn)
+                out_feat2.SetGeometry(diff2)
+                out_feat2.SetField(str("IND_LAC"), polygon_index_2.GetField(str("IND_LAC")))
+                out_lyr.CreateFeature(out_feat2)
+
+                lac = Reference_height_Lac(indmax + 1, intersection, defn, IN_attributes)
+                lac.height = h
+                lac.set_hmean(np.mean(lac.compute_h()))
+                liste_lac.append(lac)
+                indmax += 1
+
+            else:
+
+                out_feat = ogr.Feature(defn)
+                out_feat.SetGeometry(polygon_index_1.GetGeometryRef())
+                out_feat.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
+                out_lyr.CreateFeature(out_feat)
+
+    out_ds.Destroy()
+    ds.Destroy()
+    ds_bis.Destroy()
+
+    return liste_lac

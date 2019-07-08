@@ -532,6 +532,8 @@ def coords_from_labels(matrix):
     labels = []
     labels_coords = {}
     for i in range(nb_col):
+        if i%100 == 0:
+            print("Processing %d over %d" %(i, nb_col))
         for j in range(nb_line):
             val = matrix[i, j]
             labels_coords.setdefault(val, []).append((i,j))
@@ -539,6 +541,9 @@ def coords_from_labels(matrix):
     return labels_coords
 
 #######################################
+
+
+
 
 if __name__ == '__main__':
     
