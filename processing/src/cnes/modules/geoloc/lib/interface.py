@@ -294,7 +294,8 @@ class RiverTile(object):
             self.node_indx = node_outputs['node_indx']
             self.s = node_outputs['s']
             self.h_n_ave = node_outputs['h_n_ave']
-            self.h_n_ave_fit = copy.deepcopy(node_outputs['h_n_ave'])
+            self.h_n_ave_fit = copy.deepcopy(node_outputs['h_n_ave'])        
+            self.fit_height = node_outputs['fit_height']
 
         except Exception as exc:
             message = str(exc.__class__) + str(exc)
@@ -318,7 +319,8 @@ class RiverTile(object):
             self.node_indx = np.array(nodes["node_indx"])
             self.s = np.array(nodes["s"])
             self.h_n_ave = np.array(nodes["h_n_ave"])
-            self.h_n_ave_fit = copy.deepcopy(np.array(nodes["h_n_ave"]))
+            self.h_n_ave_fit = copy.deepcopy(node_outputs['h_n_ave'])        
+            self.fit_height = np.array(nodes["fit_height"])
 
             # 3 - Close rivertile file
             riverfile_reader.close()
