@@ -82,7 +82,7 @@ def initLogger(IN_logFile, IN_verbose_level):
         vLevel = logging.INFO
     
     # Configure logger
-    logging.basicConfig(filename=IN_logFile, format='%(asctime)s [%(levelname)s] | %(name)s::%(funcName)s | %(message)s', level=vLevel)
+    logging.basicConfig(filename=IN_logFile, format='%(asctime)s [%(levelname)s] %(message)s', level=vLevel)
 
 
 def closeLogger():
