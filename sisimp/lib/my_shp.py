@@ -1,4 +1,5 @@
 from osgeo import ogr
+import os
 
 def open_shp(path_file, in_poly=None):
 
@@ -34,3 +35,13 @@ def open_shp(path_file, in_poly=None):
     shp_data_source.Destroy()
 
     return out_layer, data_source
+
+
+def overwrite_shapefile(ds_name, ds_format, geom_type, srs, overwrite=False):
+    drv = ogr.GetDriverByName(ds_format)
+    if os.path.exists(ds_name) and overwrite is True:
+        drv.DeleteDataSource(ds_name)
+    ds = drv.CreateDataSource(ds_name)
+    lyr_name = os.path.splitext(os.path.basename(ds_name))[0]
+    lyr = ds.CreateLayer(lyr_name, srs, geom_type)
+    return ds, lyr

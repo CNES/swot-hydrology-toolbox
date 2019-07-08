@@ -25,6 +25,7 @@ import lib.my_variables as my_var
 import lib.my_passplan as my_plan
 import lib.my_rdf_file as my_rdf
 import lib.my_tools as my_tools
+import lib.my_tiling as tiling
 
 import sisimp_function as sisimp_fct
 from write_polygons import orbitAttributes
@@ -351,19 +352,46 @@ class Processing(object):
             # 2 - Init SISIMP filenames object
             self.my_attributes.sisimp_filenames = my_names.sisimpFilenames(self.my_attributes.out_dir, self.my_attributes.mission_start_time, self.my_attributes.cycle_duration, elem[0], elem[1])
             
-            # 3 - Process right swath
-            self.my_attributes = sisimp_fct.make_pixel_cloud("Right", elem[0], elem[1], self.my_attributes)
-            my_api.printInfo("")
             
-            # 4 - Process left swath
-            self.my_attributes = sisimp_fct.make_pixel_cloud("Left", elem[0], elem[1], self.my_attributes)
-            my_api.printInfo("")
+            ## loop over tile
             
-            # 5 - Write swath polygons shapefile
-            sisimp_fct.write_swath_polygons(self.my_attributes)
-            my_api.printInfo("")
-            my_api.printInfo("")
             
+            tile_values, tile_list = tiling.get_tiles_from_orbit(self.my_attributes, elem[1])
+            
+            pre_tiling = True
+            if pre_tiling:
+                for tile_number in tile_list:
+                    self.my_new_attributes = tiling.crop_orbit(self.my_attributes, tile_values, tile_number)
+                    
+                                    
+                    # 3 - Process right swath
+                    self.my_new_attributes = sisimp_fct.make_pixel_cloud("Right", elem[0], elem[1], self.my_new_attributes)
+                    my_api.printInfo("")
+                    
+                    # 4 - Process left swath
+                    self.my_new_attributes = sisimp_fct.make_pixel_cloud("Left", elem[0], elem[1], self.my_new_attributes)
+                    my_api.printInfo("")
+                    
+                    # 5 - Write swath polygons shapefile
+                    sisimp_fct.write_swath_polygons(self.my_new_attributes)
+                    my_api.printInfo("")
+                    my_api.printInfo("")
+            else:    
+                # 3 - Process right swath
+                
+
+                self.my_attributes = sisimp_fct.make_pixel_cloud("Right", elem[0], elem[1], self.my_attributes)
+                my_api.printInfo("")
+                
+                # 4 - Process left swath
+                self.my_attributes = sisimp_fct.make_pixel_cloud("Left", elem[0], elem[1], self.my_attributes)
+                my_api.printInfo("")
+                
+                # 5 - Write swath polygons shapefile
+                sisimp_fct.write_swath_polygons(self.my_attributes)
+                my_api.printInfo("")
+                my_api.printInfo("")
+                
     def run_postprocessing(self):
         """
         Run post-processing

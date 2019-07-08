@@ -144,6 +144,7 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
         water_pixels = water_pixels + water_pixels_river  # Land=0 ; Lake and other=1 ; River=2
     my_api.printInfo("-> water_pixels : nb_lignes=%d nb_col=%d" % (water_pixels.shape[0], water_pixels.shape[1]))
     
+    #~ exit()
     # 3 - Delete temporary file
     driver.DeleteDataSource(fshp_reproj)
 

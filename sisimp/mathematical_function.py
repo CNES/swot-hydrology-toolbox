@@ -18,6 +18,7 @@ from math import sin
 
 import os
 import re
+import sys
 
 import lib.my_api as my_api
 
@@ -48,14 +49,18 @@ def calc_delta_h(IN_angles, IN_noise_height, IN_height_bias_std, seed=None):
 
     OUT_noisy_h = 0
     if (IN_noise_height[:, 1] < 1.e-5).any() and not IN_height_bias_std < 1.e-5:  # Case noise file as one or more zeros
-        OUT_noisy_h = np.random.normal(0, IN_height_bias_std) + np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1])
+        OUT_noisy_h = np.random.normal(0, IN_height_bias_std) 
     elif not (IN_noise_height[:, 1] < 1.e-5).any() and IN_height_bias_std < 1.e-5:  # Case height bias equals zero
-        OUT_noisy_h = np.random.normal(0, np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1]))
+        stdv = np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1])
+        stdv[np.isnan(stdv)]= 0.
+        OUT_noisy_h = np.random.normal(0, stdv)
     elif (IN_noise_height[:, 1] < 1.e-5).any() and IN_height_bias_std < 1.e-5:  # Case both are equals to zero
-        OUT_noisy_h = np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1])
+        OUT_noisy_h = 0.
     else:  # Case none are equals to zero
-        OUT_noisy_h = np.random.normal(0, IN_height_bias_std) + np.random.normal(0, np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1]))
-
+        stdv = np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1])
+        stdv[np.isnan(stdv)]= 0.
+        
+        OUT_noisy_h = np.random.normal(0, IN_height_bias_std) + np.random.normal(0, stdv)
     return OUT_noisy_h
 
 
