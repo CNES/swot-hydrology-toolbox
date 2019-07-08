@@ -88,7 +88,7 @@ def calc_delta_jitter(IN_orbit_heading, IN_lat, IN_orbit_jitter):
     elif orbit_jitter < -IN_orbit_jitter:
         orbit_jitter = -IN_orbit_jitter
 
-    my_api.printInfo("orbit_jitter = %.6f" % orbit_jitter)
+    my_api.printInfo("[mathematical_function] [calc_delta_jitter] orbit_jitter = %.6f" % orbit_jitter)
 
     return (np.cos(IN_orbit_heading) * orbit_jitter) / (GEN_APPROX_RAD_EARTH * np.cos(np.mean(IN_lat)*DEG2RAD))
 
