@@ -26,6 +26,7 @@ import lib.my_passplan as my_plan
 import lib.my_rdf_file as my_rdf
 import lib.my_tools as my_tools
 import lib.my_tiling as tiling
+import lib.my_shp as my_shp
 
 import sisimp_function as sisimp_fct
 from write_polygons import orbitAttributes
@@ -231,10 +232,9 @@ class Processing(object):
         if file_missing:
             raise IOError("One or several shapefile files are missing, check logs to know which one")
         # Loading shapefile
-        driver = ogr.GetDriverByName(str("ESRI Shapefile"))
-        da_shape_file = driver.Open(self.my_attributes.shapefile_path + ".shp", 0)  # 0 means read-only. 1 means writeable.
-        wb_layer = da_shape_file.GetLayer()
-        # Check if the informations in the shapefile are right   
+        wb_layer, da_shape_file = my_shp.open_shp(self.my_attributes.shapefile_path + ".shp")
+
+        # Check if the informations in the shapefile are right
         shp_srs = wb_layer.GetSpatialRef()
         lonlat_srs = osr.SpatialReference()
         lonlat_srs.ImportFromEPSG(4326)
@@ -376,6 +376,7 @@ class Processing(object):
                     sisimp_fct.write_swath_polygons(self.my_new_attributes)
                     my_api.printInfo("")
                     my_api.printInfo("")
+
             else:    
                 # 3 - Process right swath
                 
