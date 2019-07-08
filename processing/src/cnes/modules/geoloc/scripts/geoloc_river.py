@@ -302,9 +302,19 @@ def geoloc_river(pixc, pixcvec, sensor, rivertile, fit_heights_per_reach, interp
     # 1 - Initiate logging service
     logger = logging.getLogger()
     logger.info("Improved geolocation")
-    if fit_heights_per_reach:
+        
+    if fit_heights_per_reach == 'recompute_from_nodes':
+        # Recompute fitted height using nodes heights 
         geolocriver.fit_node_heights()
+        
+    if fit_heights_per_reach == 'raw_height':
+        # Use raw nodes heights (very noisy) to improved geolocation (bad idea)
+        return
 
+    if fit_heights_per_reach == 'fitted_height_from_riverobs':
+        # Use fitted height from riverobs 
+        geolocriver.rivertile.h_n_ave_fit = geolocriver.rivertile.fit_height
+        
     geolocriver.estimate_pixvec_height_for_geoloc(interpolate_pixc_between_nodes)
     geolocriver.apply_improved_geoloc(method=method)
 
