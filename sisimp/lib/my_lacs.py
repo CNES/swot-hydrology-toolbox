@@ -21,7 +21,8 @@ class Lac:
 
     def compute_pixels_in_given_lac(self, OUT_ind_lac_data):
         self.pixels = np.where(OUT_ind_lac_data == self.num)
-
+        self.nb_pix = len(self.pixels[0])
+        
     def set_pixels_coods(self, coords):
         coords_x = np.array(coords[0])
         coords_y = np.array(coords[1])
