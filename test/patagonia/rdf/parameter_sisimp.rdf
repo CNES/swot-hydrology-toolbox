@@ -4,7 +4,7 @@ Output directory = $SWOT_HYDROLOGY_TOOLBOX/test/patagonia/output/simu
 
 !### Noise and error files 
 Noise file path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt
-roll_repository_name = /work/ALT/swot/swototar/XOVERCAL/karin
+roll_repository_name = /work/ALT/swot/swotpub/cross_over_residual_errors
 
 Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip
 
@@ -50,7 +50,7 @@ Tropo error map file = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tropo_map/zonal_delta
 
 !### Files in output
 Create shapefile = yes !Produce output files also as shapefiles
-Create dummy pixc vec river file = yes !Produce L2_HR_PIXCVecRiver product associated to PixC files
+Create dummy pixc vec river file = no !Produce L2_HR_PIXCVecRiver product associated to PixC files
 
 
 !== Height ==

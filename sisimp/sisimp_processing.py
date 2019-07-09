@@ -25,6 +25,9 @@ import lib.my_variables as my_var
 import lib.my_passplan as my_plan
 import lib.my_rdf_file as my_rdf
 import lib.my_tools as my_tools
+import lib.my_tiling as tiling
+import lib.my_shp as my_shp
+import lib.my_timer as my_timer
 
 import sisimp_function as sisimp_fct
 from write_polygons import orbitAttributes
@@ -33,10 +36,10 @@ from write_polygons import orbitAttributes
 def read_parameter(IN_rdf_reader, IN_instrument_name, IN_instrument_default_value, read_type):
     try:
         OUT_instrument_param = read_type(IN_rdf_reader.getValue(IN_instrument_name))
-        my_api.printInfo("%s : %s" % (IN_instrument_name, str(OUT_instrument_param)))
+        my_api.printInfo("[sisimp_processing] [read_parameter] %s : %s" % (IN_instrument_name, str(OUT_instrument_param)))
     except:
         OUT_instrument_param = IN_instrument_default_value
-        my_api.printInfo("Default value for %s : %s" % (IN_instrument_name, str(OUT_instrument_param)))
+        my_api.printInfo("[sisimp_processing] [read_parameter] Default value for %s : %s" % (IN_instrument_name, str(OUT_instrument_param)))
     return OUT_instrument_param
                 
 
@@ -96,9 +99,9 @@ class Processing(object):
             # Cross-over residual roll error
             try:
                 self.my_attributes.roll_repo = str(parameters.getValue("roll_repository_name"))
-                my_api.printInfo("Roll repository : %s " % self.my_attributes.roll_repo)
+                my_api.printInfo("[sisimp_processing] Roll repository : %s " % self.my_attributes.roll_repo)
             except:
-                my_api.printInfo("roll_repo_name not set, roll error won't be applied")
+                my_api.printInfo("[sisimp_processing] roll_repo_name not set, roll error won't be applied")
 
             # Orbit parameters
             self.my_attributes.multi_orbit_option = read_parameter(parameters, "Multiple orbit", my_var.MULTIPLE_ORBIT, str).lower()
@@ -108,21 +111,21 @@ class Processing(object):
             if self.my_attributes.multi_orbit_option == 'no':
                 try:
                     self.my_attributes.orbit_number = int(parameters.getValue("Orbit"))
-                    my_api.printInfo("Orbit number : %d" % self.my_attributes.orbit_number)
+                    my_api.printInfo("[sisimp_processing] Orbit number : %d" % self.my_attributes.orbit_number)
                 except:
                     my_api.exitWithError("Multiple orbit = no => Orbit number should be set")
 
                 try:
                     self.my_attributes.cycle_number = int(parameters.getValue("Cycle number"))
-                    my_api.printInfo("Orbit number : %d" % self.my_attributes.orbit_number)
+                    my_api.printInfo("[sisimp_processing] Orbit number : %d" % self.my_attributes.orbit_number)
                 except:
-                    my_api.printInfo("Multiple orbit = no => Cycle number should be set. Set to default value : 1")
+                    my_api.printInfo("[sisimp_processing] Multiple orbit = no => Cycle number should be set. Set to default value : 1")
                     self.my_attributes.cycle_number = 1
                                  
             if self.my_attributes.multi_orbit_option == 'passplan':
                 try:
                     self.my_attributes.passplan_path = str(parameters.getValue("Passplan path"))
-                    my_api.printInfo("Passplan path : %s" % self.my_attributes.passplan_path)
+                    my_api.printInfo("[sisimp_processing] Passplan path : %s" % self.my_attributes.passplan_path)
                 except:
                     try:
                         self.my_attributes.passplan_path = os.path.join(run_directory_for_orbits, "passplan.txt")
@@ -143,10 +146,10 @@ class Processing(object):
             # True height file
             try:
                 self.my_attributes.trueheight_file = os.path.expandvars(parameters.getValue("True height file"))
-                my_api.printInfo("True height file : %s" % self.my_attributes.trueheight_file)
+                my_api.printInfo("[sisimp_processing] True height file : %s" % self.my_attributes.trueheight_file)
             except:
                 self.my_attributes.trueheight_file = None
-                my_api.printInfo("True height file not set, True height model won't be applied")
+                my_api.printInfo("[sisimp_processing] True height file not set, True height model won't be applied")
             # Dark water
             self.my_attributes.dark_water = read_parameter(parameters, "Dark water", 'No', str)
             self.my_attributes.dw_pourcent = read_parameter(parameters, "Dark water percentage", my_var.DW_PERCENT, float)
@@ -181,7 +184,7 @@ class Processing(object):
             self.my_attributes.height_model = read_parameter(parameters, "Height model", None, str)
             
             if self.my_attributes.height_model is None:
-                my_api.printInfo("Height only given by a simple model A/t0/T")
+                my_api.printInfo("[sisimp_processing] Height only given by a simple model A/t0/T")
                 # Simple model
                 self.my_attributes.height_model_a = read_parameter(parameters, "Constant height model A", my_var.HEIGHT_MODEL_A, float)
                 self.my_attributes.height_model_t0 = read_parameter(parameters, "Constant height model t0", my_var.HEIGHT_MODEL_t0, float)
@@ -230,10 +233,9 @@ class Processing(object):
         if file_missing:
             raise IOError("One or several shapefile files are missing, check logs to know which one")
         # Loading shapefile
-        driver = ogr.GetDriverByName(str("ESRI Shapefile"))
-        da_shape_file = driver.Open(self.my_attributes.shapefile_path + ".shp", 0)  # 0 means read-only. 1 means writeable.
-        wb_layer = da_shape_file.GetLayer()
-        # Check if the informations in the shapefile are right   
+        wb_layer, da_shape_file = my_shp.open_shp(self.my_attributes.shapefile_path + ".shp")
+
+        # Check if the informations in the shapefile are right
         shp_srs = wb_layer.GetSpatialRef()
         lonlat_srs = osr.SpatialReference()
         lonlat_srs.ImportFromEPSG(4326)
@@ -290,7 +292,7 @@ class Processing(object):
                         my_api.exitWithError("Passplan file not found: %s" % self.my_attributes.passplan_path)
                 
             except IndexError:
-                my_api.printError("Orbit file not found")
+                my_api.printError("[sisimp_processing] Orbit file not found")
                 my_api.exitWithError("Check orbit files present in the orbit folder")
 
         else:
@@ -303,13 +305,13 @@ class Processing(object):
                             self.my_attributes.orbit_list.append([self.my_attributes.cycle_number, self.my_attributes.orbit_number, file_name])
 
             except IndexError:
-                my_api.printError("Orbit file not found = %s" % path_to_orbit_file)
+                my_api.printError("[sisimp_processing] Orbit file not found = %s" % path_to_orbit_file)
                 my_api.exitWithError("Please check that orbit number %d has been generated" % self.my_attributes.orbit_number)
         my_api.printInfo("")
-        my_api.printInfo("List of orbit files to process =")
+        my_api.printInfo("[sisimp_processing] List of orbit files to process =")
         
         for elem in self.my_attributes.orbit_list:
-            my_api.printInfo("Cycle=%03d - Pass=%03d - Orbit file=%s" % (elem[0], elem[1], os.path.basename(elem[2])))
+            my_api.printInfo("[sisimp_processing] Cycle=%03d - Pass=%03d - Orbit file=%s" % (elem[0], elem[1], os.path.basename(elem[2])))
 
         # Create shapefile
         try:
@@ -317,7 +319,7 @@ class Processing(object):
             self.my_attributes.create_shapefile = self.my_attributes.create_shapefile in ['oui', 'yes', 'yep']
         except Exception:
             self.my_attributes.create_shapefile = False
-            my_api.printInfo("No Create shapefile parameter set, no shapefile will be created")
+            my_api.printInfo("[sisimp_processing] No Create shapefile parameter set, no shapefile will be created")
 
         # Create dummy L2_HR_PIXCVecRiver product, associated to pixel cloud  
         try:
@@ -325,7 +327,7 @@ class Processing(object):
             self.my_attributes.create_pixc_vec_river = self.my_attributes.create_pixc_vec_river in ['oui', 'yes', 'yep']
         except Exception:
             self.my_attributes.create_pixc_vec_river = False
-            my_api.printInfo("No Create dummy pixc vec river file parameter set, no L2_HR_PIXCVecRiver file will be created")
+            my_api.printInfo("[sisimp_processing] No Create dummy pixc vec river file parameter set, no L2_HR_PIXCVecRiver file will be created")
 
         # self.my_attributes.compute_pixc_vec_river to True only if self.my_attributes.create_pixc_vec_river is True and RIV_FLAG field is here
         self.my_attributes.compute_pixc_vec_river = False
@@ -341,9 +343,11 @@ class Processing(object):
 
         for elem in self.my_attributes.orbit_list:  # Process per element in orbit list = triplet (cycle_number, orbit_number, orbit_file)
             
-            my_api.printInfo(">>> CYCLE %03d and ORBIT %03d <<<" % (elem[0], elem[1]))
+            my_api.printInfo("########################################################")
+            my_api.printInfo("[sisimp_processing] >>> CYCLE %03d and ORBIT %03d <<<" % (elem[0], elem[1]))
+            my_api.printInfo("########################################################")
             my_api.printInfo("")
-            
+
             # 1 - Read orbit file
             self.my_attributes = sisimp_fct.read_orbit(elem[2], elem[0], self.my_attributes)
             my_api.printInfo("")
@@ -351,19 +355,61 @@ class Processing(object):
             # 2 - Init SISIMP filenames object
             self.my_attributes.sisimp_filenames = my_names.sisimpFilenames(self.my_attributes.out_dir, self.my_attributes.mission_start_time, self.my_attributes.cycle_duration, elem[0], elem[1])
             
-            # 3 - Process right swath
-            self.my_attributes = sisimp_fct.make_pixel_cloud("Right", elem[0], elem[1], self.my_attributes)
-            my_api.printInfo("")
             
-            # 4 - Process left swath
-            self.my_attributes = sisimp_fct.make_pixel_cloud("Left", elem[0], elem[1], self.my_attributes)
-            my_api.printInfo("")
+            ## loop over tile
             
-            # 5 - Write swath polygons shapefile
-            sisimp_fct.write_swath_polygons(self.my_attributes)
-            my_api.printInfo("")
-            my_api.printInfo("")
             
+            tile_values, tile_list = tiling.get_tiles_from_orbit(self.my_attributes, elem[1])
+            
+            pre_tiling = True
+            if pre_tiling:
+                for tile_number in tile_list:
+                    time = my_timer.Timer()
+                    time.start()
+                    my_api.printInfo("========================================================")
+                    my_api.printInfo("[sisimp_processing] Processing tile %d " %(tile_number))
+                    my_api.printInfo("========================================================")
+                    self.my_new_attributes = tiling.crop_orbit(self.my_attributes, tile_values, tile_number)
+
+                    # 3 - Process right swath
+                    self.my_new_attributes = sisimp_fct.make_pixel_cloud("Right", elem[0], elem[1], self.my_new_attributes)
+                    my_api.printInfo("")
+                    my_api.printInfo("[sisimp_processing] %s " % (time.stop()))
+                    my_api.printInfo("")
+
+                    time = my_timer.Timer()
+                    time.start()
+
+                    # 4 - Process left swath
+                    self.my_new_attributes = sisimp_fct.make_pixel_cloud("Left", elem[0], elem[1], self.my_new_attributes)
+                    my_api.printInfo("")
+                    my_api.printInfo("[sisimp_processing] %s " % (time.stop()))
+                    my_api.printInfo("")
+
+                    # # 5 - Write swath polygons shapefile
+                    # sisimp_fct.write_swath_polygons(self.my_new_attributes)
+                    # my_api.printInfo("")
+                    # my_api.printInfo("")
+
+            else:
+                # 3 - Process right swath
+                
+
+                self.my_attributes = sisimp_fct.make_pixel_cloud("Right", elem[0], elem[1], self.my_attributes)
+                my_api.printInfo("")
+                
+                # 4 - Process left swath
+                self.my_attributes = sisimp_fct.make_pixel_cloud("Left", elem[0], elem[1], self.my_attributes)
+                my_api.printInfo("")
+                
+                # # 5 - Write swath polygons shapefile
+                # sisimp_fct.write_swath_polygons(self.my_attributes)
+                # my_api.printInfo("")
+                # my_api.printInfo("")                # # 5 - Write swath polygons shapefile
+                # sisimp_fct.write_swath_polygons(self.my_attributes)
+                # my_api.printInfo("")
+                # my_api.printInfo("")
+                
     def run_postprocessing(self):
         """
         Run post-processing
@@ -371,5 +417,5 @@ class Processing(object):
         my_api.printInfo("")
         my_api.printInfo("")
         my_api.printInfo("[sisimp_processing] POST-PROCESSING...")
-        my_api.printInfo("Nothing to do...")
+        my_api.printInfo("[sisimp_processing] Nothing to do...")
         my_api.printInfo("")
