@@ -526,8 +526,23 @@ def xyz2llh(IN_x, IN_y, IN_z):
     OUT_height = (d*np.cos(OUT_lat)) + (IN_z*np.sin(OUT_lat)) - GEN_RAD_EARTH_EQ*np.sqrt(1-(e**2)*np.sin(OUT_lat)**2)
     
     return rad2deg(OUT_lon), rad2deg(OUT_lat), OUT_height
-    
+
 #######################################
+
+def coords_from_labels(matrix):
+    nb_col, nb_line = matrix.shape
+    labels_coords = {}
+
+    processing = np.round(np.linspace(0, nb_col, 11), 0)
+    for i in range(nb_col):
+        if i in processing :
+            my_api.printInfo("[my_tools] [coords_from_labels] Processing %d %%" %( int(100 * (i+1)/nb_col) ) )
+        for j in range(nb_line):
+            val = matrix[i, j]
+            labels_coords.setdefault(val, []).append((i,j))
+
+    return labels_coords
+
 
 if __name__ == '__main__':
     
