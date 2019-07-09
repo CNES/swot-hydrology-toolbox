@@ -336,12 +336,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         code_flag = IN_attributes.code[ind]
         
     # 2 - Compute radar variables for water pixels
-    #~ r0 = np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2)  # Radar to ground distance for near range pixels
-    
-    #~ ri = r0[az] + r * IN_attributes.range_sampling  # Radar-to-ground distance
+
     ri = IN_attributes.near_range + r * IN_attributes.range_sampling  # Radar-to-ground distance
- 
-    
     
     Hi = IN_attributes.alt[az]  # Altitude
     angles = np.arccos(Hi/ri)  # Look angles
@@ -596,10 +592,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     """
     my_api.printInfo("[write_polygons] [reproject_shapefile] == reproject_shapefile ==")
 
-    # Compute near_range (assuming height is nul, should be done differrently to handle totpography)
-
-    r0 = np.amin(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-
     # 1 - Make swath polygons
     swath_polygon = make_swath_polygon(IN_swath, IN_attributes)
     OUT_swath_polygons = IN_attributes.swath_polygons
@@ -608,6 +600,14 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     # 2 - Select water bodies polygons in the swath
     layer, da_shapefile = my_shp.open_shp(IN_filename, swath_polygon)
 
+
+    # Compute near_range (assuming height is nul, should be done differrently to handle totpography)
+    
+    IN_attributes.near_range = compute_near_range(IN_attributes, layer)
+    layer.ResetReading()
+    
+    #~ IN_attributes.near_range = np.amin(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+    
     nb_features = layer.GetFeatureCount()
 
     my_api.printInfo("[write_polygons] [reproject_shapefile] There are %d feature(s) crossing %s swath" % (nb_features, IN_swath))
@@ -730,9 +730,9 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
 
                 if IN_attributes.height_model == 'polynomial' and area > IN_attributes.height_model_min_area:
-                    az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, r0, heau=lac.compute_h(lat* RAD2DEG, lon* RAD2DEG))
+                    az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.compute_h(lat* RAD2DEG, lon* RAD2DEG))
                 else:
-                    az, r, IN_attributes.near_range = azr_from_lonlat(lon, lat, IN_attributes, r0, heau=lac.hmean)
+                    az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
 
                 range_tab = np.concatenate((range_tab, r), -1)
                 npoints = len(az)
@@ -829,7 +829,7 @@ def make_swath_polygon(IN_swath, IN_attributes):
 #######################################
     
 
-def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, r0, heau=0.):
+def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau=0.):
     """
     Convert coordinates from lon-lat to azimuth-range for a given track
     
@@ -856,6 +856,7 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, r0, heau=0.):
     nr = IN_attributes.nr_cross_track
     dr = IN_attributes.range_sampling
     alt = IN_attributes.alt
+    r0 = IN_attributes.near_range
     # ---------------------------------------------------------
     # Compute along-track (az) and across-track (y) coordinates
     # ---------------------------------------------------------
@@ -911,9 +912,8 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, r0, heau=0.):
     
     rr = np.sqrt((H-heau + (y ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + y ** 2)  # eq (5b)
     OUT_rcoord = (rr - r0) / dr  # eq (4)
-    OUT_near_range = r0
     
-    return OUT_azcoord2, OUT_rcoord, OUT_near_range
+    return OUT_azcoord2, OUT_rcoord
                 
 
 #######################################
@@ -1017,3 +1017,34 @@ def intersect(input, output, indmax, IN_attributes, overwrite=False):
     ds_bis.Destroy()
 
     return liste_lac
+
+def compute_near_range(IN_attributes, layer):
+    if IN_attributes.height_model == 'reference_height':
+        count, height_tot = 0, 0
+        fields_count = layer.GetLayerDefn().GetFieldCount()
+        for ind, polygon_index in enumerate(layer):
+            for i in range(fields_count):
+                if layer.GetLayerDefn().GetFieldDefn(i).GetName() == IN_attributes.height_name:
+                    if polygon_index.GetField(str(IN_attributes.height_name)) is not None :
+                        height_tot += np.float(polygon_index.GetField(str(IN_attributes.height_name)))
+                        count +=1
+        if count != 0:
+            hmean = height_tot/count
+            near_range = np.mean(np.sqrt((IN_attributes.alt - hmean + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+            print(hmean, near_range, np.mean(IN_attributes.alt))
+
+        else:
+            near_range = 0
+    if IN_attributes.height_model == 'gaussian':
+        near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+    if IN_attributes.height_model == 'polynomial':
+        near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+    if IN_attributes.height_model == 'reference_file':
+        near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+    if IN_attributes.height_model == None:
+        hmean = IN_attributes.height_model_a + IN_attributes.height_model_a * \
+        np.sin(2*np.pi * (np.mean(IN_attributes.orbit_time) + IN_attributes.cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period
+        near_range = np.mean(np.sqrt((IN_attributes.alt - hmean + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+    my_api.printInfo("[write_polygons] [reproject_shapefile] Near_range =  %d" % (near_range))
+    
+    return near_range
