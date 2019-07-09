@@ -114,7 +114,7 @@ class l2_hr_pixc_vec_river(object):
         :param compress: parameter the define to compress or not the file
         :type compress: boolean
         """ 
-        my_api.printInfo("[l2_hr_pixc_vec_river] == write_file : %s ==" % IN_output_file)
+        my_api.printInfo("[l2_hr_pixc_vec_river] [write_file] == write_file : %s ==" % IN_output_file)
     
         # 1 - Open NetCDF file in writing mode
         data = my_nc.myNcWriter(IN_output_file)
@@ -144,7 +144,7 @@ class l2_hr_pixc_vec_river(object):
         # 4 - Write file depending on the number of river pixels
         if self.nb_pix_river == 0:
             
-            my_api.printInfo("NO river pixels => empty PIXCVecRiver file generated")
+            my_api.printInfo("[l2_hr_pixc_vec_river] [write_file] NO river pixels => empty PIXCVecRiver file generated")
             data.add_dimension('points', 0)
             
         else:
@@ -189,12 +189,12 @@ class l2_hr_pixc_vec_river(object):
         """
         
         if self.nb_pix_river == 0:
-            my_api.printInfo("[l2_hr_pixc_vec_river] == write_file_asShp ==") 
-            my_api.printInfo("NO river pixels => NO PIXCVecRiver shapefile generated")
+            my_api.printInfo("[l2_hr_pixc_vec_river] [write_file_asShp] == write_file_asShp ==")
+            my_api.printInfo("[l2_hr_pixc_vec_river] [write_file_asShp] NO river pixels => NO PIXCVecRiver shapefile generated")
             
         else:
             
-            my_api.printInfo("[l2_hr_pixc_vec_river] == write_file_asShp : %s ==" % IN_output_file)
+            my_api.printInfo("[l2_hr_pixc_vec_river] [write_file_asShp] == write_file_asShp : %s ==" % IN_output_file)
             
             # 1 - Initialisation du fichier de sortie
             # 1.1 - Driver
