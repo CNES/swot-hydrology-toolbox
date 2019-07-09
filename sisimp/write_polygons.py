@@ -359,16 +359,19 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         if i in processing:
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Processing %d%%" % (int(100 * (i + 1) / len(IN_attributes.liste_lacs))))
 
-        def merge(a,b):
-            return a*100000+b
-        titi = merge(lac.pixels[0], lac.pixels[1])
-        toto = merge(r, az)
-        indice = np.isin(toto,titi)
 
-        #~ indice = np.logical_and(np.isin(r, lac.pixels[0]), np.isin(az, lac.pixels[1]))
+        if lac.nb_pix > 0 :
 
-        lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
-        elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
+            #~ indice = np.logical_and(np.isin(r, lac.pixels[0]), np.isin(az, lac.pixels[1]))
+            def merge(a,b):
+                return a*100000+b
+            titi = merge(lac.pixels[0], lac.pixels[1])
+            toto = merge(r, az)
+            indice = np.isin(toto,titi)
+
+            lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
+            elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
+            
     # 4.1 - Compute noise over height
     if IN_attributes.dark_water.lower() == "yes":
         noise_seed = int(str(time.time()).split('.')[1])
