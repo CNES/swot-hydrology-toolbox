@@ -80,8 +80,8 @@ def crop_orbit(my_attributes, tile_values, tile_number):
     my_new_attributes.z = my_attributes.z[nadir_az]
 
 
-    nadir_az = np.insert(nadir_az, 0,nadir_az[0]-1)
-    nadir_az = np.insert(nadir_az, len(nadir_az),nadir_az[-1]+1)
+    # nadir_az = np.insert(nadir_az, 0, nadir_az[0])
+    # nadir_az = np.insert(nadir_az, len(nadir_az), nadir_az[-1]+1)
 
 
    

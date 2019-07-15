@@ -37,7 +37,7 @@ class Constant_Lac(Lac):
     def __init__(self, num, IN_attributes, lat, IN_cycle_number):
         Lac.__init__(self, num)
         self.height_model_a = IN_attributes.height_model_a
-        self.lat_init = IN_attributes.lat_init[1:-1]
+        self.lat_init = IN_attributes.lat_init
         self.cycle_number = IN_cycle_number
         self.cycle_duration = IN_attributes.cycle_duration
         self.height_model_t0 = IN_attributes.height_model_t0
@@ -79,7 +79,7 @@ class Gaussian_Lac(Lac):
     def __init__(self, num, IN_attributes, lat, lon, IN_cycle_number):
         Lac.__init__(self, num)
         self.height_model_a = IN_attributes.height_model_a
-        self.lat_init = IN_attributes.lat_init[1:-1]
+        self.lat_init = IN_attributes.lat_init
         self.cycle_number = IN_cycle_number
         self.cycle_duration = IN_attributes.cycle_duration
         self.height_model_t0 = IN_attributes.height_model_t0
@@ -124,7 +124,7 @@ class Polynomial_Lac(Lac):
         Lac.__init__(self, num)
 
         self.height_model_a = IN_attributes.height_model_a
-        self.lat_init = IN_attributes.lat_init[1:-1]
+        self.lat_init = IN_attributes.lat_init
         self.cycle_number = IN_cycle_number
         self.cycle_duration = IN_attributes.cycle_duration
         self.height_model_t0 = IN_attributes.height_model_t0
