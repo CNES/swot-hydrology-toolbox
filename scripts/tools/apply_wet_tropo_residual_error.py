@@ -11,11 +11,13 @@ import argparse
 import numpy as np
 import shutil
 import my_rdf
+import pyproj as pyproj
+
 
 from lib.my_variables import RAD2DEG, DEG2RAD
 from lib.tropo_module import Tropo_module
 from lib.roll_module import Roll_module
-from write_polygons import orbitAttributes, project_array
+from write_polygons import orbitAttributes
 import cnes.modules.geoloc.lib.geoloc as my_geoloc
 
     
@@ -40,10 +42,10 @@ def main():
     lat = pixc.groups['pixel_cloud'].variables['latitude'][:]
     lon = pixc.groups['pixel_cloud'].variables['longitude'][:]
     height = pixc.groups['pixel_cloud'].variables['height'][:]
-    pixel_cloud_time = pixc.groups['pixel_cloud'].variables['illumination_time'][:]
+    pixel_cloud_time = pixc.groups['pixel_cloud'].variables['illumination_time'][:].filled()
     cross_track = pixc.groups['pixel_cloud'].variables['cross_track'][:]
     
-    orbit_time = pixc.groups['tvp'].variables['time'][:]
+    orbit_time = pixc.groups['tvp'].variables['time'][:].filled()
     
     cycle_number = pixc.getncattr('cycle_number')
     pass_number = pixc.getncattr('pass_number')
@@ -83,7 +85,8 @@ def main():
         print("Applying roll residual error")
 
         roll = Roll_module(parameters['roll_repository_name'])
-        roll.get_roll_file_associated_to_orbit_and_cycle(pass_number, cycle_number)
+        roll.get_roll_file_associated_to_orbit_and_cycle(pass_number, cycle_number, delta_time = -1541.907908)
+
         roll.interpolate_roll_on_sensor_grid(orbit_time)
         
         # Apply roll for each pixel
@@ -93,8 +96,6 @@ def main():
         
     else:
         print("No roll error applied")
-
-    print(delta_h)   
 
 
     IN_attributes = orbitAttributes()
@@ -111,6 +112,7 @@ def main():
     if parameters['noisy_geoloc']:
         
         coordinates_sensor = np.dstack((IN_attributes.lat[az]*RAD2DEG, IN_attributes.lon[az]*RAD2DEG, IN_attributes.alt[az]))[0]
+        
         xyz_sensor = project_array(coordinates_sensor, srcp='latlon', dstp='geocent')
         coordinates_pixc = np.dstack((lat, lon, height))[0]     
         xyz_pixc = project_array(coordinates_pixc, srcp='latlon', dstp='geocent')
@@ -123,8 +125,8 @@ def main():
                                                                                                            xyz_sensor,
                                                                                                            vxyz_sensor,
                                                                                                            ri, height + delta_h, 
-                                                                                                           recompute_Doppler=True, recompute_R=True, verbose=False, 
-                                                                                                           max_iter_grad=1, height_goal=1.e-3, safe_flag=True)
+                                                                                                           recompute_doppler=True, recompute_range=True, verbose=False, 
+                                                                                                           max_iter_grad=1, height_goal=1.e-3)
              
         final_pixc.groups['pixel_cloud'].variables['latitude'][:] = p_final_llh[:,0]
         final_pixc.groups['pixel_cloud'].variables['longitude'][:] = p_final_llh[:,1]
@@ -135,6 +137,19 @@ def main():
                                                                                                                
     pixc.close()
     final_pixc.close()
+
+def project_array(coordinates, srcp='latlon', dstp='geocent'):
+    """
+    Project a numpy (n,2) array in projection srcp to projection dstp
+    Returns a numpy (n,2) array.
+    """
+    p1 = pyproj.Proj(proj=srcp, datum='WGS84')
+    p2 = pyproj.Proj(proj=dstp, datum='WGS84')
+    fx, fy, fz = pyproj.transform(p1, p2, coordinates[:,1], coordinates[:,0], coordinates[:,2])
+    # Re-create (n,2) coordinates
+    # Inversion of lat and lon !
+    return np.dstack([fx, fy, fz])[0]
+
     
 if __name__ == "__main__":
     main()
