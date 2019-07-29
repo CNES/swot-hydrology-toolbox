@@ -603,7 +603,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
     # Compute near_range (assuming height is nul, should be done differrently to handle totpography)
     
-    IN_attributes.near_range = compute_near_range(IN_attributes, layer)
+    IN_attributes.near_range = compute_near_range(IN_attributes, layer, cycle_number = IN_cycle_number)
     layer.ResetReading()
     
     #~ IN_attributes.near_range = np.amin(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
@@ -822,7 +822,7 @@ def make_swath_polygon(IN_swath, IN_attributes):
         ring.AddPoint(lonswath[i], latswath[i])
     ring.CloseRings()
     swath_polygon.AddGeometry(ring)
-
+    
     return swath_polygon
                 
 
@@ -1018,7 +1018,7 @@ def intersect(input, output, indmax, IN_attributes, overwrite=False):
 
     return liste_lac
 
-def compute_near_range(IN_attributes, layer):
+def compute_near_range(IN_attributes, layer, cycle_number=0):
     if IN_attributes.height_model == 'reference_height':
         count, height_tot = 0, 0
         fields_count = layer.GetLayerDefn().GetFieldCount()
@@ -1043,7 +1043,7 @@ def compute_near_range(IN_attributes, layer):
         near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
     if IN_attributes.height_model == None:
         hmean = IN_attributes.height_model_a + IN_attributes.height_model_a * \
-        np.sin(2*np.pi * (np.mean(IN_attributes.orbit_time) + IN_attributes.cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period
+        np.sin(2*np.pi * (np.mean(IN_attributes.orbit_time) + cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period
         near_range = np.mean(np.sqrt((IN_attributes.alt - hmean + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
     my_api.printInfo("[write_polygons] [reproject_shapefile] Near_range =  %d" % (near_range))
     
