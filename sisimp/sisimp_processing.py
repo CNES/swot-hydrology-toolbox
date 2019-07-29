@@ -361,7 +361,7 @@ class Processing(object):
             
             tile_values, tile_list = tiling.get_tiles_from_orbit(self.my_attributes, elem[1])
             
-            pre_tiling = True
+            pre_tiling = False
             if pre_tiling:
                 for tile_number in tile_list:
                     time = my_timer.Timer()
@@ -387,9 +387,9 @@ class Processing(object):
                     my_api.printInfo("")
 
                     # # 5 - Write swath polygons shapefile
-                    # sisimp_fct.write_swath_polygons(self.my_new_attributes)
-                    # my_api.printInfo("")
-                    # my_api.printInfo("")
+                    #~ sisimp_fct.write_swath_polygons(self.my_new_attributes)
+                    #~ my_api.printInfo("")
+                    #~ my_api.printInfo("")
 
             else:
                 # 3 - Process right swath
@@ -403,12 +403,12 @@ class Processing(object):
                 my_api.printInfo("")
                 
                 # # 5 - Write swath polygons shapefile
-                # sisimp_fct.write_swath_polygons(self.my_attributes)
-                # my_api.printInfo("")
-                # my_api.printInfo("")                # # 5 - Write swath polygons shapefile
-                # sisimp_fct.write_swath_polygons(self.my_attributes)
-                # my_api.printInfo("")
-                # my_api.printInfo("")
+                #~ sisimp_fct.write_swath_polygons(self.my_attributes)
+                #~ my_api.printInfo("")
+                #~ my_api.printInfo("")                # # 5 - Write swath polygons shapefile
+                #~ sisimp_fct.write_swath_polygons(self.my_attributes)
+                #~ my_api.printInfo("")
+                #~ my_api.printInfo("")
                 
     def run_postprocessing(self):
         """
