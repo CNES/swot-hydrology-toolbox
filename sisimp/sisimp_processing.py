@@ -361,7 +361,7 @@ class Processing(object):
             
             tile_values, tile_list = tiling.get_tiles_from_orbit(self.my_attributes, elem[1])
             
-            pre_tiling = False
+            pre_tiling = True
             if pre_tiling:
                 for tile_number in tile_list:
                     time = my_timer.Timer()
@@ -394,6 +394,7 @@ class Processing(object):
             else:
                 # 3 - Process right swath
                 
+                self.my_attributes.tile_number = 0
 
                 self.my_attributes = sisimp_fct.make_pixel_cloud("Right", elem[0], elem[1], self.my_attributes)
                 my_api.printInfo("")
@@ -405,10 +406,7 @@ class Processing(object):
                 # # 5 - Write swath polygons shapefile
                 #~ sisimp_fct.write_swath_polygons(self.my_attributes)
                 #~ my_api.printInfo("")
-                #~ my_api.printInfo("")                # # 5 - Write swath polygons shapefile
-                #~ sisimp_fct.write_swath_polygons(self.my_attributes)
-                #~ my_api.printInfo("")
-                #~ my_api.printInfo("")
+                #~ my_api.printInfo("")                
                 
     def run_postprocessing(self):
         """
