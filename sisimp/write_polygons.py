@@ -402,17 +402,34 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] No roll error applied")
          
     # 4.3 Add tropospheric delay
-    if IN_attributes.tropo_model == 'gaussian':
-        my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Applying wet tropo gaussian model")
-        tropo = Tropo_module(IN_attributes.tropo_model)
-        tropo_error = tropo.calculate_tropo_error_gaussian(az, r, IN_attributes.tropo_error_stdv, IN_attributes.tropo_error_mean, IN_attributes.tropo_error_correlation) 
-        delta_h += tropo_error
-    if IN_attributes.tropo_model == 'map':
-        my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Applying wet tropo map gaussian model")
-        tropo = Tropo_module(IN_attributes.tropo_model)
-        tropo_error = tropo.calculate_tropo_error_map(np.mean(IN_attributes.lat), az, r, IN_attributes.tropo_error_map_file, IN_attributes.tropo_error_correlation)
-        delta_h += tropo_error
+    
+    tropo = Tropo_module(IN_attributes.tropo_model, min(r), max(r), min(az), max(az), \
+    IN_attributes.tropo_error_stdv, IN_attributes.tropo_error_mean, IN_attributes.tropo_error_correlation, \
+    IN_attributes.tropo_error_map_file)
+        
+    if IN_attributes.tropo_map_rg_az is None:
 
+        if tropo.model == 'gaussian':
+            my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Applying wet tropo gaussian model")
+            tropo.calculate_tropo_error_gaussian(IN_attributes.tropo_error_stdv, IN_attributes.tropo_error_mean, IN_attributes.tropo_error_correlation) 
+            tropo.apply_tropo_error_on_pixels(az, r)
+            tropo_2d_field = tropo.tropo_2d_field
+            delta_h += tropo_2d_field
+            
+        if tropo.model == 'map':
+            my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Applying wet tropo map gaussian model")
+            tropo.calculate_tropo_error_map(np.mean(IN_attributes.lat), IN_attributes.tropo_error_map_file, IN_attributes.tropo_error_correlation)
+            tropo.apply_tropo_error_on_pixels(az, r)
+            tropo_2d_field = tropo.tropo_2d_field
+            delta_h += tropo_2d_field
+
+    else :
+        tropo.tropo_map_rg_az = IN_attributes.tropo_map_rg_az
+        tropo.apply_tropo_error_on_pixels(az, r)
+        tropo_2d_field = tropo.tropo_2d_field
+        delta_h += tropo_2d_field        
+   
+    
     # 5.3 - Compute final noisy heights (elevation + thermal noise + roll error + height model) 
     elevation_tab_noisy = elevation_tab + delta_h           
     
@@ -453,7 +470,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] == Dealing with tile number %03d" % IN_attributes.tile_number)
                 
         # Get azimuth indices corresponding to this integer value of latitude
-        nadir_az  = az
+        nadir_az = np.arange(1, len(IN_attributes.alt)-1)
+                    
         az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth indices vector
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
         
@@ -476,12 +494,13 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             
             # General tile reference
             tile_ref = "%03d%s" % (IN_attributes.tile_number, left_or_right)
-            
+
+
             # Init L2_HR_PIXC object
             my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min, sub_r, classification_tab[az_indices], pixel_area[az_indices],
                                                 lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
-                                                IN_attributes.orbit_time[nadir_az], nadir_lat_deg[nadir_az], nadir_lon_deg[nadir_az], nadir_alt[nadir_az], nadir_heading[nadir_az],
-                                                IN_attributes.x[nadir_az], IN_attributes.y[nadir_az], IN_attributes.z[nadir_az], vx[nadir_az], vy[nadir_az], vz[nadir_az], IN_attributes.near_range,
+                                                IN_attributes.orbit_time[1:-1], nadir_lat_deg, nadir_lon_deg, nadir_alt, nadir_heading,
+                                                IN_attributes.x[1:-1], IN_attributes.y[1:-1], IN_attributes.z[1:-1], vx[1:-1], vy[1:-1], vz[1:-1], IN_attributes.near_range,
                                                 IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size, IN_attributes.azimuth_spacing, IN_attributes.range_sampling, IN_attributes.near_range)
             
             # Update filenames with tile ref
@@ -989,7 +1008,6 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
         if count != 0:
             hmean = height_tot/count
             near_range = np.mean(np.sqrt((IN_attributes.alt - hmean + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-            print(hmean, near_range, np.mean(IN_attributes.alt))
 
         else:
             near_range = 0
