@@ -136,9 +136,9 @@ class l2_hr_pixc(object):
         self.nadir_time = IN_nadir_time
         
         self.illumination_time = np.zeros(len(IN_azimuth_index))
-        
         for i in range(self.illumination_time.size):
             self.illumination_time[i] = self.nadir_time[self.sensor_s[i]]
+            
             
         self.nadir_latitude = IN_nadir_latitude
         self.nadir_longitude = IN_nadir_longitude

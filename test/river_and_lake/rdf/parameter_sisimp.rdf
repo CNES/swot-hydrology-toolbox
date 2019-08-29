@@ -42,7 +42,7 @@ Height bias std = 0.
 Noise multiplier factor = 0.5 !1/sqrt(Nl) where Nl is 4
 
 !### Tropo model
-Tropo model  = map
+Tropo model  = None
 Tropo error stdv = 0.03
 Tropo error mean = 0.01
 Tropo error correlation = 5000

@@ -63,7 +63,7 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
     return tile_values, tile_list
 
 
-def crop_orbit(my_attributes, tile_values, tile_number):
+def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
      
         my_new_attributes = deepcopy(my_attributes)
 
@@ -93,6 +93,7 @@ def crop_orbit(my_attributes, tile_values, tile_number):
        
         # Get azimuth indices corresponding to this integer value of latitude
         az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth indices vector
+        az_max = np.sort(nadir_az)[-1]  # Min azimuth index, to remove from tile azimuth indices vector
         my_api.printInfo("[my_tiling] [crop_orbit] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
 
         # Cropping orbit to only simulate tile area
@@ -118,4 +119,11 @@ def crop_orbit(my_attributes, tile_values, tile_number):
         my_new_attributes.sinpsi_init = my_attributes.sinpsi_init[nadir_az]
 
         my_new_attributes.tile_number = tile_number
+        
+        if  tropo_map_rg_az is None:
+            my_api.printInfo("[my_tiling] [crop_orbit] = Tropo field not applied")
+            my_new_attributes.tropo_map_rg_az = None
+        else:
+            my_new_attributes.tropo_map_rg_az = tropo_map_rg_az[az_min:az_max,:]
+
         return my_new_attributes
