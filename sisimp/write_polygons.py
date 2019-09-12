@@ -274,7 +274,12 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # Print number of water pixels
     size_of_tabs = np.count_nonzero(IN_water_pixels) 
     my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Nb water pixels: %d" %(size_of_tabs))
-
+    print(IN_water_pixels.shape)
+    # import matplotlib.pyplot as plt
+    # plt.imshow(IN_water_pixels)
+    # plt.colorbar()
+    # plt.show()
+    # exit()
     # 1 - Get range and azimuth indices of all water pixels
     ind = np.nonzero(IN_water_pixels)  # Get indices 1=lake and 2=river (remove 0=land)
     r, az = [ind[0], ind[1]]  # Range index
@@ -476,12 +481,15 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
         
         # Get pixel indices of water pixels corresponding to this latitude interval
-        az_indices = np.where((az >= min(nadir_az)) & (az <= max(nadir_az)))[0]
+        az_indices = np.where((az >= min(nadir_az+4)) & (az <= max(nadir_az-4)))[0]
         nb_pix = az_indices.size  # Number of water pixels for this latitude interval
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d water pixels" % nb_pix)
         
         if az_indices.size != 0:  # Write water pixels at this latitude
-            
+            print(min(nadir_az), max(nadir_az))
+            print(az)
+            print(az_indices)
+            # exit()
             sub_az, sub_r = [az[az_indices], r[az_indices]]
             
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min r ind = %d - Max r ind = %d" % (np.min(sub_r), np.max(sub_r)))
@@ -497,11 +505,11 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
 
 
             # Init L2_HR_PIXC object
-            my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min, sub_r, classification_tab[az_indices], pixel_area[az_indices],
+            my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min-4, sub_r, classification_tab[az_indices], pixel_area[az_indices],
                                                 lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
                                                 IN_attributes.orbit_time[1:-1], nadir_lat_deg, nadir_lon_deg, nadir_alt, nadir_heading,
                                                 IN_attributes.x[1:-1], IN_attributes.y[1:-1], IN_attributes.z[1:-1], vx[1:-1], vy[1:-1], vz[1:-1], IN_attributes.near_range,
-                                                IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size, IN_attributes.azimuth_spacing, IN_attributes.range_sampling, IN_attributes.near_range)
+                                                IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size-4, IN_attributes.azimuth_spacing, IN_attributes.range_sampling, IN_attributes.near_range)
             
             # Update filenames with tile ref
             IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])
@@ -636,7 +644,8 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
             geom_out = ogr.Geometry(ogr.wkbPolygon)
 
             # 4.2.2 - Compute the zone resulting of the intersection between polygon and swath
-            intersection = geom.Intersection(swath_polygon)
+            intersection = geom
+            # intersection = geom.Intersection(swath_polygon)
             # 4.2.3 - Convert polygons coordinates
             add_ring = False
 
@@ -779,9 +788,7 @@ def make_swath_polygon(IN_swath, IN_attributes):
     n = len(IN_attributes.lon_init) - 4
     az = np.arange(2, n-2 , 1)
     y = ymin * np.ones(len(az))
-    
-    
-    
+
     IN_ri = np.sqrt((IN_attributes.alt[az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2)
     lon1_, lat1_ = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
     lon1, lat1 = math_fct.lonlat_from_azy(az, IN_ri, IN_attributes, IN_swath, h=0, IN_unit="deg")

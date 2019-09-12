@@ -370,7 +370,11 @@ class Processing(object):
             
             
             tile_values, tile_list = tiling.get_tiles_from_orbit(self.my_attributes, elem[1])
-            
+            print(tile_values.shape)
+            print(tile_list)
+            print(np.unique(tile_values, return_counts=True))
+
+
             pre_tiling = True
             if pre_tiling:
                 tropo = tropo_module.Tropo_module(self.my_attributes.tropo_model, 0, self.my_attributes.nb_pix_range, 0, len(tile_values), \
@@ -402,10 +406,10 @@ class Processing(object):
                     my_api.printInfo("[sisimp_processing] %s " % (time.stop()))
                     my_api.printInfo("")
 
-                    # # 5 - Write swath polygons shapefile
-                    #~ sisimp_fct.write_swath_polygons(self.my_new_attributes)
-                    #~ my_api.printInfo("")
-                    #~ my_api.printInfo("")
+                    # 5 - Write swath polygons shapefile
+                    sisimp_fct.write_swath_polygons(self.my_new_attributes)
+                    my_api.printInfo("")
+                    my_api.printInfo("")
 
             else:
                 # 3 - Process right swath

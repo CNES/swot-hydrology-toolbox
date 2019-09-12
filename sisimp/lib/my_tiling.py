@@ -97,9 +97,7 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
         my_api.printInfo("[my_tiling] [crop_orbit] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
 
         # Cropping orbit to only simulate tile area
-        
 
-        
         my_new_attributes.lon  = (my_attributes.lon[nadir_az])
         my_new_attributes.lon_init = (my_attributes.lon[nadir_az])
         
