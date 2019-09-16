@@ -170,7 +170,7 @@ def write_swath_polygons(IN_attributes):
     :type IN_attributes
     """
 
-    IN_attributes.sisimp_filenames.footprint_file = IN_attributes.sisimp_filenames.footprint_file + '_' + str(np.random.random())+ '.shp'
+    IN_attributes.sisimp_filenames.footprint_file = IN_attributes.sisimp_filenames.footprint_file.replace('.shp', '_' + str(IN_attributes.tile_number) + '.shp')
     my_api.printInfo("[sisimp_function] [write_swath_polygons] == write_swath_polygons : %s ==" % IN_attributes.sisimp_filenames.footprint_file)
 
     shpDriver = ogr.GetDriverByName(str("ESRI Shapefile"))

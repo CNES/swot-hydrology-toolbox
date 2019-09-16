@@ -12,6 +12,8 @@ from scipy.spatial import cKDTree
 import lib.my_api as my_api
 from copy import deepcopy
 
+from lib.my_variables import NB_PIX_OVERLAP
+
 def get_tiles_from_orbit(my_attributes, orbit_number):
     
     # Retrieve the tile database (pass_number/tile_number/nadir_lon/nadir_lat/nadir_heading)
@@ -69,20 +71,14 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
 
         my_api.printInfo("[my_tiling] [crop_orbit] == Dealing with tile number %03d" % tile_number)
         nadir_az = np.where(tile_values == tile_number)[0]
-        
-        if min(nadir_az) > 5:
-            nadir_az = np.append(min(nadir_az)-1, nadir_az)
-            nadir_az = np.append(min(nadir_az)-1, nadir_az)
-            nadir_az = np.append(min(nadir_az)-1, nadir_az)
-            nadir_az = np.append(min(nadir_az)-1, nadir_az)
-            nadir_az = np.append(min(nadir_az)-1, nadir_az)
-        if max(nadir_az) < len(my_attributes.orbit_time)-5:
-            nadir_az = np.append(max(nadir_az)+1, nadir_az)
-            nadir_az = np.append(max(nadir_az)+1, nadir_az)
-            nadir_az = np.append(max(nadir_az)+1, nadir_az)
-            nadir_az = np.append(max(nadir_az)+1, nadir_az)
-            nadir_az = np.append(max(nadir_az)+1, nadir_az)
-        nadir_az = np.sort(nadir_az)
+
+    if min(nadir_az) > NB_PIX_OVERLAP:
+        add_nadir = np.arange(min(nadir_az)-1-NB_PIX_OVERLAP, min(nadir_az)-1)
+        nadir_az = np.concatenate((nadir_az, add_nadir))
+
+    if max(nadir_az) < len(my_attributes.orbit_time)-NB_PIX_OVERLAP:
+        add_nadir = np.arange(max(nadir_az)+1, max(nadir_az)+1+NB_PIX_OVERLAP)
+        nadir_az = np.concatenate((nadir_az, add_nadir))
 
             
         my_new_attributes.orbit_time = (my_attributes.orbit_time[nadir_az])
@@ -97,7 +93,9 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
         my_api.printInfo("[my_tiling] [crop_orbit] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
 
         # Cropping orbit to only simulate tile area
+        
 
+        
         my_new_attributes.lon  = (my_attributes.lon[nadir_az])
         my_new_attributes.lon_init = (my_attributes.lon[nadir_az])
         
@@ -124,4 +122,4 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
         else:
             my_new_attributes.tropo_map_rg_az = tropo_map_rg_az[az_min:az_max,:]
 
-        return my_new_attributes
+    return my_new_attributes

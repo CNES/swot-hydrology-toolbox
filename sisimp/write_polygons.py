@@ -36,7 +36,7 @@ import mathematical_function as math_fct
 import proc_real_pixc
 import proc_real_pixc_vec_river
 
-
+from lib.my_variables import NB_PIX_OVERLAP
 class orbitAttributes:
     
     def __init__(self):
@@ -481,15 +481,12 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
         
         # Get pixel indices of water pixels corresponding to this latitude interval
-        az_indices = np.where((az >= min(nadir_az+4)) & (az <= max(nadir_az-4)))[0]
+        az_indices = np.where((az >= min(nadir_az) + NB_PIX_OVERLAP -1 ) & (az <= max(nadir_az) - NB_PIX_OVERLAP +1 ))[0]
         nb_pix = az_indices.size  # Number of water pixels for this latitude interval
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d water pixels" % nb_pix)
         
         if az_indices.size != 0:  # Write water pixels at this latitude
-            print(min(nadir_az), max(nadir_az))
-            print(az)
-            print(az_indices)
-            # exit()
+            
             sub_az, sub_r = [az[az_indices], r[az_indices]]
             
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min r ind = %d - Max r ind = %d" % (np.min(sub_r), np.max(sub_r)))
@@ -505,11 +502,11 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
 
 
             # Init L2_HR_PIXC object
-            my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min-4, sub_r, classification_tab[az_indices], pixel_area[az_indices],
+            my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min - NB_PIX_OVERLAP+1, sub_r, classification_tab[az_indices], pixel_area[az_indices],
                                                 lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
                                                 IN_attributes.orbit_time[1:-1], nadir_lat_deg, nadir_lon_deg, nadir_alt, nadir_heading,
                                                 IN_attributes.x[1:-1], IN_attributes.y[1:-1], IN_attributes.z[1:-1], vx[1:-1], vy[1:-1], vz[1:-1], IN_attributes.near_range,
-                                                IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size-4, IN_attributes.azimuth_spacing, IN_attributes.range_sampling, IN_attributes.near_range)
+                                                IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size - 2*NB_PIX_OVERLAP+2, IN_attributes.azimuth_spacing, IN_attributes.range_sampling, IN_attributes.near_range)
             
             # Update filenames with tile ref
             IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])
