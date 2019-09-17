@@ -274,7 +274,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # Print number of water pixels
     size_of_tabs = np.count_nonzero(IN_water_pixels) 
     my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Nb water pixels: %d" %(size_of_tabs))
-    print(IN_water_pixels.shape)
     # import matplotlib.pyplot as plt
     # plt.imshow(IN_water_pixels)
     # plt.colorbar()
@@ -500,13 +499,37 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             # General tile reference
             tile_ref = "%03d%s" % (IN_attributes.tile_number, left_or_right)
 
+            # print(nadir_az.size - 2*NB_PIX_OVERLAP+2)
+            # print(IN_attributes.orbit_time[1:-1].size)
+            # print(nadir_lat_deg.size)
+            # exit()
+
+            # NB_PIX_OVERLAP = 1
+
+            tile_orbit_time = IN_attributes.orbit_time[NB_PIX_OVERLAP:-NB_PIX_OVERLAP]
+            tile_nadir_lat_deg = nadir_lat_deg[NB_PIX_OVERLAP-1:-NB_PIX_OVERLAP+1]
+            tile_nadir_lon_deg = nadir_lon_deg[NB_PIX_OVERLAP-1:-NB_PIX_OVERLAP+1]
+            tile_nadir_alt = nadir_alt[NB_PIX_OVERLAP-1:-NB_PIX_OVERLAP+1]
+            tile_nadir_heading = nadir_heading[NB_PIX_OVERLAP-1:-NB_PIX_OVERLAP+1]
+
+            tile_x = IN_attributes.x[NB_PIX_OVERLAP:-NB_PIX_OVERLAP]
+            tile_y = IN_attributes.y[NB_PIX_OVERLAP:-NB_PIX_OVERLAP]
+            tile_z = IN_attributes.z[NB_PIX_OVERLAP:-NB_PIX_OVERLAP]
+            tile_vx = vx[NB_PIX_OVERLAP:-NB_PIX_OVERLAP]
+            tile_vy = vy[NB_PIX_OVERLAP:-NB_PIX_OVERLAP]
+            tile_vz = vz[NB_PIX_OVERLAP:-NB_PIX_OVERLAP]
+
+            nadir_az_size = nadir_az.size - 2 * NB_PIX_OVERLAP + 2
+
 
             # Init L2_HR_PIXC object
             my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min - NB_PIX_OVERLAP+1, sub_r, classification_tab[az_indices], pixel_area[az_indices],
                                                 lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
-                                                IN_attributes.orbit_time[1:-1], nadir_lat_deg, nadir_lon_deg, nadir_alt, nadir_heading,
-                                                IN_attributes.x[1:-1], IN_attributes.y[1:-1], IN_attributes.z[1:-1], vx[1:-1], vy[1:-1], vz[1:-1], IN_attributes.near_range,
-                                                IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size - 2*NB_PIX_OVERLAP+2, IN_attributes.azimuth_spacing, IN_attributes.range_sampling, IN_attributes.near_range)
+                                                tile_orbit_time, tile_nadir_lat_deg, tile_nadir_lon_deg, tile_nadir_alt, tile_nadir_heading,
+                                                tile_x, tile_y, tile_z, tile_vx, tile_vy, tile_vz,
+                                                IN_attributes.near_range, IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number,
+                                                IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az_size, IN_attributes.azimuth_spacing,
+                                                IN_attributes.range_sampling, IN_attributes.near_range)
             
             # Update filenames with tile ref
             IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])

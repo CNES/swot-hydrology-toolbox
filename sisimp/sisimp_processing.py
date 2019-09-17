@@ -379,6 +379,7 @@ class Processing(object):
                 tropo.generate_tropo_field_over_pass(min(self.my_attributes.lat))
                     
                 for tile_number in tile_list:
+
                     time = my_timer.Timer()
                     time.start()
                     my_api.printInfo("========================================================")
