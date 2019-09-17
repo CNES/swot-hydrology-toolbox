@@ -12,7 +12,6 @@ from scipy.spatial import cKDTree
 import lib.my_api as my_api
 from copy import deepcopy
 
-from lib.my_variables import NB_PIX_OVERLAP
 
 def get_tiles_from_orbit(my_attributes, orbit_number):
     
