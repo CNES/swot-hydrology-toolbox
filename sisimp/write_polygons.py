@@ -36,7 +36,6 @@ import mathematical_function as math_fct
 import proc_real_pixc
 import proc_real_pixc_vec_river
 
-from lib.my_variables import NB_PIX_OVERLAP
 class orbitAttributes:
     
     def __init__(self):
@@ -132,7 +131,11 @@ class orbitAttributes:
 
         # 4 - List of each water body
         self.liste_lacs = None
-                
+
+        # number of pixels overlapping top and bottom tile in tilling process
+        self.nb_pix_overlap_begin = 0
+        self.nb_pix_overlap_end = 0
+
 
 #######################################
         
@@ -478,9 +481,13 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                     
         az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth indices vector
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
-        
+
+        # Get overlapping pixels du to tilling process
+        nb_pix_overlap_begin = IN_attributes.nb_pix_overlap_begin
+        nb_pix_overlap_end = IN_attributes.nb_pix_overlap_end
+
         # Get pixel indices of water pixels corresponding to this latitude interval
-        az_indices = np.where((az >= min(nadir_az) + NB_PIX_OVERLAP -1 ) & (az <= max(nadir_az) - NB_PIX_OVERLAP +1 ))[0]
+        az_indices = np.where((az >= min(nadir_az) + nb_pix_overlap_begin -1 ) & (az <= max(nadir_az) - nb_pix_overlap_end +1 ))[0]
         nb_pix = az_indices.size  # Number of water pixels for this latitude interval
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d water pixels" % nb_pix)
         
@@ -499,31 +506,23 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             # General tile reference
             tile_ref = "%03d%s" % (IN_attributes.tile_number, left_or_right)
 
-            # print(nadir_az.size - 2*NB_PIX_OVERLAP+2)
-            # print(IN_attributes.orbit_time[1:-1].size)
-            # print(nadir_lat_deg.size)
-            # exit()
+            tile_orbit_time = IN_attributes.orbit_time[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_nadir_lat_deg = nadir_lat_deg[nb_pix_overlap_begin-1:-nb_pix_overlap_end+1]
+            tile_nadir_lon_deg = nadir_lon_deg[nb_pix_overlap_begin-1:-nb_pix_overlap_end+1]
+            tile_nadir_alt = nadir_alt[nb_pix_overlap_begin-1:-nb_pix_overlap_end+1]
+            tile_nadir_heading = nadir_heading[nb_pix_overlap_begin-1:-nb_pix_overlap_end+1]
 
-            # NB_PIX_OVERLAP = 1
+            tile_x = IN_attributes.x[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_y = IN_attributes.y[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_z = IN_attributes.z[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_vx = vx[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_vy = vy[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_vz = vz[nb_pix_overlap_begin:-nb_pix_overlap_end]
 
-            tile_orbit_time = IN_attributes.orbit_time[NB_PIX_OVERLAP:-NB_PIX_OVERLAP]
-            tile_nadir_lat_deg = nadir_lat_deg[NB_PIX_OVERLAP-1:-NB_PIX_OVERLAP+1]
-            tile_nadir_lon_deg = nadir_lon_deg[NB_PIX_OVERLAP-1:-NB_PIX_OVERLAP+1]
-            tile_nadir_alt = nadir_alt[NB_PIX_OVERLAP-1:-NB_PIX_OVERLAP+1]
-            tile_nadir_heading = nadir_heading[NB_PIX_OVERLAP-1:-NB_PIX_OVERLAP+1]
-
-            tile_x = IN_attributes.x[NB_PIX_OVERLAP:-NB_PIX_OVERLAP]
-            tile_y = IN_attributes.y[NB_PIX_OVERLAP:-NB_PIX_OVERLAP]
-            tile_z = IN_attributes.z[NB_PIX_OVERLAP:-NB_PIX_OVERLAP]
-            tile_vx = vx[NB_PIX_OVERLAP:-NB_PIX_OVERLAP]
-            tile_vy = vy[NB_PIX_OVERLAP:-NB_PIX_OVERLAP]
-            tile_vz = vz[NB_PIX_OVERLAP:-NB_PIX_OVERLAP]
-
-            nadir_az_size = nadir_az.size - 2 * NB_PIX_OVERLAP + 2
-
+            nadir_az_size = nadir_az.size - nb_pix_overlap_begin - nb_pix_overlap_end + 2
 
             # Init L2_HR_PIXC object
-            my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min - NB_PIX_OVERLAP+1, sub_r, classification_tab[az_indices], pixel_area[az_indices],
+            my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min - nb_pix_overlap_begin+1, sub_r, classification_tab[az_indices], pixel_area[az_indices],
                                                 lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
                                                 tile_orbit_time, tile_nadir_lat_deg, tile_nadir_lon_deg, tile_nadir_alt, tile_nadir_heading,
                                                 tile_x, tile_y, tile_z, tile_vx, tile_vy, tile_vz,
@@ -664,8 +663,8 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
             geom_out = ogr.Geometry(ogr.wkbPolygon)
 
             # 4.2.2 - Compute the zone resulting of the intersection between polygon and swath
-            intersection = geom
-            # intersection = geom.Intersection(swath_polygon)
+            # intersection = geom
+            intersection = geom.Intersection(swath_polygon.Buffer(0.1))
             # 4.2.3 - Convert polygons coordinates
             add_ring = False
 
