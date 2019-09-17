@@ -67,10 +67,10 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
 
 def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
      
-        my_new_attributes = deepcopy(my_attributes)
+    my_new_attributes = deepcopy(my_attributes)
 
-        my_api.printInfo("[my_tiling] [crop_orbit] == Dealing with tile number %03d" % tile_number)
-        nadir_az = np.where(tile_values == tile_number)[0]
+    my_api.printInfo("[my_tiling] [crop_orbit] == Dealing with tile number %03d" % tile_number)
+    nadir_az = np.where(tile_values == tile_number)[0]
 
     if min(nadir_az) > NB_PIX_OVERLAP:
         add_nadir = np.arange(min(nadir_az)-1-NB_PIX_OVERLAP, min(nadir_az)-1)
@@ -80,46 +80,47 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
         add_nadir = np.arange(max(nadir_az)+1, max(nadir_az)+1+NB_PIX_OVERLAP)
         nadir_az = np.concatenate((nadir_az, add_nadir))
 
+    nadir_az = np.sort(nadir_az)
             
-        my_new_attributes.orbit_time = (my_attributes.orbit_time[nadir_az])
-        my_new_attributes.x = my_attributes.x[nadir_az]
-        my_new_attributes.y = my_attributes.y[nadir_az]
-        my_new_attributes.z = my_attributes.z[nadir_az]
+    my_new_attributes.orbit_time = (my_attributes.orbit_time[nadir_az])
+    my_new_attributes.x = my_attributes.x[nadir_az]
+    my_new_attributes.y = my_attributes.y[nadir_az]
+    my_new_attributes.z = my_attributes.z[nadir_az]
 
-       
-        # Get azimuth indices corresponding to this integer value of latitude
-        az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth indices vector
-        az_max = np.sort(nadir_az)[-1]  # Min azimuth index, to remove from tile azimuth indices vector
-        my_api.printInfo("[my_tiling] [crop_orbit] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
 
-        # Cropping orbit to only simulate tile area
-        
+    # Get azimuth indices corresponding to this integer value of latitude
+    az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth indices vector
+    az_max = np.sort(nadir_az)[-1]  # Min azimuth index, to remove from tile azimuth indices vector
+    my_api.printInfo("[my_tiling] [crop_orbit] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
 
-        
-        my_new_attributes.lon  = (my_attributes.lon[nadir_az])
-        my_new_attributes.lon_init = (my_attributes.lon[nadir_az])
-        
-        my_new_attributes.lat = (my_attributes.lat[nadir_az])
-        my_new_attributes.lat_init = (my_new_attributes.lat_init[nadir_az])
-        
-        my_new_attributes.heading = (my_attributes.heading[nadir_az])
-        my_new_attributes.heading_init = (my_attributes.heading[nadir_az])
-        
-        my_new_attributes.alt = (my_attributes.alt[nadir_az])
-     
-        my_new_attributes.cosphi_init = my_attributes.cosphi_init[nadir_az]
-        my_new_attributes.sinphi_init = my_attributes.sinphi_init[nadir_az]
-        my_new_attributes.costheta_init = my_attributes.costheta_init[nadir_az]
-        my_new_attributes.sintheta_init = my_attributes.sintheta_init[nadir_az]
-        my_new_attributes.cospsi_init = my_attributes.cospsi_init[nadir_az]
-        my_new_attributes.sinpsi_init = my_attributes.sinpsi_init[nadir_az]
+    # Cropping orbit to only simulate tile area
 
-        my_new_attributes.tile_number = tile_number
-        
-        if  tropo_map_rg_az is None:
-            my_api.printInfo("[my_tiling] [crop_orbit] = Tropo field not applied")
-            my_new_attributes.tropo_map_rg_az = None
-        else:
-            my_new_attributes.tropo_map_rg_az = tropo_map_rg_az[az_min:az_max,:]
+
+
+    my_new_attributes.lon  = (my_attributes.lon[nadir_az])
+    my_new_attributes.lon_init = (my_attributes.lon[nadir_az])
+
+    my_new_attributes.lat = (my_attributes.lat[nadir_az])
+    my_new_attributes.lat_init = (my_new_attributes.lat_init[nadir_az])
+
+    my_new_attributes.heading = (my_attributes.heading[nadir_az])
+    my_new_attributes.heading_init = (my_attributes.heading[nadir_az])
+
+    my_new_attributes.alt = (my_attributes.alt[nadir_az])
+
+    my_new_attributes.cosphi_init = my_attributes.cosphi_init[nadir_az]
+    my_new_attributes.sinphi_init = my_attributes.sinphi_init[nadir_az]
+    my_new_attributes.costheta_init = my_attributes.costheta_init[nadir_az]
+    my_new_attributes.sintheta_init = my_attributes.sintheta_init[nadir_az]
+    my_new_attributes.cospsi_init = my_attributes.cospsi_init[nadir_az]
+    my_new_attributes.sinpsi_init = my_attributes.sinpsi_init[nadir_az]
+
+    my_new_attributes.tile_number = tile_number
+
+    if  tropo_map_rg_az is None:
+        my_api.printInfo("[my_tiling] [crop_orbit] = Tropo field not applied")
+        my_new_attributes.tropo_map_rg_az = None
+    else:
+        my_new_attributes.tropo_map_rg_az = tropo_map_rg_az[az_min:az_max,:]
 
     return my_new_attributes
