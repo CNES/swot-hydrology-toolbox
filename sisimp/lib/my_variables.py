@@ -101,7 +101,3 @@ PATTERN_FOOTPRINT = "footprint_%03d_%03d.shp"  # Footprint filename with %03d=cy
 PATTERN_PIXC = "SWOT_L2_HR_PIXC_%03d_%03d_%s_%s_%s_Dx0000_01"  # Pixel cloud filename with %03d=cycle number %03d=pass number %s=tile ref %s=begin date %s=end date
 PATTERN_FILE_ANNOT = "pixc_annotation_%03d_%03d_%s.rdf"  # PixC annotation filename with %03d=cycle number %03d=pass number %s=tile ref
 PATTERN_PIXC_VEC_RIVER = "SWOT_L2_HR_PIXCVecRiver_%03d_%03d_%s_%s_%s_Dx0000_01"  # PIXCVecRiver filename with %03d=cycle number %03d=pass number %s=tile ref %s=begin date %s=end date
-
-
-# Tilling process
-NB_PIX_OVERLAP = 50

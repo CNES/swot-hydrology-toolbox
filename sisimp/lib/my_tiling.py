@@ -66,22 +66,36 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
 
 
 def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
-     
+
     my_new_attributes = deepcopy(my_attributes)
 
     my_api.printInfo("[my_tiling] [crop_orbit] == Dealing with tile number %03d" % tile_number)
     nadir_az = np.where(tile_values == tile_number)[0]
 
-    if min(nadir_az) > NB_PIX_OVERLAP:
-        add_nadir = np.arange(min(nadir_az)-1-NB_PIX_OVERLAP, min(nadir_az)-1)
+    nb_pix_overlap_begin = 50
+    nb_pix_overlap_end = 50
+
+    if min(nadir_az) > nb_pix_overlap_begin:
+        add_nadir = np.arange(min(nadir_az)-1-nb_pix_overlap_begin, min(nadir_az)-1)
+        nadir_az = np.concatenate((nadir_az, add_nadir))
+    else :
+        nb_pix_overlap_begin = min(nadir_az)
+        add_nadir = np.arange(0, min(nadir_az) - 1)
         nadir_az = np.concatenate((nadir_az, add_nadir))
 
-    if max(nadir_az) < len(my_attributes.orbit_time)-NB_PIX_OVERLAP:
-        add_nadir = np.arange(max(nadir_az)+1, max(nadir_az)+1+NB_PIX_OVERLAP)
+    if max(nadir_az) < len(my_attributes.orbit_time)-nb_pix_overlap_end:
+        add_nadir = np.arange(max(nadir_az)+1, max(nadir_az)+1+nb_pix_overlap_end)
+        nadir_az = np.concatenate((nadir_az, add_nadir))
+    else :
+        nb_pix_overlap_end = len(my_attributes.orbit_time) - max(nadir_az) -1
+        add_nadir = np.arange(max(nadir_az)+1, max(nadir_az)+1+nb_pix_overlap_end)
         nadir_az = np.concatenate((nadir_az, add_nadir))
 
     nadir_az = np.sort(nadir_az)
-            
+
+    my_new_attributes.nb_pix_overlap_begin = nb_pix_overlap_begin
+    my_new_attributes.nb_pix_overlap_end = nb_pix_overlap_end
+
     my_new_attributes.orbit_time = (my_attributes.orbit_time[nadir_az])
     my_new_attributes.x = my_attributes.x[nadir_az]
     my_new_attributes.y = my_attributes.y[nadir_az]
