@@ -277,11 +277,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # Print number of water pixels
     size_of_tabs = np.count_nonzero(IN_water_pixels) 
     my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Nb water pixels: %d" %(size_of_tabs))
-    # import matplotlib.pyplot as plt
-    # plt.imshow(IN_water_pixels)
-    # plt.colorbar()
-    # plt.show()
-    # exit()
+
     # 1 - Get range and azimuth indices of all water pixels
     ind = np.nonzero(IN_water_pixels)  # Get indices 1=lake and 2=river (remove 0=land)
     r, az = [ind[0], ind[1]]  # Range index
