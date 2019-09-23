@@ -8,7 +8,6 @@ This file is part of the SWOT Hydrology Toolbox
 import argparse
 import glob
 import os
-import subprocess
 
 import tools.my_filenames as my_names
 import tools.my_rdf as my_rdf
