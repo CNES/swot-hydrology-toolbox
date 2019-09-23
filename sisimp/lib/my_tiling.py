@@ -25,15 +25,25 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
         tmp_orbit_number += 584
     tile_db_orbit = tile_db[np.where(tile_db[:, 0] == tmp_orbit_number)[0], :]
     # Compute the indices of nadir_lat_min and nadir_lat_max
-    
+
+    # 2 point are add in read_orbit function. tilling process is computed with those points
     nadir_lat_argmin = int(np.argmin(my_attributes.lat*RAD2DEG))
     nadir_lat_argmax = int(np.argmax(my_attributes.lat*RAD2DEG))
     # Get long and lat in degrees, associated to nadir_min_lat
     nadir_lat_deg_min = my_attributes.lat[nadir_lat_argmin]*RAD2DEG
     nadir_lon_deg_min = my_attributes.lon[nadir_lat_argmin]*RAD2DEG
+
     # Get long and lat in degrees, associated to nadir_max_lat
     nadir_lat_deg_max = my_attributes.lat[nadir_lat_argmax]*RAD2DEG
     nadir_lon_deg_max = my_attributes.lon[nadir_lat_argmax]*RAD2DEG
+
+    # print(nadir_lat_deg_max, nadir_lon_deg_max)
+    # import matplotlib.pyplot as plt
+    # plt.plot(my_attributes.lon, my_attributes.lat, '*')
+    # plt.show()
+    # exit()
+
+
     
     # Construct the kd-tree for quick nearest-neighbor lookup        
     tree = cKDTree(tile_db_orbit[:, 2:4])
@@ -50,15 +60,34 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
         vect_lat_lon_db_cropped[i,1] = tile_db_orbit_cropped[i+1, 3]-tile_db_orbit_cropped[i, 3]
         nb_az_traj = max(nadir_lat_argmax, nadir_lat_argmin)- min(nadir_lat_argmax, nadir_lat_argmin) + 1
         tile_values = np.zeros(nb_az_traj, int)
-    for i in range(min(nadir_lat_argmax, nadir_lat_argmin), max(nadir_lat_argmax, nadir_lat_argmin)+1):
+    # print(min(nadir_lat_argmax, nadir_lat_argmin))
+    # print(max(nadir_lat_argmax, nadir_lat_argmin)+1)
+    for i in range(min(nadir_lat_argmax, nadir_lat_argmin)-1, max(nadir_lat_argmax, nadir_lat_argmin)+1):
         dist = np.abs(((my_attributes.lat[i]*RAD2DEG-tile_db_orbit_cropped[:-1, 2])*vect_lat_lon_db_cropped[:, 0] + (my_attributes.lon[i]*RAD2DEG-tile_db_orbit_cropped[:-1, 3])*vect_lat_lon_db_cropped[:, 1])/np.sqrt(vect_lat_lon_db_cropped[:, 0]**2+vect_lat_lon_db_cropped[:, 1]**2))
         tile_values[i] = tile_db_orbit_cropped[np.argmin(dist),1]
-    
-    tile_values = tile_values[1:-1]
+
+    # print(tile_values.size)
+    # print(tile_values[1:-1].size)
+
     ## If you want only one tile (for some tests)
+    # tile_values
    
-    tile_list = np.unique(tile_values)
-        
+    tile_list, counts = np.unique(tile_values, return_counts=True)
+    # print(tile_values)
+    # print(tile_list, counts)
+    nadir_az1 = np.where(tile_values == tile_list[0])[0]
+    nadir_az2 = np.where(tile_values == tile_list[1])[0]
+
+    import matplotlib.pyplot as plt
+    plt.plot(my_attributes.lon, my_attributes.lat*RAD2DEG, '*')
+    plt.show()
+    # exit()
+    plt.plot(my_attributes.lon[nadir_az1], my_attributes.lat[nadir_az1]*RAD2DEG, 'r*')
+    plt.plot(my_attributes.lon[nadir_az2], my_attributes.lat[nadir_az2]*RAD2DEG, 'b*')
+    plt.show()
+    # exit()
+
+
     my_api.printInfo("[my_tiling] [get_tiles_from_orbit] Simulation over tiles number: %s" % str(tile_list))
     
     return tile_values, tile_list
@@ -70,10 +99,11 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
 
     my_api.printInfo("[my_tiling] [crop_orbit] == Dealing with tile number %03d" % tile_number)
     nadir_az = np.where(tile_values == tile_number)[0]
+    my_api.printInfo("[my_tiling] [crop_orbit] nadir az contains %d pixels with %d and %d min and max value " %(nadir_az.size, min(nadir_az), max(nadir_az)))
 
     nb_pix_overlap_begin = 50
     nb_pix_overlap_end = 50
-
+    print(nadir_az)
     if min(nadir_az) > nb_pix_overlap_begin:
         add_nadir = np.arange(min(nadir_az)-1-nb_pix_overlap_begin, min(nadir_az)-1)
         nadir_az = np.concatenate((nadir_az, add_nadir))
@@ -81,24 +111,24 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
         nb_pix_overlap_begin = min(nadir_az)
         add_nadir = np.arange(0, min(nadir_az) - 1)
         nadir_az = np.concatenate((nadir_az, add_nadir))
+    nadir_az = np.sort(nadir_az)
 
     if max(nadir_az) < len(my_attributes.orbit_time)-nb_pix_overlap_end:
         add_nadir = np.arange(max(nadir_az)+1, max(nadir_az)+1+nb_pix_overlap_end)
         nadir_az = np.concatenate((nadir_az, add_nadir))
     else :
-        nb_pix_overlap_end = len(my_attributes.orbit_time) - max(nadir_az) -1
-        add_nadir = np.arange(max(nadir_az)+1, max(nadir_az)+1+nb_pix_overlap_end)
+        nb_pix_overlap_end = len(my_attributes.orbit_time) - max(nadir_az)
+
+        add_nadir = np.arange(max(nadir_az)+1, max(nadir_az)+1+ nb_pix_overlap_end)
+        print(add_nadir)
         nadir_az = np.concatenate((nadir_az, add_nadir))
+    my_api.printInfo("[my_tiling] [crop_orbit] nadir az contains %d pixels " % nadir_az.size)
+    my_api.printInfo("[my_tiling] [crop_orbit] Tile contains %d and %d of overlaping azimuth pixel in the begining and the end of the tile" %(nb_pix_overlap_begin, nb_pix_overlap_end))
 
     nadir_az = np.sort(nadir_az)
 
     my_new_attributes.nb_pix_overlap_begin = nb_pix_overlap_begin
     my_new_attributes.nb_pix_overlap_end = nb_pix_overlap_end
-
-    my_new_attributes.orbit_time = (my_attributes.orbit_time[nadir_az])
-    my_new_attributes.x = my_attributes.x[nadir_az]
-    my_new_attributes.y = my_attributes.y[nadir_az]
-    my_new_attributes.z = my_attributes.z[nadir_az]
 
 
     # Get azimuth indices corresponding to this integer value of latitude
@@ -115,6 +145,10 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
 
     my_new_attributes.lat = (my_attributes.lat[nadir_az])
     my_new_attributes.lat_init = (my_new_attributes.lat_init[nadir_az])
+
+    import matplotlib.pyplot as plt
+    plt.plot(my_new_attributes.lon, my_new_attributes.lat*RAD2DEG, '*')
+    plt.show()
 
     my_new_attributes.heading = (my_attributes.heading[nadir_az])
     my_new_attributes.heading_init = (my_attributes.heading[nadir_az])
@@ -135,5 +169,11 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
         my_new_attributes.tropo_map_rg_az = None
     else:
         my_new_attributes.tropo_map_rg_az = tropo_map_rg_az[az_min:az_max,:]
+
+    # In read_orbit, 2 points that do not exists have been added
+    my_new_attributes.orbit_time = (my_attributes.orbit_time[nadir_az])
+    my_new_attributes.x = my_attributes.x[nadir_az]
+    my_new_attributes.y = my_attributes.y[nadir_az]
+    my_new_attributes.z = my_attributes.z[nadir_az]
 
     return my_new_attributes

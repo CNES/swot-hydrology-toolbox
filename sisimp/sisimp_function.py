@@ -58,9 +58,13 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     elif "mission start time" in ds.ncattrs():
         OUT_attributes.mission_start_time = ds.getncattr('mission start time')  # Mission start time
     OUT_attributes.cycle_duration = ds.getncattr('repeat_cycle_period')
+    OUT_attributes.azimuth_spacing = ds.getncattr('azimuth_spacing')
+
     OUT_attributes.orbit_time = np.array(ds.variables['time']) + (IN_cycle_number-1)*OUT_attributes.cycle_duration
-    
-    OUT_attributes.x, OUT_attributes.y, OUT_attributes.z, OUT_attributes.azimuth_spacing = [np.array(ds.variables['x']), np.array(ds.variables['y']), np.array(ds.variables['z']), ds.getncattr('azimuth_spacing')]
+    OUT_attributes.x = np.array(ds.variables['x'])
+    OUT_attributes.y = np.array(ds.variables['y'])
+    OUT_attributes.z = np.array(ds.variables['z'])
+
     my_api.printDebug("[sisimp_function] [read_orbit] Nb points on nadir track = %d" % (len(OUT_attributes.orbit_time)))
 
     # Add 2 points margin to avoid problems in azr_from_lonlat (interpolation)
@@ -103,7 +107,7 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     OUT_attributes.sintheta_init = np.sin(np.pi/2-lat)
     OUT_attributes.cospsi_init = np.cos(heading)
     OUT_attributes.sinpsi_init = np.sin(heading)
-    
+
     return OUT_attributes
                 
 
@@ -191,9 +195,18 @@ def write_swath_polygons(IN_attributes):
 
     layerDefn = layer.GetLayerDefn()
 
-    for swath in ['Right', 'Left']:
+    print(IN_attributes.tile_coords)
+
+    for swath, tile_coords in IN_attributes.tile_coords.items():
         feature = ogr.Feature(layerDefn)
-        geom = IN_attributes.swath_polygons[swath]
+        geom = ogr.Geometry(ogr.wkbPolygon)
+        ring = ogr.Geometry(ogr.wkbLinearRing)
+
+        for point in tile_coords:
+            ring.AddPoint(point[0], point[1])
+        ring.CloseRings()
+        geom.AddGeometry(ring)
+        geom = geom.ConvexHull()
 
         feature.SetField(str("Swath"), str(swath))
         feature.SetGeometry(geom)
