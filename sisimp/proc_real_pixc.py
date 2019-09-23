@@ -56,7 +56,7 @@ class l2_hr_pixc(object):
 
     def __init__(self, IN_azimuth_index, IN_range_index, IN_classification, IN_pixel_area, IN_latitude, IN_longitude, IN_height, IN_crosstrack,
                  IN_nadir_time, IN_nadir_latitude, IN_nadir_longitude, IN_nadir_altitude, IN_nadir_heading, IN_nadir_x, IN_nadir_y, IN_nadir_z, IN_nadir_vx, IN_nadir_vy, IN_nadir_vz, IN_nadir_near_range,
-                 IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_nb_pix_range, IN_nb_pix_azimuth, IN_azimuth_spacing, IN_range_spacing, IN_near_range):
+                 IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_nb_pix_range, IN_nb_pix_azimuth, IN_azimuth_spacing, IN_range_spacing, IN_near_range, IN_tile_coords):
         """
         Constructor of the pixel cloud product
 
@@ -114,13 +114,15 @@ class l2_hr_pixc(object):
         :type IN_range_spacing: float
         :param IN_near_range: range distance at the near range
         :type IN_near_range: float
+        :param IN_tile_coords: tile coordinates (inner_first, inner_last, outer_first, outer_last), inner_first=(lon, lat)
+        :type IN_tile_coords: tuple of tuple of float
             
         + nb_water_pix(int) : number of water pixels, i.e. pixels in azimuth_index, ..., crosstrack vectors
         + nb_nadir_pix(int) : number of pixels on the nadir track, i.e. pixels in time, ..., near_range vectors
         + pattern(str): filename pattern
         """
-        my_api.printInfo("[proc_real_pixc] == INIT ==") 
-        
+        my_api.printInfo("[proc_real_pixc] == INIT ==")
+
         self.azimuth_index = IN_azimuth_index
         self.range_index = IN_range_index
         self.classification = IN_classification
@@ -130,16 +132,16 @@ class l2_hr_pixc(object):
         self.height = IN_height
         self.crosstrack = IN_crosstrack
         self.nb_water_pix = IN_azimuth_index.size
-        
+
         # Modification to have sensor_s (sensor azimuth position for each pixel) to be compatible with HR simulator. It is a duplication of azimuth_index in the large scale simulator
         self.sensor_s = IN_azimuth_index
         self.nadir_time = IN_nadir_time
-        
+
         self.illumination_time = np.zeros(len(IN_azimuth_index))
+
         for i in range(self.illumination_time.size):
             self.illumination_time[i] = self.nadir_time[self.sensor_s[i]]
-            
-            
+
         self.nadir_latitude = IN_nadir_latitude
         self.nadir_longitude = IN_nadir_longitude
         self.nadir_altitude = IN_nadir_altitude
@@ -152,7 +154,7 @@ class l2_hr_pixc(object):
         self.nadir_vz = IN_nadir_vz
         self.nadir_near_range = IN_nadir_near_range
         self.nb_nadir_pix = IN_nadir_time.size
-        
+
         self.mission_start_time = IN_mission_start_time
         self.cycle_duration = IN_cycle_duration
         self.cycle_num = IN_cycle_num
@@ -162,7 +164,14 @@ class l2_hr_pixc(object):
         self.nb_pix_azimuth = IN_nb_pix_azimuth
         self.azimuth_spacing = IN_azimuth_spacing
         self.range_spacing = IN_range_spacing
-        self.near_range = IN_near_range 
+        self.near_range = IN_near_range
+
+        (inner_first, inner_last, outer_first, outer_last) = IN_tile_coords
+        self.inner_first = inner_first
+        self.inner_last = inner_last
+        self.outer_first = outer_first
+        self.outer_last = outer_last
+
     
     #----------------------------------
 
@@ -203,14 +212,14 @@ class l2_hr_pixc(object):
         data.add_global_attribute('polarization', 'None')         
         data.add_global_attribute('transmit_antenna', 'None')
         data.add_global_attribute('processing_beamwidth', 'None')
-        data.add_global_attribute("inner_first_latitude", self.latitude[np.argmin(self.latitude)])  # TODO: improve
-        data.add_global_attribute("inner_first_longitude", self.longitude[np.argmin(self.longitude)])  # TODO: improve
-        data.add_global_attribute("inner_last_latitude", self.latitude[np.argmax(self.latitude)])  # TODO: improve
-        data.add_global_attribute("inner_last_longitude", self.longitude[np.argmin(self.longitude)])  # TODO: improve
-        data.add_global_attribute("outer_first_latitude", self.latitude[np.argmin(self.latitude)])  # TODO: improve
-        data.add_global_attribute("outer_first_longitude", self.longitude[np.argmax(self.longitude)])  # TODO: improve
-        data.add_global_attribute("outer_last_latitude", self.latitude[np.argmax(self.latitude)])  # TODO: improve
-        data.add_global_attribute("outer_last_longitude", self.longitude[np.argmax(self.longitude)])  # TODO: improve
+        data.add_global_attribute("inner_first_longitude", self.inner_first[0])
+        data.add_global_attribute("inner_first_latitude", self.inner_first[1])
+        data.add_global_attribute("inner_last_longitude", self.inner_last[0])
+        data.add_global_attribute("inner_last_latitude", self.inner_last[1])
+        data.add_global_attribute("outer_first_longitude", self.outer_first[0])
+        data.add_global_attribute("outer_first_latitude", self.outer_first[1])
+        data.add_global_attribute("outer_last_longitude", self.outer_last[0])
+        data.add_global_attribute("outer_last_latitude", self.outer_last[1])
         data.add_global_attribute("slc_first_line_index_in_tvp", 'None')
         data.add_global_attribute("slc_last_line_index_in_tvp", 'None')
         data.add_global_attribute("xref_input_l1b_hr_slc_file", 'None')
@@ -276,11 +285,12 @@ class l2_hr_pixc(object):
         fill_vector_param(np.zeros(self.nb_water_pix), 'layover_impact', self.nb_water_pix, data, group=pixc)
         
         data.add_variable('num_rare_looks', np.int8, 'points', my_var.FV_NETCDF["int8"], compress, group=pixc)
-        fill_vector_param(np.full(self.nb_water_pix, 7.), 'num_rare_looks', self.nb_water_pix, data, group=pixc) 
-        
+        fill_vector_param(np.full(self.nb_water_pix, 7.), 'num_rare_looks', self.nb_water_pix, data, group=pixc)
         data.add_variable('latitude', np.float64, 'points', my_var.FV_NETCDF["float64"], compress, group=pixc)
         data.add_variable_attribute('latitude', 'units', 'degrees_north', group=pixc)
         fill_vector_param(self.latitude, 'latitude', self.nb_water_pix, data, group=pixc)
+
+
         data.add_variable('longitude', np.float64, 'points', my_var.FV_NETCDF["float64"], compress, group=pixc)
         data.add_variable_attribute('longitude', 'units', 'degrees_east', group=pixc)
         fill_vector_param(self.longitude, 'longitude', self.nb_water_pix, data, group=pixc)
