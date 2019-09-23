@@ -15,10 +15,17 @@ import tools.my_rdf as my_rdf
 
 import cnes.modules.geoloc.lib.pixc_to_shp
 
-#~ from cnes.sas.lib import base_classes
+import os
+import ast
+import argparse
 
+import logging
 
-def write_annotation_file(ann_file, 
+import RDF as RDF
+import SWOTRiver.Estimate as Estimate
+from SWOTRiver.products.pixcvec import L2PIXCVector
+
+def write_annotation_file(ann_file,
                           pixc_file,
                           pixcvec_file,
                           pixcvec_file_gdem = None):
@@ -34,15 +41,65 @@ def write_annotation_file(ann_file,
 
 
 #######################################
-    
 
-def execute(cmd):
-    with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, bufsize=1, universal_newlines=True) as p:
-        for line in p.stdout:
-            print(line, end='') # process line here
+def l2pixc_to_rivertile(pixc_file, out_riverobs_file, out_pixc_vector_file, rdf_file, shpbasedir=None, log_level="info", gdem_file=None):
+    LOGGER = logging.getLogger('swot_pixc2rivertile')
 
-    if p.returncode != 0:
-        raise subprocess.CalledProcessError(p.returncode, p.args)
+    level = {'debug': logging.DEBUG, 'info': logging.INFO,
+             'warning': logging.WARNING, 'error': logging.ERROR}[log_level]
+    format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    logging.basicConfig(level=level, format=format)
+
+    config = RDF.RDF()
+    config.rdfParse(rdf_file)
+    config = dict(config)
+
+    # typecast most config values with eval since RDF won't do it for me
+    # (excluding strings)
+    for key in config.keys():
+        if key in ['geolocation_method', 'reach_db_path', 'height_agg_method',
+                   'area_agg_method']:
+            continue
+        config[key] = ast.literal_eval(config[key])
+
+    if gdem_file is not None:
+        import fake_pixc_from_gdem
+        import tempfile
+        pixc_file = tempfile.mktemp()
+        fake_pixc_from_gdem.fake_pixc_from_gdem(gdem_file, pixc_file, pixc_file)
+
+    l2pixc_to_rivertile = Estimate.L2PixcToRiverTile(pixc_file, out_pixc_vector_file)
+
+    l2pixc_to_rivertile.load_config(config)
+
+    # generate empty output file on errors
+    try:
+        l2pixc_to_rivertile.do_river_processing()
+        l2pixc_to_rivertile.match_pixc_idx()
+        l2pixc_to_rivertile.do_improved_geolocation()
+        l2pixc_to_rivertile.flag_lakes_pixc()
+
+    except Exception as exception:
+        LOGGER.error(
+            'Unable to continue river processing: {}'.format(exception))
+
+    l2pixc_to_rivertile.build_products()
+
+    # rewrite index file to make it look like an SDS one
+    L2PIXCVector.from_ncfile(l2pixc_to_rivertile.index_file
+                             ).to_ncfile(l2pixc_to_rivertile.index_file)
+
+    l2pixc_to_rivertile.rivertile_product.to_ncfile(out_riverobs_file)
+    if shpbasedir is not None:
+        if not os.path.isdir(shpbasedir):
+            os.mkdir(shpbasedir)
+        l2pixc_to_rivertile.rivertile_product.nodes.write_shapes(
+            os.path.join(shpbasedir, 'nodes.shp'))
+        l2pixc_to_rivertile.rivertile_product.reaches.write_shapes(
+            os.path.join(shpbasedir, 'reaches.shp'))
+
+    if gdem_file is not None:
+        os.remove(pixc_file)
 
 
 def main():
@@ -103,29 +160,13 @@ def main():
         output_riverobs = os.path.join(river_dir, river_filenames.rivertile_file)
         output_pixcvec = os.path.join(pixcvec_dir, river_filenames.pixc_vec_river_file)
         river_ann_file = os.path.join(args['output_dir'], river_filenames.annot_file)
-        
-        # Make rivertile sas with pixelcloud
-        # Path to RiverObs
-        if args['riverobs_path'] is not None:
-            path_to_riverobs = args['riverobs_path']
-        else:
-            path_to_riverobs = os.environ['RIVEROBS']
-        # Build RiverObs main lib
-        prog_name = os.path.join(
-            path_to_riverobs,
-            'src','bin','swot_pixc2rivertile.py')
-        # Build command
-        cmd = "{} {} {} {} {} --shpbasedir {}".format(prog_name,
-                                                      pixc_file,
-                                                      output_riverobs,
-                                                      output_pixcvec,
-                                                      os.path.abspath(args['parameter_riverobs']),
-                                                      river_dir)
-        # Excute command
-        print ("> executing:", cmd) 
-        #subprocess.check_call(cmd, shell=True)
-        execute(cmd)
-        print("== Execution OK")
+
+
+        print("== Run RiverObs ==")
+        l2pixc_to_rivertile(pixc_file, output_riverobs, output_pixcvec, os.path.abspath(args['parameter_riverobs']), shpbasedir=river_dir,
+                            log_level="info", gdem_file=None)
+        print("== Run RiverObs OK ==")
+
         print()
         
         # Rename the shapefiles
