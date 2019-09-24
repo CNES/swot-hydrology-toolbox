@@ -379,7 +379,6 @@ class Processing(object):
                 tropo.generate_tropo_field_over_pass(min(self.my_attributes.lat))
                     
                 for tile_number in tile_list:
-
                     time = my_timer.Timer()
                     time.start()
                     my_api.printInfo("========================================================")
@@ -420,10 +419,10 @@ class Processing(object):
                 self.my_attributes = sisimp_fct.make_pixel_cloud("Left", elem[0], elem[1], self.my_attributes)
                 my_api.printInfo("")
                 
-                # # 5 - Write swath polygons shapefile
-                #~ sisimp_fct.write_swath_polygons(self.my_attributes)
-                #~ my_api.printInfo("")
-                #~ my_api.printInfo("")                
+                # 5 - Write swath polygons shapefile
+                sisimp_fct.write_swath_polygons(self.my_attributes)
+                my_api.printInfo("")
+                my_api.printInfo("")                
                 
     def run_postprocessing(self):
         """

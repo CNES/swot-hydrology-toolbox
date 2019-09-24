@@ -138,7 +138,6 @@ class l2_hr_pixc(object):
         self.nadir_time = IN_nadir_time
 
         self.illumination_time = np.zeros(len(IN_azimuth_index))
-
         for i in range(self.illumination_time.size):
             self.illumination_time[i] = self.nadir_time[self.sensor_s[i]]
 
@@ -285,12 +284,11 @@ class l2_hr_pixc(object):
         fill_vector_param(np.zeros(self.nb_water_pix), 'layover_impact', self.nb_water_pix, data, group=pixc)
         
         data.add_variable('num_rare_looks', np.int8, 'points', my_var.FV_NETCDF["int8"], compress, group=pixc)
-        fill_vector_param(np.full(self.nb_water_pix, 7.), 'num_rare_looks', self.nb_water_pix, data, group=pixc)
+        fill_vector_param(np.full(self.nb_water_pix, 7.), 'num_rare_looks', self.nb_water_pix, data, group=pixc) 
+        
         data.add_variable('latitude', np.float64, 'points', my_var.FV_NETCDF["float64"], compress, group=pixc)
         data.add_variable_attribute('latitude', 'units', 'degrees_north', group=pixc)
         fill_vector_param(self.latitude, 'latitude', self.nb_water_pix, data, group=pixc)
-
-
         data.add_variable('longitude', np.float64, 'points', my_var.FV_NETCDF["float64"], compress, group=pixc)
         data.add_variable_attribute('longitude', 'units', 'degrees_east', group=pixc)
         fill_vector_param(self.longitude, 'longitude', self.nb_water_pix, data, group=pixc)
