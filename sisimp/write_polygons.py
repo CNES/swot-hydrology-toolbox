@@ -107,7 +107,7 @@ class orbitAttributes:
         self.compute_pixc_vec_river = None  # Flag for PIXCVecRiver file computation
         self.near_range = None
         self.tile_coords = {}  # Dictionnary for storing tile coordinates for swath R and L
-        
+
         self.dw_detected_noise_height = None  # dw detected noise tab
 
         # 3.1 - From orbit file
@@ -502,27 +502,27 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             
             # General tile reference
             tile_ref = "%03d%s" % (IN_attributes.tile_number, left_or_right)
-            last_elem = -nb_pix_overlap_end
-            if last_elem == 0:
-                last_elem = -1
+
+            if nb_pix_overlap_end == 0:
+                nb_pix_overlap_end = 1
             if nb_pix_overlap_begin == 0:
                 nb_pix_overlap_begin = 1
-            tile_nadir_lat_deg = nadir_lat_deg[nb_pix_overlap_begin:last_elem]
-            tile_nadir_lon_deg = nadir_lon_deg[nb_pix_overlap_begin:last_elem]
-            tile_orbit_time = IN_attributes.orbit_time[nb_pix_overlap_begin:last_elem]
-            tile_nadir_alt = nadir_alt[nb_pix_overlap_begin:last_elem]
-            tile_nadir_heading = nadir_heading[nb_pix_overlap_begin:last_elem]
+            tile_nadir_lat_deg = nadir_lat_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_nadir_lon_deg = nadir_lon_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_orbit_time = IN_attributes.orbit_time[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_nadir_alt = nadir_alt[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_nadir_heading = nadir_heading[nb_pix_overlap_begin:-nb_pix_overlap_end]
 
-            tile_x = IN_attributes.x[nb_pix_overlap_begin:last_elem]
-            tile_y = IN_attributes.y[nb_pix_overlap_begin:last_elem]
-            tile_z = IN_attributes.z[nb_pix_overlap_begin:last_elem]
-            tile_vx = vx[nb_pix_overlap_begin:last_elem]
-            tile_vy = vy[nb_pix_overlap_begin:last_elem]
-            tile_vz = vz[nb_pix_overlap_begin:last_elem]
+            tile_x = IN_attributes.x[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_y = IN_attributes.y[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_z = IN_attributes.z[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_vx = vx[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_vy = vy[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_vz = vz[nb_pix_overlap_begin:-nb_pix_overlap_end]
 
-            nadir_az_size = nadir_az.size - nb_pix_overlap_begin - nb_pix_overlap_end + 2
+            nadir_az_size = nadir_az.size - nb_pix_overlap_begin - nb_pix_overlap_end
 
-            tile_coords = compute_tile_coords(IN_attributes, IN_swath, nadir_az_size)
+            tile_coords = compute_tile_coords(IN_attributes, IN_swath, nadir_az_size, nb_pix_overlap_begin)
             IN_attributes.tile_coords[left_or_right] = tile_coords
 
             # Init L2_HR_PIXC object
@@ -599,7 +599,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
     # 1 - Make swath polygons
     swath_polygon = make_swath_polygon(IN_swath, IN_attributes)
-    my_api.printInfo("[write_polygons] [reproject_shapefile] Swath polygon is : %s" %(str(swath_polygon)))
 
     # 2 - Select water bodies polygons in the swath
     layer, da_shapefile = my_shp.open_shp(IN_filename, swath_polygon)
@@ -801,18 +800,22 @@ def make_swath_polygon(IN_swath, IN_attributes):
     :param IN_attributes:
     :type IN_attributes:
     """
+    n = len(IN_attributes.lon_init) - 4
+    az = np.arange(2, n-2 , 1)
+
+    # # Old computing
     # sign = [-1, 1][IN_swath.lower() == 'right']
     # ymin = sign * IN_attributes.nr_cross_track
     # ymax = sign * IN_attributes.swath_width/2
-    #
-    # n = len(IN_attributes.lon_init)
-
-    az = np.array([0, len(IN_attributes.lon_init)-1])
+    # y = ymin * np.ones(len(az))
+    # lon1_, lat1_ = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
+    # y = ymax * np.ones(len(az))
+    # lon2_, lat2_ = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
 
     IN_ri = np.sqrt((IN_attributes.alt[az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2)
     lon1, lat1 = math_fct.lonlat_from_azy(az, IN_ri, IN_attributes, IN_swath, h=0, IN_unit="deg")
     lon2, lat2 = math_fct.lonlat_from_azy(az, IN_ri + 3117*0.75, IN_attributes, IN_swath, h=0, IN_unit="deg")
-
+    
     lonswath = np.concatenate((lon1, lon2[::-1]))
     latswath = np.concatenate((lat1, lat2[::-1]))
 
@@ -1049,8 +1052,7 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
     
     return near_range
 
-def compute_tile_coords(IN_attributes, IN_swath, nadir_az_size):
-    nb_pix_overlap_begin = IN_attributes.nb_pix_overlap_begin
+def compute_tile_coords(IN_attributes, IN_swath, nadir_az_size, nb_pix_overlap_begin):
 
     inner_first_az = [nb_pix_overlap_begin]
     inner_first_rg = np.sqrt((IN_attributes.alt[inner_first_az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2)
