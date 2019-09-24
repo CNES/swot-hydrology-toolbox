@@ -494,7 +494,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min r ind = %d - Max r ind = %d" % (np.min(sub_r), np.max(sub_r)))
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min az ind = %d - Max az ind = %d" % (np.min(sub_az), np.max(sub_az)))
-            
+
             # Get output filename
 
             # Left / right swath flag
@@ -503,10 +503,15 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             # General tile reference
             tile_ref = "%03d%s" % (IN_attributes.tile_number, left_or_right)
 
-            if nb_pix_overlap_end == 0:
-                nb_pix_overlap_end = 1
+            sub_az = sub_az - az_min - nb_pix_overlap_begin + 1
+
+            # remove first and last orbit point, added in read_orbit
             if nb_pix_overlap_begin == 0:
                 nb_pix_overlap_begin = 1
+                nb_pix_overlap_end = nb_pix_overlap_end - nb_pix_overlap_begin
+            if nb_pix_overlap_end == 0:
+                nb_pix_overlap_end = 1
+
             tile_nadir_lat_deg = nadir_lat_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
             tile_nadir_lon_deg = nadir_lon_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
             tile_orbit_time = IN_attributes.orbit_time[nb_pix_overlap_begin:-nb_pix_overlap_end]
@@ -520,13 +525,13 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             tile_vy = vy[nb_pix_overlap_begin:-nb_pix_overlap_end]
             tile_vz = vz[nb_pix_overlap_begin:-nb_pix_overlap_end]
 
-            nadir_az_size = nadir_az.size - nb_pix_overlap_begin - nb_pix_overlap_end
+            nadir_az_size = tile_nadir_lat_deg.size
 
             tile_coords = compute_tile_coords(IN_attributes, IN_swath, nadir_az_size, nb_pix_overlap_begin)
             IN_attributes.tile_coords[left_or_right] = tile_coords
 
             # Init L2_HR_PIXC object
-            my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min - nb_pix_overlap_begin+1, sub_r, classification_tab[az_indices], pixel_area[az_indices],
+            my_pixc = proc_real_pixc.l2_hr_pixc(sub_az, sub_r, classification_tab[az_indices], pixel_area[az_indices],
                                                 lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
                                                 tile_orbit_time, tile_nadir_lat_deg, tile_nadir_lon_deg, tile_nadir_alt, tile_nadir_heading,
                                                 tile_x, tile_y, tile_z, tile_vx, tile_vy, tile_vz,

@@ -137,6 +137,10 @@ class l2_hr_pixc(object):
         self.sensor_s = IN_azimuth_index
         self.nadir_time = IN_nadir_time
 
+        if np.max(IN_azimuth_index) >= IN_nadir_time.size:
+            exc = '[proc_realPixC] ERROR = Azimuth index max value %d over nb_nadir_pix %d' %(np.max(IN_azimuth_index), IN_nadir_time.size)
+            exit(exc)
+
         self.illumination_time = np.zeros(len(IN_azimuth_index))
         for i in range(self.illumination_time.size):
             self.illumination_time[i] = self.nadir_time[self.sensor_s[i]]
