@@ -58,10 +58,7 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     elif "mission start time" in ds.ncattrs():
         OUT_attributes.mission_start_time = ds.getncattr('mission start time')  # Mission start time
     OUT_attributes.cycle_duration = ds.getncattr('repeat_cycle_period')
-    OUT_attributes.orbit_time = np.array(ds.variables['time']) + (IN_cycle_number-1)*OUT_attributes.cycle_duration
-    
-    OUT_attributes.x, OUT_attributes.y, OUT_attributes.z, OUT_attributes.azimuth_spacing = [np.array(ds.variables['x']), np.array(ds.variables['y']), np.array(ds.variables['z']), ds.getncattr('azimuth_spacing')]
-    my_api.printDebug("[sisimp_function] [read_orbit] Nb points on nadir track = %d" % (len(OUT_attributes.orbit_time)))
+    OUT_attributes.azimuth_spacing = ds.getncattr('azimuth_spacing')
 
     # Add 2 points margin to avoid problems in azr_from_lonlat (interpolation)
     n = len(lat1) + 2
@@ -103,7 +100,35 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     OUT_attributes.sintheta_init = np.sin(np.pi/2-lat)
     OUT_attributes.cospsi_init = np.cos(heading)
     OUT_attributes.sinpsi_init = np.sin(heading)
-    
+
+    ratio = (lat[1]-lat[0])/(lat[2]-lat[1])
+
+    orbit_time = np.zeros(n)
+    orbit_time[1:-1] = np.array(ds.variables['time']) + (IN_cycle_number-1)*OUT_attributes.cycle_duration
+    orbit_time[0] = ratio*( orbit_time[1] - orbit_time[2]) + orbit_time[1]
+    orbit_time[-1] = ratio*(orbit_time[-2] - orbit_time[-3]) + orbit_time[-2]
+    OUT_attributes.orbit_time = orbit_time
+
+    x = np.zeros(n)
+    x[1:-1] = np.array(ds.variables['x'])
+    x[0] = ratio*(x[1] - x[2]) + x[1]
+    x[-1] = ratio*(x[-2] - x[-3]) + x[-2]
+    OUT_attributes.x = x
+
+    y = np.zeros(n)
+    y[1:-1] = np.array(ds.variables['y'])
+    y[0] = ratio*(y[1] - y[2]) + y[1]
+    y[-1] = ratio*(y[-2] - y[-3]) + y[-2]
+    OUT_attributes.y = y
+
+    z = np.zeros(n)
+    z[1:-1] = np.array(ds.variables['z'])
+    z[0] = ratio*(z[1] - z[2]) + z[1]
+    z[-1] = ratio*(z[-2] - z[-3]) + z[-2]
+    OUT_attributes.z = z
+
+    my_api.printDebug("[sisimp_function] [read_orbit] Nb points on nadir track = %d" % (len(OUT_attributes.orbit_time)))
+
     return OUT_attributes
                 
 
@@ -191,9 +216,16 @@ def write_swath_polygons(IN_attributes):
 
     layerDefn = layer.GetLayerDefn()
 
-    for swath in ['Right', 'Left']:
+    for swath, tile_coords in IN_attributes.tile_coords.items():
         feature = ogr.Feature(layerDefn)
-        geom = IN_attributes.swath_polygons[swath]
+        geom = ogr.Geometry(ogr.wkbPolygon)
+        ring = ogr.Geometry(ogr.wkbLinearRing)
+
+        for point in tile_coords:
+            ring.AddPoint(point[0], point[1])
+        ring.CloseRings()
+        geom.AddGeometry(ring)
+        geom = geom.ConvexHull()
 
         feature.SetField(str("Swath"), str(swath))
         feature.SetGeometry(geom)
