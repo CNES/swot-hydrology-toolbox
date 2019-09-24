@@ -9,12 +9,21 @@ import argparse
 import configparser as cfg
 import glob
 from netCDF4 import Dataset
-import os
+import os, sys
 from os.path import join, abspath
 import subprocess
 
 import tools.my_rdf as my_rdf
-from PGE.lake_tile import pge_lake_tile as pge_lake_tile
+
+try:
+    tbx_path = os.environ['SWOT_HYDROLOGY_TOOLBOX']
+except:
+    tbx_path = os.getcwd().replace(os.sep + "scripts", "")
+
+pge_path = tbx_path.replace("src", "PGE")
+sys.path.insert(0, pge_path)
+
+from processing.PGE.lake_tile import pge_lake_tile as pge_lake_tile
 
 
 def make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time):
@@ -80,6 +89,7 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cy
     with open(laketile_cfg, 'w') as cfg_file:
         config.write(cfg_file)
 
+
     print("== Run LakeTile ==")
     PGE = None
     try:
@@ -143,7 +153,7 @@ def main():
     else:
         print("> %d river annotation file(s) to deal with" % len(river_files))
     print()
-    
+
     for river_annotation in river_files:
         
         print(">>>>> Dealing with river annotation file %s <<<<<" % river_annotation)
