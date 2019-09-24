@@ -15,14 +15,12 @@ import subprocess
 
 import tools.my_rdf as my_rdf
 
+#Import of PGE
 try:
     tbx_path = os.environ['SWOT_HYDROLOGY_TOOLBOX']
 except:
     tbx_path = os.getcwd().replace(os.sep + "scripts", "")
-
-pge_path = tbx_path.replace("src", "PGE")
-sys.path.insert(0, pge_path)
-
+sys.path.insert(0, tbx_path)
 from processing.PGE.lake_tile import pge_lake_tile as pge_lake_tile
 
 
