@@ -1064,15 +1064,15 @@ def compute_tile_coords(IN_attributes, IN_swath, nadir_az_size, nb_pix_overlap_b
     inner_first_lon, inner_first_lat = math_fct.lonlat_from_azy(inner_first_az, inner_first_rg, IN_attributes, IN_swath, h=0, IN_unit="deg")
     inner_first = (inner_first_lon[0], inner_first_lat[0])
 
-    inner_last_az = [nb_pix_overlap_begin]
-    inner_last_rg = np.sqrt((IN_attributes.alt[inner_last_az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2) + IN_attributes.nb_pix_range * IN_attributes.range_sampling
-    inner_last_lon, inner_last_lat = math_fct.lonlat_from_azy(inner_last_az, inner_last_rg, IN_attributes, IN_swath, h=0, IN_unit="deg")
-    inner_last = (inner_last_lon[0], inner_last_lat[0])
-
-    outer_first_az = [nadir_az_size + nb_pix_overlap_begin-1]
-    outer_first_rg = np.sqrt((IN_attributes.alt[outer_first_az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2)
+    outer_first_az = [nb_pix_overlap_begin]
+    outer_first_rg = np.sqrt((IN_attributes.alt[outer_first_az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2) + IN_attributes.nb_pix_range * IN_attributes.range_sampling
     outer_first_lon, outer_first_lat = math_fct.lonlat_from_azy(outer_first_az, outer_first_rg, IN_attributes, IN_swath, h=0, IN_unit="deg")
     outer_first = (outer_first_lon[0], outer_first_lat[0])
+
+    inner_last_az = [nadir_az_size + nb_pix_overlap_begin-1]
+    inner_last_rg = np.sqrt((IN_attributes.alt[inner_last_az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2)
+    inner_last_lon, inner_last_lat = math_fct.lonlat_from_azy(inner_last_az, inner_last_rg, IN_attributes, IN_swath, h=0, IN_unit="deg")
+    inner_last = (inner_last_lon[0], inner_last_lat[0])
 
     outer_last_az = [nadir_az_size + nb_pix_overlap_begin-1]
     outer_last_rg = np.sqrt((IN_attributes.alt[outer_last_az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2) + IN_attributes.nb_pix_range * IN_attributes.range_sampling
