@@ -31,7 +31,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Compute orbit files specific to the studied area")
     parser.add_argument("param_file", help="full path to the parameter file (*.rdf)")
     parser.add_argument("-v", "--verbose", help="Verbose level (DEBUG or INFO=default)", nargs="?", type=str, default="INFO")
-    parser.add_argument("-l", "--logfile", help="Write prints to a logfile in addition to the console", nargs='?', type=bool, default=False, const=True)
+    parser.add_argument("-l", "--logfile", help="Write prints to a logfile in addition to the console", nargs='?', type=bool, default=True, const=True)
     parser.add_argument("output_dir", help="full path to the output directory")
     args = parser.parse_args()
 
