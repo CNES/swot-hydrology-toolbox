@@ -32,7 +32,6 @@ import sys
 
 import cnes.common.lib.my_tools as my_tools
 import cnes.common.lib.my_timer as my_timer
-import cnes.common.lib_lake.locnes_variables as my_var
 import cnes.common.lib_lake.locnes_filenames as locnes_filenames
 import pge_lake_tile
 
@@ -58,11 +57,9 @@ class MultiLakeTile(object):
         self.pixc_vec_river_dir = in_params["pixc_vec_river_dir"]  # PIXCVecRiver files directory
         self.output_dir = in_params["output_dir"]  # Output directory
 
-        # BDLac and continent file
+        # BDLac and basins file
         self.lake_db = in_params["LAKE_DB"]
-        self.influence_lake_db = in_params["INFLUENCE_LAKE_DB"]
         self.lake_db_id = in_params["LAKE_DB_ID"]
-        self.continent_file = in_params["CONTINENT_FILE"]
 
         # Tiles info
         self.cycle_num = in_params["cycle_num"]  # Cycle number
@@ -97,20 +94,23 @@ class MultiLakeTile(object):
         print("[multiLakeTileProcessing] > 1 - Testing existence of working directories...")
         # 1.1 - PIXC directory
         print("[multiLakeTileProcessing]   INPUT DIR for PIXC files = %s" % self.pixc_dir)
-        my_tools.testDir(self.pixc_dir)
+        my_tools.test_dir(self.pixc_dir)
         # 1.3 - PIXCVecRiver directory
         print("[multiLakeTileProcessing]   INPUT DIR for PIXCVecRiver files = %s" % self.pixc_vec_river_dir)
-        my_tools.testDir(self.pixc_vec_river_dir)
+        my_tools.test_dir(self.pixc_vec_river_dir)
         # 1.4 - Output directory
         print("[multiLakeTileProcessing]   OUTPUT DIR = %s" % self.output_dir)
-        my_tools.testDir(self.output_dir)
+        my_tools.test_dir(self.output_dir)
         print("")
 
         # 2 - Get input files
         print("[multiLakeTileProcessing] > 2 - Retrieving input files...")
 
         # 2.1 - Compute file prefix regarding cycle / pass / tile conditions
-        cond_prefix = my_var.PIXC_PREFIX  # Deal with all PixC files in self.pixc_dir
+        pixc_prefix = locnes_filenames.PIXC_PREFIX
+        pixcvec_river_prefix = locnes_filenames.PIXCVEC_RIVER_PREFIX
+        cond_prefix = pixc_prefix  # Deal with all PixC files in self.pixc_dir 
+
         if (self.cycle_num is None) or (self.cycle_num == "-1"):
             print("[multiLakeTileProcessing]   All PixC files in the input directory")
         else:  # Deal with PixC files with cycle = self.cycle_num
@@ -136,7 +136,7 @@ class MultiLakeTile(object):
             if cur_item.startswith(cond_prefix):  # Test if it's a wanted PIXC file
 
                 # Associated PIXCVecRiver file name
-                cur_pixc_vec_river = cur_item.replace(my_var.PIXC_PREFIX, my_var.PIXCVEC_RIVER_PREFIX)
+                cur_pixc_vec_river = cur_item.replace(pixc_prefix, pixcvec_river_prefix)
 
                 # If associated PIXCVecRiver file exists, add pair of filenames
                 if os.path.exists(os.path.join(self.pixc_vec_river_dir, cur_pixc_vec_river)):
@@ -205,7 +205,7 @@ class MultiLakeTile(object):
         pixc_file = os.path.join(self.pixc_dir, self.list_pixc[indf])
         
         # 2 - Retrieve tile info from the PIXC filename
-        information = locnes_filenames.getInfoFromFilename(pixc_file, "PIXC")
+        information = locnes_filenames.get_info_from_filename(pixc_file, "PIXC")
         cycle_num = information["cycle"]
         pass_num = information["pass"]
         tile_ref = information["tile_ref"]
@@ -241,20 +241,12 @@ class MultiLakeTile(object):
         
         # 5.2 - Fill DATABASES section
         writer_command_file.write("[DATABASES]\n")
-        writer_command_file.write("# Lake a priori database\n")
+        writer_command_file.write("# Prior lake database\n")
         if self.lake_db is not None:
             writer_command_file.write("LAKE_DB = " + self.lake_db + "\n")
         writer_command_file.write("# Lake identifier attribute name in the database\n")
-        if self.influence_lake_db is not None:
-            writer_command_file.write("INFLUENCE_LAKE_DB = " + self.influence_lake_db + "\n")
         if self.lake_db_id is not None:
             writer_command_file.write("LAKE_DB_ID = " + self.lake_db_id + "\n")
-        writer_command_file.write("# Shapefile with polygons of continents\n")
-        if self.continent_file is not None:
-            writer_command_file.write("CONTINENT_FILE = " + self.continent_file + "\n")
-        else:
-            # needed by script for Jenkins
-            writer_command_file.write("CONTINENT_FILE = /work/ALT/swot/swotpub/BD/major_basins/FAO/major_hydrobasins.shp\n")
         writer_command_file.write("\n")
         
         # 5.3 - Fill OPTIONS section
@@ -280,45 +272,20 @@ class MultiLakeTile(object):
         writer_command_file.write("# Composite Release IDentifier for LakeTile processing\n")        
         writer_command_file.write("LAKE_TILE_CRID = Dx0000 \n")
         writer_command_file.write("# Composite Release IDentifier for LakeSP processing\n")
-        writer_command_file.write("LAKE_SP_CRID = Dx0000 # Product generator\n")
+        writer_command_file.write("LAKE_SP_CRID = Dx0000\n")
 
         # 5.6 - Fill FILE_INFORMATION section
         writer_command_file.write("# File informations\n")
         writer_command_file.write("[FILE_INFORMATION]\n")
         writer_command_file.write("# Product generator\n")
         writer_command_file.write("PRODUCER = CNES\n")
-        writer_command_file.write("PIXC_PREFIX = SWOT_L2_HR_PIXC_\n")
-        writer_command_file.write('PIXC_PATTERN_PRINT = PIXC_PREFIX + "<CycleID>_<PassID>_<TileID>[L/R]_<RangeBeginDateTime>_<RangeEndingDateTime>_<CRID>_<ProductCounter>.nc"\n')
-        writer_command_file.write('# Indices when PIXC_PATTERN.split("_"); None if value not in filename\n')
-        writer_command_file.write('PIXC_PATTERN_IND = {"cycle": 4, "pass": 5, "tile_ref": 6, "start_date": 7, "stop_date": 8, "crid": 9, "counter": 10} \n')
-        writer_command_file.write('PIXCVEC_RIVER_PREFIX = SWOT_L2_HR_PIXCVecRiver_\n')
-        writer_command_file.write('PIXCVEC_RIVER_PATTERN_PRINT = PIXCVEC_RIVER_PREFIX + "<CycleID>_<PassID>_<TileID>[L/R]_<RangeBeginDateTime>_<RangeEndingDateTime>_<CRID>_<ProductCounter>.nc"\n')
-        writer_command_file.write('# Indices when PIXCVEC_RIVER_PATTERN.split("_"); None if value not in filename\n')
-        writer_command_file.write('PIXCVEC_RIVER_PATTERN_IND = {"cycle": 4, "pass": 5, "tile_ref": 6, "start_date": 7, "stop_date": 8, "crid": 9, "counter": 10}\n')
-        writer_command_file.write('LAKE_TILE_PREFIX = SWOT_L2_HR_LakeTile_\n')
-        writer_command_file.write("# LakeTile filename with %03d=cycle number %03d=pass number %s=tile ref %s=swath %s=begin date %s=end date %s=CRID %s=counter %s=suffix \n")
-        writer_command_file.write('LAKE_TILE_PATTERN = LAKE_TILE_PREFIX + "%03d_%03d_%s_%s_%s_%s_%02d%s"\n')
-        writer_command_file.write('LAKE_TILE_PATTERN_PRINT = LAKE_TILE_PREFIX + "%s<CycleID>_<PassID>_<TileID>[L/R]_<RangeBeginDateTime>_<RangeEndingDateTime>_<CRID>_<ProductCounter>"\n')
-        writer_command_file.write('# Indices when LAKE_TILE_*_PATTERN.split("_"); None if value not in filename \n')
-        writer_command_file.write('LAKE_TILE_PATTERN_IND = {"cycle": 4, "pass": 5, "tile_ref": 6, "start_date": 7, "stop_date": 8, "crid": 9, "counter": 10}\n')
-        writer_command_file.write('LAKE_TILE_SHP_SUFFIX = .shp\n')
-        writer_command_file.write('LAKE_TILE_SHP_META_SUFFIX = .shp.xml\n')
-        writer_command_file.write('LAKE_TILE_EDGE_SUFFIX = _edge.nc\n')
-        writer_command_file.write('LAKE_TILE_PIXCVEC_SUFFIX = _pixcvec.nc\n')
-        writer_command_file.write("PIXCVEC_PREFIX = SWOT_L2_HR_PIXCVec_\n")
-        writer_command_file.write("PIXCVEC_SUFFIX = .nc\n")
-        writer_command_file.write("# PIXCVec filename with %03d=cycle number %03d=pass number %s=tile ref %s=begin date %s=end date %s=CRID %s=counter  \n")
-        writer_command_file.write('PIXCVEC_PATTERN = PIXCVEC_PREFIX + "%03d_%03d_%s_%s_%s_%s_%02d" + PIXCVEC_SUFFIX \n')
-        writer_command_file.write("LAKE_SP_PREFIX = SWOT_L2_HR_LakeSP_\n")
-        writer_command_file.write("# LakeSP filename with %03d=cycle number %03d=pass number %s=continent %s=begin date %s=end date %s=CRID %s=counter \n")
-        writer_command_file.write('LAKE_SP_PATTERN = LAKE_SP_PREFIX + "%03d_%03d_%s_%s_%s_%s_%02d.shp"\n')
         writer_command_file.write("#######################################\n")
         writer_command_file.close()  # Close command file
         return out_cmd_file
     
 
 #######################################
-        
+
 
 def read_command_file(in_filename):
     """
@@ -337,9 +304,7 @@ def read_command_file(in_filename):
     # Default values
     out_params["param_file"] = None
     out_params["LAKE_DB"] = None
-    out_params["INFLUENCE_LAKE_DB"] = None
     out_params["LAKE_DB_ID"] = None
-    out_params["CONTINENT_FILE"] = None
     out_params["cycle_num"] = None
     out_params["pass_num"] = None
     out_params["tile_ref"] = None
@@ -364,17 +329,11 @@ def read_command_file(in_filename):
     # 3 - Retrieve DATABASES
     if "DATABASES" in config.sections():
         list_db = config.options("DATABASES")
-        # Lake a priori database
+        # Prior lake database
         if "lake_db" in list_db:
             out_params["LAKE_DB"] = config.get("DATABASES", "LAKE_DB")
-        if "influence_lake_db" in list_db:
-            out_params["INFLUENCE_LAKE_DB"] = config.get("DATABASES", "INFLUENCE_LAKE_DB")
         if "lake_db_id" in list_db:
             out_params["LAKE_DB_ID"] = config.get("DATABASES", "LAKE_DB_ID")
-        # Continent file
-        if "continent_file" in list_db:
-            out_params["CONTINENT_FILE"] = config.get("DATABASES", "CONTINENT_FILE")
-
     # 4 - Retrieve TILES_INFOS
     if "TILES_INFOS" in config.sections():
         list_options = config.options("TILES_INFOS")
@@ -395,9 +354,6 @@ def read_command_file(in_filename):
         if "produce shp" in list_options:
             out_params["flag_prod_shp"] = config.getboolean("OPTIONS", "Produce shp")
 
-    # 5 - Retrieve optionnal CONFIG_OVERWRITE
-    # Still useful?
-    #my_var.overwriteConfig_from_cfg(config)
     # 6 - Retrieve LOGGING
     if "LOGGING" in config.sections():
         list_options = config.options("LOGGING")
@@ -433,7 +389,7 @@ if __name__ == '__main__':
     # 1 - Read command file
     print("WORKING VARIABLES")
     print()
-    my_tools.testFile(args.command_file, IN_extent=".cfg")  # Test existance and extension
+    my_tools.test_file(args.command_file, in_extent=".cfg")  # Test existance and extension
     my_params = read_command_file(args.command_file)  # Read variables in command file
 
     # 2 - Initialization

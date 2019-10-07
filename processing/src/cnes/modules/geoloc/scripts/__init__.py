@@ -9,11 +9,19 @@
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # FIN-HISTORIQUE
 # ======================================================
-'''
- This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
-'''
+"""
+biglake_model
+=============
+.. automodule:: cnes.modules.geoloc.scripts.biglake_model
+   :members:
+   :private-members:
+   :special-members:
 
+geoloc_river
+============
+.. automodule:: cnes.modules.geoloc.scripts.geoloc_river
+   :members:
+   :private-members:
+   :special-members:
 
- 
+"""

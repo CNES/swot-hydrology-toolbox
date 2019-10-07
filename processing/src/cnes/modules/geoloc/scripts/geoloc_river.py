@@ -11,9 +11,12 @@
 # FIN-HISTORIQUE
 # ======================================================
 '''
- This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+.. module:: geoloc_river.py
+
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 '''
 
 from cnes.modules.geoloc.lib.interface import Sensor, RiverTile, PixcvecRiver, PixelCloud
@@ -296,25 +299,30 @@ def geoloc_river(pixc, pixcvec, sensor, rivertile, fit_heights_per_reach, interp
       :type interpolate_pixc_between_nodes: boolean
       :param method: using method to compute the new latitude, longitude and height
       :type method: string
+
+      :returns latitude corrected, longitude corrected, height corrected
+      :rtype numpy array, numpy array numpy array
     """
     geolocriver = GeolocRiver(pixc, pixcvec, sensor, rivertile)
     # Do the improved river geolocation
     # 1 - Initiate logging service
     logger = logging.getLogger()
     logger.info("Improved geolocation")
-        
+
+
     if fit_heights_per_reach == 'recompute_from_nodes':
-        # Recompute fitted height using nodes heights 
+        # Recompute fitted height using nodes heights
         geolocriver.fit_node_heights()
-        
+
     if fit_heights_per_reach == 'raw_height':
         # Use raw nodes heights (very noisy) to improved geolocation (bad idea)
         return
 
     if fit_heights_per_reach == 'fitted_height_from_riverobs':
-        # Use fitted height from riverobs 
+        # Use fitted height from riverobs
         geolocriver.rivertile.h_n_ave_fit = geolocriver.rivertile.fit_height
-        
+
+
     geolocriver.estimate_pixvec_height_for_geoloc(interpolate_pixc_between_nodes)
     geolocriver.apply_improved_geoloc(method=method)
 
