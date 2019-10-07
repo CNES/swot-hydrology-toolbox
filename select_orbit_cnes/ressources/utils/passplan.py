@@ -20,6 +20,7 @@ import glob
 from math import floor, ceil
 from netCDF4 import Dataset
 from os.path import basename, join
+from ressources.utils import my_api
 
 
 class Passplan(object):
@@ -40,7 +41,7 @@ class Passplan(object):
         :param IN_simulation_stop_time: simulation stop time
         :type IN_simulation_stop_time: string
         """
-        print("[Passplan] == INIT ==")
+        my_api.printInfo("[Passplan] == INIT ==")
         
         # Init self attributes from input parameters
         self.orbit_directory = IN_orbit_directory

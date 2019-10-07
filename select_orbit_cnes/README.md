@@ -4,7 +4,7 @@ The ```select_orbit_cnes``` software computes orbit files specific to the studie
 
 ## Run the software
 ```
-usage: select_orbit_cnes.py [-h] param_file output_dir
+usage: select_orbit_cnes.py [-h] [-v [VERBOSE]] [-l [LOGFILE]] param_file output_dir
 
 Compute orbit files specific to the studied area
 
@@ -13,6 +13,8 @@ positional arguments:
   output_dir  full path to the output directory
 
 optional arguments:
+  -v : verbose INFO or DEBUG
+  -l : log file
   -h, --help  show this help message and exit
 ```
 
