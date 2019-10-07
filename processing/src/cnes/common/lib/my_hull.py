@@ -36,6 +36,7 @@ import shapely.geometry as geometry
 from shapely.geometry import Point, LineString, MultiPoint, MultiLineString, Polygon, MultiPolygon, LinearRing
 from shapely.ops import cascaded_union
 from skimage.measure import find_contours
+from shapely.ops import unary_union
 
 import cnes.common.lib.my_tools as my_tools
 import cnes.common.service_config_file as service_config_file
@@ -427,7 +428,7 @@ def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, i
     lake_y = in_azimuth - np.min(in_azimuth) + 1
 
     # 2 - Get image (1 pixel around lake)
-    lake_img = my_tools.computeBinMat(np.max(lake_x) + 2, np.max(lake_y) + 2, lake_x, lake_y)
+    lake_img = my_tools.compute_bin_mat(np.max(lake_x) + 2, np.max(lake_y) + 2, lake_x, lake_y)
 
     # 3 - Compute boundaries (there might be more than one if there are islands in lake)
     lake_contours = find_contours(lake_img, 0.99999999999)
@@ -482,7 +483,7 @@ def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, i
                         list_of_points.append(new_point)
                     else:
                         list_of_points = add_new_point_to_list_of_point(new_point, list_of_points)
-                # list_of_points = addNewPoint(new_point, list_of_points)
+                # code commenté : list_of_points = addNewPoint(new_point, list_of_points)
             else:
                 logger.debug("Point of coordinates %d, %d not found -> Point removed" % (y, x))
 
@@ -760,7 +761,7 @@ def get_concave_hull_from_cgal_triangulation(in_v_long, in_v_lat, in_range, in_a
     except:
         logger.error("CGAL library must be install to use this option, use an other HULL_METHOD")
         raise
-        
+
     # Transform lonlat coordinates to UTM coordinates
     coords = np.zeros((in_v_long.size, 2))
     coords[:, 0], coords[:, 1], utm_epsg_code = my_tools.get_utm_coords_from_lonlat(in_v_long, in_v_lat)
@@ -770,35 +771,35 @@ def get_concave_hull_from_cgal_triangulation(in_v_long, in_v_lat, in_range, in_a
     far_rg_idx = (np.where(in_range > (in_nb_pix_range / 2 - 10)))
 
     # Near range processing
-    alpha_near_rg, dist_near_rg = evaluate_alpha_from_X_pixc_geolocation(coords[:, 0][near_rg_idx], in_range[near_rg_idx], in_azimuth[near_rg_idx])
+    alpha_near_rg, dist_near_rg = evaluate_alpha_from_x_pixc_geolocation(coords[:, 0][near_rg_idx], in_range[near_rg_idx], in_azimuth[near_rg_idx])
     if dist_near_rg :
         concave_hull_utm_near_rg = alpha_shape_with_cgal(coords[near_rg_idx], alpha_near_rg)
         concave_hull_near_rg = my_tools.get_lon_lat_polygon_from_utm(concave_hull_utm_near_rg, utm_epsg_code)
         logger.info("Alpha far rg value is %d and X var (mean + 2std) = %f " % (alpha_near_rg, dist_near_rg))
     else :
-        concave_hull_near_rg = Polygon()
+        concave_hull_near_rg = MultiPolygon()
 
     # Far range processing
-    alpha_far_rg, dist_far_rg = evaluate_alpha_from_X_pixc_geolocation(coords[:, 0][far_rg_idx], in_range[far_rg_idx], in_azimuth[far_rg_idx])
+    alpha_far_rg, dist_far_rg = evaluate_alpha_from_x_pixc_geolocation(coords[:, 0][far_rg_idx], in_range[far_rg_idx], in_azimuth[far_rg_idx])
     if dist_far_rg :
         concave_hull_utm_far_rg = alpha_shape_with_cgal(coords[far_rg_idx], alpha_far_rg)
         concave_hull_far_rg = my_tools.get_lon_lat_polygon_from_utm(concave_hull_utm_far_rg, utm_epsg_code)
         logger.info("Alpha far rg value is %d and X var (mean + 2std) = %f " % (alpha_far_rg, dist_far_rg))
     else :
-        concave_hull_far_rg = Polygon()
+        concave_hull_far_rg = MultiPolygon()
 
-    concave_hull = concave_hull_far_rg.union(concave_hull_near_rg)
+    concave_hull = unary_union([concave_hull_far_rg, concave_hull_near_rg])
 
-    logger.info("Polygon is valid : %r" %(concave_hull.is_valid))
+    retour = ogr.CreateGeometryFromWkt(concave_hull.wkt)
 
-    retour = ogr.CreateGeometryFromWkb(concave_hull.wkb)
+    logger.info("Polygon is valid : %r" %(retour.IsValid()))
 
-    if concave_hull.is_empty:
+    if retour.IsEmpty():
         retour = get_convex_hull(in_v_long, in_v_lat)
 
     return retour
 
-def get_dist_if_neighbour(idx, in_X, in_range, in_azimuth):
+def get_dist_if_neighbour(idx, in_x, in_range, in_azimuth):
     """
     For a given pixel of indice idx :
         - find if the pixel have a direct neighbour in range
@@ -808,8 +809,8 @@ def get_dist_if_neighbour(idx, in_X, in_range, in_azimuth):
 
     :param idx: indice of pixel
     :type idx: int
-    :param in_X: X projected coordinates of pixels
-    :type in_X: 1D-array of float
+    :param in_x: X projected coordinates of pixels
+    :type in_x: 1D-array of float
     :param in_range: range of pixels
     :type in_range: 1D-array of int
     :param in_azimuth: azimuth of pixels
@@ -826,17 +827,17 @@ def get_dist_if_neighbour(idx, in_X, in_range, in_azimuth):
     dist = None
     if x_neighbour:
         # compute distance if neighbour exist
-        dist = np.abs(in_X[idx] - in_X[x_neighbour])
+        dist = np.abs(in_x[idx] - in_x[x_neighbour])
     else:
         dist = None
     return dist
 
-def evaluate_alpha_from_X_pixc_geolocation(in_X, in_range, in_azimuth):
+def evaluate_alpha_from_x_pixc_geolocation(in_x, in_range, in_azimuth):
     """
     Find the best value of alpha regarding the distance between neighbour pixels.
 
-    :param in_X: X projected coordinates of pixels
-    :type in_X: 1D-array of float
+    :param in_x: X projected coordinates of pixels
+    :type in_x: 1D-array of float
     :param in_range: range of pixels
     :type in_range: 1D-array of int
     :param in_azimuth: azimuth of pixels
@@ -846,7 +847,7 @@ def evaluate_alpha_from_X_pixc_geolocation(in_X, in_range, in_azimuth):
     :rtype: tuple of (int, float)
     """
 
-    if len(in_X) == 0:
+    if len(in_x) == 0:
         alpha = None
         x_2sigma = None
     else:
@@ -858,8 +859,8 @@ def evaluate_alpha_from_X_pixc_geolocation(in_X, in_range, in_azimuth):
             cpt += 1
             if cpt > 30:
                 break
-            idx = randint(0, len(in_X)-1)
-            dist = get_dist_if_neighbour(idx, in_X, in_range, in_azimuth)
+            idx = randint(0, len(in_x)-1)
+            dist = get_dist_if_neighbour(idx, in_x, in_range, in_azimuth)
             if dist:
                 dist_list.append(dist[0])
     

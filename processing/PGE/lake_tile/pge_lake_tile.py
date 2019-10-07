@@ -72,7 +72,7 @@ class PGELakeTile():
         
         # 1 - Load command file
         self.cmd_file = cmd_file
-        my_tools.testFile(cmd_file, IN_extent=".cfg")  # Test existance and extension
+        my_tools.test_file(cmd_file, in_extent=".cfg")  # Test existance and extension
         my_params = self._read_cmd_file()  # Read parameters
         self.pixc_file = my_params["pixc_file"]
         self.pixc_vec_river_file = my_params["pixc_vec_river_file"]
@@ -118,13 +118,12 @@ class PGELakeTile():
         self._check_config_parameters()
         logger.info("")
 
-        # 7 - Update global variables
-        # TODO replace all global variables by call to service_config_file
-        # my_var.tmpGetConfigFromServiceConfigFile()
-        
-        # 8 - Form processing metadata dictionary
+        # 7 - Form processing metadata dictionary
         self.proc_metadata = {}
-        self.proc_metadata["xref_static_lake_db_file"] = self.cfg.get("DATABASES", "LAKE_DB")
+        if self.cfg.get("DATABASES", "LAKE_DB") is not None:
+            self.proc_metadata["xref_static_lake_db_file"] = self.cfg.get("DATABASES", "LAKE_DB")
+        else:
+            self.proc_metadata["xref_static_lake_db_file"] = ""
         self.proc_metadata["xref_input_l2_hr_pixc_file"] = self.pixc_file
         self.proc_metadata["xref_input_l2_hr_pixc_vec_river_file"] = self.pixc_vec_river_file
         self.proc_metadata["xref_l2_hr_lake_tile_param_file"] = file_config
@@ -140,11 +139,11 @@ class PGELakeTile():
         # 1.1 - PIXC file
         message = "> 1.1  INPUT PIXC file = %s" % self.pixc_file
         logger.info(message)
-        my_tools.testFile(self.pixc_file, IN_extent=".nc")
+        my_tools.test_file(self.pixc_file, in_extent=".nc")
         # 1.2 - PIXCVecRiver file
         message = "> 1.2  INPUT PIXCVecRiver file = %s" % self.pixc_vec_river_file
         logger.info(message)
-        my_tools.testFile(self.pixc_vec_river_file, IN_extent=".nc")
+        my_tools.test_file(self.pixc_vec_river_file, in_extent=".nc")
 
     def _test_output_directory(self):
         """
@@ -153,7 +152,7 @@ class PGELakeTile():
         logger = logging.getLogger(self.__class__.__name__)
         message = "[lakeTileProcessing]   OUTPUT DIR = %s" % self.output_dir
         logger.info(message)
-        my_tools.testDir(self.output_dir)
+        my_tools.test_dir(self.output_dir)
 
     def _read_input_data(self):
         """
@@ -181,24 +180,18 @@ class PGELakeTile():
         logger = logging.getLogger(self.__class__.__name__)
         # 3 - Retrieve lake Db layer
         lake_db_file = self.cfg.get("DATABASES", "LAKE_DB")
-        if (lake_db_file == "") or (lake_db_file is None):
+        if (lake_db_file == "") or (lake_db_file is None) :
             logger.warning("NO database specified -> NO link of SWOT obs with a priori lake")
-        else:
-            if os.path.exists(lake_db_file):
-                type_db = lake_db_file.split('.')[-1]  # Type of database
-                influence_lake_db_file = self.cfg.get("DATABASES", "INFLUENCE_LAKE_DB")
-                if type_db == "shp":  # Shapefile format
-                    if not (influence_lake_db_file == "") or not (influence_lake_db_file is None):
-                        self.obj_lake_db = lake_db.LakeDbShp(lake_db_file, in_influence_lake_db_filename = influence_lake_db_file, in_poly = self.obj_pixc.tile_poly)
-                    else :
-                        self.obj_lake_db = lake_db.LakeDbShp(lake_db_file, in_poly = self.obj_pixc.tile_poly)
-                elif type_db == "sqlite":  # SQLite format
-                    self.obj_lake_db = lake_db.LakeDbSqlite(lake_db_file, self.obj_pixc.tile_poly)
-                else:
-                    message = "Lake a priori database format (%s) is unknown: must be .shp or .sqlite" % type_db
-                    raise service_error.ProcessingError(message, logger)
+            self.obj_lake_db = lake_db.LakeDb()
+        else :
+            type_db = lake_db_file.split('.')[-1]  # Type of database
+            if type_db == "shp":  # Shapefile format
+                self.obj_lake_db = lake_db.LakeDbShp(lake_db_file, self.obj_pixc.tile_poly)
+            elif type_db == "sqlite":  # SQLite format
+                self.obj_lake_db = lake_db.LakeDbSqlite(lake_db_file, self.obj_pixc.tile_poly)
             else:
-                message = "ERROR = %s doesn't exist" % lake_db_file
+                self.obj_lake_db = lake_db.LakeDb()
+                message = "Prior lake database format (%s) is unknown: must be .shp or .sqlite" % type_db
                 raise service_error.ProcessingError(message, logger)
 
     def _prepare_output_data(self):
@@ -208,15 +201,14 @@ class PGELakeTile():
         # 4 - Retrieve orbit info from PIXC filename and compute output filenames
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("> 4.1 - Retrieving tile infos from PIXC filename...")
-        self.lake_tile_filenames = locnes_filenames.lakeTileFilenames(self.pixc_file, self.pixc_vec_river_file, self.output_dir)
+        self.lake_tile_filenames = locnes_filenames.LakeTileFilenames(self.pixc_file, self.pixc_vec_river_file, self.output_dir)
         # 4 - Initialize lake product
         logger.info("> 4.2 - Initialize lake product object...")
         self.obj_lake = proc_lake.LakeProduct("TILE",
                                               self.obj_pixc,
                                               self.obj_pixc_vec,
                                               self.obj_lake_db,
-                                              os.path.basename(self.lake_tile_filenames.lake_tile_shp_file).split(".")[0],
-                                              in_id_prefix=self.lake_tile_filenames.lake_id_prefix)
+                                              os.path.basename(self.lake_tile_filenames.lake_tile_shp_file).split(".")[0])
 
     def _write_output_data(self, in_proc_metadata):
         """
@@ -240,14 +232,14 @@ class PGELakeTile():
         logger.info("9.2 - Writing LakeTile_pixcvec file...")
         self.obj_pixc_vec.write_file(self.lake_tile_filenames.lake_tile_pixcvec_file, in_proc_metadata)
         if self.flag_prod_shp and (self.obj_pixc_vec.nb_water_pix != 0):
-            self.obj_pixc_vec.write_file_asShp(self.lake_tile_filenames.lake_tile_pixcvec_file.replace(".nc", ".shp"), self.obj_pixc)
+            self.obj_pixc_vec.write_file_as_shp(self.lake_tile_filenames.lake_tile_pixcvec_file.replace(".nc", ".shp"), self.obj_pixc)
         logger.info("")
 
         # 3 - Write intermediate NetCDF file with indices of pixels (and associated label) related to objects at the top/bottom edges of the tile
         logger.info("9.3 - Writing LakeTile_edge file...")
         self.obj_pixc.write_edge_file(self.lake_tile_filenames.lake_tile_edge_file, in_proc_metadata)
         if self.flag_prod_shp and (self.obj_pixc.nb_edge_pix != 0):
-            self.obj_pixc.write_edge_file_asShp(self.lake_tile_filenames.lake_tile_edge_file.replace(".nc", ".shp"))
+            self.obj_pixc.write_edge_file_as_shp(self.lake_tile_filenames.lake_tile_edge_file.replace(".nc", ".shp"))
         logger.info("")
 
     def start(self):
@@ -317,9 +309,9 @@ class PGELakeTile():
         logger = logging.getLogger(self.__class__.__name__)
         
         # 1 - Close lake database
-        if self.obj_lake_db is not None:
-            logger.info("Closing lake database...")
-            self.obj_lake_db.close_db()
+
+        logger.info("Closing lake database...")
+        self.obj_lake_db.close_db()
 
         logger.info("")
         logger.info(self.timer.stop())
@@ -352,7 +344,6 @@ class PGELakeTile():
         # 0 - Init output dictionary
         out_params = {}
         # Default values
-        out_params["CONTINENT_FILE"] = None
         out_params["Produce_shp"] = False
 
         # 1 - Read parameter file
@@ -370,22 +361,15 @@ class PGELakeTile():
 
         # 3 - Retrieve DATABASES
         out_params["LAKE_DB"] = None
-        out_params["INFLUENCE_LAKE_DB"] = None
         out_params["LAKE_DB_ID"] = None
-        out_params["CONTINENT_FILE"] = None
-        # TODO : None in filename if no lake DATABASES or continent file
+        # TODO : None in filename if no lake DATABASES or basins file
         if "DATABASES" in config.sections():
             list_db = config.options("DATABASES")
-            # Lake a priori database
+            # Prior lake database
             if "lake_db" in list_db:
                 out_params["LAKE_DB"] = config.get("DATABASES", "LAKE_DB")
-            if "influence_lake_db" in list_db:
-                out_params["INFLUENCE_LAKE_DB"] = config.get("DATABASES", "INFLUENCE_LAKE_DB")
             if "lake_db_id" in list_db:
                 out_params["LAKE_DB_ID"] = config.get("DATABASES", "LAKE_DB_ID")
-            # Continent file
-            if "continent_file" in list_db:
-                out_params["CONTINENT_FILE"] = config.get("DATABASES", "CONTINENT_FILE")
 
         # 4 - Retrieve OPTIONS
         if "OPTIONS" in config.sections():
@@ -403,42 +387,10 @@ class PGELakeTile():
         
         # 6 - Retrieve FILE informations
         out_params["PRODUCER"] = config.get("FILE_INFORMATION", "PRODUCER")
-        out_params["LAKE_TILE_CRID"] = config.get("CRID", "LAKE_TILE_CRID")
-        # PIXC
-        out_params["PIXC_PREFIX"] = config.get("FILE_INFORMATION", "PIXC_PREFIX")
-        out_params["PIXC_PATTERN_PRINT"] = config.get("FILE_INFORMATION", "PIXC_PATTERN_PRINT")
-        out_params["PIXC_PATTERN_IND"] = config.get("FILE_INFORMATION", "PIXC_PATTERN_IND")
-        # PIXCVEC_RIVER
-        out_params["PIXCVEC_RIVER_PREFIX"] = config.get("FILE_INFORMATION", "PIXCVEC_RIVER_PREFIX")
-        out_params["PIXCVEC_RIVER_PATTERN_PRINT"] = config.get("FILE_INFORMATION", "PIXCVEC_RIVER_PATTERN_PRINT")
-        out_params["PIXCVEC_RIVER_PATTERN_IND"] = config.get("FILE_INFORMATION", "PIXCVEC_RIVER_PATTERN_IND")
         # LAKE_TILE
-        out_params["LAKE_TILE_PREFIX"] = config.get("FILE_INFORMATION", "LAKE_TILE_PREFIX")
-        # ATTENTION % pas supporté dans config parser
-        #out_params["LAKE_TILE_PATTERN"] = config.get("FILE_INFORMATION", "LAKE_TILE_PATTERN")
-        out_params["LAKE_TILE_PATTERN"] = out_params["LAKE_TILE_PREFIX"] + "%03d_%03d_%s_%s_%s_%s_%02d%s"  # LakeTile filename with %03d=cycle number %03d=pass number %s=tile ref %s=swath %s=begin date %s=end date %s=CRID %s=counter %s=suffix
-        # ATTENTION % pas supporté dans config parser
-        #out_params["LAKE_TILE_PATTERN_PRINT"] = config.get("FILE_INFORMATION", "LAKE_TILE_PATTERN_PRINT")
-        out_params["LAKE_TILE_PATTERN_PRINT"] = out_params["LAKE_TILE_PREFIX"] + "%s<CycleID>_<PassID>_<TileID>[L/R]_<RangeBeginDateTime>_<RangeEndingDateTime>_<CRID>_<ProductCounter>"
-        out_params["LAKE_TILE_PATTERN_IND"] = config.get("FILE_INFORMATION", "LAKE_TILE_PATTERN_IND")
-        out_params["LAKE_TILE_SHP_SUFFIX"] = config.get("FILE_INFORMATION", "LAKE_TILE_SHP_SUFFIX")
-        out_params["LAKE_TILE_SHP_META_SUFFIX"] = config.get("FILE_INFORMATION", "LAKE_TILE_SHP_META_SUFFIX")
-        out_params["LAKE_TILE_EDGE_SUFFIX"] = config.get("FILE_INFORMATION", "LAKE_TILE_EDGE_SUFFIX")
-        out_params["LAKE_TILE_PIXCVEC_SUFFIX"] = config.get("FILE_INFORMATION", "LAKE_TILE_PIXCVEC_SUFFIX")
-      
-        # PIXCVEC
-        out_params["PIXCVEC_PREFIX"] = config.get("FILE_INFORMATION", "PIXCVEC_PREFIX")
-        out_params["PIXCVEC_SUFFIX"] = config.get("FILE_INFORMATION", "PIXCVEC_SUFFIX")
-        # ATTENTION % pas supporté dans config parser
-        #out_params["PIXCVEC_PATTERN"] = config.get("FILE_INFORMATION", "PIXCVEC_PATTERN")
-        out_params["PIXCVEC_PATTERN"] = out_params["PIXCVEC_PREFIX"] + "%03d_%03d_%s_%s_%s_%s_%02d" + out_params["PIXCVEC_SUFFIX"]  # PIXCVec filename with %03d=cycle number %03d=pass number %s=tile ref %s=begin date %s=end date %s=CRID %s=counter 
+        out_params["LAKE_TILE_CRID"] = config.get("CRID", "LAKE_TILE_CRID")
         # LAKE_SP
         out_params["LAKE_SP_CRID"] = config.get("CRID", "LAKE_SP_CRID")
-        out_params["LAKE_SP_PREFIX"] = config.get("FILE_INFORMATION", "LAKE_SP_PREFIX")
-        # ATTENTION % pas supporté dans config parser
-        #out_params["LAKE_SP_PATTERN"] = config.get("FILE_INFORMATION", "LAKE_SP_PATTERN")
-        out_params["LAKE_SP_PATTERN"]  = out_params["LAKE_SP_PREFIX"] + "%03d_%03d_%s_%s_%s_%s_%02d.shp"  # LakeSP filename with %03d=cycle number %03d=pass number %s=continent %s=begin date %s=end date %s=CRID %s=counter
-        out_params["LAKE_SP_PATTERN_NO_CONT"] = out_params["LAKE_SP_PREFIX"] + "%03d_%03d_%s_%s_%s_%02d.shp"  # LakeSP filename without continent info with %03d=cycle number %03d=pass number %s=begin date %s=end date %s=CRID %s=counter
 
         return out_params
 
@@ -472,10 +424,8 @@ class PGELakeTile():
             section = "DATABASES"
             self.cfg.add_section(section)
             self.cfg.set(section, "LAKE_DB", param_list["LAKE_DB"])
-            self.cfg.set(section, "INFLUENCE_LAKE_DB", param_list["INFLUENCE_LAKE_DB"])
             self.cfg.set(section, "LAKE_DB_ID", param_list["LAKE_DB_ID"])
-            self.cfg.set(section, "CONTINENT_FILE", param_list["CONTINENT_FILE"])
-            
+
             # Add OPTIONS section and parameters
             section = "OPTIONS"
             self.cfg.add_section(section)
@@ -492,27 +442,7 @@ class PGELakeTile():
             if section not in self.cfg.sections():
                 self.cfg.add_section(section)
                 self.cfg.set(section, "PRODUCER", param_list["PRODUCER"])
-                self.cfg.set(section, "PIXC_PREFIX", param_list["PIXC_PREFIX"])
-                self.cfg.set(section, "PIXC_PATTERN_PRINT", param_list["PIXC_PATTERN_PRINT"])
-                self.cfg.set(section, "PIXC_PATTERN_IND", param_list["PIXC_PATTERN_IND"])
-                self.cfg.set(section, "PIXCVEC_RIVER_PREFIX", param_list["PIXCVEC_RIVER_PREFIX"])
-                self.cfg.set(section, "PIXCVEC_RIVER_PATTERN_PRINT", param_list["PIXCVEC_RIVER_PATTERN_PRINT"])
-                self.cfg.set(section, "PIXCVEC_RIVER_PATTERN_IND", param_list["PIXCVEC_RIVER_PATTERN_IND"])
-                self.cfg.set(section, "LAKE_TILE_PREFIX", param_list["LAKE_TILE_PREFIX"])
-                self.cfg.set(section, "LAKE_TILE_PATTERN", param_list["LAKE_TILE_PATTERN"])
-                self.cfg.set(section, "LAKE_TILE_PATTERN_PRINT", param_list["LAKE_TILE_PATTERN_PRINT"])
-                self.cfg.set(section, "LAKE_TILE_PATTERN_IND", param_list["LAKE_TILE_PATTERN_IND"])
-                self.cfg.set(section, "LAKE_TILE_SHP_SUFFIX", param_list["LAKE_TILE_SHP_SUFFIX"])
-                self.cfg.set(section, "LAKE_TILE_SHP_META_SUFFIX", param_list["LAKE_TILE_SHP_META_SUFFIX"])
-                self.cfg.set(section, "LAKE_TILE_EDGE_SUFFIX", param_list["LAKE_TILE_EDGE_SUFFIX"])
-                self.cfg.set(section, "LAKE_TILE_PIXCVEC_SUFFIX", param_list["LAKE_TILE_PIXCVEC_SUFFIX"])
-                self.cfg.set(section, "PIXCVEC_PREFIX", param_list["PIXCVEC_PREFIX"])
-                self.cfg.set(section, "PIXCVEC_SUFFIX", param_list["PIXCVEC_SUFFIX"])
-                self.cfg.set(section, "PIXCVEC_PATTERN", param_list["PIXCVEC_PATTERN"])
-                self.cfg.set(section, "LAKE_SP_PREFIX", param_list["LAKE_SP_PREFIX"])
-                self.cfg.set(section, "LAKE_SP_PATTERN", param_list["LAKE_SP_PATTERN"])
-                self.cfg.set(section, "LAKE_TILE_SHP_SUFFIX", param_list["LAKE_TILE_SHP_SUFFIX"])
-            
+
         except Exception:
             print("Something wrong happened in _put_cmd_value !")
             raise
@@ -532,35 +462,38 @@ class PGELakeTile():
             # 1.1 - PATH section
             # PIXC file
             self.cfg.test_var_config_file('PATHS', 'PIXC file', str)
-            my_tools.testFile(self.cfg.get('PATHS', 'PIXC file'))
+            my_tools.test_file(self.cfg.get('PATHS', 'PIXC file'))
             logger.debug('PIXC file = ' + str(self.cfg.get('PATHS', 'PIXC file')))
             # PIXCVecRiver file
             self.cfg.test_var_config_file('PATHS', 'PIXCVecRiver file', str)
-            my_tools.testFile(self.cfg.get('PATHS', 'PIXCVecRiver file'))
+            my_tools.test_file(self.cfg.get('PATHS', 'PIXCVecRiver file'))
             logger.debug('PIXCvecRiver file = ' + str(self.cfg.get('PATHS', 'PIXCVecRiver file')))
             # Output directory
             self.cfg.test_var_config_file('PATHS', 'Output directory', str)
-            my_tools.testDir(self.cfg.get('PATHS', 'Output directory'))
+            my_tools.test_dir(self.cfg.get('PATHS', 'Output directory'))
             logger.debug('Output directory = ' + str(self.cfg.get('PATHS', 'Output directory')))
 
             # 1.2 - DATABASES section
             # Lake database full path
             if self.cfg.get('DATABASES', 'LAKE_DB') is None:
-                logger.debug('LAKE_DB not filled => LakeTile product not linked to a lake database')
-            else:
+                logger.debug('LAKE_DB not filled => LakeTile product not linked to a lake database and continent')
+            elif self.cfg.get('DATABASES', 'LAKE_DB').endswith(".shp"):
                 self.cfg.test_var_config_file('DATABASES', 'LAKE_DB', str)
-                my_tools.testFile(self.cfg.get('DATABASES', 'LAKE_DB'))
+                my_tools.test_file(self.cfg.get('DATABASES', 'LAKE_DB'))
                 logger.debug('LAKE_DB = ' + str(self.cfg.get('DATABASES', 'LAKE_DB')))
                 # Lake identifier attribute name in the database
-                self.cfg.test_var_config_file('DATABASES', 'LAKE_DB_ID', str)
-                logger.debug('LAKE_DB_ID = ' + str(self.cfg.get('DATABASES', 'LAKE_DB_ID')))
-            # Continent file if want LakeSP product split per continent
-            if self.cfg.get('DATABASES', 'CONTINENT_FILE') is None:
-                logger.debug('CONTINENT_FILE not filled => LakeTile product not linked to a continent')
-            else:
-                self.cfg.test_var_config_file('DATABASES', 'CONTINENT_FILE', str)
-                my_tools.testFile(self.cfg.get('DATABASES', 'CONTINENT_FILE'))
-                logger.debug('CONTINENT_FILE = ' + str(self.cfg.get('DATABASES', 'CONTINENT_FILE')))
+                if self.cfg.get('DATABASES', 'LAKE_DB_ID'):
+                    self.cfg.test_var_config_file('DATABASES', 'LAKE_DB_ID', str)
+                    logger.debug('LAKE_DB_ID = ' + str(self.cfg.get('DATABASES', 'LAKE_DB_ID')))
+                else :
+                    logger.warning('LAKE_DB file given but the lake_id fieldname is missing')
+            elif self.cfg.get('DATABASES', 'LAKE_DB').endswith(".sqlite"):
+                self.cfg.test_var_config_file('DATABASES', 'LAKE_DB', str)
+                my_tools.test_file(self.cfg.get('DATABASES', 'LAKE_DB'))
+                logger.debug('LAKE_DB = ' + str(self.cfg.get('DATABASES', 'LAKE_DB')))
+            else :
+                logger.debug('Unknown LAKE_DB file format for file : %s' % (self.cfg.get('DATABASES', 'LAKE_DB')))
+
 
             # 1.3 - OPTIONS section
             # Shapefile production
@@ -614,11 +547,10 @@ class PGELakeTile():
             
             # 2.2 - ID section
             # Nb digits for counter of lakes in a tile or pass
-            self.cfg.test_var_config_file('ID', 'NB_DIGITS', str, val_default=4, logger=logger)
+            self.cfg.test_var_config_file('ID', 'NB_DIGITS', str, val_default=6, logger=logger)
             logger.debug('NB_DIGITS = ' + str(self.cfg.get('ID', 'NB_DIGITS')))
             
             # 2.3 - FILE_INFORMATION section
-            
             # Product generator
             self.cfg.test_var_config_file('FILE_INFORMATION', 'PRODUCER', str)
             logger.debug('PRODUCER = ' + str(self.cfg.get('FILE_INFORMATION', 'PRODUCER')))
@@ -628,41 +560,7 @@ class PGELakeTile():
             # Composite Release IDentifier for LakeSP processing
             self.cfg.test_var_config_file('CRID', 'LAKE_SP_CRID', str)
             logger.debug('LAKE_SP_CRID = ' + str(self.cfg.get('CRID', 'LAKE_SP_CRID')))
-            
-            # PIXC product
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'PIXC_PREFIX', str)
-            logger.debug('PIXC_PREFIX = ' + str(self.cfg.get('FILE_INFORMATION', 'PIXC_PREFIX')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'PIXC_PATTERN_PRINT', str)
-            logger.debug('PIXC_PATTERN_PRINT = ' + str(self.cfg.get('FILE_INFORMATION', 'PIXC_PATTERN_PRINT')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'PIXC_PATTERN_IND', str)
-            logger.debug('PIXC_PATTERN_IND = ' + str(self.cfg.get('FILE_INFORMATION', 'PIXC_PATTERN_IND')))
-            
-            # PIXCVecRiver product
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'PIXCVEC_RIVER_PREFIX', str)
-            logger.debug('PIXCVEC_RIVER_PREFIX = ' + str(self.cfg.get('FILE_INFORMATION', 'PIXCVEC_RIVER_PREFIX')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'PIXCVEC_RIVER_PATTERN_PRINT', str)
-            logger.debug('PIXCVEC_RIVER_PATTERN_PRINT = ' + str(self.cfg.get('FILE_INFORMATION', 'PIXCVEC_RIVER_PATTERN_PRINT')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'PIXCVEC_RIVER_PATTERN_IND', str)
-            logger.debug('PIXCVEC_RIVER_PATTERN_IND = ' + str(self.cfg.get('FILE_INFORMATION', 'PIXCVEC_RIVER_PATTERN_IND')))
-            
-            # LakeTile product
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_PREFIX', str)
-            logger.debug('LAKE_TILE_PREFIX = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_PREFIX')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_PATTERN', str)
-            logger.debug('LAKE_TILE_PATTERN = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_PATTERN')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_PATTERN_PRINT', str)
-            logger.debug('LAKE_TILE_PATTERN_PRINT = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_PATTERN_PRINT')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_PATTERN_IND', str)
-            logger.debug('LAKE_TILE_PATTERN_IND = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_PATTERN_IND')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_SHP_SUFFIX', str)
-            logger.debug('LAKE_TILE_SHP_SUFFIX = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_SHP_SUFFIX')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_SHP_META_SUFFIX', str)
-            logger.debug('LAKE_TILE_SHP_META_SUFFIX = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_SHP_META_SUFFIX')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_EDGE_SUFFIX', str)
-            logger.debug('LAKE_TILE_EDGE_SUFFIX = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_EDGE_SUFFIX')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_PIXCVEC_SUFFIX', str)
-            logger.debug('LAKE_TILE_PIXCVEC_SUFFIX = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_PIXCVEC_SUFFIX')))
-            
+
         # Error managed
         except service_error.ConfigFileError:
             message = "Error in the configuration file " + self.cfg.path_conf

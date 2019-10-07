@@ -64,9 +64,12 @@ FV_NETCDF = {'int': FV_INT,
 
 # FillValues for Shapefile
 FV_REAL = -999999999999
+FV_INT9_SHP = -99999999
 FV_INT_SHP = -999
 FV_STRING_SHP = "no_data"
-FV_SHP = {'int8': FV_INT_SHP,
+FV_SHP = {'int4': FV_INT_SHP, 
+          'int8': FV_INT_SHP, 
+          'int9': FV_INT9_SHP,
           'int16': FV_INT_SHP,
           'int32': FV_INT_SHP,
           'uint8': FV_INT_SHP,
@@ -77,8 +80,22 @@ FV_SHP = {'int8': FV_INT_SHP,
           'double': FV_REAL,
           'float64': FV_REAL,
           'str': FV_STRING_SHP,
+          'text': FV_STRING_SHP,
           'str32': FV_STRING_SHP,
           'object': FV_STRING_SHP}
-FV_OGR = {ogr.OFTInteger: FV_INT_SHP,
-          ogr.OFTReal: FV_REAL,
-          ogr.OFTString: FV_STRING_SHP}
+
+# Conversion metadata type to OGR type
+FORMAT_OGR = {'int4': ogr.OFTInteger,
+              'int9': ogr.OFTInteger,
+              'float': ogr.OFTReal,
+              'text': ogr.OFTString}
+
+# Prior Lake Database structure
+# Table names
+lakedb_table_name = "lake"
+basin_table_name = "basin"
+lake_infl_table_name = "lake_influence"
+# Fields names
+lake_db_id = "lakedb_id"
+basin_db_id = "basin_id"
+
