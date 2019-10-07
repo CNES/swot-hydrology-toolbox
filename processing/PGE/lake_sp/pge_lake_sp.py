@@ -23,13 +23,6 @@ This file is part of the SWOT Hydrology Toolbox
  Copyright (C) 2018 Centre National d’Etudes Spatiales
  This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
-TODO :
-    - [ENH] creation of empty pixc vec for empty tiles
-    - [ENH] read processing parameters from xml files
-    - Update README
-
-
-
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -54,6 +47,9 @@ import cnes.common.lib.my_shp_file as my_shp
 import cnes.common.service_config_file as service_config_file
 import cnes.common.service_error as service_error
 import cnes.common.service_logger as service_logger
+
+from lxml import etree as etree
+import cnes.common.lib_lake.locnes_products_shapefile as locnes_products_shapefile
 
 import  os, sys
 from lxml import etree as ET
@@ -81,13 +77,12 @@ class PGELakeSP():
         
         # 1 - Load command file
         self.cmd_file = cmd_file
-        my_tools.testFile(cmd_file, IN_extent=".cfg")  # Test existance and extension
+        my_tools.test_file(cmd_file, in_extent=".cfg")  # Test existance and extension
         my_params = self._read_cmd_file()  # Read parameters
 
-        self.laketile_shp_files = my_params["laketile_shp_files"].split(';')
-        self.laketile_shp_files_dict = {} # Used to reorganize laketile_shp_file by continent
-        self.laketile_edge_files = my_params["laketile_edge_files"].split(';')
-        self.laketile_pixcvec_files = my_params["laketile_pixcvec_files"].split(';')
+        self.laketile_shp_dir = my_params["laketile_shp_directory"]
+        self.laketile_edge_dir = my_params["laketile_edge_directory"]
+        self.laketile_pixcvec_dir = my_params["laketile_pixcvec_directory"]
         self.output_dir = my_params["output_dir"]
 
         self.cycle_num = my_params["cycle_num"]
@@ -114,6 +109,7 @@ class PGELakeSP():
         self.obj_lake_r = {}
         self.obj_lake_l = {}
         self.lake_sp_filenames = {}
+        self.laketile_shp_path_dict = {}
         self.flag_prod_shp = self.cfg.getboolean("OPTIONS", "Produce shp")
 
         # 5 - Initiate logging service
@@ -135,35 +131,32 @@ class PGELakeSP():
         self._check_config_parameters()
         logger.info("")
 
-        # 8 - Update global variables
-        # TODO replace all global variables by call to service_config_file
-        # my_var.tmpGetConfigFromServiceConfigFile()
-        
-        # 9 - Form processing metadata dictionary
+        # 8 - Form processing metadata dictionary
         self.proc_metadata = {}
 
         logger.info("")
         logger.info("")
 
-    def _test_input_files(self):
+    def _test_input_directories(self):
         """
         This method test mandatory input directory
         """
         logger = logging.getLogger(self.__class__.__name__)
-        # 1.1 - Laketile shp files
-        message = "> 1.1  INPUT Laketile shp files = %s" % self.laketile_shp_files
+        # 1.1 - Laketile shp directory
+        message = "> 1.1  INPUT Laketile shp directory = %s" % self.laketile_shp_dir
         logger.info(message)
-        my_tools.testListOfFiles(self.laketile_shp_files)
+        my_tools.test_dir(self.laketile_shp_dir)
 
-        # 1.2 - Laketile edge files
-        message = "> 1.2  INPUT Laketile edge files = %s" % self.laketile_edge_files
-        logger.info(message)
-        my_tools.testListOfFiles(self.laketile_edge_files)
 
-        # 1.3 - Laketile pixcvec files
-        message = "> 1.3  INPUT Laketile pixcvec files = %s" % self.laketile_pixcvec_files
+        # 1.2 - Laketile edge directory
+        message = "> 1.2  INPUT Laketile edge directory = %s" % self.laketile_edge_dir
         logger.info(message)
-        my_tools.testListOfFiles(self.laketile_pixcvec_files)
+        my_tools.test_dir(self.laketile_edge_dir)
+
+        # 1.3 - Laketile pixcvec directory
+        message = "> 1.3  INPUT Laketile pixcvec directory = %s" % self.laketile_pixcvec_dir
+        logger.info(message)
+        my_tools.test_dir(self.laketile_pixcvec_dir)
 
     def _test_output_directory(self):
         """
@@ -172,7 +165,7 @@ class PGELakeSP():
         logger = logging.getLogger(self.__class__.__name__)
         message = "  OUTPUT DIR = %s" % self.output_dir
         logger.info(message)
-        my_tools.testDir(self.output_dir)
+        my_tools.test_dir(self.output_dir)
 
     def _read_input_data(self):
         """
@@ -180,45 +173,95 @@ class PGELakeSP():
         """
         logger = logging.getLogger(self.__class__.__name__)
 
-        # 0 - Get continent list and filenames related to each continent
-        pixc_files_dict = {}
-        pixcvec_river_files_dict = {}
-        for laketile_shp_file in self.laketile_shp_files :
-            # Get continent, pixc and pixcvec river information from laketile metadata
-            metadata = ET.parse(laketile_shp_file + ".xml")
-            cur_continent = metadata.xpath("//swot_product/granule/continent")[0].text
-            cur_pixc_file = metadata.xpath("//swot_product/processing/xref_input_l2_hr_pixc_file")[0].text
-            cur_pixcvec_river_file = metadata.xpath("//swot_product/processing/xref_input_l2_hr_pixc_vec_river_file")[0].text
 
-            # Fill continent list with new cur_continent and update laketile_shp_files_dict
-            self.continent_list.add(cur_continent)
-            self.laketile_shp_files_dict.setdefault(cur_continent, []).append(laketile_shp_file)
+        # 1 - List all files in self.laketile_shp_dir
+        tmp_list = os.listdir(self.laketile_shp_dir)
 
-            pixc_files_dict.setdefault(cur_continent, []).append(cur_pixc_file)
-            pixcvec_river_files_dict.setdefault(cur_continent, []).append(cur_pixcvec_river_file)
+        # 2 - Compute file prefix regarding cycle / pass / tile conditions
+        cond_prefix = locnes_filenames.LAKE_TILE_PREFIX  # Deal with all laketile files in laketile directories
+        cond_prefix += "%03d" % self.cycle_num # Set cycle number
+        cond_prefix += "_%03d" % self.pass_num # Set pass number
+
+        # 3 - For each listed laketile shp file, get related laketile edge and pixcvec files if they exist
+        laketile_edge_path_dict = {}
+        laketile_pixcvec_path_dict = {}
+
+        pixc_path_dict = {}
+        pixcvec_river_path_dict = {}
+
+
+
+        self.laketile_path_list = []
+        self.cycle_pass_list = []
+        self.nb_tiles_list = []
+        for cur_laketile_shp_file in tmp_list:
+
+            # Test if file meets the condition of laketile shp file
+            if cur_laketile_shp_file.startswith(cond_prefix) and cur_laketile_shp_file.endswith(locnes_filenames.LAKE_TILE_SHP_SUFFIX):
+
+
+
+                cur_laketile_shp_path = os.path.join(self.laketile_shp_dir, cur_laketile_shp_file)
+                cur_laketile_edge_path = os.path.join(self.laketile_edge_dir,
+                                                      cur_laketile_shp_file.replace(locnes_filenames.LAKE_TILE_SHP_SUFFIX,
+                                                                       locnes_filenames.LAKE_TILE_EDGE_SUFFIX))
+                cur_laketile_pixcvec_path = os.path.join(self.laketile_pixcvec_dir,
+                                                         cur_laketile_shp_file.replace(locnes_filenames.LAKE_TILE_SHP_SUFFIX,
+                                                                          locnes_filenames.LAKE_TILE_PIXCVEC_SUFFIX))
+
+                if os.path.exists(cur_laketile_edge_path) and os.path.exists(cur_laketile_pixcvec_path):
+                    # Get continent, pixc and pixcvec river information from laketile metadata
+                    metadata = ET.parse(cur_laketile_shp_path + ".xml")
+                    # test and overwrite parameter with xml file
+                    try:
+                        locnes_products_shapefile.set_config_from_xml(metadata)
+                    except:
+                        message = "ERROR: problem with lake_tile xml file : " + cur_laketile_shp_path + ".xml"
+                        raise service_error.ProcessingError(message, logger)
+
+                    cur_continent_txt = metadata.xpath("//swot_product/global_attributes/continent")[0].text
+                    cur_pixc_path = metadata.xpath("//swot_product/global_attributes/xref_input_l2_hr_pixc_file")[0].text
+                    cur_pixcvec_river_path = metadata.xpath("//swot_product/global_attributes/xref_input_l2_hr_pixc_vec_river_file")[0].text
+
+                    if not cur_continent_txt:
+                        cur_continent_list = [""]
+                    else :
+                        cur_continent_list = cur_continent_txt.split(";")
+
+                    for cur_continent in cur_continent_list:
+                        self.continent_list.add(cur_continent)
+
+                        self.laketile_shp_path_dict.setdefault(cur_continent, []).append(cur_laketile_shp_path)
+                        laketile_edge_path_dict.setdefault(cur_continent, []).append(cur_laketile_edge_path)
+                        laketile_pixcvec_path_dict.setdefault(cur_continent, []).append(cur_laketile_pixcvec_path)
+
+                        pixc_path_dict.setdefault(cur_continent, []).append(cur_pixc_path)
+                        pixcvec_river_path_dict.setdefault(cur_continent, []).append(cur_pixcvec_river_path)
 
         # 1 - Fill proc metadata with file names
         for cur_continent in self.continent_list:
             self.proc_metadata[cur_continent] = {}
-
-            self.proc_metadata[cur_continent]["xref_static_lake_db_file"] = self.cfg.get("DATABASES", "LAKE_DB")
-            self.proc_metadata[cur_continent]["xref_input_l2_hr_pixc_file"] = ", ".join(pixc_files_dict[cur_continent])
-            self.proc_metadata[cur_continent]["xref_input_l2_hr_pixc_vec_river_file"] = ", ".join(pixcvec_river_files_dict[cur_continent])
+            if not self.cfg.get("DATABASES", "LAKE_DB"):
+                self.proc_metadata[cur_continent]["xref_static_lake_db_file"] = ""
+            else :
+                self.proc_metadata[cur_continent]["xref_static_lake_db_file"] = self.cfg.get("DATABASES", "LAKE_DB")
+            self.proc_metadata[cur_continent]["xref_input_l2_hr_pixc_file"] = ", ".join(pixc_path_dict[cur_continent])
+            self.proc_metadata[cur_continent]["xref_input_l2_hr_pixc_vec_river_file"] = ", ".join(pixcvec_river_path_dict[cur_continent])
             self.proc_metadata[cur_continent]["xref_l2_hr_lake_sp_param_file"] = self.file_config
 
-        # 2 - Init PixC_SP and PixC_Vec_SP product by retrieving data from the Laketile files for each continent
+        # 2 - Init PixC_SP and PixCVecSP product by retrieving data from the Laketile files for each continent
         logger.info("> 2 - Init Pixc Edge SP and Pixc Vec SP for each continent ...")
         for cur_continent in self.continent_list:
 
             logger.info("Init objects for continent %s" % (cur_continent))
 
             # Init Pixc SP
-            self.obj_pixc_sp[cur_continent] = proc_pixc_sp.PixC_Edge(self.laketile_edge_files, self.cycle_num, self.pass_num, cur_continent)
+            self.obj_pixc_sp[cur_continent] = proc_pixc_sp.PixCEdge(laketile_edge_path_dict[cur_continent], self.cycle_num, self.pass_num, cur_continent)
             # Fill Pixc SP object with laketile edge file information
             self.obj_pixc_sp[cur_continent].set_pixc_edge_from_laketile_edge_file()
 
             # Init Pixc Vec SP
-            self.obj_pixcvec_sp[cur_continent] = proc_pixc_vec_sp.PixC_Vec_SP(self.laketile_pixcvec_files, self.obj_pixc_sp[cur_continent], self.output_dir, cur_continent)
+            self.obj_pixcvec_sp[cur_continent] = proc_pixc_vec_sp.PixCVecSP(laketile_pixcvec_path_dict[cur_continent], self.obj_pixc_sp[cur_continent], self.output_dir, cur_continent)
 
 
     def _read_lake_db(self):
@@ -227,33 +270,23 @@ class PGELakeSP():
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("> 3 - Open a priori lake databases for each continent ...")
-        
         # 3 - Retrieve lake Db layer
         lake_db_file = self.cfg.get("DATABASES", "LAKE_DB")
-        if (lake_db_file == "") or (lake_db_file is None):
+        if (lake_db_file == "") or (lake_db_file is None) :
             logger.warning("NO database specified -> NO link of SWOT obs with a priori lake")
-        else:
-            if os.path.exists(lake_db_file):
-                type_db = lake_db_file.split('.')[-1]  # Type of database
-                influence_lake_db_file = self.cfg.get("DATABASES", "INFLUENCE_LAKE_DB")
-                if type_db == "shp":  # Shapefile format
-                    if not (influence_lake_db_file == "") or not (influence_lake_db_file is None):
-                        for cur_continent in self.continent_list:
-                            self.obj_lake_db[cur_continent] = lake_db.LakeDbShp(lake_db_file,
-                                                                                in_influence_lake_db_filename=influence_lake_db_file,
-                                                                                in_poly = self.obj_pixc_sp[cur_continent].tile_poly)
-                    else :
-                        for cur_continent in self.continent_list:
-                            self.obj_lake_db[cur_continent] = lake_db.LakeDbShp(lake_db_file, in_poly=self.obj_pixc_sp[cur_continent].tile_poly)
-                elif type_db == "sqlite":  # SQLite format
-                    for cur_continent in self.continent_list:
-                        self.obj_lake_db[cur_continent] = lake_db.LakeDbSqlite(lake_db_file, self.obj_pixc_sp[cur_continent].tile_poly)
-                else:
-                    message = "Lake a priori database format (%s) is unknown: must be .shp or .sqlite" % type_db
-                    raise service_error.ProcessingError(message, logger)
+            for cur_continent in self.continent_list:
+                self.obj_lake_db[cur_continent] = lake_db.LakeDb()
+        else :
+            type_db = lake_db_file.split('.')[-1]  # Type of database
+            if type_db == "shp":  # Shapefile format
+                for cur_continent in self.continent_list:
+                    self.obj_lake_db[cur_continent] = lake_db.LakeDbShp(lake_db_file, self.obj_pixc_sp[cur_continent].tile_poly)
+            elif type_db == "sqlite":  # SQLite format
+                for cur_continent in self.continent_list:
+                    self.obj_lake_db[cur_continent] = lake_db.LakeDbSqlite(lake_db_file, self.obj_pixc_sp[cur_continent].tile_poly)
             else:
-                message = "ERROR = %s doesn't exist" % lake_db_file
-                raise service_error.ProcessingError(message, logger)
+                self.obj_lake_db = lake_db.LakeDb()
+                logger.warning("Prior lake database format (%s) is unknown: must be .shp or .sqlite" % type_db)
 
     def _prepare_output_data(self):
         """
@@ -265,7 +298,7 @@ class PGELakeSP():
         for cur_continent in self.continent_list:
 
             logger.info("> 4.1 - Retrieving tile infos from Laketile filename for continent %s ..." %(cur_continent))
-            self.lake_sp_filenames[cur_continent] = locnes_filenames.lakeSPFilenames(self.laketile_shp_files, cur_continent, self.output_dir)
+            self.lake_sp_filenames[cur_continent] = locnes_filenames.LakeSPFilenames(self.laketile_shp_path_dict[cur_continent], cur_continent, self.output_dir)
 
             #
             logger.info("> 4.2 - Initialize lake product object for swath R for continent %s ..." %(cur_continent))
@@ -293,10 +326,10 @@ class PGELakeSP():
             logger.info("4 - Merging shapefiles to get LakeSP product %s..." % os.path.basename(self.lake_sp_filenames[cur_continent].lake_sp_file))
             # 4.1 - Merging Right and Left SP layers
             logger.debug("> Merging right and left SP layers...")
-            dataSource_sp1, layer_sp = my_shp.merge_2_layers(self.obj_lake_r[cur_continent].shp_mem_layer.layer, self.obj_lake_l[cur_continent].shp_mem_layer.layer)
+            dataSource_sp1, layer_sp = my_shp.merge_2_layers(self.obj_lake_r[cur_continent].shp_mem_layer.layer, self.obj_lake_l[cur_continent].shp_mem_layer.layer, cur_continent)
             # 4.2 - Merge SP layer with shapefiles retrieved from PGE_LakeTile
             logger.debug("> Merging SP layer with shapefiles retrieved from PGE_LakeTile...")
-            dataSource_sp2, layer_sp = my_shp.merge_mem_layer_with_shp(self.laketile_shp_files_dict[cur_continent], layer_sp)
+            dataSource_sp2, layer_sp = my_shp.merge_mem_layer_with_shp(self.laketile_shp_path_dict[cur_continent], layer_sp, cur_continent)
             # 4.3 - Write LakeSP shapefile product
             logger.debug("> Writing L2_HR_LakeSP shapefile = %s" % os.path.basename(self.lake_sp_filenames[cur_continent].lake_sp_file))
             my_shp.write_mem_layer_as_shp(layer_sp, self.lake_sp_filenames[cur_continent].lake_sp_file)
@@ -319,8 +352,8 @@ class PGELakeSP():
 
             # 5 - Update PIXCVec files
             logger.info("5 - Updating L2_HR_PIXCVec files...")
-            self.obj_pixcvec_sp[cur_continent].pixcvec_r.updatePixcVec(self.flag_prod_shp)
-            self.obj_pixcvec_sp[cur_continent].pixcvec_l.updatePixcVec(self.flag_prod_shp)
+            self.obj_pixcvec_sp[cur_continent].pixcvec_r.update_pixc_vec(self.flag_prod_shp)
+            self.obj_pixcvec_sp[cur_continent].pixcvec_l.update_pixc_vec(self.flag_prod_shp)
             logger.info("")
 
         logger.info("")
@@ -335,7 +368,7 @@ class PGELakeSP():
         try:
             # 1 - Test existance and file format of input paths
             logger.info("> 1 - Testing existence of input paths...")
-            self._test_input_files()
+            self._test_input_directories()
             self._test_output_directory()
 
             # 2 - read input data
@@ -356,7 +389,8 @@ class PGELakeSP():
                 # 5 - Initialization
                 logger.info("> 5 - Initialization of SASLakeSP class")
 
-                my_lake_sp = sas_lake_sp.SASLakeSP(self.obj_pixc_sp[cur_continent], self.obj_pixcvec_sp[cur_continent], self.obj_lake_db[cur_continent], self.obj_lake_l[cur_continent], self.obj_lake_r[cur_continent])
+                my_lake_sp = sas_lake_sp.SASLakeSP(self.obj_pixc_sp[cur_continent], self.obj_pixcvec_sp[cur_continent],
+                                                   self.obj_lake_db[cur_continent], self.obj_lake_l[cur_continent], self.obj_lake_r[cur_continent])
                 logger.info(self.timer.info(0))
 
                 # 6 - Run pre-processing
@@ -397,9 +431,8 @@ class PGELakeSP():
 
         for cur_continent in self.continent_list:
             # 1 - Close lake database
-            if self.obj_lake_db[cur_continent] is not None:
-                logger.info("Closing lake database...")
-                self.obj_lake_db[cur_continent].close_db()
+            logger.info("Closing lake database...")
+            self.obj_lake_db[cur_continent].close_db()
 
         logger.info("")
         logger.info(self.timer.stop())
@@ -432,7 +465,6 @@ class PGELakeSP():
         # 0 - Init output dictionary
         out_params = {}
         # Default values
-        out_params["CONTINENT_FILE"] = None
         out_params["Produce_shp"] = False
 
         # 1 - Read parameter file
@@ -444,9 +476,9 @@ class PGELakeSP():
             out_params["param_file"] = os.path.expandvars(config.get("PATHS", "param_file"))
         except:
             out_params["param_file"] = os.path.join(sys.path[0], "lake_sp_param.cfg")
-        out_params["laketile_shp_files"] = config.get("PATHS", "LakeTile shp files")
-        out_params["laketile_edge_files"] = config.get("PATHS", "LakeTile edge files")
-        out_params["laketile_pixcvec_files"] = config.get("PATHS", "LakeTile pixcvec files")
+        out_params["laketile_shp_directory"] = config.get("PATHS", "LakeTile shp directory")
+        out_params["laketile_edge_directory"] = config.get("PATHS", "LakeTile edge directory")
+        out_params["laketile_pixcvec_directory"] = config.get("PATHS", "LakeTile pixcvec directory")
         out_params["output_dir"] = config.get("PATHS", "Output directory")
 
         # 2.2 - Retrieve cycle and pass number
@@ -455,22 +487,16 @@ class PGELakeSP():
 
         # 3 - Retrieve DATABASES
         out_params["LAKE_DB"] = None
-        out_params["INFLUENCE_LAKE_DB"] = None
         out_params["LAKE_DB_ID"] = None
-        out_params["CONTINENT_FILE"] = None
-        # TODO : None in filename if no lake DATABASES or continent file
+
+        # TODO : None in filename if no lake DATABASES or basins file
         if "DATABASES" in config.sections():
             list_db = config.options("DATABASES")
-            # Lake a priori database
+            # Prior lake database
             if "lake_db" in list_db:
                 out_params["LAKE_DB"] = config.get("DATABASES", "LAKE_DB")
-            if "influence_lake_db" in list_db:
-                out_params["INFLUENCE_LAKE_DB"] = config.get("DATABASES", "INFLUENCE_LAKE_DB")
             if "lake_db_id" in list_db:
                 out_params["LAKE_DB_ID"] = config.get("DATABASES", "LAKE_DB_ID")
-            # Continent file
-            if "continent_file" in list_db:
-                out_params["CONTINENT_FILE"] = config.get("DATABASES", "CONTINENT_FILE")
 
         # 4 - Retrieve OPTIONS
         if "OPTIONS" in config.sections():
@@ -488,42 +514,10 @@ class PGELakeSP():
         
         # 6 - Retrieve FILE informations
         out_params["PRODUCER"] = config.get("FILE_INFORMATION", "PRODUCER")
-        out_params["LAKE_TILE_CRID"] = config.get("CRID", "LAKE_TILE_CRID")
-        # PIXC
-        out_params["PIXC_PREFIX"] = config.get("FILE_INFORMATION", "PIXC_PREFIX")
-        out_params["PIXC_PATTERN_PRINT"] = config.get("FILE_INFORMATION", "PIXC_PATTERN_PRINT")
-        out_params["PIXC_PATTERN_IND"] = config.get("FILE_INFORMATION", "PIXC_PATTERN_IND")
-        # PIXCVEC_RIVER
-        out_params["PIXCVEC_RIVER_PREFIX"] = config.get("FILE_INFORMATION", "PIXCVEC_RIVER_PREFIX")
-        out_params["PIXCVEC_RIVER_PATTERN_PRINT"] = config.get("FILE_INFORMATION", "PIXCVEC_RIVER_PATTERN_PRINT")
-        out_params["PIXCVEC_RIVER_PATTERN_IND"] = config.get("FILE_INFORMATION", "PIXCVEC_RIVER_PATTERN_IND")
         # LAKE_TILE
-        out_params["LAKE_TILE_PREFIX"] = config.get("FILE_INFORMATION", "LAKE_TILE_PREFIX")
-        # ATTENTION % pas supporté dans config parser
-        #out_params["LAKE_TILE_PATTERN"] = config.get("FILE_INFORMATION", "LAKE_TILE_PATTERN")
-        out_params["LAKE_TILE_PATTERN"] = out_params["LAKE_TILE_PREFIX"] + "%03d_%03d_%s_%s_%s_%s_%02d%s"  # LakeTile filename with %03d=cycle number %03d=pass number %s=tile ref %s=swath %s=begin date %s=end date %s=CRID %s=counter %s=suffix
-        # ATTENTION % pas supporté dans config parser
-        #out_params["LAKE_TILE_PATTERN_PRINT"] = config.get("FILE_INFORMATION", "LAKE_TILE_PATTERN_PRINT")
-        out_params["LAKE_TILE_PATTERN_PRINT"] = out_params["LAKE_TILE_PREFIX"] + "%s<CycleID>_<PassID>_<TileID>[L/R]_<RangeBeginDateTime>_<RangeEndingDateTime>_<CRID>_<ProductCounter>"
-        out_params["LAKE_TILE_PATTERN_IND"] = config.get("FILE_INFORMATION", "LAKE_TILE_PATTERN_IND")
-        out_params["LAKE_TILE_SHP_SUFFIX"] = config.get("FILE_INFORMATION", "LAKE_TILE_SHP_SUFFIX")
-        out_params["LAKE_TILE_SHP_META_SUFFIX"] = config.get("FILE_INFORMATION", "LAKE_TILE_SHP_META_SUFFIX")
-        out_params["LAKE_TILE_EDGE_SUFFIX"] = config.get("FILE_INFORMATION", "LAKE_TILE_EDGE_SUFFIX")
-        out_params["LAKE_TILE_PIXCVEC_SUFFIX"] = config.get("FILE_INFORMATION", "LAKE_TILE_PIXCVEC_SUFFIX")
-      
-        # PIXCVEC
-        out_params["PIXCVEC_PREFIX"] = config.get("FILE_INFORMATION", "PIXCVEC_PREFIX")
-        out_params["PIXCVEC_SUFFIX"] = config.get("FILE_INFORMATION", "PIXCVEC_SUFFIX")
-        # ATTENTION % pas supporté dans config parser
-        #out_params["PIXCVEC_PATTERN"] = config.get("FILE_INFORMATION", "PIXCVEC_PATTERN")
-        out_params["PIXCVEC_PATTERN"] = out_params["PIXCVEC_PREFIX"] + "%03d_%03d_%s_%s_%s_%s_%02d" + out_params["PIXCVEC_SUFFIX"]  # PIXCVec filename with %03d=cycle number %03d=pass number %s=tile ref %s=begin date %s=end date %s=CRID %s=counter 
+        out_params["LAKE_TILE_CRID"] = config.get("CRID", "LAKE_TILE_CRID")
         # LAKE_SP
         out_params["LAKE_SP_CRID"] = config.get("CRID", "LAKE_SP_CRID")
-        out_params["LAKE_SP_PREFIX"] = config.get("FILE_INFORMATION", "LAKE_SP_PREFIX")
-        # ATTENTION % pas supporté dans config parser
-        #out_params["LAKE_SP_PATTERN"] = config.get("FILE_INFORMATION", "LAKE_SP_PATTERN")
-        out_params["LAKE_SP_PATTERN"]  = out_params["LAKE_SP_PREFIX"] + "%03d_%03d_%s_%s_%s_%s_%02d.shp"  # LakeSP filename with %03d=cycle number %03d=pass number %s=continent %s=begin date %s=end date %s=CRID %s=counter
-        out_params["LAKE_SP_PATTERN_NO_CONT"] = out_params["LAKE_SP_PREFIX"] + "%03d_%03d_%s_%s_%s_%02d.shp"  # LakeSP filename without continent info with %03d=cycle number %03d=pass number %s=begin date %s=end date %s=CRID %s=counter
 
         return out_params
 
@@ -549,9 +543,9 @@ class PGELakeSP():
             # Add PATHS section and parameters
             section = "PATHS"
             self.cfg.add_section(section)
-            self.cfg.set(section, "LakeTile shp files", param_list["laketile_shp_files"])
-            self.cfg.set(section, "LakeTile edge files", param_list["laketile_edge_files"])
-            self.cfg.set(section, "LakeTile pixcvec files", param_list["laketile_pixcvec_files"])
+            self.cfg.set(section, "LakeTile shp directory", param_list["laketile_shp_directory"])
+            self.cfg.set(section, "LakeTile edge directory", param_list["laketile_edge_directory"])
+            self.cfg.set(section, "LakeTile pixcvec directory", param_list["laketile_pixcvec_directory"])
             self.cfg.set(section, "Output directory", param_list["output_dir"])
 
             # Add TILES INFOS section and parameters
@@ -564,10 +558,8 @@ class PGELakeSP():
             section = "DATABASES"
             self.cfg.add_section(section)
             self.cfg.set(section, "LAKE_DB", param_list["LAKE_DB"])
-            self.cfg.set(section, "INFLUENCE_LAKE_DB", param_list["INFLUENCE_LAKE_DB"])
             self.cfg.set(section, "LAKE_DB_ID", param_list["LAKE_DB_ID"])
-            self.cfg.set(section, "CONTINENT_FILE", param_list["CONTINENT_FILE"])
-            
+
             # Add OPTIONS section and parameters
             section = "OPTIONS"
             self.cfg.add_section(section)
@@ -581,32 +573,10 @@ class PGELakeSP():
             
             # add section FILE_INFORMATION
             section = "FILE_INFORMATION"
-
             if section not in self.cfg.sections():
-
                 self.cfg.add_section(section)
                 self.cfg.set(section, "PRODUCER", param_list["PRODUCER"])
-                self.cfg.set(section, "PIXC_PREFIX", param_list["PIXC_PREFIX"])
-                self.cfg.set(section, "PIXC_PATTERN_PRINT", param_list["PIXC_PATTERN_PRINT"])
-                self.cfg.set(section, "PIXC_PATTERN_IND", param_list["PIXC_PATTERN_IND"])
-                self.cfg.set(section, "PIXCVEC_RIVER_PREFIX", param_list["PIXCVEC_RIVER_PREFIX"])
-                self.cfg.set(section, "PIXCVEC_RIVER_PATTERN_PRINT", param_list["PIXCVEC_RIVER_PATTERN_PRINT"])
-                self.cfg.set(section, "PIXCVEC_RIVER_PATTERN_IND", param_list["PIXCVEC_RIVER_PATTERN_IND"])
-                self.cfg.set(section, "LAKE_TILE_PREFIX", param_list["LAKE_TILE_PREFIX"])
-                self.cfg.set(section, "LAKE_TILE_PATTERN", param_list["LAKE_TILE_PATTERN"])
-                self.cfg.set(section, "LAKE_TILE_PATTERN_PRINT", param_list["LAKE_TILE_PATTERN_PRINT"])
-                self.cfg.set(section, "LAKE_TILE_PATTERN_IND", param_list["LAKE_TILE_PATTERN_IND"])
-                self.cfg.set(section, "LAKE_TILE_SHP_SUFFIX", param_list["LAKE_TILE_SHP_SUFFIX"])
-                self.cfg.set(section, "LAKE_TILE_SHP_META_SUFFIX", param_list["LAKE_TILE_SHP_META_SUFFIX"])
-                self.cfg.set(section, "LAKE_TILE_EDGE_SUFFIX", param_list["LAKE_TILE_EDGE_SUFFIX"])
-                self.cfg.set(section, "LAKE_TILE_PIXCVEC_SUFFIX", param_list["LAKE_TILE_PIXCVEC_SUFFIX"])
-                self.cfg.set(section, "PIXCVEC_PREFIX", param_list["PIXCVEC_PREFIX"])
-                self.cfg.set(section, "PIXCVEC_SUFFIX", param_list["PIXCVEC_SUFFIX"])
-                self.cfg.set(section, "PIXCVEC_PATTERN", param_list["PIXCVEC_PATTERN"])
-                self.cfg.set(section, "LAKE_SP_PREFIX", param_list["LAKE_SP_PREFIX"])
-                self.cfg.set(section, "LAKE_SP_PATTERN", param_list["LAKE_SP_PATTERN"])
-                self.cfg.set(section, "LAKE_TILE_SHP_SUFFIX", param_list["LAKE_TILE_SHP_SUFFIX"])
-            
+                
         except Exception:
             print("Something wrong happened in _put_cmd_value !")
             raise
@@ -621,24 +591,24 @@ class PGELakeSP():
         
         try:
             # 1 - Config parameters from command file
-            
+
             # 1.1 - PATH section
             # Laketile shp files
-            self.cfg.test_var_config_file('PATHS', 'LakeTile shp files', str)
-            my_tools.testListOfFiles(self.cfg.get('PATHS', 'LakeTile shp files').split(";"))
-            logger.debug('LakeTile shp files = ' + str(self.cfg.get('PATHS', 'LakeTile shp files')))
+            self.cfg.test_var_config_file('PATHS', 'LakeTile shp directory', str)
+            my_tools.test_dir(self.cfg.get('PATHS', 'LakeTile shp directory'))
+            logger.debug('LakeTile shp directory = ' + str(self.cfg.get('PATHS', 'LakeTile shp directory')))
             # Laketile edge files
-            self.cfg.test_var_config_file('PATHS', 'LakeTile edge files', str)
-            my_tools.testListOfFiles(self.cfg.get('PATHS', 'LakeTile edge files').split(";"))
-            logger.debug('LakeTile edge files = ' + str(self.cfg.get('PATHS', 'LakeTile edge files')))
+            self.cfg.test_var_config_file('PATHS', 'LakeTile edge directory', str)
+            my_tools.test_dir(self.cfg.get('PATHS', 'LakeTile edge directory'))
+            logger.debug('LakeTile edge directory = ' + str(self.cfg.get('PATHS', 'LakeTile edge directory')))
             # Laketile pixcvec files
-            self.cfg.test_var_config_file('PATHS', 'LakeTile pixcvec files', str)
-            my_tools.testListOfFiles(self.cfg.get('PATHS', 'LakeTile pixcvec files').split(";"))
-            logger.debug('LakeTile pixcvec files = ' + str(self.cfg.get('PATHS', 'LakeTile pixcvec files')))
+            self.cfg.test_var_config_file('PATHS', 'LakeTile pixcvec directory', str)
+            my_tools.test_dir(self.cfg.get('PATHS', 'LakeTile pixcvec directory'))
+            logger.debug('LakeTile pixcvec directory = ' + str(self.cfg.get('PATHS', 'LakeTile pixcvec directory')))
 
             # Output directory
             self.cfg.test_var_config_file('PATHS', 'Output directory', str)
-            my_tools.testDir(self.cfg.get('PATHS', 'Output directory'))
+            my_tools.test_dir(self.cfg.get('PATHS', 'Output directory'))
             logger.debug('Output directory = ' + str(self.cfg.get('PATHS', 'Output directory')))
 
             # 1.2 - TILES_INFO section
@@ -651,19 +621,24 @@ class PGELakeSP():
 
             # 1.3 - DATABASES section
             # Lake database full path
-            self.cfg.test_var_config_file('DATABASES', 'LAKE_DB', str)
-            my_tools.testFile(self.cfg.get('DATABASES', 'LAKE_DB'))
-            logger.debug('LAKE_DB = ' + str(self.cfg.get('DATABASES', 'LAKE_DB')))
-            # Lake identifier attribute name in the database
-            self.cfg.test_var_config_file('DATABASES', 'LAKE_DB_ID', str)
-            logger.debug('LAKE_DB_ID = ' + str(self.cfg.get('DATABASES', 'LAKE_DB_ID')))
-            # Continent file if want LakeSP product split per continent
-            if self.cfg.get('DATABASES', 'CONTINENT_FILE') is None:
-                logger.debug('CONTINENT_FILE not filled => LakeTile product not linked to a continent')
-            else:
-                self.cfg.test_var_config_file('DATABASES', 'CONTINENT_FILE', str)
-                my_tools.testFile(self.cfg.get('DATABASES', 'CONTINENT_FILE'))
-                logger.debug('CONTINENT_FILE = ' + str(self.cfg.get('DATABASES', 'CONTINENT_FILE')))
+            if self.cfg.get('DATABASES', 'LAKE_DB') is None:
+                logger.debug('LAKE_DB not filled => LakeTile product not linked to a lake database and continent')
+            elif self.cfg.get('DATABASES', 'LAKE_DB').endswith(".shp"):
+                self.cfg.test_var_config_file('DATABASES', 'LAKE_DB', str)
+                my_tools.test_file(self.cfg.get('DATABASES', 'LAKE_DB'))
+                logger.debug('LAKE_DB = ' + str(self.cfg.get('DATABASES', 'LAKE_DB')))
+                # Lake identifier attribute name in the database
+                if self.cfg.get('DATABASES', 'LAKE_DB_ID'):
+                    self.cfg.test_var_config_file('DATABASES', 'LAKE_DB_ID', str)
+                    logger.debug('LAKE_DB_ID = ' + str(self.cfg.get('DATABASES', 'LAKE_DB_ID')))
+                else :
+                    logger.warning('LAKE_DB file given but the lake_id fieldname is missing')
+            elif self.cfg.get('DATABASES', 'LAKE_DB').endswith(".sqlite"):
+                self.cfg.test_var_config_file('DATABASES', 'LAKE_DB', str)
+                my_tools.test_file(self.cfg.get('DATABASES', 'LAKE_DB'))
+                logger.debug('LAKE_DB = ' + str(self.cfg.get('DATABASES', 'LAKE_DB')))
+            else :
+                logger.debug('Unknown LAKE_DB file format for file : %s' % (self.cfg.get('DATABASES', 'LAKE_DB')))
 
             # 1.4 - OPTIONS section
             # Shapefile production
@@ -673,21 +648,21 @@ class PGELakeSP():
             # 2 - Config parameters from parameter file
 
             # 2.1 - CONFIG_PARAMS section
-            
+
             # Water flag = 3=water near land edge  4=interior water
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'FLAG_WATER', str, val_default="3;4", logger=logger)
             logger.debug('FLAG_WATER = ' + str(self.cfg.get('CONFIG_PARAMS', 'FLAG_WATER')))
             # Dark water flag = 23=darkwater near land  24=interior dark water
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'FLAG_DARK', str, val_default="23;24", logger=logger)
             logger.debug('FLAG_DARK = ' + str(self.cfg.get('CONFIG_PARAMS', 'FLAG_DARK')))
-            
+
             # Min size for a lake to generate a lake product (=polygon + attributes) for it
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'MIN_SIZE', float, val_default=1.0, logger=logger)
             logger.debug('MIN_SIZE = ' + str(self.cfg.get('CONFIG_PARAMS', 'MIN_SIZE')))
             # Maximal standard deviation of height inside a lake
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'STD_HEIGHT_MAX', float, val_default=10)
             logger.debug('STD_HEIGHT_MAX = ' + str(self.cfg.get('CONFIG_PARAMS', 'STD_HEIGHT_MAX')))
-            
+
             # To improve PixC golocation (=True) or not (=False)
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'IMP_GEOLOC', bool, val_default=True, logger=logger)
             logger.debug('IMP_GEOLOC = ' + str(self.cfg.get('CONFIG_PARAMS', 'IMP_GEOLOC')))
@@ -712,14 +687,14 @@ class PGELakeSP():
             logger.debug('BIGLAKE_GRID_SPACING = ' + str(self.cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_SPACING')))
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'BIGLAKE_GRID_RES', float, val_default=8000, logger=logger)
             logger.debug('BIGLAKE_GRID_RES = ' + str(self.cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_RES')))
-            
+
             # 2.2 - ID section
             # Nb digits for counter of lakes in a tile or pass
             self.cfg.test_var_config_file('ID', 'NB_DIGITS', str, val_default=4, logger=logger)
             logger.debug('NB_DIGITS = ' + str(self.cfg.get('ID', 'NB_DIGITS')))
-            
+
             # 2.3 - FILE_INFORMATION section
-            
+
             # Product generator
             self.cfg.test_var_config_file('FILE_INFORMATION', 'PRODUCER', str)
             logger.debug('PRODUCER = ' + str(self.cfg.get('FILE_INFORMATION', 'PRODUCER')))
@@ -730,32 +705,6 @@ class PGELakeSP():
             self.cfg.test_var_config_file('CRID', 'LAKE_SP_CRID', str)
             logger.debug('LAKE_SP_CRID = ' + str(self.cfg.get('CRID', 'LAKE_SP_CRID')))
 
-            # PIXC product
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'PIXC_PREFIX', str)
-            logger.debug('PIXC_PREFIX = ' + str(self.cfg.get('FILE_INFORMATION', 'PIXC_PREFIX')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'PIXC_PATTERN_PRINT', str)
-            logger.debug('PIXC_PATTERN_PRINT = ' + str(self.cfg.get('FILE_INFORMATION', 'PIXC_PATTERN_PRINT')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'PIXC_PATTERN_IND', str)
-            logger.debug('PIXC_PATTERN_IND = ' + str(self.cfg.get('FILE_INFORMATION', 'PIXC_PATTERN_IND')))
-            
-            # LakeTile product
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_PREFIX', str)
-            logger.debug('LAKE_TILE_PREFIX = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_PREFIX')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_PATTERN', str)
-            logger.debug('LAKE_TILE_PATTERN = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_PATTERN')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_PATTERN_PRINT', str)
-            logger.debug('LAKE_TILE_PATTERN_PRINT = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_PATTERN_PRINT')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_PATTERN_IND', str)
-            logger.debug('LAKE_TILE_PATTERN_IND = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_PATTERN_IND')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_SHP_SUFFIX', str)
-            logger.debug('LAKE_TILE_SHP_SUFFIX = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_SHP_SUFFIX')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_SHP_META_SUFFIX', str)
-            logger.debug('LAKE_TILE_SHP_META_SUFFIX = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_SHP_META_SUFFIX')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_EDGE_SUFFIX', str)
-            logger.debug('LAKE_TILE_EDGE_SUFFIX = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_EDGE_SUFFIX')))
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'LAKE_TILE_PIXCVEC_SUFFIX', str)
-            logger.debug('LAKE_TILE_PIXCVEC_SUFFIX = ' + str(self.cfg.get('FILE_INFORMATION', 'LAKE_TILE_PIXCVEC_SUFFIX')))
-            
         # Error managed
         except service_error.ConfigFileError:
             message = "Error in the configuration file " + self.cfg.path_conf

@@ -95,14 +95,14 @@ class SASLakeTile(object):
 
                 # 2 - F2-F3-F3b = Identify all separate entities in the water mask
                 logger.info("1 - Identifying all separate entities in the water mask...")
-                self.obj_pixc.computeSeparateEntities()
+                self.obj_pixc.compute_separate_entities()
                 logger.info("" + timer_proc.info(0))
                 logger.info("")
 
 
                 # 3 - F4 = Retrieve pixels corresponding to lakes and unknown entirely inside the tile
                 logger.info("2 - Getting pixels corresponding to lakes and unknown entirely inside the tile...")
-                self.obj_pixc.computeObjInsideTile()
+                self.obj_pixc.compute_obj_inside_tile()
                 logger.info("" + timer_proc.info(0))
                 logger.info("")
 
@@ -115,7 +115,7 @@ class SASLakeTile(object):
 
                 # 5 - F6 = Fill lake product
                 logger.info("4 - Filling LakeTile product...")
-                self.obj_lake.computeLakeProducts(self.obj_pixc.labels_inside)
+                self.obj_lake.compute_lake_products(self.obj_pixc.labels_inside)
                 logger.info("" + timer_proc.info(0))
                 logger.info("")
 

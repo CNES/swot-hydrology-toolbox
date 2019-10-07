@@ -10,9 +10,12 @@
 # FIN-HISTORIQUE
 # ======================================================
 '''
- This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+.. module:: biglake_model.py
+
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 '''
 
 
@@ -53,8 +56,8 @@ class BigLakeModel(object):
 
         :param pixc: pixel cloud from which to compute lake products
         :type in_obj_pixc: proc_pixc_sp.PixelCloudSP object
-        :param pixc_mask: indices of pixels of current water body
-        :type pixc_mask: numpy 1D array of float
+        :param pixc_mask: selected indices
+        :type pixc_mask: numpy 1D array of integer
         :param grid_spacing spacing between averaging points in biglake model
         :type grid_spacing: float
         :param grid_resolution: side length of square averaging box in biglake model
@@ -139,9 +142,10 @@ class BigLakeModel(object):
 
         :param pixc: pixel cloud from which to compute lake products
         :type pixc: proc_pixc.PixelCloud
-        #TO do incorrect def pour pixc mask
-        :param pixc_mask: indices of pixels of current water body
-        :type in_obj_pixc: proc_pixc.PixelCloud or proc_pixc_sp.PixelCloudSP object
+        :param pixc_mask: selected indices
+        :type pixc_mask: numpy 1D array of integer
+        :param classif: classification flags
+        :type classif: dictionnary
 
         return: new smooth heights for each pixel
         :rtype : 1D array
