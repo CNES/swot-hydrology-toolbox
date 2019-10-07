@@ -9,7 +9,7 @@ The LakeSP processor computes a lake single-pass product from tiles of LakeTile 
 The LakeTile pattern is ```SWOT_L2_HR_LakeTile_<ccc>_<ppp>_<ttt><s>_<yyyyMMddThhmmss>_<yyyyMMddThhmmss>_<CRID>_<nn>``` where:
 * __ccc__ is the cycle number, on 3 digits
 * __ppp__ is the pass number, on 3 digits
-* __ttt__ is the tile reference, on 3 digits; for ex: "45N"
+* __ttt__ is the tile number, on 3 digits
 * __s__ is the swath: =L for Left swath =R for right swath
 * First __yyyyMMddThhmmss__ is the start date of the tile
 * Second __yyyyMMddThhmmss__ is the end date of the tile
@@ -27,7 +27,7 @@ The LakeTile product is composed of 3 files:
 The LakeSP pattern is ```SWOT_L2_HR_LakeSP_<ccc>_<ppp>_<CC>_<yyyyMMddThhmmss>_<yyyyMMddThhmmss>_<CRID>_<nn>``` where:
 * __ccc__ is the cycle number, on 3 digits
 * __ppp__ is the pass number, on 3 digits
-* __CC__ is the continent reference, on 2 letters; for ex: "EU" for Europe; the continental splitting has been retrieved from FAO basins splitting
+* __CC__ is the continent reference, on 2 letters; for ex: "EU" for Europe; the continental splitting has been retrieved from HydroBASINS splitting
 * First __yyyyMMddThhmmss__ is the start date of the tile
 * Second __yyyyMMddThhmmss__ is the end date of the tile
 * __CRID__ is the Composite Release IDentifier
@@ -38,7 +38,7 @@ This is the file complementary to the PIXC file, containing improved geolocation
 The PIXCVec pattern is ```SWOT_L2_HR_PIXCVec_<ccc>_<ppp>_<ttt><s>_<yyyyMMddThhmmss>_<yyyyMMddThhmmss>_<CRID>_<nn>``` where:
 * __ccc__ is the cycle number, on 3 digits
 * __ppp__ is the pass number, on 3 digits
-* __ttt__ is the tile reference, on 3 digits; for ex: "45N"
+* __ttt__ is the tile number, on 3 digits
 * __s__ is the swath: =L for Left swath =R for right swath
 * First __yyyyMMddThhmmss__ is the start date of the tile
 * Second __yyyyMMddThhmmss__ is the end date of the tile
@@ -98,6 +98,16 @@ The parameter file must contain the following:
 LakeTile directory = <input_directory>
 Output directory = <output_directory>
 
+[DATABASES]
+# OPTIION 1 : SQLITE lake database containing  : lake_table, lake_influence_table, basin_table
+LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20190624_EU/EU_lakedb.sqlite
+
+# OPTION 2 : SHP lake database
+# Prior lake database
+# LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20190624_EU/EU_lakedb.shp
+# Lake identifier attribute name in the prior lake database and influence_lake_db
+# LAKE_DB_ID = lakedb_id
+
 [TILES_INFOS]
 # Format = int; if empty, deal with all LakeTile files in LakeTile directory
 Cycle number = 0
@@ -107,6 +117,17 @@ Pass number = 17
 [OPTIONS]
 # To also produce LakeTile_edge and LakeTile_pixcvec as shapefiles (=True); else=False (default)
 Produce shp = <True|False>
+
+[LOGGING]
+# Log filename
+logFile = <full_path_to_log_file>
+# Log level put inside the file
+logfilelevel = <DEBUG|INFO>
+# Is log console output ?
+logConsole = <True|False>
+# Log level print in console
+logconsolelevel = <DEBUG|INFO>
+
 ```
 
 ## Configuration parameters
