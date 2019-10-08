@@ -127,9 +127,9 @@ class findOrbit(object):
 
                     polygon_data_left = Polygon([[lat_left_nr_first, lon_left_nr_first], [lat_left_fr_first, lon_left_fr_first], [lat_left_fr_second, lon_left_fr_second], [lat_left_nr_second, lon_left_nr_second]])
                     polygon_data_right= Polygon([[lat_right_nr_first, lon_right_nr_first], [lat_right_fr_first, lon_right_fr_first], [lat_right_fr_second, lon_right_fr_second], [lat_right_nr_second, lon_right_nr_second]])
-
+                    
                     # Save file if intersection with DEM > 0
-                    if ((polygon_data_left.intersection(polygon_ref).area > 0 or polygon_data_right.intersection(polygon_ref).area > 0) and (-10 < (lat[ind_pt] - self.south_lat) < 10 and -10 < (lon[ind_pt] - self.east_lon) < 10)):
+                    if ((polygon_data_left.intersection(polygon_ref).area > 0 or polygon_data_right.intersection(polygon_ref).area > 0)):# and (-10 < (lat[ind_pt] - self.south_lat) < 10 and -10 < (lon[ind_pt] - self.east_lon) < 10)):
                         if ind_pt not in index_over_dem:
                             index_over_dem.append(ind_pt)
                         if ind_pt+RECORD_MARGIN < lat[:].size:
