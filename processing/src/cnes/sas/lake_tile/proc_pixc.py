@@ -33,13 +33,11 @@ import os
 from osgeo import ogr, osr
 from scipy import interpolate
 
-import cnes.common.lib.my_basins as my_basins
 import cnes.common.lib.my_netcdf_file as my_nc
 import cnes.common.lib.my_tools as my_tools
 import cnes.common.service_config_file as service_config_file
-import cnes.common.lib.my_variables as my_var2
+import cnes.common.lib.my_variables as my_variables
 import cnes.common.lib_lake.locnes_products_netcdf as nc_file
-import cnes.common.lib_lake.locnes_variables as my_var
 
 
 class PixelCloud(object):
@@ -208,6 +206,7 @@ class PixelCloud(object):
         self.pixc_metadata["interferogram_size_range"] = -9999
         self.pixc_metadata["interferogram_size_azimuth"] = -9999
         self.pixc_metadata["near_range"] = -9999.0
+        self.pixc_metadata["nominal_slant_range_spacing"] = -9999.0
 
         # Variables specific to processing
         self.nb_pix_range = 0  # Number of pixels in range dimension
@@ -244,108 +243,115 @@ class PixelCloud(object):
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("L2_HR_PIXC file = %s" % in_pixc_file)
-        TMP_print = "Keep pixels with classification flags ="
-        if my_var.FLAG_WATER != "":
-            TMP_print += " %s (WATER)" % my_var.FLAG_WATER
-        if my_var.FLAG_DARK != "":
-            TMP_print += " %s (DARK)" % my_var.FLAG_DARK
-        logger.info(TMP_print)
+        # get flag variables from configuration file
+        flag_water = self.cfg.get("CONFIG_PARAMS", "FLAG_WATER")
+        flag_dark = self.cfg.get("CONFIG_PARAMS", "FLAG_DARK")
+        
+        tmp_print = "Keep pixels with classification flags ="
+        if flag_water != "":
+            tmp_print += " %s (WATER)" % flag_water
+        if flag_dark != "":
+            tmp_print += " %s (DARK)" % flag_dark
+        logger.info(tmp_print)
         
         # 1 - Open pixel cloud file in reading mode
-        pixc_reader = my_nc.myNcReader(in_pixc_file)
+        pixc_reader = my_nc.MyNcReader(in_pixc_file)
         pixc_group = pixc_reader.content.groups['pixel_cloud']
         sensor_group = pixc_reader.content.groups['tvp']
         
         # 2 - Retrieve needed global attributes
-        pixc_keys = pixc_reader.getListAtt()
+        pixc_keys = pixc_reader.get_list_att()
         for key, value in self.pixc_metadata.items():
             if key in pixc_keys:
-                self.pixc_metadata[key] = pixc_reader.getAttValue(key)
+                self.pixc_metadata[key] = pixc_reader.get_att_value(key)
         # pixel_cloud attributes
-        pixc_keys = pixc_reader.getListAtt(in_group=pixc_group)
+        pixc_keys = pixc_reader.get_list_att(in_group=pixc_group)
         for key, value in self.pixc_metadata.items():
             if key in pixc_keys:
-                self.pixc_metadata[key] = pixc_reader.getAttValue(key, in_group=pixc_group)
+                self.pixc_metadata[key] = pixc_reader.get_att_value(key, in_group=pixc_group)
                     
         # Specific variable save
         self.nb_pix_range = int(self.pixc_metadata["interferogram_size_range"])  # Number of pixels in range dimension
         self.nb_pix_azimuth = int(self.pixc_metadata["interferogram_size_azimuth"])  # Number of pixels in azimuth dimension
         self.near_range = np.double(self.pixc_metadata["near_range"])  # Slant range for the 1st image pixel
-                        
+        self.nominal_slant_range_spacing = np.double(self.pixc_metadata["nominal_slant_range_spacing"])  # Slant range for the 1st image pixel
+
         # 3 - Continent overflown
         # Create polygon of tile from global attributes
         ring = ogr.Geometry(ogr.wkbLinearRing)
-        ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.getAttValue("inner_first_longitude"))), float(pixc_reader.getAttValue("inner_first_latitude")))
-        ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.getAttValue("outer_first_longitude"))), float(pixc_reader.getAttValue("outer_first_latitude")))
-        ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.getAttValue("outer_last_longitude"))), float(pixc_reader.getAttValue("outer_last_latitude")))
-        ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.getAttValue("inner_last_longitude"))), float(pixc_reader.getAttValue("inner_last_latitude")))
-        ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.getAttValue("inner_first_longitude"))), float(pixc_reader.getAttValue("inner_first_latitude")))
+        ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.get_att_value("inner_first_longitude"))),
+                                                   float(pixc_reader.get_att_value("inner_first_latitude")))
+        ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.get_att_value("outer_first_longitude"))),
+                                                   float(pixc_reader.get_att_value("outer_first_latitude")))
+        ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.get_att_value("outer_last_longitude"))), 
+                                                   float(pixc_reader.get_att_value("outer_last_latitude")))
+        ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.get_att_value("inner_last_longitude"))),
+                                                   float(pixc_reader.get_att_value("inner_last_latitude")))
+        ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.get_att_value("inner_first_longitude"))),
+                                                   float(pixc_reader.get_att_value("inner_first_latitude")))
         self.tile_poly = ogr.Geometry(ogr.wkbPolygon)
         self.tile_poly.AddGeometry(ring)
-        # Find associated continent
-        self.continent = my_basins.link_poly_to_continent(self.tile_poly)
-        self.pixc_metadata["continent"] = self.continent
         
         # 4 - Retrieve high level variables
         # 4.1 - Classification flag
-        self.origin_classif = pixc_reader.getVarValue("classification", in_group=pixc_group)
+        self.origin_classif = pixc_reader.get_var_value("classification", in_group=pixc_group)
         # 4.2 - Range indices of water pixels
-        self.origin_range_index = pixc_reader.getVarValue("range_index", in_group=pixc_group)
+        self.origin_range_index = pixc_reader.get_var_value("range_index", in_group=pixc_group)
         # 4.3 - Azimuth indices of water pixels
-        self.origin_azimuth_index = pixc_reader.getVarValue("azimuth_index", in_group=pixc_group)
+        self.origin_azimuth_index = pixc_reader.get_var_value("azimuth_index", in_group=pixc_group)
         # 4.4 - Longitude
-        origin_longitude = my_tools.convert_to_m180_180(pixc_reader.getVarValue("longitude", in_group=pixc_group))
+        origin_longitude = my_tools.convert_to_m180_180(pixc_reader.get_var_value("longitude", in_group=pixc_group))
         # 4.4 - Azimuth indices of water pixels
-        origin_latitude = pixc_reader.getVarValue("latitude", in_group=pixc_group)
+        origin_latitude = pixc_reader.get_var_value("latitude", in_group=pixc_group)
                 
         # 5 - Get indices corresponding to input classification flags
         logger.info("There are %d pixels in the input PIXC" % len(origin_longitude))
         # 5.1 - Flag rejected pixels in a specific way
-        TMP_classif = self.origin_classif  # Init temporary classif vector
+        tmp_classif = self.origin_classif  # Init temporary classif vector
         if in_index_reject is not None:
             logger.info("%d pixels are river (but not reservoir) pixels => will be rejected" % in_index_reject.size)
-            TMP_classif[in_index_reject] = 100  # Dummy value to ease selection hereafter
+            tmp_classif[in_index_reject] = 100  # Dummy value to ease selection hereafter
         # 5.2 - Remove pixels with longitude or latitude = FillValue or NaN
-        nan_idx = np.where(origin_longitude == my_var2.FV_DOUBLE)[0]
+        nan_idx = np.where(origin_longitude == my_variables.FV_DOUBLE)[0]
         nb_nan = len(nan_idx)
         if nb_nan != 0:
             logger.info("%d pixels have _FillValue longitude => will be rejected" % nb_nan)
-            TMP_classif[nan_idx] = 100 
+            tmp_classif[nan_idx] = 100 
         nan_idx = np.argwhere(np.isnan(origin_longitude))
         nb_nan = len(nan_idx)
         if nb_nan != 0:
             logger.info("%d pixels have NaN longitude => will be rejected" % nb_nan)
-            TMP_classif[nan_idx] = 100 
-        nan_idx = np.where(origin_latitude == my_var2.FV_DOUBLE)[0]
+            tmp_classif[nan_idx] = 100 
+        nan_idx = np.where(origin_latitude == my_variables.FV_DOUBLE)[0]
         nb_nan = len(nan_idx)
         if nb_nan != 0:
             logger.info("%d pixels have _FillValue latitude => will be rejected" % nb_nan)
-            TMP_classif[nan_idx] = 100 
+            tmp_classif[nan_idx] = 100 
         nan_idx = np.argwhere(np.isnan(origin_latitude))
         nb_nan = len(nan_idx)
         if nb_nan != 0:
             logger.info("%d pixels have NaN latitude => will be rejected" % nb_nan)
-            TMP_classif[nan_idx] = 100 
+            tmp_classif[nan_idx] = 100 
         # 5.3 - Build list of classification flags to keep
-        TMP_flags = ""
-        if my_var.FLAG_WATER != "":
-            TMP_flags += my_var.FLAG_WATER.replace('"','')  # Water flags
-        if my_var.FLAG_DARK != "":
-            if TMP_flags != "":
-                TMP_flags += ";"
-            TMP_flags += my_var.FLAG_DARK.replace('"','')  # Dark water flags
+        tmp_flags = ""
+        if flag_water != "":
+            tmp_flags += flag_water.replace('"','')  # Water flags
+        if flag_dark != "":
+            if tmp_flags != "":
+                tmp_flags += ";"
+            tmp_flags += flag_dark.replace('"','')  # Dark water flags
         # 5.4 - Get list of classification flags
-        list_classif_flags = TMP_flags.split(";")
+        list_classif_flags = tmp_flags.split(";")
         # 5.5 - Get list of selected indices
         self.selected_index = None  # Init wanted indices vector
         for classif_flag in list_classif_flags:
-            vInd = np.where(TMP_classif == int(classif_flag))[0]
-            logger.info("%d pixels with classification flag = %d" % (vInd.size, int(classif_flag)))
-            if vInd.size != 0:
+            v_ind = np.where(tmp_classif == int(classif_flag))[0]
+            logger.info("%d pixels with classification flag = %d" % (v_ind.size, int(classif_flag)))
+            if v_ind.size != 0:
                 if self.selected_index is None:
-                    self.selected_index = vInd
+                    self.selected_index = v_ind
                 else:
-                    self.selected_index = np.concatenate((self.selected_index, vInd))
+                    self.selected_index = np.concatenate((self.selected_index, v_ind))
         if self.selected_index is None:
             self.nb_selected = 0
         else:
@@ -367,121 +373,121 @@ class PixelCloud(object):
             self.azimuth_index = self.origin_azimuth_index[self.selected_index]
             
             # Water fraction
-            self.water_frac = pixc_reader.getVarValue_orEmpty("water_frac", in_group=pixc_group)[self.selected_index]
+            self.water_frac = pixc_reader.get_var_value_or_empty("water_frac", in_group=pixc_group)[self.selected_index]
             # Water fraction uncertainty
-            self.water_frac_uncert = pixc_reader.getVarValue_orEmpty("water_frac_uncert", in_group=pixc_group)[self.selected_index]
+            self.water_frac_uncert = pixc_reader.get_var_value_or_empty("water_frac_uncert", in_group=pixc_group)[self.selected_index]
             # False detection rate
-            self.false_detection_rate = pixc_reader.getVarValue_orEmpty("false_detection_rate", in_group=pixc_group)[self.selected_index]
+            self.false_detection_rate = pixc_reader.get_var_value_or_empty("false_detection_rate", in_group=pixc_group)[self.selected_index]
             # Missed detection rate
-            self.missed_detection_rate = pixc_reader.getVarValue_orEmpty("missed_detection_rate", in_group=pixc_group)[self.selected_index]
+            self.missed_detection_rate = pixc_reader.get_var_value_or_empty("missed_detection_rate", in_group=pixc_group)[self.selected_index]
             # Prior water probability
-            self.prior_water_prob = pixc_reader.getVarValue_orEmpty("prior_water_prob", in_group=pixc_group)[self.selected_index]
+            self.prior_water_prob = pixc_reader.get_var_value_or_empty("prior_water_prob", in_group=pixc_group)[self.selected_index]
             # Bright land flag
-            self.bright_land_flag = pixc_reader.getVarValue_orEmpty("bright_land_flag", in_group=pixc_group)[self.selected_index]
+            self.bright_land_flag = pixc_reader.get_var_value_or_empty("bright_land_flag", in_group=pixc_group)[self.selected_index]
             # Layover impact
-            self.layover_impact = pixc_reader.getVarValue_orEmpty("layover_impact", in_group=pixc_group)[self.selected_index]
+            self.layover_impact = pixc_reader.get_var_value_or_empty("layover_impact", in_group=pixc_group)[self.selected_index]
             # Number of rare looks
-            self.num_rare_looks = pixc_reader.getVarValue_orEmpty("num_rare_looks", in_group=pixc_group)[self.selected_index]
+            self.num_rare_looks = pixc_reader.get_var_value_or_empty("num_rare_looks", in_group=pixc_group)[self.selected_index]
             # Latitude
             self.latitude = origin_latitude[self.selected_index]
             # Longitude
             self.longitude = origin_longitude[self.selected_index]
             # Height
-            self.height = pixc_reader.getVarValue("height", in_group=pixc_group)[self.selected_index]
+            self.height = pixc_reader.get_var_value("height", in_group=pixc_group)[self.selected_index]
             # Cross-track distance
-            self.cross_track = pixc_reader.getVarValue("cross_track", in_group=pixc_group)[self.selected_index]
+            self.cross_track = pixc_reader.get_var_value("cross_track", in_group=pixc_group)[self.selected_index]
             # Pixel area
-            self.pixel_area = pixc_reader.getVarValue("pixel_area", in_group=pixc_group)[self.selected_index]
+            self.pixel_area = pixc_reader.get_var_value("pixel_area", in_group=pixc_group)[self.selected_index]
             # Inundated area
             self.inundated_area = np.copy(self.pixel_area)
-            ind_ok = np.where(self.water_frac < my_var2.FV_FLOAT)
+            ind_ok = np.where(self.water_frac < my_variables.FV_FLOAT)
             if len(ind_ok) > 0:
                 self.inundated_area[ind_ok] = self.pixel_area[ind_ok] * self.water_frac[ind_ok]
             # Incidence angle
-            self.inc = pixc_reader.getVarValue_orEmpty("inc", in_group=pixc_group)[self.selected_index]
+            self.inc = pixc_reader.get_var_value_or_empty("inc", in_group=pixc_group)[self.selected_index]
             # Sensitivity of height estimate to interferogram phase
-            self.dheight_dphase = pixc_reader.getVarValue_orEmpty("dheight_dphase", in_group=pixc_group)[self.selected_index]
+            self.dheight_dphase = pixc_reader.get_var_value_or_empty("dheight_dphase", in_group=pixc_group)[self.selected_index]
             # Sensitivity of height estimate to spacecraft roll
-            self.dheight_droll = pixc_reader.getVarValue_orEmpty("dheight_droll", in_group=pixc_group)[self.selected_index]
+            self.dheight_droll = pixc_reader.get_var_value_or_empty("dheight_droll", in_group=pixc_group)[self.selected_index]
             # Sensitivity of height estimate to interferometric baseline
-            self.dheight_dbaseline = pixc_reader.getVarValue_orEmpty("dheight_dbaseline", in_group=pixc_group)[self.selected_index]
+            self.dheight_dbaseline = pixc_reader.get_var_value_or_empty("dheight_dbaseline", in_group=pixc_group)[self.selected_index]
             # Sensitivity of height estimate to range
-            self.dheight_drange = pixc_reader.getVarValue_orEmpty("dheight_drange", in_group=pixc_group)[self.selected_index]
+            self.dheight_drange = pixc_reader.get_var_value_or_empty("dheight_drange", in_group=pixc_group)[self.selected_index]
             # Sensitivity of pixel area to reference height
-            self.darea_dheight = pixc_reader.getVarValue_orEmpty("darea_dheight", in_group=pixc_group)[self.selected_index]
+            self.darea_dheight = pixc_reader.get_var_value_or_empty("darea_dheight", in_group=pixc_group)[self.selected_index]
             # Time of illumination of each pixel
-            illumination_time = pixc_reader.getVarValue("illumination_time", in_group=pixc_group)[self.selected_index]
+            illumination_time = pixc_reader.get_var_value("illumination_time", in_group=pixc_group)[self.selected_index]
             # Number of medium looks
-            self.num_med_looks = pixc_reader.getVarValue_orEmpty("num_med_looks", in_group=pixc_group)[self.selected_index]
+            self.num_med_looks = pixc_reader.get_var_value_or_empty("num_med_looks", in_group=pixc_group)[self.selected_index]
             # sigma0
-            self.sig0 = pixc_reader.getVarValue_orEmpty("sig0", in_group=pixc_group)[self.selected_index]
+            self.sig0 = pixc_reader.get_var_value_or_empty("sig0", in_group=pixc_group)[self.selected_index]
             # Phase unwrapping region index
-            self.phase_unwrapping_region = pixc_reader.getVarValue_orEmpty("phase_unwrapping_region", in_group=pixc_group)[self.selected_index]
+            self.phase_unwrapping_region = pixc_reader.get_var_value_or_empty("phase_unwrapping_region", in_group=pixc_group)[self.selected_index]
             # Instrument range correction
-            self.instrument_range_cor = pixc_reader.getVarValue_orEmpty("instrument_range_cor", in_group=pixc_group)[self.selected_index]
+            self.instrument_range_cor = pixc_reader.get_var_value_or_empty("instrument_range_cor", in_group=pixc_group)[self.selected_index]
             # Instrument phase correction
-            self.instrument_phase_cor = pixc_reader.getVarValue_orEmpty("instrument_phase_cor", in_group=pixc_group)[self.selected_index]
+            self.instrument_phase_cor = pixc_reader.get_var_value_or_empty("instrument_phase_cor", in_group=pixc_group)[self.selected_index]
             # Instrument baseline correction
-            self.instrument_baseline_cor = pixc_reader.getVarValue_orEmpty("instrument_baseline_cor", in_group=pixc_group)[self.selected_index]
+            self.instrument_baseline_cor = pixc_reader.get_var_value_or_empty("instrument_baseline_cor", in_group=pixc_group)[self.selected_index]
             # Instrument attitude correction
-            self.instrument_attitude_cor = pixc_reader.getVarValue_orEmpty("instrument_attitude_cor", in_group=pixc_group)[self.selected_index]
+            self.instrument_attitude_cor = pixc_reader.get_var_value_or_empty("instrument_attitude_cor", in_group=pixc_group)[self.selected_index]
             # Dry troposphere vertical correction
-            self.model_dry_tropo_cor = pixc_reader.getVarValue_orEmpty("model_dry_tropo_cor", in_group=pixc_group)[self.selected_index]
+            self.model_dry_tropo_cor = pixc_reader.get_var_value_or_empty("model_dry_tropo_cor", in_group=pixc_group)[self.selected_index]
             # Wet troposphere vertical correction
-            self.model_wet_tropo_cor = pixc_reader.getVarValue_orEmpty("model_wet_tropo_cor", in_group=pixc_group)[self.selected_index]
+            self.model_wet_tropo_cor = pixc_reader.get_var_value_or_empty("model_wet_tropo_cor", in_group=pixc_group)[self.selected_index]
             # Ionosphere vertical correction
-            self.iono_cor_gim_ka = pixc_reader.getVarValue_orEmpty("iono_cor_gim_ka", in_group=pixc_group)[self.selected_index]
+            self.iono_cor_gim_ka = pixc_reader.get_var_value_or_empty("iono_cor_gim_ka", in_group=pixc_group)[self.selected_index]
             # Crossover calibration height correction
-            self.xover_height_cor = pixc_reader.getVarValue_orEmpty("xover_height_cor", in_group=pixc_group)[self.selected_index]
+            self.xover_height_cor = pixc_reader.get_var_value_or_empty("xover_height_cor", in_group=pixc_group)[self.selected_index]
             # Load tide height (GOT4.10)
-            self.load_tide_sol1 = pixc_reader.getVarValue_orEmpty("load_tide_sol1", in_group=pixc_group)[self.selected_index]
+            self.load_tide_sol1 = pixc_reader.get_var_value_or_empty("load_tide_sol1", in_group=pixc_group)[self.selected_index]
             # Load tide height (FES2014)
-            self.load_tide_sol2 = pixc_reader.getVarValue_orEmpty("load_tide_sol2", in_group=pixc_group)[self.selected_index]
+            self.load_tide_sol2 = pixc_reader.get_var_value_or_empty("load_tide_sol2", in_group=pixc_group)[self.selected_index]
             # Pole tide height
-            self.pole_tide = pixc_reader.getVarValue_orEmpty("pole_tide", in_group=pixc_group)[self.selected_index]
+            self.pole_tide = pixc_reader.get_var_value_or_empty("pole_tide", in_group=pixc_group)[self.selected_index]
             # Solid earth tide
-            self.solid_earth_tide = pixc_reader.getVarValue_orEmpty("solid_earth_tide", in_group=pixc_group)[self.selected_index]
+            self.solid_earth_tide = pixc_reader.get_var_value_or_empty("solid_earth_tide", in_group=pixc_group)[self.selected_index]
             # Geoid
-            self.geoid = pixc_reader.getVarValue_orEmpty("geoid", in_group=pixc_group)[self.selected_index]
+            self.geoid = pixc_reader.get_var_value_or_empty("geoid", in_group=pixc_group)[self.selected_index]
             # Surface type flag
-            self.surface_type_flag = pixc_reader.getVarValue_orEmpty("surface_type_flag", in_group=pixc_group)[self.selected_index]
+            self.surface_type_flag = pixc_reader.get_var_value_or_empty("surface_type_flag", in_group=pixc_group)[self.selected_index]
             # Quality flag
-            self.pixc_qual = pixc_reader.getVarValue_orEmpty("pixc_qual", in_group=pixc_group)[self.selected_index]
+            self.pixc_qual = pixc_reader.get_var_value_or_empty("pixc_qual", in_group=pixc_group)[self.selected_index]
 
             # 6.2 - In TVP group
             
             # Interpolate nadir_time wrt illumination time
-            TMP_nadir_time = pixc_reader.getVarValue("time", in_group=sensor_group)  # Read nadir_time values
-            f = interpolate.interp1d(TMP_nadir_time, range(len(TMP_nadir_time)))  # Interpolator
+            tmp_nadir_time = pixc_reader.get_var_value("time", in_group=sensor_group)  # Read nadir_time values
+            f = interpolate.interp1d(tmp_nadir_time, range(len(tmp_nadir_time)))  # Interpolator
             nadir_index = (np.rint(f(illumination_time))).astype(int)  # Link between PixC and nadir pixels
             
             # Nadir time
-            self.nadir_time = TMP_nadir_time[nadir_index]
+            self.nadir_time = tmp_nadir_time[nadir_index]
             # Nadir time TAI
-            self.nadir_time_tai = pixc_reader.getVarValue("time_tai", in_group=sensor_group)[nadir_index]
+            self.nadir_time_tai = pixc_reader.get_var_value("time_tai", in_group=sensor_group)[nadir_index]
             # Nadir longitude
-            self.nadir_longitude = my_tools.convert_to_m180_180(pixc_reader.getVarValue("longitude", in_group=sensor_group)[nadir_index])
+            self.nadir_longitude = my_tools.convert_to_m180_180(pixc_reader.get_var_value("longitude", in_group=sensor_group)[nadir_index])
             # Nadir latitude
-            self.nadir_latitude = pixc_reader.getVarValue("latitude", in_group=sensor_group)[nadir_index]
+            self.nadir_latitude = pixc_reader.get_var_value("latitude", in_group=sensor_group)[nadir_index]
             # Nadir cartesian coordinates
-            self.nadir_x = pixc_reader.getVarValue("x", in_group=sensor_group)[nadir_index]
-            self.nadir_y = pixc_reader.getVarValue("y", in_group=sensor_group)[nadir_index]
-            self.nadir_z = pixc_reader.getVarValue("z", in_group=sensor_group)[nadir_index]
+            self.nadir_x = pixc_reader.get_var_value("x", in_group=sensor_group)[nadir_index]
+            self.nadir_y = pixc_reader.get_var_value("y", in_group=sensor_group)[nadir_index]
+            self.nadir_z = pixc_reader.get_var_value("z", in_group=sensor_group)[nadir_index]
             # Nadir velocity in cartesian coordinates
-            self.nadir_vx = pixc_reader.getVarValue("vx", in_group=sensor_group)[nadir_index]
-            self.nadir_vy = pixc_reader.getVarValue("vy", in_group=sensor_group)[nadir_index]
-            self.nadir_vz = pixc_reader.getVarValue("vz", in_group=sensor_group)[nadir_index]
+            self.nadir_vx = pixc_reader.get_var_value("vx", in_group=sensor_group)[nadir_index]
+            self.nadir_vy = pixc_reader.get_var_value("vy", in_group=sensor_group)[nadir_index]
+            self.nadir_vz = pixc_reader.get_var_value("vz", in_group=sensor_group)[nadir_index]
             # Spacecraft event flag
-            self.nadir_sc_event_flag = pixc_reader.getVarValue("sc_event_flag", in_group=sensor_group)[nadir_index]
+            self.nadir_sc_event_flag = pixc_reader.get_var_value("sc_event_flag", in_group=sensor_group)[nadir_index]
             # Quality flag
-            self.nadir_tvp_qual = pixc_reader.getVarValue("tvp_qual", in_group=sensor_group)[nadir_index]
+            self.nadir_tvp_qual = pixc_reader.get_var_value("tvp_qual", in_group=sensor_group)[nadir_index]
                     
         # 4.8 - Close file
         pixc_reader.close()
 
     # ----------------------------------------
 
-    def computeWaterMask(self):
+    def compute_water_mask(self):
         """
         Create the water mask (i.e. a 2D binary matrix) in radar geometry,
         from the pixel cloud (1D-array layers of azimuth_index, range_index, classification and continuous classification)
@@ -492,9 +498,9 @@ class PixelCloud(object):
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("- start -")
 
-        return my_tools.computeBinMat(self.nb_pix_range, self.nb_pix_azimuth, self.range_index, self.azimuth_index)
+        return my_tools.compute_bin_mat(self.nb_pix_range, self.nb_pix_azimuth, self.range_index, self.azimuth_index)
 
-    def computeSeparateEntities(self):
+    def compute_separate_entities(self):
         """
         Identify all separate entities in the water mask
         """
@@ -503,13 +509,13 @@ class PixelCloud(object):
         logger.info("- start -")
 
         # 1 - Create the water mask
-        water_mask = self.computeWaterMask()
+        water_mask = self.compute_water_mask()
 
         # 2 - Identify all separate entities in a 2D binary mask
-        sep_entities, self.nb_obj = my_tools.labelRegion(water_mask)
+        sep_entities, self.nb_obj = my_tools.label_region(water_mask)
 
         # 3 - Convert 2D labelled mask in 1D-array layer of the same size of the L2_HR_PIXC layers
-        self.labels = my_tools.convert2dMatIn1dVec(self.range_index, self.azimuth_index, sep_entities)
+        self.labels = my_tools.convert_2d_mat_in_1d_vec(self.range_index, self.azimuth_index, sep_entities)
         self.labels = self.labels.astype(int)  # Conversion from float to integer
 
         # 4 - Relabel Lake Using Segmentation Heigth
@@ -530,9 +536,9 @@ class PixelCloud(object):
                 min_rg = min(self.range_index[idx])
                 min_az = min(self.azimuth_index[idx])
 
-                relabel_obj = my_tools.relabelLakeUsingSegmentationHeigth(self.range_index[idx] - min_rg,
-                                                                          self.azimuth_index[idx] - min_az,
-                                                                          self.height[idx], std_height_max)
+                relabel_obj = my_tools.relabel_lake_using_segmentation_heigth(self.range_index[idx] - min_rg,
+                                                                              self.azimuth_index[idx] - min_az,
+                                                                              self.height[idx], std_height_max)
 
                 labels_tmp[self.labels == label] = np.max(labels_tmp) + relabel_obj
 
@@ -540,7 +546,7 @@ class PixelCloud(object):
 
         self.nb_obj = np.unique(self.labels).size
 
-    def computeObjInsideTile(self):
+    def compute_obj_inside_tile(self):
         """
         Separate labels of lakes and unknown objects entirely inside the tile, from labels of objects at top or bottom of the tile
         """
@@ -665,8 +671,8 @@ class PixelCloud(object):
         logger.info("Output L2_HR_LakeTile_edge NetCDF file = %s" % in_filename)
         
         # 1 - Init product
-        edge_file = nc_file.LakeTileEdge_product(in_pixc_metadata=self.pixc_metadata, 
-                                                 in_proc_metadata=in_proc_metadata)
+        edge_file = nc_file.LakeTileEdgeProduct(in_pixc_metadata=self.pixc_metadata, 
+                                                in_proc_metadata=in_proc_metadata)
 
         # 2 - Form dictionary with variables to write
         vars_to_write = {}
@@ -730,7 +736,7 @@ class PixelCloud(object):
         # 3 - Write file
         edge_file.write_product(in_filename, self.nb_edge_pix, vars_to_write)
 
-    def write_edge_file_asShp(self, in_filename):
+    def write_edge_file_as_shp(self, in_filename):
         """
         Write PixC subset related to edge (top/bottom) objects as a shapefile
 
@@ -742,11 +748,11 @@ class PixelCloud(object):
 
         # 1 - Initialisation du fichier de sortie
         # 1.1 - Driver
-        shpDriver = ogr.GetDriverByName(str("ESRI Shapefile"))
+        shp_driver = ogr.GetDriverByName(str("ESRI Shapefile"))
         # 1.2 - Create file
         if os.path.exists(in_filename):
-            shpDriver.DeleteDataSource(in_filename)
-        out_data_source = shpDriver.CreateDataSource(in_filename)
+            shp_driver.DeleteDataSource(in_filename)
+        out_data_source = shp_driver.CreateDataSource(in_filename)
         # 1.3 - Create layer
         srs = osr.SpatialReference()
         srs.ImportFromEPSG(4326)  # WGS84
@@ -758,34 +764,34 @@ class PixelCloud(object):
         out_layer.CreateField(ogr.FieldDefn(str('az_index'), ogr.OFTInteger))
         out_layer.CreateField(ogr.FieldDefn(str('r_index'), ogr.OFTInteger))
         out_layer.CreateField(ogr.FieldDefn(str('classif'), ogr.OFTInteger))
-        tmpField = ogr.FieldDefn(str('water_frac'), ogr.OFTReal)
-        tmpField.SetWidth(10)
-        tmpField.SetPrecision(6)
-        out_layer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('crosstrack'), ogr.OFTReal)
-        tmpField.SetWidth(12)
-        tmpField.SetPrecision(4)
-        out_layer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('pixel_area'), ogr.OFTReal)
-        tmpField.SetWidth(12)
-        tmpField.SetPrecision(6)
-        out_layer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('height'), ogr.OFTReal)
-        tmpField.SetWidth(12)
-        tmpField.SetPrecision(4)
-        out_layer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('nadir_t'), ogr.OFTReal)
-        tmpField.SetWidth(13)
-        tmpField.SetPrecision(3)
-        out_layer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('nadir_long'), ogr.OFTReal)
-        tmpField.SetWidth(10)
-        tmpField.SetPrecision(6)
-        out_layer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('nadir_lat'), ogr.OFTReal)
-        tmpField.SetWidth(10)
-        tmpField.SetPrecision(6)
-        out_layer.CreateField(tmpField)
+        tmp_field = ogr.FieldDefn(str('water_frac'), ogr.OFTReal)
+        tmp_field.SetWidth(10)
+        tmp_field.SetPrecision(6)
+        out_layer.CreateField(tmp_field)
+        tmp_field = ogr.FieldDefn(str('crosstrack'), ogr.OFTReal)
+        tmp_field.SetWidth(12)
+        tmp_field.SetPrecision(4)
+        out_layer.CreateField(tmp_field)
+        tmp_field = ogr.FieldDefn(str('pixel_area'), ogr.OFTReal)
+        tmp_field.SetWidth(12)
+        tmp_field.SetPrecision(6)
+        out_layer.CreateField(tmp_field)
+        tmp_field = ogr.FieldDefn(str('height'), ogr.OFTReal)
+        tmp_field.SetWidth(12)
+        tmp_field.SetPrecision(4)
+        out_layer.CreateField(tmp_field)
+        tmp_field = ogr.FieldDefn(str('nadir_t'), ogr.OFTReal)
+        tmp_field.SetWidth(13)
+        tmp_field.SetPrecision(3)
+        out_layer.CreateField(tmp_field)
+        tmp_field = ogr.FieldDefn(str('nadir_long'), ogr.OFTReal)
+        tmp_field.SetWidth(10)
+        tmp_field.SetPrecision(6)
+        out_layer.CreateField(tmp_field)
+        tmp_field = ogr.FieldDefn(str('nadir_lat'), ogr.OFTReal)
+        tmp_field.SetWidth(10)
+        tmp_field.SetPrecision(6)
+        out_layer.CreateField(tmp_field)
         out_layer_defn = out_layer.GetLayerDefn()
 
         # 2 - On traite point par point

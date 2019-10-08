@@ -44,7 +44,7 @@ class SASLakeSP(object):
         :param in_obj_pixc_sp: PIXC_SP object
         :type in_obj_pixc_sp: lake_sp.PixC_SP
         :param in_obj_pixc_vec_sp: PIXCVec_SP object
-        :type in_obj_pixc_vec_sp: lake_sp.PixC_Vec_SP
+        :type in_obj_pixc_vec_sp: lake_sp.PixCVecSP
         :param in_obj_lake_db: lake_db object
         :type in_obj_lake_db: lib_lake.lake_db
         :param in_obj_lake: proc_lake object
@@ -100,7 +100,7 @@ class SASLakeSP(object):
 
                 # 3.1.2 - Compute lake products
                 logger.info("2 - Filling LakeTile product...")
-                self.obj_lake_l.computeLakeProducts(np.unique(self.obj_pixc_sp.pixc_edge_l.labels))
+                self.obj_lake_l.compute_lake_products(np.unique(self.obj_pixc_sp.pixc_edge_l.labels))
 
             else:
                 logger.info("No pixel to process")
@@ -114,7 +114,7 @@ class SASLakeSP(object):
 
                 # 3.1.2 - Compute lake products
                 logger.info("2 - Filling LakeTile product...")
-                self.obj_lake_r.computeLakeProducts(np.unique(self.obj_pixc_sp.pixc_edge_r.labels))
+                self.obj_lake_r.compute_lake_products(np.unique(self.obj_pixc_sp.pixc_edge_r.labels))
 
             else:
 
