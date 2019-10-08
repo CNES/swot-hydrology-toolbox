@@ -389,8 +389,11 @@ class LakeProduct(object):
         
         # 3.3 - Measured hydrology parameters
         
-        selected_indices = in_indices[in_classif_dict["water"]]  # Indices of water pixels
-        
+        if in_classif_dict["water"] is None:
+            selected_indices = in_indices
+        else:
+            selected_indices = in_indices[in_classif_dict["water"]]  # Indices of water pixels
+                
         # Retrieve selected pixels height
         selected_height = self.obj_pixc.height[selected_indices]
         

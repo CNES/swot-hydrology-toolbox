@@ -70,6 +70,7 @@ def test_file(in_file, in_extent=None):
         message = "ERROR = %s doesn't exist" % in_file
         raise service_error.ProcessingError(message, logger)
 
+
 def test_list_of_files(in_list_file, in_extent=None):
     """
     Test if list of full paths in input is an existing file and, optionnally, a file in the awaited format
@@ -82,6 +83,7 @@ def test_list_of_files(in_list_file, in_extent=None):
 
     for file in in_list_file:
         test_file(file, in_extent)
+
 
 def test_dir(in_dir):
     """
@@ -568,12 +570,6 @@ def compute_mean_2sigma(in_v_val, in_nan=None):
         idx_lower = np.where(v_val < med-2*std)[0]
         v_indices = np.delete(np.arange(nb_val), idx_lower)
         # 2.2 - Higher than mean + 2 sigma
-        #print("**********my_tools_deb")
-        #print(v_val)
-        #print(v_val.shape)
-        #print(v_indices)
-        #print(v_indices.shape)
-        #print("**********my_tools_fin")
         idx_higher = np.where(v_val[v_indices] > med+2*std)[0]
         v_indices = np.delete(v_indices, idx_higher)
 
@@ -587,7 +583,6 @@ def compute_mean_2sigma(in_v_val, in_nan=None):
 
 
 def compute_std(in_v_val, in_nan=None):
-
     """
     Compute the standard deviation of the input values
     If set, remove NaN values from the computation
@@ -728,6 +723,7 @@ def compute_dist(in_lon1, in_lat1, in_lon2, in_lat2):
 
 #######################################
 
+
 def get_utm_epsg_code(lon, lat):
     """
     get EPSG code
@@ -748,7 +744,6 @@ def get_utm_epsg_code(lon, lat):
         epsg = '326' + utm_band
     return epsg
 
-#######################################
 
 def get_utm_coords(in_lon, in_lat):
     """
@@ -770,6 +765,7 @@ def get_utm_coords(in_lon, in_lat):
     utm_proj = pyproj.Proj(init='epsg:' + epsg)
     X, Y = pyproj.transform(latlon, utm_proj, in_lon, in_lat)
     return (X,Y, )
+
 
 def get_area(in_polygon, in_centroid):
     """
@@ -807,7 +803,9 @@ def get_area(in_polygon, in_centroid):
     # 2 - Compute and return area
     return in_polygon.GetArea()
 
+
 #######################################
+
 
 def get_utm_coords_from_lonlat(in_long, in_lat, utm_epsg_code=None):
     """
@@ -856,6 +854,3 @@ def get_lon_lat_polygon_from_utm(in_utm_poly, in_utm_epsg_code):
     lonlat_poly = transform(projection_wm_func, in_utm_poly)
 
     return lonlat_poly
-
-
-#######################################
