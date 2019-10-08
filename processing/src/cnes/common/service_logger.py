@@ -72,8 +72,8 @@ class ServiceLogger(logging.getLoggerClass()):
         # Define SIGMSG level
         SIGMSG_LEVEL_NUM = 45
         logging.SIGMSG = SIGMSG_LEVEL_NUM
-        levelName = "SIGMSG"
-        logging.addLevelName(SIGMSG_LEVEL_NUM, levelName)
+        level_name = "SIGMSG"
+        logging.addLevelName(SIGMSG_LEVEL_NUM, level_name)
         def log_sigmsg(self, message, *args, **kwargs):
             """
                Local function sigmsg log
@@ -96,10 +96,16 @@ class ServiceLogger(logging.getLoggerClass()):
             self.file_handler = logging.FileHandler(cfg.get('LOGGING', 'logFile'), mode='w')
             self.file_handler.setFormatter(self.log_formatter)
             self.file_handler.setLevel(cfg.get('LOGGING', 'logFileLevel'))
+            # create the error log file
+            self.file_handler_error = logging.FileHandler(cfg.get('PATHS', 'Output directory') + '/error.log', mode='w')
+            self.file_handler_error.setFormatter(self.log_formatter)
+            self.file_handler_error.setLevel("ERROR")
+
             # create a memory Handler to bufferize SAS log message
             self.memory_handler = logging.handlers.MemoryHandler(1000, target=self.file_handler)
             # add logger
             self.root_logger.addHandler(self.memory_handler)
+            self.root_logger.addHandler(self.file_handler_error)
 
             if cfg.get('LOGGING', 'logConsole') == 'True':
                 # logging in console
@@ -124,7 +130,9 @@ class ServiceLogger(logging.getLoggerClass()):
         self.memory_handler.close()
         self.root_logger.removeHandler(self.memory_handler)
         self.file_handler.close()
+        self.file_handler_error.close()
         self.root_logger.removeHandler(self.file_handler)
+        self.root_logger.removeHandler(self.file_handler_error)
         if self.console_handler is not None:
             self.console_handler.close()
             self.root_logger.removeHandler(self.console_handler)

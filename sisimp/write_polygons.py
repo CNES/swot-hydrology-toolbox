@@ -106,8 +106,8 @@ class orbitAttributes:
         self.orbit_list = []  # List of triplets (cycle number, pass number, orbit file) to process
         self.compute_pixc_vec_river = None  # Flag for PIXCVecRiver file computation
         self.near_range = None
-        self.swath_polygons = {}  # Dictionnary for storing swath polygons
-        
+        self.tile_coords = {}  # Dictionnary for storing tile coordinates for swath R and L
+
         self.dw_detected_noise_height = None  # dw detected noise tab
 
         # 3.1 - From orbit file
@@ -132,7 +132,11 @@ class orbitAttributes:
 
         # 4 - List of each water body
         self.liste_lacs = None
-                
+
+        # number of pixels overlapping top and bottom tile in tilling process
+        self.nb_pix_overlap_begin = 0
+        self.nb_pix_overlap_end = 0
+
 
 #######################################
         
@@ -402,17 +406,34 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] No roll error applied")
          
     # 4.3 Add tropospheric delay
-    if IN_attributes.tropo_model == 'gaussian':
-        my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Applying wet tropo gaussian model")
-        tropo = Tropo_module(IN_attributes.tropo_model)
-        tropo_error = tropo.calculate_tropo_error_gaussian(az, r, IN_attributes.tropo_error_stdv, IN_attributes.tropo_error_mean, IN_attributes.tropo_error_correlation) 
-        delta_h += tropo_error
-    if IN_attributes.tropo_model == 'map':
-        my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Applying wet tropo map gaussian model")
-        tropo = Tropo_module(IN_attributes.tropo_model)
-        tropo_error = tropo.calculate_tropo_error_map(np.mean(IN_attributes.lat), az, r, IN_attributes.tropo_error_map_file, IN_attributes.tropo_error_correlation)
-        delta_h += tropo_error
+    
+    tropo = Tropo_module(IN_attributes.tropo_model, min(r), max(r), min(az), max(az), \
+    IN_attributes.tropo_error_stdv, IN_attributes.tropo_error_mean, IN_attributes.tropo_error_correlation, \
+    IN_attributes.tropo_error_map_file)
+        
+    if IN_attributes.tropo_map_rg_az is None:
 
+        if tropo.model == 'gaussian':
+            my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Applying wet tropo gaussian model")
+            tropo.calculate_tropo_error_gaussian(IN_attributes.tropo_error_stdv, IN_attributes.tropo_error_mean, IN_attributes.tropo_error_correlation) 
+            tropo.apply_tropo_error_on_pixels(az, r)
+            tropo_2d_field = tropo.tropo_2d_field
+            delta_h += tropo_2d_field
+            
+        if tropo.model == 'map':
+            my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Applying wet tropo map gaussian model")
+            tropo.calculate_tropo_error_map(np.mean(IN_attributes.lat), IN_attributes.tropo_error_map_file, IN_attributes.tropo_error_correlation)
+            tropo.apply_tropo_error_on_pixels(az, r)
+            tropo_2d_field = tropo.tropo_2d_field
+            delta_h += tropo_2d_field
+
+    else :
+        tropo.tropo_map_rg_az = IN_attributes.tropo_map_rg_az
+        tropo.apply_tropo_error_on_pixels(az, r)
+        tropo_2d_field = tropo.tropo_2d_field
+        delta_h += tropo_2d_field        
+   
+    
     # 5.3 - Compute final noisy heights (elevation + thermal noise + roll error + height model) 
     elevation_tab_noisy = elevation_tab + delta_h           
     
@@ -431,12 +452,12 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         vx[indp], vy[indp], vz[indp] = [(IN_attributes.x[indp+1] - IN_attributes.x[indp-1]), (IN_attributes.y[indp+1] - IN_attributes.y[indp-1]), (IN_attributes.z[indp+1] - IN_attributes.z[indp-1])] / (IN_attributes.orbit_time[indp+1] - IN_attributes.orbit_time[indp-1])
  
     # Convert nadir latitudes/longitudes in degrees
-    nadir_lat_deg = IN_attributes.lat[1:-1] * RAD2DEG
-    nadir_lon_deg = IN_attributes.lon[1:-1] * RAD2DEG
+    nadir_lat_deg = IN_attributes.lat * RAD2DEG
+    nadir_lon_deg = IN_attributes.lon * RAD2DEG
         
     # Remove 1st and last values because just here for extrapolators (cf. read_orbit)
-    nadir_alt = IN_attributes.alt[1:-1]
-    nadir_heading = IN_attributes.heading[1:-1]
+    nadir_alt = IN_attributes.alt
+    nadir_heading = IN_attributes.heading
 
     lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, h=elevation_tab+delta_h)
     lon_noisy *= RAD2DEG  # Conversion in degrees
@@ -453,12 +474,17 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] == Dealing with tile number %03d" % IN_attributes.tile_number)
                 
         # Get azimuth indices corresponding to this integer value of latitude
-        nadir_az  = az
+        nadir_az = np.arange(1, len(IN_attributes.alt)-1)
+                    
         az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth indices vector
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
-        
+
+        # Get overlapping pixels du to tilling process
+        nb_pix_overlap_begin = IN_attributes.nb_pix_overlap_begin
+        nb_pix_overlap_end = IN_attributes.nb_pix_overlap_end
+
         # Get pixel indices of water pixels corresponding to this latitude interval
-        az_indices = np.where((az >= min(nadir_az)) & (az <= max(nadir_az)))[0]
+        az_indices = np.where((az >= min(nadir_az) + nb_pix_overlap_begin -1 ) & (az <= max(nadir_az) - nb_pix_overlap_end +1 ))[0]
         nb_pix = az_indices.size  # Number of water pixels for this latitude interval
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d water pixels" % nb_pix)
         
@@ -468,7 +494,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min r ind = %d - Max r ind = %d" % (np.min(sub_r), np.max(sub_r)))
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min az ind = %d - Max az ind = %d" % (np.min(sub_az), np.max(sub_az)))
-            
+
             # Get output filename
 
             # Left / right swath flag
@@ -476,13 +502,42 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             
             # General tile reference
             tile_ref = "%03d%s" % (IN_attributes.tile_number, left_or_right)
-            
+
+            sub_az = sub_az - az_min - nb_pix_overlap_begin + 1
+
+            # remove first and last orbit point, added in read_orbit
+            if nb_pix_overlap_begin == 0:
+                nb_pix_overlap_begin = 1
+                nb_pix_overlap_end = nb_pix_overlap_end - nb_pix_overlap_begin
+            if nb_pix_overlap_end == 0:
+                nb_pix_overlap_end = 1
+
+            tile_nadir_lat_deg = nadir_lat_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_nadir_lon_deg = nadir_lon_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_orbit_time = IN_attributes.orbit_time[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_nadir_alt = nadir_alt[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_nadir_heading = nadir_heading[nb_pix_overlap_begin:-nb_pix_overlap_end]
+
+            tile_x = IN_attributes.x[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_y = IN_attributes.y[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_z = IN_attributes.z[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_vx = vx[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_vy = vy[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            tile_vz = vz[nb_pix_overlap_begin:-nb_pix_overlap_end]
+
+            nadir_az_size = tile_nadir_lat_deg.size
+
+            tile_coords = compute_tile_coords(IN_attributes, IN_swath, nadir_az_size, nb_pix_overlap_begin)
+            IN_attributes.tile_coords[left_or_right] = tile_coords
+
             # Init L2_HR_PIXC object
-            my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min, sub_r, classification_tab[az_indices], pixel_area[az_indices],
+            my_pixc = proc_real_pixc.l2_hr_pixc(sub_az, sub_r, classification_tab[az_indices], pixel_area[az_indices],
                                                 lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
-                                                IN_attributes.orbit_time[nadir_az], nadir_lat_deg[nadir_az], nadir_lon_deg[nadir_az], nadir_alt[nadir_az], nadir_heading[nadir_az],
-                                                IN_attributes.x[nadir_az], IN_attributes.y[nadir_az], IN_attributes.z[nadir_az], vx[nadir_az], vy[nadir_az], vz[nadir_az], IN_attributes.near_range,
-                                                IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size, IN_attributes.azimuth_spacing, IN_attributes.range_sampling, IN_attributes.near_range)
+                                                tile_orbit_time, tile_nadir_lat_deg, tile_nadir_lon_deg, tile_nadir_alt, tile_nadir_heading,
+                                                tile_x, tile_y, tile_z, tile_vx, tile_vy, tile_vz,
+                                                IN_attributes.near_range, IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number,
+                                                IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az_size, IN_attributes.azimuth_spacing,
+                                                IN_attributes.range_sampling, IN_attributes.near_range, tile_coords)
             
             # Update filenames with tile ref
             IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])
@@ -491,7 +546,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             my_pixc.write_pixc_file(IN_attributes.sisimp_filenames.pixc_file+".nc", compress=True)
             
             # Write annotation file
-            my_pixc.write_annotation_file(IN_attributes.sisimp_filenames.file_annot_file, IN_attributes.sisimp_filenames.pixc_file+".nc")  
+            my_pixc.write_annotation_file(IN_attributes.sisimp_filenames.file_annot_file, IN_attributes.sisimp_filenames.pixc_file+".nc")
             
             # Write shapefiles if asked
             if IN_attributes.create_shapefile:
@@ -549,8 +604,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
     # 1 - Make swath polygons
     swath_polygon = make_swath_polygon(IN_swath, IN_attributes)
-    OUT_swath_polygons = IN_attributes.swath_polygons
-    OUT_swath_polygons[IN_swath] = swath_polygon
 
     # 2 - Select water bodies polygons in the swath
     layer, da_shapefile = my_shp.open_shp(IN_filename, swath_polygon)
@@ -735,7 +788,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     if (safe_flag_layover) and (IN_attributes.height_model == 'reference_height'):
         liste_lac = intersect(OUT_filename, OUT_filename, indmax, IN_attributes) + liste_lac
 
-    IN_attributes.swath_polygons = OUT_swath_polygons
     IN_attributes.liste_lacs = liste_lac
 
     return OUT_filename, IN_attributes
@@ -753,21 +805,20 @@ def make_swath_polygon(IN_swath, IN_attributes):
     :param IN_attributes:
     :type IN_attributes:
     """
-    sign = [-1, 1][IN_swath.lower() == 'right']
-    ymin = sign * IN_attributes.nr_cross_track
-    ymax = sign * IN_attributes.swath_width/2
-
     n = len(IN_attributes.lon_init) - 4
     az = np.arange(2, n-2 , 1)
-    y = ymin * np.ones(len(az))
-    
-    
-    
+
+    # # Old computing
+    # sign = [-1, 1][IN_swath.lower() == 'right']
+    # ymin = sign * IN_attributes.nr_cross_track
+    # ymax = sign * IN_attributes.swath_width/2
+    # y = ymin * np.ones(len(az))
+    # lon1_, lat1_ = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
+    # y = ymax * np.ones(len(az))
+    # lon2_, lat2_ = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
+
     IN_ri = np.sqrt((IN_attributes.alt[az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2)
-    lon1_, lat1_ = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
     lon1, lat1 = math_fct.lonlat_from_azy(az, IN_ri, IN_attributes, IN_swath, h=0, IN_unit="deg")
-    y = ymax * np.ones(len(az))
-    lon2_, lat2_ = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
     lon2, lat2 = math_fct.lonlat_from_azy(az, IN_ri + 3117*0.75, IN_attributes, IN_swath, h=0, IN_unit="deg")
     
     lonswath = np.concatenate((lon1, lon2[::-1]))
@@ -780,7 +831,7 @@ def make_swath_polygon(IN_swath, IN_attributes):
         ring.AddPoint(lonswath[i], latswath[i])
     ring.CloseRings()
     swath_polygon.AddGeometry(ring)
-    
+
     return swath_polygon
                 
 
@@ -989,7 +1040,6 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
         if count != 0:
             hmean = height_tot/count
             near_range = np.mean(np.sqrt((IN_attributes.alt - hmean + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-            print(hmean, near_range, np.mean(IN_attributes.alt))
 
         else:
             near_range = 0
@@ -1006,3 +1056,32 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
     my_api.printInfo("[write_polygons] [reproject_shapefile] Near_range =  %d" % (near_range))
     
     return near_range
+
+def compute_tile_coords(IN_attributes, IN_swath, nadir_az_size, nb_pix_overlap_begin):
+
+    inner_first_az = [nb_pix_overlap_begin]
+    inner_first_rg = np.sqrt((IN_attributes.alt[inner_first_az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2)
+    inner_first_lon, inner_first_lat = math_fct.lonlat_from_azy(inner_first_az, inner_first_rg, IN_attributes, IN_swath, h=0, IN_unit="deg")
+    inner_first = (inner_first_lon[0], inner_first_lat[0])
+
+    outer_first_az = [nb_pix_overlap_begin]
+    outer_first_rg = np.sqrt((IN_attributes.alt[outer_first_az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2) + IN_attributes.nb_pix_range * IN_attributes.range_sampling
+    outer_first_lon, outer_first_lat = math_fct.lonlat_from_azy(outer_first_az, outer_first_rg, IN_attributes, IN_swath, h=0, IN_unit="deg")
+    outer_first = (outer_first_lon[0], outer_first_lat[0])
+
+    inner_last_az = [nadir_az_size + nb_pix_overlap_begin-1]
+    inner_last_rg = np.sqrt((IN_attributes.alt[inner_last_az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2)
+    inner_last_lon, inner_last_lat = math_fct.lonlat_from_azy(inner_last_az, inner_last_rg, IN_attributes, IN_swath, h=0, IN_unit="deg")
+    inner_last = (inner_last_lon[0], inner_last_lat[0])
+
+    outer_last_az = [nadir_az_size + nb_pix_overlap_begin-1]
+    outer_last_rg = np.sqrt((IN_attributes.alt[outer_last_az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2) + IN_attributes.nb_pix_range * IN_attributes.range_sampling
+    outer_last_lon, outer_last_lat = math_fct.lonlat_from_azy(outer_last_az, outer_last_rg, IN_attributes, IN_swath, h=0, IN_unit="deg")
+    outer_last = (outer_last_lon[0], outer_last_lat[0])
+
+    inner_first = inner_first
+    inner_last = inner_last
+    outer_first = outer_first
+    outer_last = outer_last
+    tile_coords = (inner_first, inner_last, outer_first, outer_last)
+    return tile_coords

@@ -11,17 +11,17 @@
 # ======================================================
 """
 geoloc
-===================
-.. automodule:: cnes.module.geoloc.lib.geoloc
+======
+.. automodule:: cnes.modules.geoloc.lib.geoloc
    :members:
    :private-members:
    :special-members:
 
 interface
-==============
+=========
 .. automodule:: cnes.modules.geoloc.lib.interface
    :members:
    :private-members:
    :special-members:
 
-   """
+"""

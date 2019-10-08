@@ -28,6 +28,7 @@ import lib.my_tools as my_tools
 import lib.my_tiling as tiling
 import lib.my_shp as my_shp
 import lib.my_timer as my_timer
+import lib.tropo_module as tropo_module
 
 import sisimp_function as sisimp_fct
 from write_polygons import orbitAttributes
@@ -175,9 +176,18 @@ class Processing(object):
             if self.my_attributes.tropo_model == 'gaussian':
                 self.my_attributes.tropo_error_stdv = read_parameter(parameters, "Tropo error stdv", None, float)
                 self.my_attributes.tropo_error_mean = read_parameter(parameters, "Tropo error mean", None, float)
-            if self.my_attributes.tropo_model == 'map':
-                self.my_attributes.tropo_error_map_file = os.path.expandvars(parameters.getValue("Tropo error map file"))
+                self.my_attributes.tropo_error_map_file = None
                 
+            elif self.my_attributes.tropo_model == 'map':
+                self.my_attributes.tropo_error_stdv = None
+                self.my_attributes.tropo_error_mean = None
+                self.my_attributes.tropo_error_map_file = os.path.expandvars(parameters.getValue("Tropo error map file"))
+            
+            else:
+                self.my_attributes.tropo_error_stdv = None
+                self.my_attributes.tropo_error_mean = None
+                self.my_attributes.tropo_error_map_file = None
+                               
             # Height model parameters
             
             # More complex model
@@ -363,13 +373,19 @@ class Processing(object):
             
             pre_tiling = True
             if pre_tiling:
+                tropo = tropo_module.Tropo_module(self.my_attributes.tropo_model, 0, self.my_attributes.nb_pix_range, 0, len(tile_values), \
+                self.my_attributes.tropo_error_stdv, self.my_attributes.tropo_error_mean, self.my_attributes.tropo_error_correlation, \
+                self.my_attributes.tropo_error_map_file)
+                tropo.generate_tropo_field_over_pass(min(self.my_attributes.lat))
+                    
                 for tile_number in tile_list:
                     time = my_timer.Timer()
                     time.start()
                     my_api.printInfo("========================================================")
                     my_api.printInfo("[sisimp_processing] Processing tile %d " %(tile_number))
                     my_api.printInfo("========================================================")
-                    self.my_new_attributes = tiling.crop_orbit(self.my_attributes, tile_values, tile_number)
+
+                    self.my_new_attributes = tiling.crop_orbit(self.my_attributes, tile_values, tile_number, tropo.tropo_map_rg_az)
 
                     # 3 - Process right swath
                     self.my_new_attributes = sisimp_fct.make_pixel_cloud("Right", elem[0], elem[1], self.my_new_attributes)
@@ -386,10 +402,10 @@ class Processing(object):
                     my_api.printInfo("[sisimp_processing] %s " % (time.stop()))
                     my_api.printInfo("")
 
-                    # # 5 - Write swath polygons shapefile
-                    #~ sisimp_fct.write_swath_polygons(self.my_new_attributes)
-                    #~ my_api.printInfo("")
-                    #~ my_api.printInfo("")
+                    # 5 - Write swath polygons shapefile
+                    sisimp_fct.write_swath_polygons(self.my_new_attributes)
+                    my_api.printInfo("")
+                    my_api.printInfo("")
 
             else:
                 # 3 - Process right swath
@@ -403,10 +419,10 @@ class Processing(object):
                 self.my_attributes = sisimp_fct.make_pixel_cloud("Left", elem[0], elem[1], self.my_attributes)
                 my_api.printInfo("")
                 
-                # # 5 - Write swath polygons shapefile
-                #~ sisimp_fct.write_swath_polygons(self.my_attributes)
-                #~ my_api.printInfo("")
-                #~ my_api.printInfo("")                
+                # 5 - Write swath polygons shapefile
+                sisimp_fct.write_swath_polygons(self.my_attributes)
+                my_api.printInfo("")
+                my_api.printInfo("")                
                 
     def run_postprocessing(self):
         """

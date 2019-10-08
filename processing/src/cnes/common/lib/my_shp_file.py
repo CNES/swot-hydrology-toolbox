@@ -31,8 +31,10 @@ from osgeo import ogr, osr
 
 import cnes.common.service_error as service_error
 
+import cnes.common.lib_lake.lake_db as lake_db
 
-def merge_mem_layer_with_shp(in_list_shp, in_layer):
+
+def merge_mem_layer_with_shp(in_list_shp, in_layer, in_cur_continent):
     """
     This function merges shapefiles listed in in_list_shp with the layer in_layer (typically LakeTile shp with LakeSP memory layer).
     All polygons in all shapefiles are copied in the current layer. All fields are copied.
@@ -41,6 +43,8 @@ def merge_mem_layer_with_shp(in_list_shp, in_layer):
     :type in_list_shp: list of string
     :param in_layer: layer in which to merge all objects
     :type in_layer: OGRlayer
+    :param in_cur_continent: current continent code
+    :type in_cur_continent: string
     
     :return out_data_source: data source of output layer
     :rtype out_data_source: OGRdata_source
@@ -67,7 +71,7 @@ def merge_mem_layer_with_shp(in_list_shp, in_layer):
         cur_layer = cur_data_source.GetLayer()  # Get the layer
 
         # 3.2 - Merge layer into output layer
-        out_data_source, out_layer = merge_2_layers(out_layer, cur_layer)
+        out_data_source, out_layer = merge_2_layers(out_layer, cur_layer, in_cur_continent)
 
         # 3.3 - Close layer
         cur_data_source.Destroy()
@@ -75,7 +79,7 @@ def merge_mem_layer_with_shp(in_list_shp, in_layer):
     return out_data_source, out_layer
 
 
-def merge_2_layers(in_layer1, in_layer2):
+def merge_2_layers(in_layer1, in_layer2, in_cur_continent):
     """
     Merge 2 memory layers
     
@@ -83,6 +87,8 @@ def merge_2_layers(in_layer1, in_layer2):
     :type in_layer1: OGRlayer
     :param in_layer2: second layer
     :type in_layer2: OGRlayer
+    :param in_cur_continent: current continent code
+    :type in_cur_continent: string
     
     :return out_data_source: data source of output layer
     :rtype out_data_source: OGRdata_source
@@ -91,6 +97,11 @@ def merge_2_layers(in_layer1, in_layer2):
     """
     logger = logging.getLogger("my_shp_file")
     logger.debug("[LakeProduct] == mergeLayerRL ==")
+
+    continent_pfaf_id = lake_db.compute_basin_id_from_continent(in_cur_continent)
+    if in_cur_continent != "NO_CONT" :
+        in_layer1.SetAttributeFilter("lakedb_id like '" + continent_pfaf_id + "%' or lakeobs_id like '" + continent_pfaf_id + "%'")
+        in_layer2.SetAttributeFilter("lakedb_id like '" + continent_pfaf_id + "%' or lakeobs_id like '" + continent_pfaf_id + "%'")
 
     # 1 - Get layer definitions
     layer_defn1 = in_layer1.GetLayerDefn()
@@ -122,6 +133,9 @@ def merge_2_layers(in_layer1, in_layer2):
 
     # 7 - Add in_layer1 and in_layer2 to the output layer
     in_layer1.Update(in_layer2, out_layer)
+
+    in_layer1.SetAttributeFilter(None)
+    in_layer2.SetAttributeFilter(None)
 
     return out_data_source, out_layer
 
