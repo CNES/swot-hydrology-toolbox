@@ -20,7 +20,7 @@ import os
 from find_orbit import findOrbit
 from ressources.utils.input_reader import Input_Reader
 import ressources.utils.passplan as lib_passplan
-
+from ressources.utils import my_api
 
 class Processing(object):
 
@@ -33,10 +33,10 @@ class Processing(object):
         :param in_output_directory: output directory full path
         :type in_output_directory: str
         """
-        print("[select_orbit_cnes] == INIT ==")
-        print("[select_orbit_cnes] Parameter file = %s" % in_parameter_file)
-        print("[select_orbit_cnes] Output directory = %s" % in_output_directory)
-        print()
+        my_api.printInfo("[select_orbit_cnes] == INIT ==")
+        my_api.printInfo("[select_orbit_cnes] Parameter file = %s" % in_parameter_file)
+        my_api.printInfo("[select_orbit_cnes] Output directory = %s" % in_output_directory)
+        my_api.printInfo("")
         
         self.parameter_file = in_parameter_file
         self.output_directory = in_output_directory
@@ -64,7 +64,7 @@ class Processing(object):
         :return: return code (0=OK - 101=error)
         :rtype: int
         """
-        print("[select_orbit_cnes] == PRE-PROCESSING... ==")
+        my_api.printInfo("[select_orbit_cnes] == PRE-PROCESSING... ==")
         
         return_code = 0
         
@@ -99,7 +99,7 @@ class Processing(object):
         self.simulation_start_time = param_reader.get_simulation_start()
         self.simulation_stop_time = param_reader.get_simulation_stop()
         
-        print()
+        my_api.printInfo("")
         return return_code
     
     def run_processing(self):
@@ -109,7 +109,7 @@ class Processing(object):
         Returns:
             int. return code
         """
-        print("[select_orbit_cnes] == PROCESSING... ==")
+        my_api.printInfo("[select_orbit_cnes] == PROCESSING... ==")
         
         # 1 - Modify coordinates if not coherent between each others
         if self.north < self.south:
@@ -130,7 +130,7 @@ class Processing(object):
             passplan.run_preprocessing()
             passplan.run_processing()
             
-        print()
+        my_api.printInfo("")
         return 0
     
     def run_postprocessing(self):
@@ -141,7 +141,7 @@ class Processing(object):
         Returns:
             int. return code
         """
-        print("[select_orbit_cnes] == POST-PROCESSING... ==")
+        my_api.printInfo("[select_orbit_cnes] == POST-PROCESSING... ==")
         
         # If an output file has to be written, use the API function to know
         # where you can write it:
@@ -150,6 +150,6 @@ class Processing(object):
         # Keep this as the last line of this function
         #self.api.end_module(True)
         
-        print()
+        my_api.printInfo("")
         return 0
         

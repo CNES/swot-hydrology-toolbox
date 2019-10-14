@@ -41,20 +41,21 @@ if skimage.__version__ >= "0.11":
     from skimage.filters import median as median_filter
 else:
     from skimage.filter.rank import median as median_filter
+from scipy.spatial import distance
 
 import cnes.common.service_error as service_error
 import cnes.common.service_config_file as service_config_file
 import cnes.common.lib.my_variables as my_var
 
 
-def testFile(in_file, IN_extent=None):
+def test_file(in_file, in_extent=None):
     """
     Test if full path in input is an existing file and, optionnally, a file in the awaited format
 
     :param in_file: input full path
     :type in_file: string
-    :param IN_extent: awaited format file (optionnal)
-    :type IN_extent: string
+    :param in_extent: awaited format file (optionnal)
+    :type in_extent: string
     """
     logger = logging.getLogger("my_tools")
 
@@ -62,27 +63,29 @@ def testFile(in_file, IN_extent=None):
         if not os.path.isfile(in_file):
             message = "ERROR = %s is not a file" % in_file
             raise service_error.ProcessingError(message, logger)
-        if IN_extent and not in_file.endswith(IN_extent):
-            message = "ERROR = %s must have the %s extent" % (in_file, IN_extent)
+        if in_extent and not in_file.endswith(in_extent):
+            message = "ERROR = %s must have the %s extent" % (in_file, in_extent)
             raise service_error.ProcessingError(message, logger)
     else:
         message = "ERROR = %s doesn't exist" % in_file
         raise service_error.ProcessingError(message, logger)
 
-def testListOfFiles(in_list_file, IN_extent=None):
+
+def test_list_of_files(in_list_file, in_extent=None):
     """
     Test if list of full paths in input is an existing file and, optionnally, a file in the awaited format
 
     :param in_file: list of input full path separed with ";"
     :type in_file: string
-    :param IN_extent: awaited format file (optionnal)
-    :type IN_extent: string
+    :param in_extent: awaited format file (optionnal)
+    :type in_extent: string
     """
 
     for file in in_list_file:
-        testFile(file, IN_extent)
+        test_file(file, in_extent)
 
-def testDir(in_dir):
+
+def test_dir(in_dir):
     """
     Test if input path is an existing directory
 
@@ -98,7 +101,7 @@ def testDir(in_dir):
     else:
         message = "ERROR = %s doesn't exist" % in_dir
         raise service_error.ProcessingError(message, logger)
-        
+
 
 #######################################
 
@@ -130,15 +133,15 @@ def rad2deg(in_rad):
 
 
 #######################################
-    
+
 
 def convert_to_m180_180(in_long):
     """
     Convert longitudes from [0;360[ to [-180;180[
-    
+
     :param in_long: longitudes to convert
     :type in_long: float or 1D-array of float
-    
+
     :return: out_long = converted longitude
     :rtype: same as input = float or 1D-array of float
     """
@@ -152,19 +155,19 @@ def convert_to_m180_180(in_long):
         if in_long > 180.0:
             out_long -= 360
     return out_long
-    
+
 
 def convert_to_0_360(in_long):
     """
-    Convert longitudes from [-180;180[ to [0;360[ 
-    
+    Convert longitudes from [-180;180[ to [0;360[
+
     :param in_long: longitudes to convert
     :type in_long: float or 1D-array of float
-    
+
     :return: out_long = converted longitude
     :rtype: same as input = float or 1D-array of float
     """
-    
+
     out_long = in_long
     if np.iterable(in_long):
         ind = np.where(in_long < 0.0)
@@ -177,32 +180,32 @@ def convert_to_0_360(in_long):
 
 
 #######################################
-    
+
 
 def swot_timeformat(in_datetime, in_format=0):
     """
     Convert time into appropriate string format
-    
+
     :param in_datetime: time value to write as a string
     :type in_datetime: datetime.datetime
     :param in_format: string format option 0 (default)="YYYY-MM-DD hh:mm:ss.ssssssZ" 1="YYYY-MM-DD hh:mm:ss"
     :type in_format: int
-    
+
     :return: out_datetime: time value written as a string
     :rtype: string
     """
-    
+
     out_datetime = ""
-    
+
     if in_format == 1:
         out_datetime = in_datetime.strftime("%Y-%m-%d %H:%M:%S")
     else:
         out_datetime = "%sZ" % in_datetime.strftime("%Y-%m-%d %H:%M:%S.%f")
-        
+
     return out_datetime
 
 
-def convertSec2Time(in_time, txt_format=1):
+def convert_sec_2_time(in_time, txt_format=1):
     """
     Convert a date_time in seconds towards a string with the format specified as in put parameter
 
@@ -241,10 +244,10 @@ def convertSec2Time(in_time, txt_format=1):
 def convert_utc_to_str(in_utc_time):
     """
     Convert UTC time to appropriate string format
-    
+
     :param in_utc_time: date_time in seconds from 01/01/2000 00:00:00
     :type in_utc_time: float
-    
+
     :return: UTC time from 01/01/2000 00:00:00 as a string
     :rtype: string
     """
@@ -252,35 +255,35 @@ def convert_utc_to_str(in_utc_time):
 
 
 #######################################
-    
+
 
 def convert_fillvalue(in_data, in_flag="nc2shp"):
     """
     Convert NetCDF fill value in data into shapefile fill value (or reverse)
-    
+
     :param in_data: data in which fill values will be replaced
     :type in_data: scalar or numpy.array
     :param in_flag: flag to specify conversion "nc2shp"(default)=NetCDF to Shapefile "shp2nc"=Shapefile to NetCDF
     :type in_flag: string
-    
+
     :return: out_data = data in which fill values have been replaced
     :rtype: same as in_data in input
     """
-    
+
     # Output vector init
     out_data = in_data
-    
+
     if np.isscalar(in_data):
-        
+
         # PROCESS FOR SCALAR
-        
+
         # 1 - Retrieve data type
         type_name = type(in_data)
 
         # 2 - Get associated fill values
         fv_nc = my_var.FV_NETCDF[type_name]  # For NetCDF files
         fv_shp = my_var.FV_SHP[type_name]  # For Shapefiles
-    
+
         # 3 - Make conversion
         if in_flag == "nc2shp":
             if in_data == fv_nc:
@@ -288,11 +291,11 @@ def convert_fillvalue(in_data, in_flag="nc2shp"):
         elif in_flag == "shp2nc":
             if in_data == fv_shp:
                 out_data = fv_nc
-            
+
     else:
-        
+
         # PROCESS FOR ARRAYS
-    
+
         # 1 - Retrieve data type
         type_name = in_data.dtype.name
         if type_name.startswith("str"):
@@ -301,7 +304,7 @@ def convert_fillvalue(in_data, in_flag="nc2shp"):
         # 2 - Get associated fill values
         fv_nc = my_var.FV_NETCDF[type_name]  # For NetCDF files
         fv_shp = my_var.FV_SHP[type_name]  # For Shapefiles
-    
+
         # 3 - Make conversion
         if in_flag == "nc2shp":
             nan_idx = np.where(in_data == fv_nc)
@@ -311,14 +314,14 @@ def convert_fillvalue(in_data, in_flag="nc2shp"):
         elif in_flag == "shp2nc":
             nan_idx = np.where(in_data == fv_shp)
             out_data[nan_idx] = fv_nc
-    
+
     return out_data
 
 
 #######################################
 
 
-def computeBinMat(in_size_x, in_size_y, in_x, in_y):
+def compute_bin_mat(in_size_x, in_size_y, in_x, in_y):
     """
     Creates a 2D binary matrix from Y and Y 1D vectors
     i.e. for each ind: mat[in_x[ind],in_y[ind]] = 1
@@ -341,18 +344,18 @@ def computeBinMat(in_size_x, in_size_y, in_x, in_y):
     # 0 - Deal with exceptions
     # 0.1 - Input vectors size must be the same
     if in_x.size != in_y.size:
-        message = "computeBinMat(in_x, in_y) : in_x and in_y must be the same size ; currently : in_x = %d and in_y = %d" % (in_x.size, in_y.size)
+        message = "compute_bin_mat(in_x, in_y) : in_x and in_y must be the same size ; currently : in_x = %d and in_y = %d" % (in_x.size, in_y.size)
         raise service_error.ProcessingError(message, logger)
     else:
         nb_pts = in_x.size
     logger.debug("> Nb pixels to deal with = %d" % nb_pts)
     # 0.2 - max(X) < in_size_x
     if np.max(in_x) >= in_size_x:
-        message = "computeBinMat(in_x, in_y) : elements of in_x must be less than in_size_x"
+        message = "compute_bin_mat(in_x, in_y) : elements of in_x must be less than in_size_x"
         raise service_error.ProcessingError(message, logger)
     # 0.3 - max(X) < in_size_x
     if np.max(in_y) >= in_size_y:
-        message = "computeBinMat(in_x, in_y) : elements of in_y must be less than in_size_y"
+        message = "compute_bin_mat(in_x, in_y) : elements of in_y must be less than in_size_y"
         raise service_error.ProcessingError(message, logger)
     # 1 - Init output binary image
     out_bin_im = np.zeros((in_size_y, in_size_x))
@@ -368,7 +371,7 @@ def computeBinMat(in_size_x, in_size_y, in_x, in_y):
 #######################################
 
 
-def labelRegion(in_bin_mat):
+def label_region(in_bin_mat):
     """
     Identifies all separate regions in a 2D binary matrix
 
@@ -390,13 +393,14 @@ def labelRegion(in_bin_mat):
     return out_m_label_regions, out_nb_obj
 
 
-def relabelLakeUsingSegmentationHeigth(in_x, in_y, in_height, in_std_height_max):
+def relabel_lake_using_segmentation_heigth(in_x, in_y, in_height, in_std_height_max):
     """
     This function main interest is to determine the number of lakes inside a subset of PixC in radar geometry.
-    In most of the cases, only one lake is located in the given subset, but in some case of different lakes can be gather inside one because of radar geometric distortions or in the case a of a dam.
+    In most of the cases, only one lake is located in the given subset, but in some case of different lakes can
+    be gather inside one because of radar geometric distortions or in the case a of a dam.
 
     Steps :
-    
+
      1. Creates a 2D height matrix from X and Y 1D vectors
      2. Unsupervised heigth classification to determine number a classes to get an STD over each classe lower than STD_HEIGHT_MAX
      3. Smooth result using a 2D median filter
@@ -422,7 +426,8 @@ def relabelLakeUsingSegmentationHeigth(in_x, in_y, in_height, in_std_height_max)
     # 0 - Deal with exceptions
     # 0.1 - Input vectors size must be the same
     if (in_x.size != in_y.size) or (in_x.size != in_height.size):
-        raise ValueError("relabelLakeUsingSegmentationHeigth(in_x, in_y, in_height) : in_x and in_y must be the same size ; currently : in_x = %d and in_y = %d" % (in_x.size, in_y.size))
+        raise ValueError("relabel_lake_using_segmentation_heigth(in_x, in_y, in_height) : in_x and in_y must be the same size ;" + \
+                         "currently : in_x = %d and in_y = %d" % (in_x.size, in_y.size))
     else:
         nb_pts = in_x.size
 
@@ -490,7 +495,7 @@ def relabelLakeUsingSegmentationHeigth(in_x, in_y, in_height, in_std_height_max)
 #######################################
 
 
-def convert2dMatIn1dVec(in_x, in_y, in_mat):
+def convert_2d_mat_in_1d_vec(in_x, in_y, in_mat):
     """
     Converts a 2D matrix [ in_x[ind], in_y[ind] ] in a 1D vector [ind]
 
@@ -520,6 +525,7 @@ def convert2dMatIn1dVec(in_x, in_y, in_mat):
 
 #######################################
 
+
 def compute_mean_2sigma(in_v_val, in_nan=None):
     """
     Compute the mean of the input values, after remove of non-sense values, i.e. below or above the median +/- 2*standard deviation
@@ -534,17 +540,22 @@ def compute_mean_2sigma(in_v_val, in_nan=None):
     :rtype: float
     """
     logger = logging.getLogger("my_tools")
+
+    retour = None  # Init retour to None
+    flag_ok = True  # Flag to compute the sum
+    v_val = in_v_val  # Vector on which compute the sum
     
-    retour = ""
     # 0 - Consider only non-NaN values
-    v_val = in_v_val
     if in_nan is not None:
         not_nan_idx = np.where(v_val < in_nan)[0]
         if len(not_nan_idx) == 0:
+            flag_ok = False
             retour = None
-        v_val = in_v_val[not_nan_idx]
+        else:
+            v_val = in_v_val[not_nan_idx]
 
-    if retour is not None:
+    if flag_ok:
+        
         # 1 - Compute statistical values over this vector
         # 1.1 - Median
         med = np.median(v_val)
@@ -552,19 +563,19 @@ def compute_mean_2sigma(in_v_val, in_nan=None):
         std = np.std(v_val)
         # 1.3 - Nb values
         nb_val = v_val.size
-    
+
         # 2 - Remove indices with value out of 2 sigma
-        
+
         # 2.1 - Lower than mean - 2 sigma
         idx_lower = np.where(v_val < med-2*std)[0]
         v_indices = np.delete(np.arange(nb_val), idx_lower)
         # 2.2 - Higher than mean + 2 sigma
         idx_higher = np.where(v_val[v_indices] > med+2*std)[0]
         v_indices = np.delete(v_indices, idx_higher)
-    
+
         message = "%d / %d pixels used for mean computation" % (v_indices.size, nb_val)
         logger.debug(message)
-    
+
         # 3 - Return the mean of clean vector
         retour = np.mean(v_val[v_indices])
 
@@ -572,7 +583,6 @@ def compute_mean_2sigma(in_v_val, in_nan=None):
 
 
 def compute_std(in_v_val, in_nan=None):
-    
     """
     Compute the standard deviation of the input values
     If set, remove NaN values from the computation
@@ -585,23 +595,28 @@ def compute_std(in_v_val, in_nan=None):
     :return: the mean value (None if no finite value)
     :rtype: float
     """
+
+    retour = None  # Init retour to None
+    flag_ok = True  # Flag to compute the sum
+    v_val = in_v_val  # Vector on which compute the sum
     
-    retour = ""
     # Consider only non-NaN values
-    v_val = in_v_val
     if in_nan is not None:
         not_nan_idx = np.where(v_val < in_nan)[0]
         if len(not_nan_idx) == 0:
+            flag_ok = False
             retour = None
-        v_val = in_v_val[not_nan_idx]
+        else:
+            v_val = in_v_val[not_nan_idx]
 
-    # Return the standard deviation of clean vector
-    if retour is not None:
+    # Return the standard deviation of the clean vector elements
+    if flag_ok:
         retour = np.std(v_val)
+        
     return retour
 
+
 def compute_sum(in_v_val, in_nan=None):
-    
     """
     Compute the sum of the input values
     If set, remove NaN values from the computation
@@ -614,27 +629,34 @@ def compute_sum(in_v_val, in_nan=None):
     :return: the mean value (None if no finite value)
     :rtype: float
     """
-
-    retour = ""
+    
+    retour = None  # Init retour to None
+    flag_ok = True  # Flag to compute the sum
+    v_val = in_v_val  # Vector on which compute the sum
+    
     # Consider only non-NaN values
-    v_val = in_v_val
     if in_nan is not None:
         not_nan_idx = np.where(v_val < in_nan)[0]
         if len(not_nan_idx) == 0:
-            return None
-        v_val = in_v_val[not_nan_idx]
-        
+            flag_ok = False
+            retour = None
+        else:
+            v_val = in_v_val[not_nan_idx]
+
     # Return the sum of the clean vector elements
-    if retour is not None:
+    if flag_ok:
         retour = np.sum(v_val)
+        
     return retour
+
 
 #######################################
 
 
-def computeAz(in_lon, in_lat, in_v_nadir_lon, in_v_nadir_lat):
+def compute_az(in_lon, in_lat, in_v_nadir_lon, in_v_nadir_lat):
     """
-    Compute the azimuth index associated to the point with coordinates P(in_lon, in_lat) with respect to the nadir track with coordinates (in_v_nadir_lon, in_v_nadir_lat) for each point.
+    Compute the azimuth index associated to the point with coordinates P(in_lon, in_lat) with respect
+    to the nadir track with coordinates (in_v_nadir_lon, in_v_nadir_lat) for each point.
     NB: the method used is to minimize the scalar product between P and the points of the nadir track.
 
     :param in_lon: longitude in degrees east
@@ -654,17 +676,14 @@ def computeAz(in_lon, in_lat, in_v_nadir_lon, in_v_nadir_lat):
     nb_nadir = in_v_nadir_lon.size
     list_scalar = np.zeros(nb_nadir)
 
-    # 2 - Compute scalar product for each nadir point
-    # 2.1 - 1st point
-    list_scalar[0] = (in_v_nadir_lon[0]-in_lon)*(in_v_nadir_lon[1]-in_v_nadir_lon[0]) + (in_v_nadir_lat[0]-in_lat)*(in_v_nadir_lat[1]-in_v_nadir_lat[0])
-    # 2.2 - Middle points
-    for ind in np.arange(1, nb_nadir-1):
-        list_scalar[ind] = (in_v_nadir_lon[ind]-in_lon)*(in_v_nadir_lon[ind+1]-in_v_nadir_lon[ind-1]) + (in_v_nadir_lat[ind]-in_lat)*(in_v_nadir_lat[ind+1]-in_v_nadir_lat[ind-1])
-    # 2.3 - Last point
-    list_scalar[-1] = (in_v_nadir_lon[-1]-in_lon)*(in_v_nadir_lon[-1]-in_v_nadir_lon[-2]) + (in_v_nadir_lat[-1]-in_lat)*(in_v_nadir_lat[-1]-in_v_nadir_lat[-2])
+    # 2 - Stack data
+    in_coords = np.vstack((np.array(in_lon), np.array(in_lat)))
+    nadir_coords = np.vstack((np.array(in_v_nadir_lon), np.array(in_v_nadir_lat)))
 
-    # 3 - Find min scalar
-    out_idx_min = np.argmin(np.absolute(list_scalar))
+    # 3 - Compute distances between point (in_lon, in_lat) and vector (in_v_nadir_lon, in_v_nadir_lat)
+    distances = (distance.cdist(in_coords.transpose(), nadir_coords.transpose())).transpose()
+    # get indice of minimum distance
+    out_idx_min = np.argmin(distances)
 
     # 4 - Return corresponding azimuth index
     return out_idx_min
@@ -673,7 +692,7 @@ def computeAz(in_lon, in_lat, in_v_nadir_lon, in_v_nadir_lat):
 #######################################
 
 
-def computeDist(in_lon1, in_lat1, in_lon2, in_lat2):
+def compute_dist(in_lon1, in_lat1, in_lon2, in_lat2):
     """
     Compute Euler distance between 2 points of the plan: P1(lon1, lat1) and P2(lon2, lat2)
 
@@ -704,14 +723,15 @@ def computeDist(in_lon1, in_lat1, in_lon2, in_lat2):
 
 #######################################
 
-def getUTM_EPSG_Code(lon, lat):
+
+def get_utm_epsg_code(lon, lat):
     """
     get EPSG code
     :param lon: longitude of P1 in degrees east
     :type lon: float
     :param lat: latitude of P1 in degrees north
     :type lat: float
-    
+
     :return: ESPG code
     :type: int
     """
@@ -724,30 +744,30 @@ def getUTM_EPSG_Code(lon, lat):
         epsg = '326' + utm_band
     return epsg
 
-#######################################
 
-def getUTMCoords(in_lon, in_lat):
+def get_utm_coords(in_lon, in_lat):
     """
     get UTM coordinates
     :param in_lon: longitude of P1 in degrees east
     :type in_lon: float
     :param in_lat: latitude of P1 in degrees north
     :type in_lat: float
-    
+
     :return: UTM coordinates
     :type: float
     """
     lat_mean = np.mean(in_lat)
     lon_mean = np.mean(in_lon)
 
-    # x_c, y_c, zone_number, zone_lettre = utm.from_latlon(lat_mean, lon_mean)
+    # code commenté x_c, y_c, zone_number, zone_lettre = utm.from_latlon(lat_mean, lon_mean)
     latlon = pyproj.Proj(init="epsg:4326")
-    epsg=getUTM_EPSG_Code(lon_mean, lat_mean)
+    epsg=get_utm_epsg_code(lon_mean, lat_mean)
     utm_proj = pyproj.Proj(init='epsg:' + epsg)
     X, Y = pyproj.transform(latlon, utm_proj, in_lon, in_lat)
     return (X,Y, )
 
-def getArea(in_polygon, in_centroid):
+
+def get_area(in_polygon, in_centroid):
     """
     This function projects in_polygon from geographic coordinate into centroid corresponding UTM zone.
     Once projected, the area of the polygon is computed and returned
@@ -767,7 +787,7 @@ def getArea(in_polygon, in_centroid):
     centroid_lon = in_centroid[0]
     centroid_lat = in_centroid[1]
 
-    epsg_code = getUTM_EPSG_Code(centroid_lon, centroid_lat)
+    epsg_code = get_utm_epsg_code(centroid_lon, centroid_lat)
 
     # 1 - Projection of in_polygon into UTM
     src_source = osr.SpatialReference()
@@ -783,7 +803,9 @@ def getArea(in_polygon, in_centroid):
     # 2 - Compute and return area
     return in_polygon.GetArea()
 
+
 #######################################
+
 
 def get_utm_coords_from_lonlat(in_long, in_lat, utm_epsg_code=None):
     """
@@ -802,7 +824,7 @@ def get_utm_coords_from_lonlat(in_long, in_lat, utm_epsg_code=None):
     if utm_epsg_code == None :
         lat_mean = np.mean(in_lat)
         lon_mean = np.mean(in_long)
-        utm_epsg_code = getUTM_EPSG_Code(lon_mean, lat_mean)
+        utm_epsg_code = get_utm_epsg_code(lon_mean, lat_mean)
 
     latlon_proj = pyproj.Proj(init="epsg:4326")
     logger.debug("Convert coordinates into epsg code : %s" % (utm_epsg_code))
@@ -826,19 +848,9 @@ def get_lon_lat_polygon_from_utm(in_utm_poly, in_utm_epsg_code):
     :rtype: shapely Polygon or Multipolygon geometry
     """
     utm_proj = pyproj.Proj(init='epsg:' + in_utm_epsg_code)
-    latlon_proj_wrap = pyproj.Proj('+init=epsg:4326 +lon_wrap=180')
+    latlon_proj_wrap = pyproj.Proj(init="epsg:4326")
     projection_wm_func = partial(pyproj.transform, utm_proj, latlon_proj_wrap)
 
     lonlat_poly = transform(projection_wm_func, in_utm_poly)
 
     return lonlat_poly
-
-
-#######################################
-if __name__ == '__main__':
-
-    a = np.arange(10)
-    a[1] = -1000
-    a[9] = 1000
-    print(a)
-    print(computeMean_2sigma(a))
