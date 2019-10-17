@@ -1,0 +1,39 @@
+Run directory for orbits = $SWOT_HYDROLOGY_TOOLBOX/validation/output/orbit
+Shapefile path = $SWOT_HYDROLOGY_TOOLBOX/validation/data/data_test
+Output directory = $SWOT_HYDROLOGY_TOOLBOX/validation/output/simu_heightref 
+
+!### Noise and error files
+Noise file path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt
+!roll_repository_name = /work/ALT/swot/swotpub/cross_over_residual_errors
+
+!### Tile parameters
+Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip
+
+!### Orbit parameters
+Multiple orbit = no
+Orbit = 356
+
+!### Simulation parameters
+Orbit jitter=0
+!random seed = 1234567891.000000
+
+
+!### Error parameters
+Height bias std = 0.
+Noise multiplier factor = 0. !1/sqrt(Nl) where Nl is 4
+Geolocalisation improvement = no !yes (no cross-track noise applied) or no
+
+
+
+!### Files in output
+Real pixc file format = yes !yes (PixC as defined in PDD) or no(PixC as provided by classic simulator)
+Granular cut = yes   !yes (automatically yes if yes above) or no
+Create shapefile = yes !yes or no (works only with real pixel cloud option)
+Create dummy pixc vec river file = yes !yes (L2_HR_PIXC_VEC_RIVER product associated to PixC files) or no (works only with real pixel cloud option)
+
+
+!== Height ==
+### Option 2 - Height is given from a specific attribute in the shapefile of water bodies
+Height model = reference_height
+Height shp attribute name = ref_height     !Name of the attribute (default=HEIGHT)
+
