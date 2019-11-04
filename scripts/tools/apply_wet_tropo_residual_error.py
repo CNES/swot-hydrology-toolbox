@@ -61,24 +61,18 @@ def main():
     ri = near_range + nominal_slant_range_spacing*col
 
     delta_h = 0.
-    
-    if parameters['Tropo model'] == 'gaussian':
 
-        print("Applying wet tropo gaussian model")
-        tropo = Tropo_module(parameters['Tropo model'])
-        tropo_error = tropo.calculate_tropo_error_gaussian(az, col, parameters['Tropo error stdv'], parameters['Tropo error mean'],  parameters['Tropo error correlation']) 
-        delta_h += tropo_error
-        
-    elif parameters['Tropo model'] == 'map':
-        
-        print("Applying wet tropo map gaussian model")
-        tropo = Tropo_module(parameters['Tropo model'])
-        tropo_error = tropo.calculate_tropo_error_map(np.nanmean(lat), az, col, parameters['Tropo error map file'], parameters['Tropo error correlation'])
-        delta_h += tropo_error
-        
-    else:
-        print("No tropo model applied")
-            
+    tropo = Tropo_module(parameters['Tropo model'], min(col), max(col), min(az), max(az), \
+    float(parameters['Tropo error stdv']), float(parameters['Tropo error mean']), float(parameters['Tropo error correlation']), \
+    parameters['Tropo error map file'])
+
+    tropo.generate_tropo_field_over_pass(min(lat))
+
+    tropo.apply_tropo_error_on_pixels(az, col)
+    tropo_2d_field = tropo.tropo_2d_field
+    delta_h += tropo_2d_field        
+   
+
     
     if parameters['roll_repository_name'] != None:
             
@@ -86,8 +80,10 @@ def main():
 
         roll = Roll_module(parameters['roll_repository_name'])
         roll.get_roll_file_associated_to_orbit_and_cycle(pass_number, cycle_number, delta_time = -1541.907908)
-
+        
         roll.interpolate_roll_on_sensor_grid(orbit_time)
+        
+
         
         # Apply roll for each pixel
         roll.interpolate_roll_on_pixelcloud(orbit_time, pixel_cloud_time, cross_track)
