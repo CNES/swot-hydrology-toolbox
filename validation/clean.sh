@@ -1,0 +1,9 @@
+rm -r output/simu_base/*
+rm -r output/simu_dw/*
+rm -r output/simu_heightbias/*
+rm -r output/simu_heightgaussian/*
+rm -r output/simu_heightpoly/*
+rm -r output/simu_heightref/*
+rm -r output/simu_noisefactor/*
+rm -r output/simu_roulis/*
+rm -r output/simu_tropo/*
