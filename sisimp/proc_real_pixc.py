@@ -287,8 +287,8 @@ class l2_hr_pixc(object):
         data.add_variable('layover_impact', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'layover_impact', self.nb_water_pix, data, group=pixc)
         
-        data.add_variable('num_rare_looks', np.int8, 'points', my_var.FV_NETCDF["int8"], compress, group=pixc)
-        fill_vector_param(np.full(self.nb_water_pix, 7.), 'num_rare_looks', self.nb_water_pix, data, group=pixc) 
+        data.add_variable('eff_num_rare_looks', np.int8, 'points', my_var.FV_NETCDF["int8"], compress, group=pixc)
+        fill_vector_param(np.full(self.nb_water_pix, 7.), 'eff_num_rare_looks', self.nb_water_pix, data, group=pixc) 
         
         data.add_variable('latitude', np.float64, 'points', my_var.FV_NETCDF["float64"], compress, group=pixc)
         data.add_variable_attribute('latitude', 'units', 'degrees_north', group=pixc)
@@ -329,8 +329,8 @@ class l2_hr_pixc(object):
         data.add_variable('illumination_time_tai', np.float64, 'points', my_var.FV_NETCDF["float64"], compress, group=pixc)
         fill_vector_param(self.computeTime_TAI(self.illumination_time), 'illumination_time_tai', self.nb_water_pix, data, group=pixc)  # TODO: to improve
         
-        data.add_variable('num_med_looks', np.int32, 'points', my_var.FV_NETCDF["int32"], compress, group=pixc)
-        fill_vector_param(np.full(self.nb_water_pix, 63.), 'num_med_looks', self.nb_water_pix, data, group=pixc)
+        data.add_variable('eff_num_medium_looks', np.int32, 'points', my_var.FV_NETCDF["int32"], compress, group=pixc)
+        fill_vector_param(np.full(self.nb_water_pix, 63.), 'eff_num_medium_looks', self.nb_water_pix, data, group=pixc)
         data.add_variable('sig0', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'sig0', self.nb_water_pix, data, group=pixc)
         data.add_variable('phase_unwrapping_region', np.int32, 'points', my_var.FV_NETCDF["int32"], compress, group=pixc)
@@ -351,8 +351,10 @@ class l2_hr_pixc(object):
         fill_vector_param(np.zeros(self.nb_water_pix), 'model_wet_tropo_cor', self.nb_water_pix, data, group=pixc)
         data.add_variable('iono_cor_gim_ka', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'iono_cor_gim_ka', self.nb_water_pix, data, group=pixc)     
-        data.add_variable('height_cor_xover', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        data.add_variable('xover_height_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'xover_height_cor', self.nb_water_pix, data, group=pixc)
+        # ~ data.add_variable('height_cor_xover', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        # ~ fill_vector_param(np.zeros(self.nb_water_pix), 'height_cor_xover', self.nb_water_pix, data, group=pixc)        
         data.add_variable('geoid', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'geoid', self.nb_water_pix, data, group=pixc)
         data.add_variable('solid_earth_tide', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
