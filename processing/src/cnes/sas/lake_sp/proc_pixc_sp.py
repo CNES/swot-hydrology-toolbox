@@ -443,10 +443,10 @@ class PixCEdgeSwath(object):
             logging.error("Input laketile_edge file do not correspond to the same aquisition date")
 
         current_continent = str(pixc_edge_reader.get_att_value("continent"))
-        if not current_continent == self.continent:
+        if not self.continent in current_continent:
             # If cur_continent do not belong to the EDGE SP product, do not add pixc info
             logging.error("Input laketile_edge %s file do not correspond to the same continent %s" %(in_lake_tile_edge_filename, self.continent))
-            retour = None, None, None
+            retour = None, None, None, None, None
 
         else:
     
