@@ -671,6 +671,9 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
             # 4.2.2 - Compute the zone resulting of the intersection between polygon and swath
             intersection = geom.Intersection(swath_polygon)
+            if not intersection:
+                geom_buff = geom.Clone().Buffer(0)
+                intersection =  geom_buff.Intersection(swath_polygon)
             # 4.2.3 - Convert polygons coordinates
             add_ring = False
 
