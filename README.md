@@ -30,11 +30,11 @@ Note that both algorithms and products are still under development and will be u
 * Potentially other modules in the future (for ex. floodplain DEM generation)
 
 ## Associated RiverObs version
-commit f7ccd778924877f94da2f5a0dd57967713c1f510
-Author: Brent A Williams <bawillia@onde.jpl.nasa.gov>
-Date:   Tue May 21 16:33:13 2019 -0700
+commit d2b7ce016fb01fef30c0ad845dd981669ee15e34  
+Author: Alex Fore <Alexander.Fore@jpl.nasa.gov>
+Date:   Thu Oct 31 13:37:46 2019 -0700
 
-    added more functionality to plot_reach_stats
+    write out without brackets for attributres in XML
 
 
 ## Caveats
