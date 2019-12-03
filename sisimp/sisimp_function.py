@@ -146,7 +146,6 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
         water_pixels = water_pixels + water_pixels_river  # Land=0 ; Lake and other=1 ; River=2
     my_api.printInfo("[sisimp_function] [make_pixel_cloud] -> water_pixels : nb_lignes=%d nb_col=%d" % (water_pixels.shape[0], water_pixels.shape[1]))
 
-    #~ exit()
     # 3 - Delete temporary file
     driver.DeleteDataSource(fshp_reproj)
 
@@ -170,6 +169,8 @@ def write_swath_polygons(IN_attributes):
     :param IN_attributes
     :type IN_attributes
     """
+
+    IN_attributes.sisimp_filenames.footprint_file = IN_attributes.sisimp_filenames.footprint_file + '_' + str(np.random.random())+ '.shp'
     my_api.printInfo("[sisimp_function] [write_swath_polygons] == write_swath_polygons : %s ==" % IN_attributes.sisimp_filenames.footprint_file)
 
     shpDriver = ogr.GetDriverByName(str("ESRI Shapefile"))
@@ -179,6 +180,7 @@ def write_swath_polygons(IN_attributes):
         shpDriver.DeleteDataSource(IN_attributes.sisimp_filenames.footprint_file)
 
     # 2 - Create output file
+    
     dataSource = shpDriver.CreateDataSource(IN_attributes.sisimp_filenames.footprint_file)
 
     srs = osr.SpatialReference()

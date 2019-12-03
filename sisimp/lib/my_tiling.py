@@ -12,7 +12,7 @@ from scipy.spatial import cKDTree
 import lib.my_api as my_api
 from copy import deepcopy
 
-def get_tiles_from_orbit(my_attributes, orbit_number, no_tiling = False):
+def get_tiles_from_orbit(my_attributes, orbit_number):
     
     # Retrieve the tile database (pass_number/tile_number/nadir_lon/nadir_lat/nadir_heading)
     tile_db = my_attributes.tile_database
@@ -54,12 +54,9 @@ def get_tiles_from_orbit(my_attributes, orbit_number, no_tiling = False):
         tile_values[i] = tile_db_orbit_cropped[np.argmin(dist),1]
     
     tile_values = tile_values[1:-1]
-    #~ # If you want only one tile (for some tests)
-    if no_tiling:
-        tile_values[:] = tile_values[0]
-    
-    else:
-        tile_list = np.unique(tile_values)
+    ## If you want only one tile (for some tests)
+   
+    tile_list = np.unique(tile_values)
         
     my_api.printInfo("[my_tiling] [get_tiles_from_orbit] Simulation over tiles number: %s" % str(tile_list))
     
@@ -67,48 +64,58 @@ def get_tiles_from_orbit(my_attributes, orbit_number, no_tiling = False):
 
 
 def crop_orbit(my_attributes, tile_values, tile_number):
-    
-    my_new_attributes = deepcopy(my_attributes)
+     
+        my_new_attributes = deepcopy(my_attributes)
 
-    my_api.printInfo("[my_tiling] [crop_orbit] == Dealing with tile number %03d" % tile_number)
-    nadir_az = np.where(tile_values == tile_number)[0]
-    
+        my_api.printInfo("[my_tiling] [crop_orbit] == Dealing with tile number %03d" % tile_number)
+        nadir_az = np.where(tile_values == tile_number)[0]
         
-    my_new_attributes.orbit_time = (my_attributes.orbit_time[nadir_az])
-    my_new_attributes.x = my_attributes.x[nadir_az]
-    my_new_attributes.y = my_attributes.y[nadir_az]
-    my_new_attributes.z = my_attributes.z[nadir_az]
+        if min(nadir_az) > 5:
+            nadir_az = np.append(min(nadir_az)-1, nadir_az)
+            nadir_az = np.append(min(nadir_az)-1, nadir_az)
+            nadir_az = np.append(min(nadir_az)-1, nadir_az)
+            nadir_az = np.append(min(nadir_az)-1, nadir_az)
+            nadir_az = np.append(min(nadir_az)-1, nadir_az)
+        if max(nadir_az) < len(my_attributes.orbit_time)-5:
+            nadir_az = np.append(max(nadir_az)+1, nadir_az)
+            nadir_az = np.append(max(nadir_az)+1, nadir_az)
+            nadir_az = np.append(max(nadir_az)+1, nadir_az)
+            nadir_az = np.append(max(nadir_az)+1, nadir_az)
+            nadir_az = np.append(max(nadir_az)+1, nadir_az)
+        nadir_az = np.sort(nadir_az)
 
+            
+        my_new_attributes.orbit_time = (my_attributes.orbit_time[nadir_az])
+        my_new_attributes.x = my_attributes.x[nadir_az]
+        my_new_attributes.y = my_attributes.y[nadir_az]
+        my_new_attributes.z = my_attributes.z[nadir_az]
 
-    nadir_az = np.insert(nadir_az, 0,nadir_az[0]-1)
-    nadir_az = np.insert(nadir_az, len(nadir_az),nadir_az[-1]+1)
+       
+        # Get azimuth indices corresponding to this integer value of latitude
+        az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth indices vector
+        my_api.printInfo("[my_tiling] [crop_orbit] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
 
+        # Cropping orbit to only simulate tile area
+        
 
-   
-    # Get azimuth indices corresponding to this integer value of latitude
-    az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth indices vector
-    my_api.printInfo("[my_tiling] [crop_orbit] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
+        
+        my_new_attributes.lon  = (my_attributes.lon[nadir_az])
+        my_new_attributes.lon_init = (my_attributes.lon[nadir_az])
+        
+        my_new_attributes.lat = (my_attributes.lat[nadir_az])
+        my_new_attributes.lat_init = (my_new_attributes.lat_init[nadir_az])
+        
+        my_new_attributes.heading = (my_attributes.heading[nadir_az])
+        my_new_attributes.heading_init = (my_attributes.heading[nadir_az])
+        
+        my_new_attributes.alt = (my_attributes.alt[nadir_az])
+     
+        my_new_attributes.cosphi_init = my_attributes.cosphi_init[nadir_az]
+        my_new_attributes.sinphi_init = my_attributes.sinphi_init[nadir_az]
+        my_new_attributes.costheta_init = my_attributes.costheta_init[nadir_az]
+        my_new_attributes.sintheta_init = my_attributes.sintheta_init[nadir_az]
+        my_new_attributes.cospsi_init = my_attributes.cospsi_init[nadir_az]
+        my_new_attributes.sinpsi_init = my_attributes.sinpsi_init[nadir_az]
 
-    # Cropping orbit to only simulate tile area
-    
-
-    
-    my_new_attributes.lon  = (my_attributes.lon[nadir_az])
-    my_new_attributes.lon_init = (my_attributes.lon[nadir_az])
-    
-    my_new_attributes.lat = (my_attributes.lat[nadir_az])
-    my_new_attributes.lat_init = (my_new_attributes.lat_init[nadir_az])
-    
-    my_new_attributes.heading = (my_attributes.heading[nadir_az])
-    my_new_attributes.heading_init = (my_attributes.heading[nadir_az])
-    
-    my_new_attributes.alt = (my_attributes.alt[nadir_az])
- 
-    my_new_attributes.cosphi_init = my_attributes.cosphi_init[nadir_az]
-    my_new_attributes.sinphi_init = my_attributes.sinphi_init[nadir_az]
-    my_new_attributes.costheta_init = my_attributes.costheta_init[nadir_az]
-    my_new_attributes.sintheta_init = my_attributes.sintheta_init[nadir_az]
-    my_new_attributes.cospsi_init = my_attributes.cospsi_init[nadir_az]
-    my_new_attributes.sinpsi_init = my_attributes.sinpsi_init[nadir_az]
-
-    return my_new_attributes
+        my_new_attributes.tile_number = tile_number
+        return my_new_attributes

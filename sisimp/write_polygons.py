@@ -449,114 +449,69 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # Cut arrays in order to write real PixC files
     # Tiles correspond to theoretical tiles, with 60km length at nadir
     if IN_attributes.lat.size != 0:  
+         
+        my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] == Dealing with tile number %03d" % IN_attributes.tile_number)
+                
+        # Get azimuth indices corresponding to this integer value of latitude
+        nadir_az  = az
+        az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth indices vector
+        my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
+        
+        # Get pixel indices of water pixels corresponding to this latitude interval
+        az_indices = np.where((az >= min(nadir_az)) & (az <= max(nadir_az)))[0]
+        nb_pix = az_indices.size  # Number of water pixels for this latitude interval
+        my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d water pixels" % nb_pix)
+        
+        if az_indices.size != 0:  # Write water pixels at this latitude
+            
+            sub_az, sub_r = [az[az_indices], r[az_indices]]
+            
+            my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min r ind = %d - Max r ind = %d" % (np.min(sub_r), np.max(sub_r)))
+            my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min az ind = %d - Max az ind = %d" % (np.min(sub_az), np.max(sub_az)))
+            
+            # Get output filename
 
-        # Retrieve the tile database (pass_number/tile_number/nadir_lon/nadir_lat/nadir_heading)
-        tile_db = IN_attributes.tile_database
-        # Subset the tile DB to the portion related to the orbit number
-        #tile_db_orbit = tile_db[np.where(tile_db[:,0] == IN_orbit_number)[0],:]
-        tmp_orbit_number = IN_orbit_number - 331  # Pass 1 in tile database file = pass 332 in last KML file (sept2015-v2)
-        if tmp_orbit_number < 1:
-            tmp_orbit_number += 584
-        tile_db_orbit = tile_db[np.where(tile_db[:, 0] == tmp_orbit_number)[0], :]
-        # Compute the indices of nadir_lat_min and nadir_lat_max
-        nadir_lat_argmin = int(np.argmin(nadir_lat_deg))
-        nadir_lat_argmax = int(np.argmax(nadir_lat_deg))
-        # Get long and lat in degrees, associated to nadir_min_lat
-        nadir_lat_deg_min = nadir_lat_deg[nadir_lat_argmin]
-        nadir_lon_deg_min = nadir_lon_deg[nadir_lat_argmin]
-        # Get long and lat in degrees, associated to nadir_max_lat
-        nadir_lat_deg_max = nadir_lat_deg[nadir_lat_argmax]
-        nadir_lon_deg_max = nadir_lon_deg[nadir_lat_argmax]
-        # Construct the kd-tree for quick nearest-neighbor lookup        
-        tree = cKDTree(tile_db_orbit[:, 2:4])
-        
-        # Retrieve index of tile_db_orbit the nearest of nadir_min_lat
-        ind_min = tree.query([nadir_lat_deg_min, nadir_lon_deg_min])
-        # Retrieve index of tile_db_orbit the nearest of nadir_max_lat
-        ind_max = tree.query([nadir_lat_deg_max, nadir_lon_deg_max])
-        tile_db_orbit_cropped = tile_db_orbit[max(0, min(ind_max[1], ind_min[1])-1):min(len(tile_db_orbit), max(ind_max[1], ind_min[1])+2), :]
-        vect_lat_lon_db_cropped = np.zeros([max(0, tile_db_orbit_cropped.shape[0]-1), 2])
-                 
-        for i in range(max(0, tile_db_orbit_cropped.shape[0]-1)):
-            vect_lat_lon_db_cropped[i,0] = tile_db_orbit_cropped[i+1, 2]-tile_db_orbit_cropped[i, 2]
-            vect_lat_lon_db_cropped[i,1] = tile_db_orbit_cropped[i+1, 3]-tile_db_orbit_cropped[i, 3]
-            nb_az_traj = max(nadir_lat_argmax, nadir_lat_argmin)- min(nadir_lat_argmax, nadir_lat_argmin) + 1
-            tile_values = np.zeros(nb_az_traj, int)
-        for i in range(min(nadir_lat_argmax, nadir_lat_argmin), max(nadir_lat_argmax, nadir_lat_argmin)+1):
-            dist = np.abs(((nadir_lat_deg[i]-tile_db_orbit_cropped[:-1, 2])*vect_lat_lon_db_cropped[:, 0] + (nadir_lon_deg[i]-tile_db_orbit_cropped[:-1, 3])*vect_lat_lon_db_cropped[:, 1])/np.sqrt(vect_lat_lon_db_cropped[:, 0]**2+vect_lat_lon_db_cropped[:, 1]**2))
-            tile_values[i] = tile_db_orbit_cropped[np.argmin(dist),1]
-        
-        # If you want only one tile (for some tests)
-        #~ tile_values[:] = tile_values[0]
-        
-        tile_list = np.unique(tile_values)
-        
-        for tile_number in tile_list:
+            # Left / right swath flag
+            left_or_right = IN_swath.upper()[0]
             
-            my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] == Dealing with tile number %03d" % tile_number)
+            # General tile reference
+            tile_ref = "%03d%s" % (IN_attributes.tile_number, left_or_right)
             
-            ind_nadir_lat_tile_i = np.where(tile_values == tile_number)[0]
+            # Init L2_HR_PIXC object
+            my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min, sub_r, classification_tab[az_indices], pixel_area[az_indices],
+                                                lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
+                                                IN_attributes.orbit_time[nadir_az], nadir_lat_deg[nadir_az], nadir_lon_deg[nadir_az], nadir_alt[nadir_az], nadir_heading[nadir_az],
+                                                IN_attributes.x[nadir_az], IN_attributes.y[nadir_az], IN_attributes.z[nadir_az], vx[nadir_az], vy[nadir_az], vz[nadir_az], IN_attributes.near_range,
+                                                IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size, IN_attributes.azimuth_spacing, IN_attributes.range_sampling, IN_attributes.near_range)
             
-            # Get azimuth indices corresponding to this integer value of latitude
-            nadir_az = ind_nadir_lat_tile_i
-            az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth indices vector
-            my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
+            # Update filenames with tile ref
+            IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])
             
-            # Get pixel indices of water pixels corresponding to this latitude interval
-            az_indices = np.where((az >= min(nadir_az)) & (az <= max(nadir_az)))[0]
-            nb_pix = az_indices.size  # Number of water pixels for this latitude interval
-            my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d water pixels" % nb_pix)
+            # Write main file
+            my_pixc.write_pixc_file(IN_attributes.sisimp_filenames.pixc_file+".nc", compress=True)
             
-            if az_indices.size != 0:  # Write water pixels at this latitude
+            # Write annotation file
+            my_pixc.write_annotation_file(IN_attributes.sisimp_filenames.file_annot_file, IN_attributes.sisimp_filenames.pixc_file+".nc")  
+            
+            # Write shapefiles if asked
+            if IN_attributes.create_shapefile:
+                my_pixc.write_pixc_asShp(IN_attributes.sisimp_filenames.pixc_file+"_pixc.shp")
+                my_pixc.write_tvp_asShp(IN_attributes.sisimp_filenames.pixc_file+"_tvp.shp")
                 
-                sub_az, sub_r = [az[az_indices], r[az_indices]]
-                
-                my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min r ind = %d - Max r ind = %d" % (np.min(sub_r), np.max(sub_r)))
-                my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min az ind = %d - Max az ind = %d" % (np.min(sub_az), np.max(sub_az)))
-                
-                # Get output filename
-
-                # Left / right swath flag
-                left_or_right = IN_swath.upper()[0]
-                
-                # General tile reference
-                tile_ref = "%03d%s" % (tile_number, left_or_right)
-                
-                # Init L2_HR_PIXC object
-                my_pixc = proc_real_pixc.l2_hr_pixc(sub_az-az_min, sub_r, classification_tab[az_indices], pixel_area[az_indices],
-                                                    lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
-                                                    IN_attributes.orbit_time[nadir_az], nadir_lat_deg[nadir_az], nadir_lon_deg[nadir_az], nadir_alt[nadir_az], nadir_heading[nadir_az],
-                                                    IN_attributes.x[nadir_az], IN_attributes.y[nadir_az], IN_attributes.z[nadir_az], vx[nadir_az], vy[nadir_az], vz[nadir_az], IN_attributes.near_range,
-                                                    IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size, IN_attributes.azimuth_spacing, IN_attributes.range_sampling, IN_attributes.near_range)
-                
-                # Update filenames with tile ref
-                IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])
-                
-                # Write main file
-                my_pixc.write_pixc_file(IN_attributes.sisimp_filenames.pixc_file+".nc", compress=True)
-                
-                # Write annotation file
-                my_pixc.write_annotation_file(IN_attributes.sisimp_filenames.file_annot_file, IN_attributes.sisimp_filenames.pixc_file+".nc")  
-                
-                # Write shapefiles if asked
+            # Write PIXCVec files if asked
+            if IN_attributes.create_pixc_vec_river:
+                # Init PIXCVec product
+                my_pixc_vec = proc_real_pixc_vec_river.l2_hr_pixc_vec_river(sub_az, sub_r, IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size)
+                # Set improved geoloc
+                lon_no_noisy, lat_no_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, h=elevation_tab)
+                my_pixc_vec.set_vectorproc(lat_no_noisy[az_indices], lon_no_noisy[az_indices], elevation_tab[az_indices])
+                # Compute river_flag
+                my_pixc_vec.set_river_lake_tag(river_flag[az_indices]-1)  # -1 to have 0=lake and 1=river
+                # Write PIXCVec file
+                my_pixc_vec.write_file(IN_attributes.sisimp_filenames.pixc_vec_river_file+".nc", compress=True)
+                # Write as shapefile if asked
                 if IN_attributes.create_shapefile:
-                    my_pixc.write_pixc_asShp(IN_attributes.sisimp_filenames.pixc_file+"_pixc.shp")
-                    my_pixc.write_tvp_asShp(IN_attributes.sisimp_filenames.pixc_file+"_tvp.shp")
-                    
-                # Write PIXCVec files if asked
-                if IN_attributes.create_pixc_vec_river:
-                    # Init PIXCVec product
-                    my_pixc_vec = proc_real_pixc_vec_river.l2_hr_pixc_vec_river(sub_az, sub_r, IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size)
-                    # Set improved geoloc
-                    lon_no_noisy, lat_no_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, h=elevation_tab)
-                    my_pixc_vec.set_vectorproc(lat_no_noisy[az_indices], lon_no_noisy[az_indices], elevation_tab[az_indices])
-                    # Compute river_flag
-                    my_pixc_vec.set_river_lake_tag(river_flag[az_indices]-1)  # -1 to have 0=lake and 1=river
-                    # Write PIXCVec file
-                    my_pixc_vec.write_file(IN_attributes.sisimp_filenames.pixc_vec_river_file+".nc", compress=True)
-                    # Write as shapefile if asked
-                    if IN_attributes.create_shapefile:
-                        my_pixc_vec.write_file_asShp(IN_attributes.sisimp_filenames.pixc_vec_river_file+".shp")
+                    my_pixc_vec.write_file_asShp(IN_attributes.sisimp_filenames.pixc_vec_river_file+".shp")
             
     else:  
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] No output data file to write")
@@ -603,7 +558,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
     # Compute near_range (assuming height is nul, should be done differrently to handle totpography)
     
-    IN_attributes.near_range = compute_near_range(IN_attributes, layer)
+    IN_attributes.near_range = compute_near_range(IN_attributes, layer, cycle_number = IN_cycle_number)
     layer.ResetReading()
     
     #~ IN_attributes.near_range = np.amin(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
@@ -648,7 +603,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
             my_api.printInfo("[write_polygons] [reproject_shapefile] Processing %d %%" %( int(100 * (ind+1)/nb_lakes) ) )
 
         geom = polygon_index.GetGeometryRef()
-
+        
         if geom is not None:  # Test geom.IsValid() not necessary
 
             # 4.1 - Fill RIV_FLAG flag
@@ -803,17 +758,20 @@ def make_swath_polygon(IN_swath, IN_attributes):
     ymax = sign * IN_attributes.swath_width/2
 
     n = len(IN_attributes.lon_init) - 4
-    az = np.arange(2, n + 2, 10)
+    az = np.arange(2, n-2 , 1)
     y = ymin * np.ones(len(az))
     
     
-    lon1, lat1 = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
+    
+    IN_ri = np.sqrt((IN_attributes.alt[az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2)
+    lon1_, lat1_ = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
+    lon1, lat1 = math_fct.lonlat_from_azy(az, IN_ri, IN_attributes, IN_swath, h=0, IN_unit="deg")
     y = ymax * np.ones(len(az))
-    lon2, lat2 = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
+    lon2_, lat2_ = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
+    lon2, lat2 = math_fct.lonlat_from_azy(az, IN_ri + 3117*0.75, IN_attributes, IN_swath, h=0, IN_unit="deg")
+    
     lonswath = np.concatenate((lon1, lon2[::-1]))
     latswath = np.concatenate((lat1, lat2[::-1]))
-    lonswath *= RAD2DEG
-    latswath *= RAD2DEG
 
     swath_polygon = ogr.Geometry(ogr.wkbPolygon)
     ring = ogr.Geometry(ogr.wkbLinearRing)
@@ -822,7 +780,7 @@ def make_swath_polygon(IN_swath, IN_attributes):
         ring.AddPoint(lonswath[i], latswath[i])
     ring.CloseRings()
     swath_polygon.AddGeometry(ring)
-
+    
     return swath_polygon
                 
 
@@ -1018,7 +976,7 @@ def intersect(input, output, indmax, IN_attributes, overwrite=False):
 
     return liste_lac
 
-def compute_near_range(IN_attributes, layer):
+def compute_near_range(IN_attributes, layer, cycle_number=0):
     if IN_attributes.height_model == 'reference_height':
         count, height_tot = 0, 0
         fields_count = layer.GetLayerDefn().GetFieldCount()
@@ -1043,7 +1001,7 @@ def compute_near_range(IN_attributes, layer):
         near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
     if IN_attributes.height_model == None:
         hmean = IN_attributes.height_model_a + IN_attributes.height_model_a * \
-        np.sin(2*np.pi * (np.mean(IN_attributes.orbit_time) + IN_attributes.cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period
+        np.sin(2*np.pi * (np.mean(IN_attributes.orbit_time) + cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period
         near_range = np.mean(np.sqrt((IN_attributes.alt - hmean + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
     my_api.printInfo("[write_polygons] [reproject_shapefile] Near_range =  %d" % (near_range))
     
