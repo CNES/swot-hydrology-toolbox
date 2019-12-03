@@ -9,11 +9,19 @@ import argparse
 import configparser as cfg
 import glob
 from netCDF4 import Dataset
-import os
+import os, sys
 from os.path import join, abspath
 import subprocess
 
 import tools.my_rdf as my_rdf
+
+#Import of PGE
+try:
+    tbx_path = os.environ['SWOT_HYDROLOGY_TOOLBOX']
+except:
+    tbx_path = os.getcwd().replace(os.sep + "scripts", "")
+sys.path.insert(0, tbx_path)
+from processing.PGE.lake_tile import pge_lake_tile as pge_lake_tile
 
 
 def make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time):
@@ -54,21 +62,13 @@ def make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_n
     
     return pixcname, flag_rename_pixc, pixcvecname, flag_rename_pixcvec
 
-
-def execute(cmd):
-    with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, bufsize=1, universal_newlines=True) as p:
-        for line in p.stdout:
-            print(line, end='') # process line here
-
-    if p.returncode != 0:
-        raise subprocess.CalledProcessError(p.returncode, p.args)
     
 
 def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time, env=None):
 
     config = cfg.ConfigParser()
     config.read(parameter_laketile)
-    
+
     # Create symlinks to input with the right name convention
     links_dir = join(lake_dir, "inputs")
 
@@ -80,37 +80,31 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cy
     config.set('PATHS', "Output directory", lake_dir)
     logFile_path = config.get('LOGGING', "logFile").replace("REPLACE_ME/", lake_dir+os.path.sep)
     config.set('LOGGING', "logFile", logFile_path)
-        
+
     # Write the parameter file
     laketile_cfg = join(lake_dir, "laketile.cfg")
 
     with open(laketile_cfg, 'w') as cfg_file:
         config.write(cfg_file)
 
-    # Call pge_lake_tile
-    # Path to top of toolbox
+
+    print("== Run LakeTile ==")
+    PGE = None
     try:
-        tbx_path = os.environ['SWOT_HYDROLOGY_TOOLBOX']
-    except:
-        tbx_path = os.getcwd().replace(os.sep+"scripts", "")
-        
-    # Build LOCNES/lake_tile main lib
-    if (env == 'swotCNES'):
-        print("Switch to swotCNES env instead of swot-hydrology-toolbox processing")
-        pge_lake_tile = '/work/ALT/swot/swotdev/desrochesd/swot-sds/swotCNES/PGE/lake_tile/pge_lake_tile.py'
-    else:
-        pge_lake_tile = join(tbx_path, 'processing', 'PGE', 'lake_tile', 'pge_lake_tile.py')
-        
-    # Build command
-    cmd = "{} {}".format(pge_lake_tile, laketile_cfg)
-    print ("> executing:", cmd) 
+        # 1 - Instantiate PGE
+        PGE = pge_lake_tile.PGELakeTile(laketile_cfg)
+
+        # 2 - Start PGE Lake Tile
+        PGE.start()
+    finally:
+        if PGE is not None:
+            # 3 - Stop PGE Lake Tile
+            PGE.stop()
+
+    print("== Run LakeTile OK ==")
+
     print()
-    #subprocess.check_call(cmd, shell=True)
-    execute(cmd)
-    print()
-    print("== Execution OK")
-    print()
-        
+
     # Rename to old input filenames if files had been renamed
     if flag_rename_pixc:
         print("Get back to old PixC filename [%s] to [%s]" % (pixcname, pixc_file))
@@ -157,7 +151,7 @@ def main():
     else:
         print("> %d river annotation file(s) to deal with" % len(river_files))
     print()
-    
+
     for river_annotation in river_files:
         
         print(">>>>> Dealing with river annotation file %s <<<<<" % river_annotation)

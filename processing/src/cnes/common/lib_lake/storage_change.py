@@ -28,7 +28,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import math
 
 
-def STOCC_linear(in_height, in_area, in_ref_height, in_ref_area, in_ref_flood_dem=None):
+def stocc_linear(in_height, in_area, in_ref_height, in_ref_area, in_ref_flood_dem=None):
     """
     Compute linear storage change between a state of a water body given by its (height, area)
     and a reference given by its (height, area), eventually flooded DEM (ie several levels of area/height/polygon).
@@ -65,7 +65,7 @@ def STOCC_linear(in_height, in_area, in_ref_height, in_ref_area, in_ref_flood_de
     return retour
 
 
-def STOCC_quadratic(in_height, in_area, in_ref_height, in_ref_area, in_ref_flood_dem=None):
+def stocc_quadratic(in_height, in_area, in_ref_height, in_ref_area, in_ref_flood_dem=None):
     """
     Compute quadratic storage change between a state of a water body given by its (height, area)
     and a reference given by its (height, area), eventually flooded DEM (ie several levels of area/height/polygon).

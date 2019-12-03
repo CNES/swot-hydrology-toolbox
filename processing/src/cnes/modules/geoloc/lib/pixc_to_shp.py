@@ -11,9 +11,12 @@
 # FIN-HISTORIQUE
 # ======================================================
 '''
- This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+.. module:: pixc_to_shp.py
+
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 '''
 
 
@@ -27,17 +30,18 @@ import fiona
 import fiona.crs
 import shapely.geometry as geometry
 import netCDF4 as nc
+import cnes.common.lib.my_tools as my_tools
 
 def pixc_to_shp(input_name, output_name, lat_name, lon_name, var_names, group_name=None, progress=False):
     pixc = nc.Dataset(input_name, "r")
 
     if group_name is None:
         latitude = pixc.variables[lat_name][:]
-        longitude = pixc.variables[lon_name][:]
+        longitude = my_tools.convert_to_m180_180(pixc.variables[lon_name][:])
         variables = [pixc.variables[var_name][:] for var_name in var_names]
     else:
         latitude = pixc.groups[group_name].variables[lat_name][:]
-        longitude = pixc.groups[group_name].variables[lon_name][:]
+        longitude = my_tools.convert_to_m180_180(pixc.groups[group_name].variables[lon_name][:])
         variables = [pixc.groups[group_name].variables[var_name][:] for var_name in var_names]
 
     nb_points = latitude.size
@@ -46,7 +50,7 @@ def pixc_to_shp(input_name, output_name, lat_name, lon_name, var_names, group_na
     crs = fiona.crs.from_epsg(4326) # WGS84
 
     schema = {'properties': OrderedDict([(lon_name, 'float:24.15'), (lat_name, 'float:24.15')] + [(var_name, 'float:24.15') for var_name in var_names]), 'geometry': 'Point'}
-    
+
     sys.stdout.write("Writing shp points")
     with fiona.open(output_name,'w', driver=driver, crs=crs, schema=schema) as c:
         for i in range(nb_points):

@@ -18,9 +18,11 @@ from __future__ import print_function
 from __future__ import division
 
 import argparse
+import datetime
+import os
 
 from module_processing import Processing
-import ressources.utils.my_timer as my_timer
+from ressources.utils import my_timer, my_api
 
 
 if __name__ == '__main__':
@@ -28,11 +30,25 @@ if __name__ == '__main__':
     # 0 - Parse inline parameters
     parser = argparse.ArgumentParser(description="Compute orbit files specific to the studied area")
     parser.add_argument("param_file", help="full path to the parameter file (*.rdf)")
+    parser.add_argument("-v", "--verbose", help="Verbose level (DEBUG or INFO=default)", nargs="?", type=str, default="INFO")
+    parser.add_argument("-l", "--logfile", help="Write prints to a logfile in addition to the console", nargs='?', type=bool, default=True, const=True)
     parser.add_argument("output_dir", help="full path to the output directory")
     args = parser.parse_args()
-    
-    print("===== select_orbit_cnes = BEGIN =====")
-    print("")
+
+    # Verbose level
+    verbose_level = my_api.setVerbose(args.verbose)
+    my_api.printInfo("Verbose level = {}".format(verbose_level))
+
+    if args.logfile:
+        logFile = os.path.join(os.path.dirname(args.param_file), "select_orbit_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".log")
+        my_api.initLogger(logFile, verbose_level)
+        my_api.printInfo("Log file = {}".format(logFile))
+    else:
+        my_api.printInfo("No log file ; print info on screen")
+    my_api.printInfo("")
+
+    my_api.printInfo("===== select_orbit_cnes = BEGIN =====")
+    my_api.printInfo("")
     timer = my_timer.Timer()
     timer.start()
     
@@ -54,9 +70,9 @@ if __name__ == '__main__':
                 ret = process.run_postprocessing()
                     
     except (BaseException) as bex:
-        print("Uncaught exception in module processing")
+        my_api.printInfo("Uncaught exception in module processing")
         raise
         
-    print(timer.stop())
-    print("===== select_orbit_cnes = END =====")
+    my_api.printInfo(timer.stop())
+    my_api.printInfo("===== select_orbit_cnes = END =====")
     

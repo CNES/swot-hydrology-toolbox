@@ -10,9 +10,12 @@
 # FIN-HISTORIQUE
 # ======================================================
 '''
- This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+.. module:: interface.py
+
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 '''
 
 import numpy as np
@@ -58,7 +61,7 @@ class PixelCloud(object):
 
         try:
             # 2 - Open pixel cloud file in reading mode
-            pixc_reader = my_nc.myNcReader(in_pixc_file)
+            pixc_reader = my_nc.MyNcReader(in_pixc_file)
             data_dict = pixc_reader.content.groups['pixel_cloud']
             attr_id = pixc_reader.content.groups['pixel_cloud']
 
@@ -66,12 +69,12 @@ class PixelCloud(object):
             self.illumination_time = np.array(data_dict["illumination_time"])
             self.azimuth_index = np.array(data_dict["azimuth_index"])
             self.range_index = np.array(data_dict["range_index"])
-            self.num_rare_looks = np.array(data_dict["num_rare_looks"])
-            self.wavelength = pixc_reader.getAttValue("wavelength")
-            self.near_range = pixc_reader.getAttValue("near_range")
-            self.range_spacing = pixc_reader.getAttValue("nominal_slant_range_spacing")
+            self.eff_num_rare_looks = np.array(data_dict["eff_num_rare_looks"])
+            self.wavelength = pixc_reader.get_att_value("wavelength")
+            self.near_range = pixc_reader.get_att_value("near_range")
+            self.range_spacing = pixc_reader.get_att_value("nominal_slant_range_spacing")
             self.azimuth_spacing = 21.875
-            self.tile_ref = pixc_reader.getAttValue("tile_name")
+            self.tile_ref = pixc_reader.get_att_value("tile_name")
             self.nr_lines = int(attr_id.interferogram_size_azimuth)
             self.nr_pixels = int(attr_id.interferogram_size_range)
 
@@ -135,7 +138,7 @@ class Sensor(object):
 
         try:
             # 2 - Open sensor file in reading mode
-            sensor_reader = my_nc.myNcReader(pixc_file)
+            sensor_reader = my_nc.MyNcReader(pixc_file)
             ifp = sensor_reader.content
 
             # 3 - Initialization of the Sensor variables
@@ -176,7 +179,7 @@ class Sensor(object):
         logger.info("Sensor init with %s file sensor", in_pixc_sensor_file)
         try:
             # 2 - Open Sensor file in reading mode
-            pixc_reader = my_nc.myNcReader(in_pixc_sensor_file)
+            pixc_reader = my_nc.MyNcReader(in_pixc_sensor_file)
             pixc_sensor = pixc_reader.content
 
             # 3 - Initialization of the Sensor variables
@@ -288,14 +291,16 @@ class RiverTile(object):
         self = cls()
         # 1 - Initiate logging service
         logger = logging.getLogger(self.__class__.__name__)
+        
         try:
             # 2 - Initialization of the RiverTile variables
-            self.reach_indx = node_outputs['reach_indx']
-            self.node_indx = node_outputs['node_indx']
+            self.reach_id = node_outputs['reach_indx']
+            self.node_id = node_outputs['node_indx']
             self.s = node_outputs['s']
             self.h_n_ave = node_outputs['h_n_ave']
-            self.h_n_ave_fit = copy.deepcopy(node_outputs['h_n_ave'])        
+            self.h_n_ave_fit = copy.deepcopy(node_outputs['h_n_ave'])
             self.fit_height = node_outputs['fit_height']
+            # self.fit_height = []
 
         except Exception as exc:
             message = str(exc.__class__) + str(exc)
@@ -310,17 +315,16 @@ class RiverTile(object):
         logger.info("RiverTile init with %s netcdf file", in_river_main_file)
 
         # 2 - Open pixel RiverTile file in reading mode
-        riverfile_reader = my_nc.myNcReader(in_river_main_file)
+        riverfile_reader = my_nc.MyNcReader(in_river_main_file)
         riverfile = riverfile_reader.content
         nodes = riverfile.groups["nodes"].variables
         try:
             # 2 - Initialization of the RiverTile variables
-            self.reach_indx = np.array(nodes["reach_indx"])
-            self.node_indx = np.array(nodes["node_indx"])
+            self.reach_id = np.array(nodes["reach_id"])
+            self.node_id = np.array(nodes["node_id"])
             self.s = np.array(nodes["s"])
             self.h_n_ave = np.array(nodes["h_n_ave"])
-            self.h_n_ave_fit = copy.deepcopy(node_outputs['h_n_ave'])        
-            self.fit_height = np.array(nodes["fit_height"])
+            self.h_n_ave_fit = copy.deepcopy(np.array(nodes["h_n_ave"]))
 
             # 3 - Close rivertile file
             riverfile_reader.close()
@@ -338,13 +342,13 @@ class RiverTile(object):
             try:
                 # 2 - Initialization of the RiverTile variables
                 n = len(source)
-                self.reach_indx = np.zeros(n)
-                self.node_indx = np.zeros(n)
+                self.reach_id = np.zeros(n)
+                self.node_id = np.zeros(n)
                 self.s = np.zeros(n)
                 self.h_n_ave = np.zeros(n)
                 for i, f in enumerate(source):
-                    self.reach_indx[i] = f['properties']['reach_indx']
-                    self.node_indx[i] = f['properties']['node_indx']
+                    self.reach_id[i] = f['properties']['reach_id']
+                    self.node_id[i] = f['properties']['node_id']
                     self.s[i] = f['properties']['s']
                     self.h_n_ave[i] = f['properties']['h_n_ave']
 
@@ -376,7 +380,7 @@ class PixcvecRiver(object):
            - longitude / 1D-array of float: longitude of water pixels
            - latitude / 1D-array of float: latitude of water pixels
            - height / 1D-array of float: height of water pixels
-           - node_index / 1D-array of float: tag associated to river node database
+           - node_id / 1D-array of float: tag associated to river node database
            - range_idx / 1D-array of int: range indices of water pixels
            - river tag / 1D-array of str: tag associated to river database
            - along_reach / 1D-array of float: along reach water for each pixel
@@ -391,7 +395,7 @@ class PixcvecRiver(object):
         logger.info(" PixcvecRiver init with %s file", pixcvec_file)
         try:
             # 1 - Open PixcvecRiver cloud file in reading mode
-            pixc_reader = my_nc.myNcReader(pixcvec_file)
+            pixc_reader = my_nc.MyNcReader(pixcvec_file)
             pixc_main = pixc_reader.content
 
             # 2 - Initialization of the PixcvecRiver variables
@@ -404,8 +408,8 @@ class PixcvecRiver(object):
             self.longitude = np.array(pixc_main.variables["longitude_vectorproc"])
             self.latitude = np.array(pixc_main.variables["latitude_vectorproc"])
             self.height = np.array(pixc_main.variables["height_vectorproc"])
-            self.node_index = np.array(pixc_main.variables["node_index"])
-            self.reach_index = np.array(pixc_main.variables["reach_index"])
+            self.node_id = np.array(pixc_main.variables["node_id"])
+            self.reach_id = np.array(pixc_main.variables["reach_id"])
             self.along_reach = np.array(pixc_main.variables["along_reach"])
             self.cross_reach = np.array(pixc_main.variables["cross_reach"])
             self.distance_to_node = np.array(pixc_main.variables["distance_to_node"])
@@ -427,17 +431,16 @@ class PixcvecRiver(object):
             raise
 
 
-
     def set_variable(self, varname, array):
         # 1 - Open PixcvecRiver cloud file in adding mode
-        pixc_reader = my_nc.myNcReader(self.pixc_main_file, mode='a')
+        pixc_reader = my_nc.MyNcReader(self.pixc_main_file, mode='a')
         pixc_main = pixc_reader.content
         pixc_main.variables[varname][:] = array
         pixc_main.close()
 
     def set_index_file(self, lat_corr, lon_corr, height_corr, pixc_index):
         # 1 - Open PixcvecRiver cloud file in adding mode
-        pixc_reader = my_nc.myNcReader(self.pixc_main_file, mode='a')
+        pixc_reader = my_nc.MyNcReader(self.pixc_main_file, mode='a')
         pixc_main = pixc_reader.content
         var = pixc_main.createVariable(
             'pixc_index', pixc_index.dtype, ('record',))

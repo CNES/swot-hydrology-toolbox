@@ -11,9 +11,12 @@
 # FIN-HISTORIQUE
 # ======================================================
 '''
- This file is part of the SWOT Hydrology Toolbox
- Copyright (C) 2018 Centre National d’Etudes Spatiales
- This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
+.. module:: geoloc_river.py
+
+..
+   This file is part of the SWOT Hydrology Toolbox
+   Copyright (C) 2018 Centre National d’Etudes Spatiales
+   This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 '''
 
 from cnes.modules.geoloc.lib.interface import Sensor, RiverTile, PixcvecRiver, PixelCloud
@@ -73,18 +76,19 @@ class GeolocRiver(object):
         # Build a dict of (reach id, node id) to node index in the node list
         # Used to find node index (in the node file) corresponding to the (reach index, nodex index) tuple from the pixel cloud
         self.node_reach_dict = {}
-        for rivertile_index in range(self.rivertile.node_indx.size):
-            rivertile_reach_indx = self.rivertile.reach_indx[rivertile_index]
-            rivertile_node_indx = self.rivertile.node_indx[rivertile_index]
-            self.node_reach_dict[(rivertile_reach_indx, rivertile_node_indx)] = rivertile_index
+                
+        for rivertile_index in range(self.rivertile.node_id.size):
+            rivertile_reach_id = self.rivertile.reach_id[rivertile_index]
+            rivertile_node_id = self.rivertile.node_id[rivertile_index]
+            self.node_reach_dict[(rivertile_reach_id, rivertile_node_id)] = rivertile_index
 
         # Build a dict of reach_id -> list of nodes ids
         # Used to interpolate node heights per reach
         self.reach_dict = defaultdict(list)
-        for rivertile_index in range(self.rivertile.node_indx.size):
-            rivertile_reach_indx = self.rivertile.reach_indx[rivertile_index]
-            rivertile_node_indx = self.rivertile.node_indx[rivertile_index]
-            self.reach_dict[rivertile_reach_indx].append(rivertile_node_indx)
+        for rivertile_index in range(self.rivertile.node_id.size):
+            rivertile_reach_id = self.rivertile.reach_id[rivertile_index]
+            rivertile_node_id = self.rivertile.node_id[rivertile_index]
+            self.reach_dict[rivertile_reach_id].append(rivertile_node_id)
 
     def fit_node_heights(self):
         """Linear fit on node heights per reach"""
@@ -101,7 +105,7 @@ class GeolocRiver(object):
 
             # y variable is height
             # get the node heights for the current reach from the reach dict
-            y = np.array([self.rivertile.h_n_ave[self.node_reach_dict[(reach_id, node_indx)]] for node_indx in x])
+            y = np.array([self.rivertile.h_n_ave[self.node_reach_dict[(reach_id, node_id)]] for node_id in x])
 
             # filter bad data in y (nan, -inf, fill values)
             good = (y >= MIN_HEIGHT_VALUE)
@@ -117,12 +121,12 @@ class GeolocRiver(object):
                 reach_fit[reach_id] = None
 
         # Reconstruct node heights using the computed coefficients
-        for rivertile_index in range(self.rivertile.node_indx.size):
-            rivertile_reach_indx = self.rivertile.reach_indx[rivertile_index]
-            rivertile_node_indx = self.rivertile.node_indx[rivertile_index]
-            if reach_fit[rivertile_reach_indx] is not None:
-                a, b = reach_fit[rivertile_reach_indx]
-                self.rivertile.h_n_ave_fit[rivertile_index] = a * rivertile_node_indx + b
+        for rivertile_index in range(self.rivertile.node_id.size):
+            rivertile_reach_id = self.rivertile.reach_id[rivertile_index]
+            rivertile_node_id = self.rivertile.node_id[rivertile_index]
+            if reach_fit[rivertile_reach_id] is not None:
+                a, b = reach_fit[rivertile_reach_id]
+                self.rivertile.h_n_ave_fit[rivertile_index] = a * rivertile_node_id + b
 
     def estimate_pixvec_height_for_geoloc(self, interpolate_pixc_between_nodes):
         """
@@ -140,20 +144,20 @@ class GeolocRiver(object):
 
         # For each pixcvec point
         for point_index in range(self.pixcvec.height.size):
-            reach_index = self.pixcvec.reach_index[point_index]
-            node_index = self.pixcvec.node_index[point_index]
+            reach_id = self.pixcvec.reach_id[point_index]
+            node_id = self.pixcvec.node_id[point_index]
 
             # Check if the reach and node of the point exist in the node file
-            key = (reach_index, node_index)
+            key = (reach_id, node_id)
             if key not in self.node_reach_dict:
                 unfound_keys += 1
             else:
                 rivertile_index = self.node_reach_dict[key]
 
                 # If possible, interpolate new point height from the associated node and the next/previous closest
-                if interpolate_pixc_between_nodes and (reach_index, node_index - 1) in self.node_reach_dict and \
-                                (reach_index, node_index + 1) in self.node_reach_dict:
-                    self.interpolate_pixc_height(reach_index,node_index,point_index,rivertile_index)
+                if interpolate_pixc_between_nodes and (reach_id, node_id - 1) in self.node_reach_dict and \
+                                (reach_id, node_id + 1) in self.node_reach_dict:
+                    self.interpolate_pixc_height(reach_id,node_id,point_index,rivertile_index)
 
                 # Simple case: just use the node height to estimate improved_height
                 else:
@@ -167,11 +171,11 @@ class GeolocRiver(object):
             logger = logging.getLogger(self.__class__.__name__)
             logger.warning("Warning: {} points' (reach, node) were not found in the node file".format(unfound_keys))
 
-    def interpolate_pixc_height(self,reach_index, node_index,point_index, rivertile_index):
+    def interpolate_pixc_height(self,reach_id, node_id,point_index, rivertile_index):
 
 
-        rivertile_index_less_one = self.node_reach_dict[(reach_index, node_index - 1)]
-        rivertile_index_plus_one = self.node_reach_dict[(reach_index, node_index + 1)]
+        rivertile_index_less_one = self.node_reach_dict[(reach_id, node_id - 1)]
+        rivertile_index_plus_one = self.node_reach_dict[(reach_id, node_id + 1)]
 
         # 's' means curvilinear coordinate (distance along reach)
         s_pixc = self.pixcvec.along_reach[point_index]
@@ -296,25 +300,30 @@ def geoloc_river(pixc, pixcvec, sensor, rivertile, fit_heights_per_reach, interp
       :type interpolate_pixc_between_nodes: boolean
       :param method: using method to compute the new latitude, longitude and height
       :type method: string
+
+      :returns latitude corrected, longitude corrected, height corrected
+      :rtype numpy array, numpy array numpy array
     """
     geolocriver = GeolocRiver(pixc, pixcvec, sensor, rivertile)
     # Do the improved river geolocation
     # 1 - Initiate logging service
     logger = logging.getLogger()
     logger.info("Improved geolocation")
-        
+
+
     if fit_heights_per_reach == 'recompute_from_nodes':
-        # Recompute fitted height using nodes heights 
+        # Recompute fitted height using nodes heights
         geolocriver.fit_node_heights()
-        
+
     if fit_heights_per_reach == 'raw_height':
         # Use raw nodes heights (very noisy) to improved geolocation (bad idea)
         return
 
     if fit_heights_per_reach == 'fitted_height_from_riverobs':
-        # Use fitted height from riverobs 
+        # Use fitted height from riverobs
         geolocriver.rivertile.h_n_ave_fit = geolocriver.rivertile.fit_height
-        
+
+
     geolocriver.estimate_pixvec_height_for_geoloc(interpolate_pixc_between_nodes)
     geolocriver.apply_improved_geoloc(method=method)
 

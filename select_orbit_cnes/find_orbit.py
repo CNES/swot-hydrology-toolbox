@@ -16,10 +16,11 @@
 from netCDF4 import Dataset
 import numpy as np
 import os
-from shapely.geometry import box, Polygon
+from shapely.geometry import box, Polygon, MultiPolygon
 
 from ressources.utils.inversion_algo import inversionCore
 import ressources.utils.vincenty_direct_formula as vincenty
+from ressources.utils import my_api
 
 
 GEN_RAD_EARTH = 6378137.0
@@ -48,7 +49,7 @@ class findOrbit(object):
         :param in_near_range: NR cross track
         :type in_near_range: float
         """
-        print("[findOrbit] == INIT ==")
+        my_api.printInfo("[findOrbit] == INIT ==")
         
         # Studied area
         self.north_lat = in_north
@@ -83,16 +84,18 @@ class findOrbit(object):
         :return: out_cycle_duration = cycle duration, read from input orbit files
         :rtype: float
         """
-        print("[findOrbit] == orbit_over_dem ==")
+        my_api.printInfo("[findOrbit] == orbit_over_dem ==")
         
         # DEM reference polygon as a shapely.geometry.box
         polygon_ref = box(self.south_lat, self.west_lon, self.north_lat, self.east_lon)
-        
+        cpt = 0
         # Find all orbit files in the input directory
-        for orbit_file in os.listdir(os.path.expandvars(in_orbit_directory)):
+        orbit_file_list = os.listdir(os.path.expandvars(in_orbit_directory))
+        orbit_file_list.sort()
+        for orbit_file in orbit_file_list:
             
             if ~os.path.isdir(orbit_file):  # Don't go down the file tree
-                
+
                 index_over_dem = []  # Init list of indices of nadir points corresponding to part of orbit overfliying the studied area
 
                 # Open orbit file and get some variables
@@ -101,46 +104,32 @@ class findOrbit(object):
                 lon = data_orbit.variables['longitude'][:]
                 out_cycle_duration = data_orbit.getncattr('repeat_cycle_period')
 
+                if not self.is_ref_poly_in_orbit(polygon_ref, lon, lat):
+                    my_api.printInfo("> SKIP : orbit file = %s" % orbit_file)
+                    cpt += 1
+                    continue
+
                 for ind_pt in range(lat[:].size - RECORD_MARGIN):
-                    
-                    # Calculate angle between range and latitude axe - invert phi_left with 2016 orbites
-                    if (lat[ind_pt+RECORD_MARGIN] > lat[ind_pt] and lon[ind_pt+RECORD_MARGIN] > lon[ind_pt]) or (lat[ind_pt+RECORD_MARGIN] < lat[ind_pt] and lon[ind_pt+RECORD_MARGIN] < lon[ind_pt]):
-                        phi_left = np.rad2deg(np.arccos(np.abs(lat[ind_pt] - lat[ind_pt+RECORD_MARGIN]) / np.sqrt(pow(lat[ind_pt] - lat[ind_pt+RECORD_MARGIN], 2) + pow(lon[ind_pt] - lon[ind_pt+RECORD_MARGIN], 2)))) - 90
-                    else:
-                        phi_left = 90 - np.rad2deg(np.arccos(np.abs(lat[ind_pt] - lat[ind_pt+RECORD_MARGIN]) / np.sqrt(pow(lat[ind_pt] - lat[ind_pt+RECORD_MARGIN], 2) + pow(lon[ind_pt] - lon[ind_pt+RECORD_MARGIN], 2))))
 
-                    if phi_left > 0:
-                        phi_right = phi_left - 180
-                    else:
-                        phi_right = phi_left + 180
-
-                    # Swath calculation
-                    lat_left_nr_first, lon_left_nr_first, left_deg_nr_first = vincenty.dest_vincenty(lat[ind_pt], lon[ind_pt], phi_left, self.near_range)
-                    lat_left_fr_first, lon_left_fr_first, left_deg_fr_first = vincenty.dest_vincenty(lat[ind_pt], lon[ind_pt], phi_left, self.swath_width/2 + SWATH_MARGIN)
-                    lat_left_nr_second, lon_left_nr_second, left_deg_nr_second = vincenty.dest_vincenty(lat[ind_pt+RECORD_MARGIN], lon[ind_pt+RECORD_MARGIN], phi_left, self.near_range)
-                    lat_left_fr_second, lon_left_fr_second, left_deg_fr_second = vincenty.dest_vincenty(lat[ind_pt+RECORD_MARGIN], lon[ind_pt+RECORD_MARGIN], phi_left, self.swath_width/2 + SWATH_MARGIN)
-
-                    lat_right_nr_first, lon_right_nr_first, right_deg_nr_first = vincenty.dest_vincenty(lat[ind_pt], lon[ind_pt], phi_right, self.near_range)
-                    lat_right_fr_first, lon_right_fr_first, right_deg_fr_first = vincenty.dest_vincenty(lat[ind_pt], lon[ind_pt], phi_right, self.swath_width/2 + SWATH_MARGIN)
-                    lat_right_nr_second, lon_right_nr_second, right_deg_nr_second = vincenty.dest_vincenty(lat[ind_pt+RECORD_MARGIN], lon[ind_pt+RECORD_MARGIN], phi_right, self.near_range)
-                    lat_right_fr_second, lon_right_fr_second, right_deg_fr_second = vincenty.dest_vincenty(lat[ind_pt+RECORD_MARGIN], lon[ind_pt+RECORD_MARGIN], phi_right, self.swath_width/2 + SWATH_MARGIN)
-
-                    polygon_data_left = Polygon([[lat_left_nr_first, lon_left_nr_first], [lat_left_fr_first, lon_left_fr_first], [lat_left_fr_second, lon_left_fr_second], [lat_left_nr_second, lon_left_nr_second]])
-                    polygon_data_right= Polygon([[lat_right_nr_first, lon_right_nr_first], [lat_right_fr_first, lon_right_fr_first], [lat_right_fr_second, lon_right_fr_second], [lat_right_nr_second, lon_right_nr_second]])
+                    polygon_data_right, polygon_data_left = self.get_polygon_right_left_swath(lon[ind_pt], lat[ind_pt], lon[ind_pt+RECORD_MARGIN], lat[ind_pt+RECORD_MARGIN])
 
                     # Save file if intersection with DEM > 0
-                    if ((polygon_data_left.intersection(polygon_ref).area > 0 or polygon_data_right.intersection(polygon_ref).area > 0) and (-10 < (lat[ind_pt] - self.south_lat) < 10 and -10 < (lon[ind_pt] - self.east_lon) < 10)):
+                    #~ if ((polygon_data_left.intersection(polygon_ref).area > 0 or polygon_data_right.intersection(
+                            #~ polygon_ref).area > 0) and (-10 < (lat[ind_pt] - self.south_lat) < 10 and -10 < (
+                        #~ lon[ind_pt] - self.east_lon) < 10)):
+                    if polygon_data_left.intersection(polygon_ref).area > 0 or polygon_data_right.intersection(polygon_ref).area > 0:
+                    
                         if ind_pt not in index_over_dem:
                             index_over_dem.append(ind_pt)
                         if ind_pt+RECORD_MARGIN < lat[:].size:
                             index_over_dem.append(ind_pt+RECORD_MARGIN)
 
                 if len(index_over_dem) > 1:
-                    print("> Orbit file = %s" % orbit_file)
+                    my_api.printInfo("> Orbit file = %s" % orbit_file)
                     
                     # Data sampling
                     nb_sampling_points = int(vincenty.dist_vincenty(lat[index_over_dem[0]], lon[index_over_dem[0]], lat[index_over_dem[-1]], lon[index_over_dem[-1]])/in_azimuth_spacing)
-                    print("  Number of sampling points = %d" % nb_sampling_points)
+                    my_api.printInfo("  Number of sampling points = %d" % nb_sampling_points)
 
                     # Cut valid files and save in new files
                     if in_mission_name == "SWOT":
@@ -150,7 +139,7 @@ class findOrbit(object):
                     else:
                         pass_num = int(orbit_file.split('.')[0].split("_")[-1])
                     out_filename = in_file_prefix + "_cycle_0001_pass_%04d.nc" % pass_num
-                    print("  Save as %s" % out_filename)
+                    my_api.printInfo("  Save as %s" % out_filename)
                     output_orbit_file = Dataset(out_filename, "w", format="NETCDF4")
                     
                     # SWOT only: update time vector to be coherent with new pass number
@@ -205,10 +194,73 @@ class findOrbit(object):
                     output_orbit_file.close()
                     
                 else:
-                    print("> NOT KEPT: orbit file = %s" % orbit_file)
+                    my_api.printInfo("> NOT KEPT: orbit file = %s" % orbit_file)
                 
                 # Close input orbit file
                 data_orbit.close()
-    
+
         # Return cycle duration
         return out_cycle_duration
+
+    def get_polygon_right_left_swath(self, lon_pt, lat_pt, lon_pt_mg, lat_pt_mg):
+
+        # Calculate angle between range and latitude axe - invert phi_left with 2016 orbites
+        if (lat_pt_mg > lat_pt and lon_pt_mg > lon_pt) or (
+                lat_pt_mg < lat_pt and lon_pt_mg < lon_pt):
+            phi_left = np.rad2deg(np.arccos(np.abs(lat_pt - lat_pt_mg) / np.sqrt(
+                pow(lat_pt - lat_pt_mg, 2) + pow(lon_pt - lon_pt_mg, 2)))) - 90
+        else:
+            phi_left = 90 - np.rad2deg(np.arccos(np.abs(lat_pt - lat_pt_mg) / np.sqrt(
+                pow(lat_pt - lat_pt_mg, 2) + pow(lon_pt - lon_pt_mg, 2))))
+
+        if phi_left > 0:
+            phi_right = phi_left - 180
+        else:
+            phi_right = phi_left + 180
+
+        # Swath calculation
+        lat_left_nr_first, lon_left_nr_first, left_deg_nr_first = vincenty.dest_vincenty(lat_pt, lon_pt, phi_left, self.near_range)
+        lat_left_fr_first, lon_left_fr_first, left_deg_fr_first = vincenty.dest_vincenty(lat_pt, lon_pt, phi_left,
+                                                                                         self.swath_width / 2 + SWATH_MARGIN)
+        lat_left_nr_second, lon_left_nr_second, left_deg_nr_second = vincenty.dest_vincenty(lat_pt_mg, lon_pt_mg, phi_left,
+                                                                                            self.near_range)
+        lat_left_fr_second, lon_left_fr_second, left_deg_fr_second = vincenty.dest_vincenty(lat_pt_mg, lon_pt_mg, phi_left,
+                                                                                            self.swath_width / 2 + SWATH_MARGIN)
+
+        lat_right_nr_first, lon_right_nr_first, right_deg_nr_first = vincenty.dest_vincenty(lat_pt, lon_pt, phi_right,
+                                                                                            self.near_range)
+        lat_right_fr_first, lon_right_fr_first, right_deg_fr_first = vincenty.dest_vincenty(lat_pt, lon_pt, phi_right,
+                                                                                            self.swath_width / 2 + SWATH_MARGIN)
+        lat_right_nr_second, lon_right_nr_second, right_deg_nr_second = vincenty.dest_vincenty(
+            lat_pt_mg, lon_pt_mg, phi_right, self.near_range)
+        lat_right_fr_second, lon_right_fr_second, right_deg_fr_second = vincenty.dest_vincenty(
+            lat_pt_mg, lon_pt_mg, phi_right, self.swath_width / 2 + SWATH_MARGIN)
+
+        polygon_data_left = Polygon([[lat_left_nr_first, lon_left_nr_first], [lat_left_fr_first, lon_left_fr_first],
+                                     [lat_left_fr_second, lon_left_fr_second], [lat_left_nr_second, lon_left_nr_second]])
+        polygon_data_right = Polygon(
+            [[lat_right_nr_first, lon_right_nr_first], [lat_right_fr_first, lon_right_fr_first],
+             [lat_right_fr_second, lon_right_fr_second], [lat_right_nr_second, lon_right_nr_second]])
+
+        return polygon_data_right, polygon_data_left
+
+    def is_ref_poly_in_orbit(self, polygon_ref, lon, lat):
+
+        polygon_data_right, polygon_data_left = self.get_polygon_right_left_swath(lon[0], lat[0], lon[-1], lat[-1])
+        polygon_data = MultiPolygon([polygon_data_left, polygon_data_right])
+        lat_min, lon_min, lat_max, lon_max = polygon_data.bounds
+
+        if lon[0] <= lon[-1]:
+            poly = Polygon([(lat_min, lon_min), (lat_max, lon_min), (lat_max, lon_max), (lat_min, lon_max)])
+
+        else :
+            poly1 = Polygon([(lat_min, 180), (lat_max, 180), (lat_max, lon_max), (lat_min, lon_max)])
+            poly2 = Polygon([(lat_min, lon_min), (lat_max, lon_min), (lat_max, -180), (lat_min, -180)])
+            poly = MultiPolygon([poly1, poly2])
+
+        if polygon_ref.intersects(poly):
+            return True
+        else:
+            return False
+
+

@@ -12,12 +12,12 @@
 """
 
 lib code of geoloc
-********
+******************
 
-.. automodule:: cnes.module.geoloc.lib
+.. automodule:: cnes.modules.geoloc.lib
 
 scripts code of geoloc
-*************
+**********************
 
-.. automodule:: cnes.module.geoloc.scripts
+.. automodule:: cnes.modules.geoloc.scripts
 """

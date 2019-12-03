@@ -33,9 +33,9 @@ import cnes.common.lib.my_variables as my_var
 import cnes.common.service_error as service_error
 
 
-class myNcReader(object):
+class MyNcReader(object):
     """
-        class myNcReader
+        class MyNcReader
     """
     def __init__(self, in_filename, mode='r'):
         """
@@ -66,7 +66,7 @@ class myNcReader(object):
 
     #----------------------------------------
     
-    def getListDim(self, in_group=None):
+    def get_list_dim(self, in_group=None):
         """
         Get the dictionnary of the dimensions
 
@@ -82,17 +82,17 @@ class myNcReader(object):
             retour = in_group.dimensions
         return retour
                     
-    def printListDim(self, in_group=None):
+    def print_list_dim(self, in_group=None):
         """
         Print list of dimensions
 
         :param in_group: group of variables to study
         :type in_group: netCDF4.Group
         """
-        for value in self.getListDim(in_group=in_group):
-            print("%s - size = %d" % (value, self.getDimValue(value, in_group=in_group)))
+        for value in self.get_list_dim(in_group=in_group):
+            print("%s - size = %d" % (value, self.get_dim_value(value, in_group=in_group)))
     
-    def getDimValue(self, in_name, in_group=None):
+    def get_dim_value(self, in_name, in_group=None):
         """
         Get the size of the dimension named in_name
         
@@ -112,7 +112,7 @@ class myNcReader(object):
     
     #----------------------------------------
     
-    def getListAtt(self, in_group=None):
+    def get_list_att(self, in_group=None):
         """
         Get the list of all the global attributes included in the NetCDF file
 
@@ -128,17 +128,17 @@ class myNcReader(object):
             retour = in_group.ncattrs()
         return retour
         
-    def printListAtt(self, in_group=None):
+    def print_list_att(self, in_group=None):
         """
         Print list of global attributes
 
         :param in_group: group to study
         :type in_group: netCDF4.Group
         """
-        for value in self.getListAtt(in_group=in_group):
-            print("%s = %s" % (value, str(self.getAttValue(value, in_group=in_group))))
+        for value in self.get_list_att(in_group=in_group):
+            print("%s = %s" % (value, str(self.get_att_value(value, in_group=in_group))))
     
-    def getAttValue(self, in_name, in_group=None):
+    def get_att_value(self, in_name, in_group=None):
         """
         Get the value associated to the global attribute named in_name
         
@@ -158,7 +158,7 @@ class myNcReader(object):
     
     #----------------------------------------
     
-    def getListVar(self, in_group=None):
+    def get_list_var(self, in_group=None):
         """
         Get the list of variables
 
@@ -175,7 +175,7 @@ class myNcReader(object):
             
         return out_list_var
         
-    def printListVar(self, in_group=None):
+    def print_list_var(self, in_group=None):
         """
         Print list of variables
 
@@ -184,13 +184,13 @@ class myNcReader(object):
         """
 
         # 1 - Get list of variables
-        list_var = self.getListVar(in_group=in_group)
+        list_var = self.get_list_var(in_group=in_group)
 
         # 2 - Print list
         for value in list_var:
-            print(value + " - units = " + self.getVarUnit(value, in_group=in_group))
+            print(value + " - units = " + self.get_var_unit(value, in_group=in_group))
     
-    def getVarValue(self, in_name, in_group=None):
+    def get_var_value(self, in_name, in_group=None):
         """
         Get the data associated to the variable in_name
         The multiplication by the scale_factor is done if there is a scale_factor attribute 
@@ -225,10 +225,12 @@ class myNcReader(object):
             nb_nan = len(nan_idx)
             if nb_nan > 0:
                 try:
-                    logger.warning("{} NaN values remaining in {} variable => replaced by {}".format(nb_nan, in_name, cur_content.variables[in_name]._FillValue))
+                    logger.warning("{} NaN values remaining in {} variable => replaced by {}".format(nb_nan, in_name, \
+                                                                                                     cur_content.variables[in_name]._FillValue))
                     out_data[nan_idx] = cur_content.variables[in_name]._FillValue
                 except AttributeError:
-                    logger.warning("{} NaN values remaining in {} variable => replaced by {} (_FillValue unknown)".format(nb_nan, in_name, my_var.FV_NETCDF[out_type]))
+                    logger.warning("{} NaN values remaining in {} variable => replaced by {} (_FillValue unknown)".format(nb_nan, in_name, \
+                                                                                                                          my_var.FV_NETCDF[out_type]))
                     out_data[nan_idx] = my_var.FV_NETCDF[out_type]
         # == END-TODO ==
         
@@ -253,7 +255,7 @@ class myNcReader(object):
             
         return out_data
     
-    def getVarValue_orEmpty(self, in_name, in_group=None):
+    def get_var_value_or_empty(self, in_name, in_group=None):
         """
         Get the data associated to the variable in_name if it exists
         If not, return None
@@ -268,14 +270,14 @@ class myNcReader(object):
         """
         logger = logging.getLogger(self.__class__.__name__)
         
-        list_vars = self.getListVar(in_group=in_group)
+        list_vars = self.get_list_var(in_group=in_group)
         
         if in_name in list_vars:
-            out_data = self.getVarValue(in_name, in_group)
+            out_data = self.get_var_value(in_name, in_group)
         else:
             logger.info("Variable %s doesn't exit => return empty array" % in_name)
             # Get all dimensions
-            list_dims = self.getListDim(in_group=in_group)
+            list_dims = self.get_list_dim(in_group=in_group)
             # Compute greatest one
             nb_records = 0
             for key, value in list_dims.items():
@@ -286,7 +288,7 @@ class myNcReader(object):
             
         return out_data
     
-    def getVarUnit(self, in_name, in_group=None):
+    def get_var_unit(self, in_name, in_group=None):
         """
         Get the unit of variable named in_name
         
@@ -316,9 +318,9 @@ class myNcReader(object):
 #######################################
 
 
-class myNcWriter(object):
+class MyNcWriter(object):
     """
-        class myNcWriter
+        class MyNcWriter
     """
     def __init__(self, in_filename):
         """
@@ -462,7 +464,8 @@ class myNcWriter(object):
             #cur_content.createVariable(in_name, 'c', in_dimensions, in_compress, 2)
             cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2)
         elif numpy.dtype(in_datatype).name in my_var.FV_NETCDF:
-            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_var.FV_NETCDF[numpy.dtype(in_datatype).name])
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, \
+                                       fill_value=my_var.FV_NETCDF[numpy.dtype(in_datatype).name])
         else:
             # datatype not recognized !
             message = "datatype not recognized : %s %s" % str(numpy.dtype(in_datatype).name)
@@ -534,10 +537,12 @@ class myNcWriter(object):
                 nb_nan = len(nan_idx)
                 if nb_nan > 0:
                     try:
-                        logger.warning("{} NaN values remaining in {} variable => replaced by {}".format(nb_nan, in_name, cur_content.variables[in_name]._FillValue))
+                        logger.warning("{} NaN values remaining in {} variable => replaced by {}".format(nb_nan, in_name, \
+                                                                                                         cur_content.variables[in_name]._FillValue))
                         in_data[nan_idx] = cur_content.variables[in_name]._FillValue
                     except AttributeError:
-                        logger.warning("{} NaN values remaining in {} variable => replaced by {} (_FillValue unknown)".format(nb_nan, in_name, my_var.FV_NETCDF[data_type]))
+                        logger.warning("{} NaN values remaining in {} variable => replaced by {} (_FillValue unknown)".format(nb_nan, in_name, \
+                                                                                                                         my_var.FV_NETCDF[data_type]))
                         in_data[nan_idx] = my_var.FV_NETCDF[data_type]
             # Write the whole array
             cur_content.variables[in_name][:] = in_data
