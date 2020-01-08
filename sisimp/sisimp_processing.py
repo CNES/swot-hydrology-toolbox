@@ -118,7 +118,7 @@ class Processing(object):
 
                 try:
                     self.my_attributes.cycle_number = int(parameters.getValue("Cycle number"))
-                    my_api.printInfo("[sisimp_processing] Orbit number : %d" % self.my_attributes.orbit_number)
+                    my_api.printInfo("[sisimp_processing] Cycle number : %d" % self.my_attributes.cycle_number)
                 except:
                     my_api.printInfo("[sisimp_processing] Multiple orbit = no => Cycle number should be set. Set to default value : 1")
                     self.my_attributes.cycle_number = 1
