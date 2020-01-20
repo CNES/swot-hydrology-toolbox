@@ -48,8 +48,8 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
     for i in range(max(0, tile_db_orbit_cropped.shape[0]-1)):
         vect_lat_lon_db_cropped[i,0] = tile_db_orbit_cropped[i+1, 2]-tile_db_orbit_cropped[i, 2]
         vect_lat_lon_db_cropped[i,1] = tile_db_orbit_cropped[i+1, 3]-tile_db_orbit_cropped[i, 3]
-    nb_az_traj = max(nadir_lat_argmax, nadir_lat_argmin)- min(nadir_lat_argmax, nadir_lat_argmin) + 1
-    tile_values = np.zeros(nb_az_traj, int)
+        nb_az_traj = max(nadir_lat_argmax, nadir_lat_argmin)- min(nadir_lat_argmax, nadir_lat_argmin) + 1
+        tile_values = np.zeros(nb_az_traj, int)
 
     for i in range(min(nadir_lat_argmax, nadir_lat_argmin)-1, max(nadir_lat_argmax, nadir_lat_argmin)+1):
         dist = np.abs(((my_attributes.lat[i]*RAD2DEG-tile_db_orbit_cropped[:-1, 2])*vect_lat_lon_db_cropped[:, 0] + (my_attributes.lon[i]*RAD2DEG-tile_db_orbit_cropped[:-1, 3])*vect_lat_lon_db_cropped[:, 1])/np.sqrt(vect_lat_lon_db_cropped[:, 0]**2+vect_lat_lon_db_cropped[:, 1]**2))

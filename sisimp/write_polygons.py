@@ -769,7 +769,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                             if id_lake == current_lake.id:
                                 lac=current_lake
                                 save=False
-                                print("Already save")
+                                print("Already save", id_lake, current_lake.id)
                                 break
                         except EOFError:
                             break
@@ -807,6 +807,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
             # 4.2.4 - Add Output geometry
             if add_ring:
+                print("write output file")
 
                 # Add the output reprojected polygon to the output feature
                 feature_out.SetGeometry(geom_out)
