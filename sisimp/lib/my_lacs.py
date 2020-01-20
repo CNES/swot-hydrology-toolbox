@@ -120,7 +120,7 @@ class Gaussian_Lac(Lac):
                 
 class Polynomial_Lac(Lac):
     
-    def __init__(self, num, IN_attributes, lat , lon, IN_cycle_number):
+    def __init__(self, num, IN_attributes, lat , lon, IN_cycle_number, id=None):
         
         Lac.__init__(self, num, id)
 
