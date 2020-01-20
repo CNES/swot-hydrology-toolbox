@@ -3,13 +3,13 @@ import os
 
 def open_shp(path_file, in_poly=None):
 
-
     # 1 - Open shapefile in read-only access
     shp_driver = ogr.GetDriverByName(str('ESRI Shapefile'))  # Shapefile driver
     shp_data_source = shp_driver.Open(path_file, 0)
 
     # 2 - Get the lake_layer
     layer = shp_data_source.GetLayer()
+    layer_multi_lake = shp_data_source.GetLayer()
 
     # 3 - Select some lakes among BD using in_poly
     if in_poly is not None:
@@ -27,7 +27,22 @@ def open_shp(path_file, in_poly=None):
 
     # 7 - Get memory lake_layer
     out_layer = data_source.GetLayer()
+    
     out_layer.ResetReading()
+
+    # 7-bis - Get all polygon entering in_poly zone
+    if in_poly is not None:
+        layer = shp_data_source.GetLayer()
+        id_list=[]
+        for feature in out_layer:
+            geometry = feature.geometry().Clone()
+            try:
+                if feature.GetField("id") is not None:
+                    id_list.append(feature.GetField("id"))
+            except ValueError:
+                print("Field error")
+        print(id_list)
+        layer_multi_lake.SetAttributeFilter("id IN {}".format(tuple(id_list)))
 
     layer.SetSpatialFilter(None)
 

@@ -36,6 +36,8 @@ import mathematical_function as math_fct
 import proc_real_pixc
 import proc_real_pixc_vec_river
 
+import pickle
+
 
 class orbitAttributes:
     
@@ -651,6 +653,8 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
     nb_lakes = layer.GetFeatureCount()
     processing = np.round(np.linspace(0, nb_lakes, 11), 0)
+
+    
     for ind, polygon_index in enumerate(layer):
         if ind in processing :
             my_api.printInfo("[write_polygons] [reproject_shapefile] Processing %d %%" %( int(100 * (ind+1)/nb_lakes) ) )
@@ -671,6 +675,13 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
             # 4.2.2 - Compute the zone resulting of the intersection between polygon and swath
             intersection = geom.Intersection(swath_polygon)
+            save_field = False
+            id_lake = polygon_index.GetField("id")
+            # Test area of intersect zones
+            if intersection.GetArea() != geom.GetArea() and id_lake!=25 and not None:
+                save_field = True
+                intersection=geom
+            
             # 4.2.3 - Convert polygons coordinates
             add_ring = False
 
@@ -710,30 +721,67 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 lac = None
 
                 if IN_attributes.height_model is None:
-                    lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
+                    lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
 
                 if IN_attributes.height_model == 'reference_height':
-                    lac = Reference_height_Lac(ind+1, polygon_index, layerDefn, IN_attributes)
+                    lac = Reference_height_Lac(ind+1, polygon_index, layerDefn, IN_attributes, id_lake)
 
                 if IN_attributes.height_model == 'gaussian':
                     if area > IN_attributes.height_model_min_area:
                         my_api.printInfo(str("Gaussian model applied for big water body of size %f ha" % area))
-                        lac = Gaussian_Lac(ind+1, IN_attributes, lat * RAD2DEG, lon * RAD2DEG, IN_cycle_number)
+                        lac = Gaussian_Lac(ind+1, IN_attributes, lat * RAD2DEG, lon * RAD2DEG, IN_cycle_number, id_lake)
                     else:
-                        lac = Constant_Lac(ind+1, IN_attributes, lat* RAD2DEG, IN_cycle_number)
+                        lac = Constant_Lac(ind+1, IN_attributes, lat* RAD2DEG, IN_cycle_number, id_lake)
 
                 if IN_attributes.height_model == 'polynomial':
                     if area > IN_attributes.height_model_min_area:
                         my_api.printInfo(str("Polynomial model applied for big water body of size %f ha" % area))
-                        lac = Polynomial_Lac(ind+1, IN_attributes, lat* RAD2DEG, lon* RAD2DEG, IN_cycle_number)
+                        lac = Polynomial_Lac(ind+1, IN_attributes, lat* RAD2DEG, lon* RAD2DEG, IN_cycle_number, id_lake)
                     else:
-                        lac = Constant_Lac(ind+1, IN_attributes, lat* RAD2DEG, IN_cycle_number)
+                        lac = Constant_Lac(ind+1, IN_attributes, lat* RAD2DEG, IN_cycle_number, id_lake)
 
                 if IN_attributes.height_model == "reference_file":
                     if IN_attributes.trueheight_file is not None:
-                        lac = Height_in_file_Lac(ind+1, IN_attributes)
+                        lac = Height_in_file_Lac(ind+1, IN_attributes, id_lake)
                     else:
-                        lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
+                        lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
+
+                # Find if lake already exist in database
+                if save_field:
+                    save = True
+                    # Open database reading mode
+                    try:
+                        lakes_database_r = open('lake_intersection_database.pkl', 'rb')
+                    except:
+                        # Create database if not existing
+                        lakes_database = open('lake_intersection_database.pkl','wb')
+                        print("create table")
+                        pickle.dump(lac, lakes_database, pickle.HIGHEST_PROTOCOL)
+                        lakes_database.close()
+                        save=False
+                        lakes_database_r = open('lake_intersection_database.pkl', 'rb')
+
+                    # Research lake_id in database
+                    while True:
+                        try:
+                            # Loop on lake database
+                            current_lake=pickle.load(lakes_database_r)
+                            if id_lake == current_lake.id:
+                                lac=current_lake
+                                save=False
+                                print("Already save")
+                                break
+                        except EOFError:
+                            break
+                            
+                    # Save lake in database
+                    if save:
+                        print("save new")
+                        lakes_database_r.close()
+                        # Open lac saved database in writing mode
+                        lakes_database = open('lake_intersection_database.pkl','wb')
+                        pickle.dump(lac, lakes_database, pickle.HIGHEST_PROTOCOL)
+                        lakes_database.close()
 
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
 
@@ -754,6 +802,8 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 add_ring = True
                 # Add the reprojected ring to the output geometry
                 geom_out.AddGeometry(ring)
+            
+            geom_out=geom_out.Intersection(swath_polygon)
 
             # 4.2.4 - Add Output geometry
             if add_ring:
