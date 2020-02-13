@@ -349,6 +349,20 @@ class myNcWriter():
                 group.variables[IN_varname].setncattr(IN_attname, IN_value)
             else:
                 exit("[my_netcdf_file/add_variable_attribute] Could not add variable attribute ; %s variable does not exist" % ( IN_varname ))                
+
+    def add_variable_attributes(self, IN_varname, IN_dict_var_val, group=None):
+        '''
+        Set the values of a variable attribute with the dictionary given
+
+        :param IN_varname: the name of the variable
+        :type IN_varname: string
+        :param IN_dict_var_val: dictionary of attribute name and value
+        :type IN_dict_var_val: attname - string, value - unknown
+        '''
+
+        for key in IN_dict_var_val.keys():
+            print(key)
+            self.add_variable_attribute(IN_varname, key, IN_dict_var_val[key], group)
     
     #----------------------------------------
         

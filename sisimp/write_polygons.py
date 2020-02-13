@@ -652,6 +652,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     indmax = 0
 
     nb_lakes = layer.GetFeatureCount()
+    print(nb_lakes)
     processing = np.round(np.linspace(0, nb_lakes, 11), 0)
 
     
@@ -675,12 +676,17 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
             # 4.2.2 - Compute the zone resulting of the intersection between polygon and swath
             intersection = geom.Intersection(swath_polygon)
+            inter = geom.Intersection(swath_polygon)
             save_field = False
-            id_lake = polygon_index.GetField("id")
+            try:
+                id_lake = polygon_index.GetField("code")
+            except ValueError:
+                id_lake = polygon_index.GetField("id")
             # Test area of intersect zones
-            if intersection.GetArea() != geom.GetArea() and id_lake!=25 and not None:
+            if intersection is None or intersection.GetArea() != geom.GetArea() and id_lake!=25:
                 save_field = True
                 intersection=geom
+                inter=geom
             
             # 4.2.3 - Convert polygons coordinates
             add_ring = False
@@ -690,10 +696,15 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
             for ring in all_linear_rings(intersection):
                 npoints = ring.GetPointCount()
+                print("Area difference")
+                print(ring.GetArea())
+                try:
+                    print(ring.Intersection(inter).GetArea())
+                except:
+                    print("outside")
 
                 if npoints == 0:
                     continue  # ignore polygons completely outside the swath
-
 
                 points = np.transpose(np.array(ring.GetPoints()))
 
@@ -762,7 +773,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                         lakes_database_r = open('lake_intersection_database.pkl', 'rb')
 
                     # Research lake_id in database
-                    while True:
+                    while True: 
                         try:
                             # Loop on lake database
                             current_lake=pickle.load(lakes_database_r)
@@ -772,6 +783,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                                 print("Already save", id_lake, current_lake.id)
                                 break
                         except EOFError:
+                            print("file ended to read")
                             break
                             
                     # Save lake in database
@@ -798,16 +810,17 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
                 for p in range(npoints):  # no fonction ring.SetPoints()
                     ring.SetPoint(p, az[p], r[p])
+                ring.Intersection(swath_polygon)
                 ring.CloseRings()
+
                 add_ring = True
                 # Add the reprojected ring to the output geometry
                 geom_out.AddGeometry(ring)
             
-            geom_out=geom_out.Intersection(swath_polygon)
+            #geom_out=geom_out.Intersection(swath_polygon)
 
             # 4.2.4 - Add Output geometry
             if add_ring:
-                print("write output file")
 
                 # Add the output reprojected polygon to the output feature
                 feature_out.SetGeometry(geom_out)
@@ -818,7 +831,10 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 layerDefn = layer.GetLayerDefn()
                 for i in range(layerDefn.GetFieldCount()):
                     if IN_attributes.height_model == 'polynomial' or IN_attributes.height_model == 'gaussian':
-                        feature_out.SetField(str("CODE"), polygon_index.GetField("code"))
+                        try:
+                            feature_out.SetField(str("CODE"), polygon_index.GetField("code"))
+                        except ValueError:
+                            feature_out.SetField(str("CODE"), polygon_index.GetField("id"))
                 if not height_from_shp:
                     IN_attributes.height_model_a_tab = None
 
