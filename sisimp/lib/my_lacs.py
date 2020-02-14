@@ -77,7 +77,7 @@ class Reference_height_Lac(Lac):
         
 class Gaussian_Lac(Lac):
     
-    def __init__(self, num, IN_attributes, lat, lon, IN_cycle_numberi, id=None):
+    def __init__(self, num, IN_attributes, lat, lon, IN_cycle_number, id=None):
         Lac.__init__(self, num, id)
         self.height_model_a = IN_attributes.height_model_a
         self.lat_init = IN_attributes.lat_init
@@ -92,8 +92,8 @@ class Gaussian_Lac(Lac):
         
         self.height_model_stdv = IN_attributes.height_model_stdv
 
-        self.dlon =  10e-7
-        self.dlat =  10e-7
+        self.dlon =  10e-4
+        self.dlat =  10e-4
         
                 
         lonmin, lonmax, latmin, latmax = lon.min(), lon.max(), lat.min(), lat.max()

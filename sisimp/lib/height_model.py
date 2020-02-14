@@ -46,9 +46,9 @@ def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, hei
     
     # Need to increase image size due to larger lcorr compare to image shape
     if Nx < lx+10:
-        Nx = lx+10
+        Nx = int(lx+10)
     if Ny < ly+10:
-        Ny = ly+10           
+        Ny = int(ly+10)           
  
     ### zero-padding not seems to improve computation time, TBC
     #~ nx_pad = 2**(int(np.log2(Nx - 1)) + 1)
