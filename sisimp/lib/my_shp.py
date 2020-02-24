@@ -48,19 +48,6 @@ def open_shp(path_file, in_poly=None):
     
     out_layer.ResetReading()
 
-    ## 7-bis - Get all polygon entering in_poly zone
-    #if in_poly is not None:
-    #    layer = shp_data_source.GetLayer()
-    #    id_list=[]
-    #    for feature in out_layer:
-    #        geometry = feature.geometry().Clone()
-    #        try:
-    #            if feature.GetField("id") is not None:
-    #                id_list.append(feature.GetField("id"))
-    #        except ValueError:
-    #            print("Field error")
-    #    print(id_list)
-
     layer.SetSpatialFilter(None)
 
     # 8 - Close shapefile

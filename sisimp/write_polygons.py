@@ -194,7 +194,7 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
     ds = gdal.GetDriverByName(str('MEM')).Create('', nx, ny, nb_rasterBand, GDT_Float32)
     ds.SetGeoTransform([-0.5, 1, 0, -0.5, 0, 1])
     ds.GetRasterBand(1).WriteArray(cover)
-
+    
     # Burn with a value 1 the pixels that are in a polygon
     gdal.RasterizeLayer(ds, [1], layer, None, None, burn_values=[1])
     #~ #                                        , options=['ALL_TOUCHED=TRUE'])
@@ -254,7 +254,7 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
 #######################################
     
 
-def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_orbit_number, IN_attributes):
+def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_orbit_number, IN_attributes, swath_polygon):
     """
     Check what pixels are marked as water and write their position.
     Real PixC files (Version 08/2018) are produced.
@@ -625,7 +625,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
     # Exit if no feature to deal with
     if nb_features == 0:
-        return None, IN_attributes
+        return None, IN_attributes, None
 
     # 3 - Create the output shapefile
     swath_t = '%s_swath' % IN_swath
@@ -652,7 +652,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     indmax = 0
 
     nb_lakes = layer.GetFeatureCount()
-    print(nb_lakes)
     processing = np.round(np.linspace(0, nb_lakes, 11), 0)
 
     
@@ -676,17 +675,16 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
             # 4.2.2 - Compute the zone resulting of the intersection between polygon and swath
             intersection = geom.Intersection(swath_polygon)
-            inter = geom.Intersection(swath_polygon)
             save_field = False
             try:
                 id_lake = polygon_index.GetField("code")
             except ValueError:
                 id_lake = polygon_index.GetField("id")
             # Test area of intersect zones
-            if intersection is None or intersection.GetArea() != geom.GetArea() and id_lake!=25:
+
+            if intersection is None or id_lake!=25 or intersection.GetArea() != geom.GetArea():
                 save_field = True
                 intersection=geom
-                inter=geom
             
             # 4.2.3 - Convert polygons coordinates
             add_ring = False
@@ -696,12 +694,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
             for ring in all_linear_rings(intersection):
                 npoints = ring.GetPointCount()
-                print("Area difference")
-                print(ring.GetArea())
-                try:
-                    print(ring.Intersection(inter).GetArea())
-                except:
-                    print("outside")
 
                 if npoints == 0:
                     continue  # ignore polygons completely outside the swath
@@ -740,7 +732,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 if IN_attributes.height_model == 'gaussian':
                     if area > IN_attributes.height_model_min_area:
                         my_api.printInfo(str("Gaussian model applied for big water body of size %f ha" % area))
-                        print(len(lon), len(lat))
                         lac = Gaussian_Lac(ind+1, IN_attributes, lat * RAD2DEG, lon * RAD2DEG, IN_cycle_number, id_lake)
                     else:
                         lac = Constant_Lac(ind+1, IN_attributes, lat* RAD2DEG, IN_cycle_number, id_lake)
@@ -757,7 +748,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                         lac = Height_in_file_Lac(ind+1, IN_attributes, id_lake)
                     else:
                         lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
-
+                        
                 # Find if lake already exist in database
                 if save_field:
                     save = True
@@ -767,35 +758,32 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     except:
                         # Create database if not existing
                         lakes_database = open('lake_intersection_database.pkl','wb')
-                        print("create table")
                         pickle.dump(lac, lakes_database, pickle.HIGHEST_PROTOCOL)
                         lakes_database.close()
                         save=False
                         lakes_database_r = open('lake_intersection_database.pkl', 'rb')
 
                     # Research lake_id in database
+                    saved_lakes=[]
                     while True: 
                         try:
                             # Loop on lake database
                             current_lake=pickle.load(lakes_database_r)
+                            saved_lakes.append(current_lake)
                             if id_lake == current_lake.id:
                                 lac=current_lake
                                 save=False
-                                print("Already save", id_lake, current_lake.id)
                                 break
                         except EOFError:
-                            print("file ended to read")
+                            if save:
+                                saved_lakes.append(lac)
+                                lakes_database_r.close()
+                                lakes_database=open('lake_intersection_database.pkl', 'wb')
+                                for lake in saved_lakes:
+                                    pickle.dump(lake, lakes_database, pickle.HIGHEST_PROTOCOL)
+                                lakes_database.close()
                             break
                             
-                    # Save lake in database
-                    if save:
-                        print("save new")
-                        lakes_database_r.close()
-                        # Open lac saved database in writing mode
-                        lakes_database = open('lake_intersection_database.pkl','wb')
-                        pickle.dump(lac, lakes_database, pickle.HIGHEST_PROTOCOL)
-                        lakes_database.close()
-
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
 
                 if IN_attributes.height_model == 'polynomial' and area > IN_attributes.height_model_min_area:
@@ -811,7 +799,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
                 for p in range(npoints):  # no fonction ring.SetPoints()
                     ring.SetPoint(p, az[p], r[p])
-                ring.Intersection(swath_polygon)
+                #ring.Intersection(swath_polygon)
                 ring.CloseRings()
 
                 add_ring = True
@@ -858,7 +846,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
     IN_attributes.liste_lacs = liste_lac
 
-    return OUT_filename, IN_attributes
+    return OUT_filename, IN_attributes, swath_polygon
                 
 
 #######################################

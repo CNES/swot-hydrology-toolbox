@@ -634,6 +634,7 @@ class l2_hr_pixc(object):
             # 2.2 - On lui assigne le point
             point = ogr.Geometry(ogr.wkbPoint)
             point.AddPoint(lng, lat)
+
             outFeature.SetGeometry(point)
             # 2.3 - On lui assigne les attributs
             outFeature.SetField(str('az_index'), float(az_ind))

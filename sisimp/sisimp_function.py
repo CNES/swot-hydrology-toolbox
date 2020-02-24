@@ -157,7 +157,7 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
     fshp = IN_attributes.shapefile_path + ".shp"
     driver = ogr.GetDriverByName(str("ESRI Shapefile"))
 
-    fshp_reproj, IN_attributes = write_poly.reproject_shapefile(fshp, swath, driver, IN_attributes, IN_cycle_number)
+    fshp_reproj, IN_attributes, swath_polygon = write_poly.reproject_shapefile(fshp, swath, driver, IN_attributes, IN_cycle_number)
 
     if fshp_reproj is None:  # No water body crossing the swath => stop process
         my_api.printInfo("[sisimp_function] [make_pixel_cloud] No output data file to write")
@@ -179,7 +179,7 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
     if nb_water_pixels == 0:
         my_api.printInfo("[sisimp_function] [make_pixel_cloud] Nb water pixels = 0 -> No output data file to write")
     else:
-        write_poly.write_water_pixels_realPixC(water_pixels, swath, IN_cycle_number, IN_orbit_number, IN_attributes)
+        write_poly.write_water_pixels_realPixC(water_pixels, swath, IN_cycle_number, IN_orbit_number, IN_attributes, swath_polygon)
 
     return IN_attributes
                 

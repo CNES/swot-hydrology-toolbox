@@ -361,7 +361,6 @@ class myNcWriter():
         '''
 
         for key in IN_dict_var_val.keys():
-            print(key)
             self.add_variable_attribute(IN_varname, key, IN_dict_var_val[key], group)
     
     #----------------------------------------
