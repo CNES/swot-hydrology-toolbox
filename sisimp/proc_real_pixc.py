@@ -253,219 +253,257 @@ class l2_hr_pixc(object):
         
         # Group variables
         data.add_variable('azimuth_index', np.int32, 'points', my_var.FV_NETCDF["int32"], compress, group=pixc)
-        dic_azimuth_index={'long_name':'rare interferogram azimuth index','units':'1','valid_min':'0','valid_max':'1','coordinates':'longitude latitude','comment':'Rare interferogram azimuth index'}
-        data.add_variable_attributes('azimuth_index', dic_azimuth_index, group=pixc)
+        dic={'long_name':'rare interferogram azimuth index','units':'1','valid_min':'0','valid_max':'1','coordinates':'longitude latitude','comment':'Rare interferogram azimuth index'}
+        data.add_variable_attributes('azimuth_index', dic, group=pixc)
         fill_vector_param(self.azimuth_index, 'azimuth_index', self.nb_water_pix, data, group=pixc)
 
         data.add_variable('range_index', np.int32, 'points', my_var.FV_NETCDF["int32"], compress, group=pixc)
-        dic_range_index={'long_name':'rare interferogram range index','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Rare interferogram range index'}
-        data.add_variable_attributes('range_index', dic_range_index, group=pixc)
+        dic={'long_name':'rare interferogram range index','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Rare interferogram range index'}
+        data.add_variable_attributes('range_index', dic, group=pixc)
         fill_vector_param(self.range_index, 'range_index', self.nb_water_pix, data, group=pixc)
 
         #------
 
         data.add_variable('interferogram', np.float32, ('points', 'depth'), my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_interferogram={'long_name':'rare interferogram','units':'1','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Complex unflattened rare interferogram'}
-        data.add_variable_attributes('interferogram', dic_interferogram, group=pixc)
+        dic={'long_name':'rare interferogram','units':'1','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Complex unflattened rare interferogram'}
+        data.add_variable_attributes('interferogram', dic, group=pixc)
         fill_vector_param(np.zeros([self.nb_water_pix, 2]), 'interferogram', self.nb_water_pix, data, group=pixc)
 
         data.add_variable('power_plus_y', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_power_plus_y={'long_name':'power for plus_y channel','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Power for plus_y channel (arbitrary units that give sigma0 when nois substracted and normalized by the X factor)'}
-        data.add_variable_attributes('power_plus_y', dic_power_plus_y, group=pixc)
+        dic={'long_name':'power for plus_y channel','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Power for plus_y channel (arbitrary units that give sigma0 when nois substracted and normalized by the X factor)'}
+        data.add_variable_attributes('power_plus_y', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'power_plus_y', self.nb_water_pix, data, group=pixc)
         
         data.add_variable('power_minus_y', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_power_minus_y={'long_name':'power for minus_y channel','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Power for the minus_y channel (arbitrary units that give sigma0 when noise substracted and normalized by the X factor)'} 
-        data.add_variable_attributes('power_minus_y', dic_power_minus_y, group=pixc)
+        dic={'long_name':'power for minus_y channel','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Power for the minus_y channel (arbitrary units that give sigma0 when noise substracted and normalized by the X factor)'} 
+        data.add_variable_attributes('power_minus_y', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'power_minus_y', self.nb_water_pix, data, group=pixc)   
         
         data.add_variable('coherent_power', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_coherent_power={'long_name':'coherent power combination of minus_y and plus_y channel','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Power computed by combining the plus_y and minus_y channels coherently by coaligning the phases (arbitrary units that give sigma0 when noise substracted and normalized by the X factor'}
-        data.add_variable_attributes('coherent_power', dic_coherent_power, group=pixc)
+        dic={'long_name':'coherent power combination of minus_y and plus_y channel','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Power computed by combining the plus_y and minus_y channels coherently by coaligning the phases (arbitrary units that give sigma0 when noise substracted and normalized by the X factor'}
+        data.add_variable_attributes('coherent_power', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'coherent_power', self.nb_water_pix, data, group=pixc)
         
         data.add_variable('x_factor_plus_y', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_x_factor_plus={'long_name':'X factor for plus_y channel power','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'X factor for the plus_y channel power in linear units (arbitrary units to normalize noise-substracted power to sigma0)'}
-        data.add_variable_attributes('x_factor_plus_y', dic_x_factor_plus, group=pixc)
+        dic={'long_name':'X factor for plus_y channel power','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'X factor for the plus_y channel power in linear units (arbitrary units to normalize noise-substracted power to sigma0)'}
+        data.add_variable_attributes('x_factor_plus_y', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'x_factor_plus_y', self.nb_water_pix, data, group=pixc)
         
         data.add_variable('x_factor_minus_y', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_x_factor_minus_y={'long_name':'X factor for minus_y channel power','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'X factor for the minus_y channel power in linear units (arbitrary units to normalize noise-substracted power to sigma0'}
-        data.add_variable_attributes('x_factor_minus_y', dic_x_factor_minus_y, group=pixc)
+        dic={'long_name':'X factor for minus_y channel power','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'X factor for the minus_y channel power in linear units (arbitrary units to normalize noise-substracted power to sigma0'}
+        data.add_variable_attributes('x_factor_minus_y', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'x_factor_minus_y', self.nb_water_pix, data, group=pixc)  
         
         #-----------
 
         data.add_variable('water_frac', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_water_frac={'long_name':'water fraction','units':'1','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Noisy estimate of the fraction of the pixel that is water'}
-        data.add_variable_attributes('water_frac', dic_water_frac, group=pixc)
+        dic={'long_name':'water fraction','units':'1','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Noisy estimate of the fraction of the pixel that is water'}
+        data.add_variable_attributes('water_frac', dic, group=pixc)
         fill_vector_param(np.ones(self.nb_water_pix), 'water_frac', self.nb_water_pix, data, group=pixc)       
         
         data.add_variable('water_frac_uncert', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_water_frac_uncert={'long_name':'water fraction uncertaincy','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Uncertaincy estimate of the water fraction estimate (width of noisy water frac estimate distribution)'}
-        data.add_variable_attributes('water_frac_uncert', dic_water_frac_uncert, group=pixc)
+        dic={'long_name':'water fraction uncertaincy','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Uncertaincy estimate of the water fraction estimate (width of noisy water frac estimate distribution)'}
+        data.add_variable_attributes('water_frac_uncert', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'water_frac_uncert', self.nb_water_pix, data, group=pixc)              
         
         data.add_variable('classification', np.int8, 'points', my_var.FV_NETCDF["int8"], compress, group=pixc)
-        dic_classification={'long_name':'classification','flag_meanings':'land land_near_water water_near_land open_water land_near_dark_water dark_water_edge dark_water','flag_meanings':'1 2 3 4 22 23 24','valid_min':'1','valid_max':'24','coordinates':'longitude latitude','comment':'Flags indicating water detection results'}
-        data.add_variable_attributes('classification', dic_classification, group=pixc)
+        dic={'long_name':'classification','flag_meanings':'land land_near_water water_near_land open_water land_near_dark_water dark_water_edge dark_water','flag_meanings':'1 2 3 4 22 23 24','valid_min':'1','valid_max':'24','coordinates':'longitude latitude','comment':'Flags indicating water detection results'}
+        data.add_variable_attributes('classification', dic, group=pixc)
         fill_vector_param(self.classification, 'classification', self.nb_water_pix, data, group=pixc) 
         
         data.add_variable('false_detection_rate', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_false_detection_rate={'long_name':'false detection rate','units':'1','valid_min':'0','valid_max':'1','coordinates':'longitude latitude','comment':'Probability of falsely detecting water when there is none'}
-        data.add_variable_attributes('false_detection_rate', dic_false_detection_rate, group=pixc)
+        dic={'long_name':'false detection rate','units':'1','valid_min':'0','valid_max':'1','coordinates':'longitude latitude','comment':'Probability of falsely detecting water when there is none'}
+        data.add_variable_attributes('false_detection_rate', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'false_detection_rate', self.nb_water_pix, data, group=pixc)
         
         data.add_variable('missed_detection_rate', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_missed_detection_rate={'long_name':'missed detection rate','units':'1','valid_min':'0','valid_max':'1','coordinates':'longitude latitude','comment':'Probability of falsely detecting no water when there is water'}
-        data.add_variable_attributes('missed_detection_rate', dic_missed_detection_rate, group=pixc)
+        dic={'long_name':'missed detection rate','units':'1','valid_min':'0','valid_max':'1','coordinates':'longitude latitude','comment':'Probability of falsely detecting no water when there is water'}
+        data.add_variable_attributes('missed_detection_rate', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'missed_detection_rate', self.nb_water_pix, data, group=pixc)
         
         data.add_variable('prior_water_prob', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_prior_water_prob={'long_name':'prior water probability','units':'1','valid_min':'0','valid_max':'1','coordinates':'longitude latitude','comment':'Prior probability of water occuring'}
-        data.add_variable_attributes('prior_water_prob', dic_prior_water_prob, group=pixc)
+        dic={'long_name':'prior water probability','units':'1','valid_min':'0','valid_max':'1','coordinates':'longitude latitude','comment':'Prior probability of water occuring'}
+        data.add_variable_attributes('prior_water_prob', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'prior_water_prob', self.nb_water_pix, data, group=pixc)
         
         data.add_variable('bright_land_flag', np.int8, 'points', my_var.FV_NETCDF["int8"], compress, group=pixc)
-        dic_bright_land_flag={'long_name':'bright land flag','standard_name':'status_flag','flag_meanings':'not_bright_land bright_land','flag_values':'0 1','valid_min':'0','valid_max':'1','coordinates':'longitude latitude','comment':'Flag indicating areas that are not typically water but are expected to be bright (e.g., urban areas, ice). this flag can be used to exclude detected water pixels in downstream processing'}
-        data.add_variable_attributes('bright_land_flag', dic_bright_land_flag, group=pixc)
+        dic={'long_name':'bright land flag','standard_name':'status_flag','flag_meanings':'not_bright_land bright_land','flag_values':'0 1','valid_min':'0','valid_max':'1','coordinates':'longitude latitude','comment':'Flag indicating areas that are not typically water but are expected to be bright (e.g., urban areas, ice). this flag can be used to exclude detected water pixels in downstream processing'}
+        data.add_variable_attributes('bright_land_flag', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'bright_land_flag', self.nb_water_pix, data, group=pixc)          
         
         data.add_variable('layover_impact', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_layover_impact={'long_name':'layover impact','units':'m','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Estimate of the height error caused by layover, which may not be reliable on a pixel by pixel basis, but may be useful to augment aggregated height uncertainties'}
-        data.add_variable_attributes('layover_impact', dic_layover_impact, group=pixc)
+        dic={'long_name':'layover impact','units':'m','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Estimate of the height error caused by layover, which may not be reliable on a pixel by pixel basis, but may be useful to augment aggregated height uncertainties'}
+        data.add_variable_attributes('layover_impact', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'layover_impact', self.nb_water_pix, data, group=pixc)
         
         #--------------------
 
         data.add_variable('eff_num_rare_looks', np.int8, 'points', my_var.FV_NETCDF["int8"], compress, group=pixc)
-        dic_eff_num_rare_looks={}
-        data.add_variable_attributes('eff_num_rare_looks', dic_eff_num_rare_looks, group=pixc)
+        dic={}
+        data.add_variable_attributes('eff_num_rare_looks', dic, group=pixc)
         fill_vector_param(np.full(self.nb_water_pix, 7.), 'eff_num_rare_looks', self.nb_water_pix, data, group=pixc) 
         
         #---------------------
 
         data.add_variable('latitude', np.float64, 'points', my_var.FV_NETCDF["float64"], compress, group=pixc)
         data.add_variable_attribute('latitude', 'units', 'degrees_north', group=pixc)
-        dic_latitude={'long_name':'latitude (positive N, negative S)','standard_name':'latitude','units':'degrees_north','valid_min':'-80','valid_max':'80','comment':'Geodetic latitude [-80,80] (degrees north of equator) of the pixel'}
-        data.add_variable_attributes('latitude', dic_latitude, group=pixc)
+        dic={'long_name':'latitude (positive N, negative S)','standard_name':'latitude','units':'degrees_north','valid_min':'-80','valid_max':'80','comment':'Geodetic latitude [-80,80] (degrees north of equator) of the pixel'}
+        data.add_variable_attributes('latitude', dic, group=pixc)
         fill_vector_param(self.latitude, 'latitude', self.nb_water_pix, data, group=pixc)
 
         data.add_variable('longitude', np.float64, 'points', my_var.FV_NETCDF["float64"], compress, group=pixc)
         data.add_variable_attribute('longitude', 'units', 'degrees_east', group=pixc)
-        dic_longitude={'long_name':'longitude (degrees East)','standard_name':'longitude','units':'degrees_north','valid_min':'-180','valid_max':'180','comment':'Longitude [-180,180] (east of the Greenwich meridian) of the pixel'}
-        data.add_variable_attributes('longitude', dic_longitude, group=pixc)
+        dic={'long_name':'longitude (degrees East)','standard_name':'longitude','units':'degrees_north','valid_min':'-180','valid_max':'180','comment':'Longitude [-180,180] (east of the Greenwich meridian) of the pixel'}
+        data.add_variable_attributes('longitude', dic, group=pixc)
         fill_vector_param(self.longitude, 'longitude', self.nb_water_pix, data, group=pixc)
 
         data.add_variable('height', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         data.add_variable_attribute('height', 'units', 'm', group=pixc)
-        dic_height={'long_name':'height above reference ellipsoid','units':'m','valid_min':'-1500','valid_max':'15000','coordinates':'longitude latitude','comment':'Approximate cross-track location of the pixel'}
-        data.add_variable_attributes('height', dic_height, group=pixc)
+        dic={'long_name':'height above reference ellipsoid','units':'m','valid_min':'-1500','valid_max':'15000','coordinates':'longitude latitude','comment':'Approximate cross-track location of the pixel'}
+        data.add_variable_attributes('height', dic, group=pixc)
         fill_vector_param(self.height, 'height', self.nb_water_pix, data, group=pixc)
         
         #---------------------
 
         data.add_variable('cross_track', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_cross_track={'long_name':'approximate cross-track location','units':'m','valid_min':'0','valid_max':'75000','coordinates':'longitude latitude','comment':'Approximate cross-track location of the pixel'}
-        data.add_variable_attributes('cross_track', dic_cross_track, group=pixc)
+        dic={'long_name':'approximate cross-track location','units':'m','valid_min':'0','valid_max':'75000','coordinates':'longitude latitude','comment':'Approximate cross-track location of the pixel'}
+        data.add_variable_attributes('cross_track', dic, group=pixc)
         fill_vector_param(self.crosstrack, 'cross_track', self.nb_water_pix, data, group=pixc)
 
         data.add_variable('pixel_area', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_pixel_area={'long_name':'pixel area','units':'m²','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Pixel area'}
-        data.add_variable_attributes('pixel_area', dic_pixel_area, group=pixc)
+        dic={'long_name':'pixel area','units':'m²','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Pixel area'}
+        data.add_variable_attributes('pixel_area', dic, group=pixc)
         fill_vector_param(self.pixel_area, 'pixel_area', self.nb_water_pix, data, group=pixc) 
 
         data.add_variable('inc', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_inc={'long_name':'incidence angle','units':'degrees','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'incidence angle'}
-        data.add_variable_attributes('inc', dic_inc, group=pixc)
+        dic={'long_name':'incidence angle','units':'degrees','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'incidence angle'}
+        data.add_variable_attributes('inc', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'inc', self.nb_water_pix, data, group=pixc)
 
         #----------------------
         
         data.add_variable('phase_noise_std', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_phase_noise_std={'long_name':'phase noise standard deviation','units':'degrees','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Estimate of the phase noise standard deviation'}
-        data.add_variable_attributes('phase_noise_std', dic_phase_noise_std, group=pixc)
+        dic={'long_name':'phase noise standard deviation','units':'degrees','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Estimate of the phase noise standard deviation'}
+        data.add_variable_attributes('phase_noise_std', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'phase_noise_std', self.nb_water_pix, data, group=pixc)
 
         data.add_variable('dlatitude_dphase', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_dlatitude_dphase={'long_name':'sensitivity of latitude estimate to interferogram phase','units':'degrees/radians','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'sensitivity of the latitude estimate to the interferogram'}
-        data.add_variable_attributes('dlatitude_dphase', dic_dlatitude_dphase, group=pixc)
+        dic={'long_name':'sensitivity of latitude estimate to interferogram phase','units':'degrees/radians','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'sensitivity of the latitude estimate to the interferogram'}
+        data.add_variable_attributes('dlatitude_dphase', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'dlatitude_dphase', self.nb_water_pix, data, group=pixc)
 
         data.add_variable('dlongitude_dphase', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_dlongitude_dphase={'long_name':'sensitivity of longitude estimate to interferogram phase','units':'degrees/radian','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'sensitivity of the longitude estimate to the interferogram'}
-        data.add_variable_attributes('dlongitude_dphase', dic_dlongitude_dphase, group=pixc)
+        dic={'long_name':'sensitivity of longitude estimate to interferogram phase','units':'degrees/radian','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'sensitivity of the longitude estimate to the interferogram'}
+        data.add_variable_attributes('dlongitude_dphase', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'dlongitude_dphase', self.nb_water_pix, data, group=pixc)  
 
         data.add_variable('dheight_dphase', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_dheight_dphase={'long_name':'sensitivity of height estimate to interferogram phase','units':'m/radian','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'sensitivity of the height estimate to the interferogram phase'}
-        data.add_variable_attributes('dheight_dphase', dic_dheight_dphase, group=pixc)
+        dicdheight_dphase={'long_name':'sensitivity of height estimate to interferogram phase','units':'m/radian','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'sensitivity of the height estimate to the interferogram phase'}
+        data.add_variable_attributes('dheight_dphase', dicdheight_dphase, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'dheight_dphase', self.nb_water_pix, data, group=pixc) 
 
         data.add_variable('dheight_droll', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_dheight_droll={'long_name':'sensitivity of height estimates to spacecraft roll','units':'m/degrees','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'sensitivity of the height estimate to the spacecraft roll'}
-        data.add_variable_attributes('dheight_droll', dic_dheight_droll, group=pixc)
+        dic={'long_name':'sensitivity of height estimates to spacecraft roll','units':'m/degrees','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'sensitivity of the height estimate to the spacecraft roll'}
+        data.add_variable_attributes('dheight_droll', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'dheight_droll', self.nb_water_pix, data, group=pixc)
 
         data.add_variable('dheight_dbaseline', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_dheight_dbaseline={'long_name':'sensitivity of height estimate to interferometric baseline','units':'m/m','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'sensitivity of the height estimate to the interferometric baseline'}
-        data.add_variable_attributes('dheight_dbaseline', dic_dheight_dbaseline, group=pixc)
+        dic={'long_name':'sensitivity of height estimate to interferometric baseline','units':'m/m','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'sensitivity of the height estimate to the interferometric baseline'}
+        data.add_variable_attributes('dheight_dbaseline', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'dheight_dbaseline', self.nb_water_pix, data, group=pixc)  
 
         data.add_variable('dheight_drange', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_dheight_drange={'long_name':'sensitivity of height estimate to range (delay)','units':'m/m','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'sensitivity of the height estimate to the range (delay)'}
-        data.add_variable_attributes('dheight_drange', dic_dheight_drange, group=pixc)
+        dic={'long_name':'sensitivity of height estimate to range (delay)','units':'m/m','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'sensitivity of the height estimate to the range (delay)'}
+        data.add_variable_attributes('dheight_drange', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'dheight_drange', self.nb_water_pix, data, group=pixc) 
 
         data.add_variable('darea_dheight', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic_darea_dheight={'long_name':'sensitivity of pixel area to reference height','units':'m²/m','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'sensitivity of the pixel area to the reference height'}
-        data.add_variable_attributes('darea_dheight', dic_darea_dheight, group=pixc)
+        dic={'long_name':'sensitivity of pixel area to reference height','units':'m²/m','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'sensitivity of the pixel area to the reference height'}
+        data.add_variable_attributes('darea_dheight', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'darea_dheight', self.nb_water_pix, data, group=pixc)
 
         #--------------------------
         
         data.add_variable('illumination_time', np.float64, 'points', my_var.FV_NETCDF["float64"], compress, group=pixc)
+        dic={'long_name':'time of illumination of each pixel (UTC)','standard_name':'time','calendar':'gregorian','leap_second':'YYYY-MM-DD hh:mm:ss','units':'seconds since 2000-01-01 00:00:00.000','comment':'Time of measurement in seconds in the UTC time scale since 1 jan 2000 00:00:00 UTC. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the attribute leap_second is set to the UTC time at which the leap second occurs'}
+        data.add_variable_attributes('illumination_time', dic, group=pixc)
         fill_vector_param(self.computeTime_UTC(self.illumination_time), 'illumination_time', self.nb_water_pix, data, group=pixc)
         data.add_variable('illumination_time_tai', np.float64, 'points', my_var.FV_NETCDF["float64"], compress, group=pixc)
+        dic={'long_name':'time of illumination of each pixel (TAI)','standard_name':'time','calendar':'gregorian','units':'seconds since 2000-01-01 00:00:00.000','comment':'Time of measurement in seconds in the TAI time scale since 1 jan 2000 00:00:00.000 TAI. This time scale contains no leap seconds. The difference (in seconds) with time in UTC is given by the attribute [illumination_time:tai_utc_difference]'}
+        data.add_variable_attributes('illumination_time_tai', dic, group=pixc)
         fill_vector_param(self.computeTime_TAI(self.illumination_time), 'illumination_time_tai', self.nb_water_pix, data, group=pixc)  # TODO: to improve
         
         data.add_variable('eff_num_medium_looks', np.int32, 'points', my_var.FV_NETCDF["int32"], compress, group=pixc)
+        dic={'long_name':'effective number of medium looks','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Effective number of independent looks taken in forming the medium interferogram (after adaptative averaging)'}
+        data.add_variable_attributes('eff_num_medium_looks', dic, group=pixc)
         fill_vector_param(np.full(self.nb_water_pix, 63.), 'eff_num_medium_looks', self.nb_water_pix, data, group=pixc)
         data.add_variable('sig0', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        dic={'long_name':'sigma0','units':'1','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Normalized radar cross section, or backscatter brightness'}
+        data.add_variable_attributes('sig0', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'sig0', self.nb_water_pix, data, group=pixc)
         data.add_variable('phase_unwrapping_region', np.int32, 'points', my_var.FV_NETCDF["int32"], compress, group=pixc)
+        dic={'long_name':'phase unwrapping region index','units':'1','valid_min':'-1','valid_max':'99999999','coordinates':'longitude latitude','comment':'Phase unwrapping region index'}
+        data.add_variable_attributes('phase_unwrapping_region', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'phase_unwrapping_region', self.nb_water_pix, data, group=pixc)
         
         data.add_variable('instrument_range_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        dic={'long_name':'instrument range correction','units':'m','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Term that incorporates all calibration corrections applied to range before geolocation'}
+        data.add_variables_attributes('instrument_range_cor', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'instrument_range_cor', self.nb_water_pix, data, group=pixc)
         data.add_variable('instrument_phase_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        dic={'long_name':'instrument phase correction','units':'radians','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Term that incorporates all calibration corrections applied to attitude before geolocation'}
+        data.add_variable_attributes('instrument_phase_cor', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'instrument_phase_cor', self.nb_water_pix, data, group=pixc)
         data.add_variable('instrument_baseline_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        dic={'long_name':'instrument baseline correction','units':'m','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Term that incorporates all calibration corrections applied to attitude before geolocation'}
+        data.add_variable_attributes('instrument_baseline_cor', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'instrument_baseline_cor', self.nb_water_pix, data, group=pixc)
         data.add_variable('instrument_attitude_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        dic={'long_name':'instrument attitude correction','units':'degrees','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Term that incorporates all calibration corrections applied to attiude before geolocation'}
+        data.add_variable_attributes('instrument_attitude_cor', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'instrument_attitude_cor', self.nb_water_pix, data, group=pixc)
 
         data.add_variable('model_dry_tropo_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        dic={'long_name':'dry troposphere vertical correction','source':'European Centre for Medium-Range Weather Forecasts','institution':'ECMWF','units':'m','valid_min':'-3','valid_max':'-1.5','coordinates':'longitude latitude','comment':'Equivalent vertical correction due to wet troposphere delay.The reported pixel height, latitude and longitude are computed after adding negative media corrections to uncorrected range along slant-range paths, accounting for the differential delay between two KaRIn antennas. The equivalent vertical correction is computed by applying obliquity factors to the slant-path correction. Adding the reported correction to the reported pixel height results in the uncorrected pixel height'}
+        data.add_variable_attributes('model_dry_tropo_cor', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'model_dry_tropo_cor', self.nb_water_pix, data, group=pixc)
         data.add_variable('model_wet_tropo_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        dic={'long_name':'wet troposphere vertical correction','source':'European Centre for Medium-Range Weather Forecasts','institution':'ECMWF','units':'m','valid_min':'-1','valid_max':'0','coordinates':'longitude latitude','comment':'Equivalent vertical correction due to wet troposphere delay. The reported pixel height, latitude and longitude are computed after adding negative media corrections to uncorrected range along slant-range paths, accounting for the differential delay between the two KaRIn antennas. The equivalent vertical correction is computed by applying obliquity factors to the slant-path correction. Adding the reported correction to the reported pixel height results in the uncorrected pixel height'}
+        data.add_variable_attributes('model_wet_tropo_cor', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'model_wet_tropo_cor', self.nb_water_pix, data, group=pixc)
         data.add_variable('iono_cor_gim_ka', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        dic={'long_name':'ionosphere vertical correction','source':'Global Ionosphere Maps','institution':'JPL','units':'m','valid_min':'-0.5','valid_max':'0','coordinates':'longitude latitude','comment':'Equivalent vertical correction due to ionosphere delay. The reported pixel height, latitude and longitude are computed after adding negative media corrections to uncorrected range along slant-range paths, accounting for the differential delay between the two KaRIn antennas. The equivalent vertical correction is computed by applying obliquity factors to the slant-path correction. Adding the reported correction to the reported pixel height results in the uncorrected pixel height'}
+        data.add_variable_attributes('iono_cor_gim_ka', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'iono_cor_gim_ka', self.nb_water_pix, data, group=pixc)     
         data.add_variable('xover_height_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        dic={'long_name':'height correction from KaRIn crossovers','units':'m','valid_min':'-10','valid_max':'10','coordinates':'longitude latitude','comment':'Height correction from KaRIn crossover calibration. The correction is applied before geolocation but reported as an equivalent height correction'}
+        data.add_variable_attributes('xover_height_cor', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'xover_height_cor', self.nb_water_pix, data, group=pixc)
         # ~ data.add_variable('height_cor_xover', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         # ~ fill_vector_param(np.zeros(self.nb_water_pix), 'height_cor_xover', self.nb_water_pix, data, group=pixc)        
         data.add_variable('geoid', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        dic={'long_name':'geoid height','standard_name':'geoid_height_above_reference_ellipsoid','source':'EGM2008(Pavlis et al., 2012','units':'m','valid_min':'-150','valid_max':'150','coordinates':'longitude latitude','comment':'Geoid height above the reference ellipsoid with a correction to refer the value to the mean tide system, i.e. includes the permanent tide (zero frequency)'}
+        data.add_variable_attributes('geoid', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'geoid', self.nb_water_pix, data, group=pixc)
         data.add_variable('solid_earth_tide', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        dic={'long_name':'solid Earth tide height','source':'Cartwright and Taylor (1971) and Cartwright and Edden (1973)','units':'m','valid_min':'-1','valid_max':'1','coordinates':'longitude latitude','comment':'Geoid height above the reference ellipsoid with a correction to refer the value to the main tide system, i.e. includes the permanent tide (zero frequency)'}
+        data.add_variable_attributes('solid_earth_tide', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'solid_earth_tide', self.nb_water_pix, data, group=pixc)
         data.add_variable('load_tide_sol1', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        dic={'long_name':'geocentric load tide height from model 1','source':'FES2014b(Carrere et al.,2016)','institution':'LEGOS/CNES','units':'m','valid_min':'-0.2','valid_max':'0.2','coordinates':'longitude latitude','comment':'Geocentric load tide height. The effect of the ocean tide loading of the earths crust. This value is reported for referenced for reference but is not applied to the reported height'}
+        data.add_variable_attributes('load_tide_sol1', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'load_tide_sol1', self.nb_water_pix, data, group=pixc)
         data.add_variable('load_tide_sol2', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        dic={'long_name';'geocentric load tide height from model 2','source':'GOT4.10c(Ray, 2013)','institution':'GSFC','units':'m','valid_min':'-0.2','valid_max':'0.2','coordinates':'longitude latitude','comment':'Geocentric load tide height. The effect of the ocean tide loading of the Earth’s crust. This value is reported for reference but is not applied to the reported height'}
+        data.add_variable_attributes('load_tide_sol2', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'load_tide_sol2', self.nb_water_pix, data, group=pixc)
         data.add_variable('pole_tide', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        dic={'long_name':'geocentric pole tide height','source':'Wahr(1985) and Desai et al.(2015)','units':'m','valid_min':'-0.2','valid_max':'0.2','coordinates':'longitude latitude','comment':'Geocentric pole tide height. The total of the contribution from the solid-Earth (body) pole tide height and the load pole tide height (i.e., the effect of the ocean pole tide loading of the Earth’s crust)'}
+        data.add_variable_attributes('pole_tide', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'pole_tide', self.nb_water_pix, data, group=pixc)
         data.add_variable('pixc_qual', np.int8, 'points', my_var.FV_NETCDF["int8"], compress, group=pixc)
+        dic={'standard_name':'status_flag','flag_meanings':'good bad','flag_values':'0 1','valid_min':'0','valid_max':'1','coordinates':'longitude latitude','comment':'Quality flag dor pixel cloud data'}
+        data.add_variable_attributes('pixc_qual', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'pixc_qual', self.nb_water_pix, data, group=pixc) 
         
         # ===============
