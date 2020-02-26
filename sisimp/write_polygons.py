@@ -344,13 +344,11 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     ri = IN_attributes.near_range + r * IN_attributes.range_sampling  # Radar-to-ground distance
     
     Hi = IN_attributes.alt[az]  # Altitude
-    angles = np.arccos(Hi/ri)  # Look angles
-    pixel_area = IN_attributes.azimuth_spacing * IN_attributes.range_sampling / np.sin(angles)  # Pixel area
     
-    # 3 - Build cross-track distance array
-    # Compute theorical cross-track distance for water pixels
-    sign = [-1, 1][IN_swath.lower() == 'right']
-    y = sign * np.sqrt((ri + Hi) * (ri - Hi) / (1. + Hi / GEN_APPROX_RAD_EARTH))
+    # ~ # 3 - Build cross-track distance array
+    # ~ # Compute theorical cross-track distance for water pixels
+    # ~ sign = [-1, 1][IN_swath.lower() == 'right']
+    # ~ y = sign * np.sqrt((ri + Hi) * (ri - Hi) / (1. + Hi / GEN_APPROX_RAD_EARTH))
 
     elevation_tab = np.zeros(len(az))
 
@@ -371,7 +369,16 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
 
             lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
-            
+
+
+    # 3 - Build cross-track distance array
+    # Compute theorical cross-track distance for water pixels
+    sign = [-1, 1][IN_swath.lower() == 'right']
+    y = sign * np.sqrt((ri + Hi - elevation_tab) * (ri - (Hi-elevation_tab)) / (1. + (Hi-elevation_tab) / GEN_APPROX_RAD_EARTH))
+
+    angles = np.arccos((Hi - elevation_tab)/ri)  # Look angles
+    pixel_area = IN_attributes.azimuth_spacing * IN_attributes.range_sampling / np.sin(angles)  # Pixel area
+    
     # 4.1 - Compute noise over height
     if IN_attributes.dark_water.lower() == "yes":
         noise_seed = int(str(time.time()).split('.')[1])
