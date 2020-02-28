@@ -494,7 +494,7 @@ class l2_hr_pixc(object):
         data.add_variable_attributes('load_tide_sol1', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'load_tide_sol1', self.nb_water_pix, data, group=pixc)
         data.add_variable('load_tide_sol2', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        dic={'long_name';'geocentric load tide height from model 2','source':'GOT4.10c(Ray, 2013)','institution':'GSFC','units':'m','valid_min':'-0.2','valid_max':'0.2','coordinates':'longitude latitude','comment':'Geocentric load tide height. The effect of the ocean tide loading of the Earth’s crust. This value is reported for reference but is not applied to the reported height'}
+        dic={'long_name':'geocentric load tide height from model 2','source':'GOT4.10c(Ray, 2013)','institution':'GSFC','units':'m','valid_min':'-0.2','valid_max':'0.2','coordinates':'longitude latitude','comment':'Geocentric load tide height. The effect of the ocean tide loading of the Earth’s crust. This value is reported for reference but is not applied to the reported height'}
         data.add_variable_attributes('load_tide_sol2', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'load_tide_sol2', self.nb_water_pix, data, group=pixc)
         data.add_variable('pole_tide', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
@@ -519,63 +519,105 @@ class l2_hr_pixc(object):
 
         # Group variables
         data.add_variable('time', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'time in UTC','standard_name':'time','calendar':'gregorian','tai_utc_difference':'[Value of TAI - UTC at first record]','leap_second':'YYYY-MM-DD hh:mm:ss','units':'seconds since 2000-01-01 00:00:00.000','comment':'Time of measurement in seconds in the UTC time scale since 1 Jan 2000 00:00:00 UTC. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the attribute leap_second is set to the UTC time at which the leap second occurs'}
+        data.add_variable_attributes('time', dic, group=sensor)
         fill_vector_param(self.computeTime_UTC(self.nadir_time), 'time', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('time_tai', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'time in TAI','standard_name':'time','calendar':'gregorian','units':'second since 2000-01-01 00:00:00.000','comment':'Time of measurement in seconds in the UTC time scale since 1 Jan 2000 00:00:00 UTC. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the attribute leap_second is set to the UTC time at which the leap second occurs'}
+        data.add_variable_attributes('time_tai', dic, group=sensor)
         fill_vector_param(self.computeTime_TAI(self.nadir_time), 'time_tai', self.nb_nadir_pix, data, group=sensor)
         
         data.add_variable('latitude', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
-        data.add_variable_attribute('latitude', 'units', 'degrees_north', group=sensor)
+        dic={'long_name':'latitude (positive N, negative S) of the spacecraft','standard_name':'latitude','units':'degrees_north','valid_min':'-80.0','valid_max':'80.0','comment':'Geodetic latitude of the KMSF origin with respect to the reference ellipsoid'}
+        data.add_variable_attributes('latitude', dic, group=sensor)
         fill_vector_param(self.nadir_latitude, 'latitude', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('longitude', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
-        data.add_variable_attribute('longitude', 'units', 'degrees_east', group=sensor)
+        dic={'long_name':'longitude (degrees east) of the spacecraft','standard_name':'longitude','units':'degrees_east','valid_min':'-180.0','valid_max':'180.0','comment':'Longitude of the KMSF origin with positive values indicating longitudes east of the greenwich meridian'}
+        data.add_variable_attributes('longitude', dic, group=sensor)
         fill_vector_param(self.nadir_longitude, 'longitude', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('altitude', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'altitude of the spacecraft','units':'m','valid_min':'0.0','valid_max':'10000000.0','coordinates':'longitude latitude','comment':'Altitude above the reference ellipsoid of the KMSF origin'}
+        data.add_variable_attributes('altitude', dic, group=sensor)
         fill_vector_param(self.nadir_altitude, 'altitude', self.nb_nadir_pix, data, group=sensor)
         
         data.add_variable('roll', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
-        data.add_variable_attribute('roll', 'units', 'degrees', group=sensor)
+        dic={'long_name':'roll of the spacecraft','units':'degrees','valid_min':'-180','valid_max':'180','coordinates':'longitude latitude','comment':'KMSF attitude roll angle; positive values move the +y antenna down'}
+        data.add_variable_attributes('roll', dic, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'roll', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('pitch', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
-        data.add_variable_attribute('pitch', 'units', 'degrees', group=sensor)
+        dic={'long_name':'pitch of the spacecraft','units':'degrees','valid_min':'-180','valid_max':'180','coordinates':'longitude latitude','comment':'KMSF attitude pitch angle; positive values move the KMSF +x axis up'}
+        data.add_variable_attributes('pitch', dic, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'pitch', self.nb_nadir_pix, data, group=sensor)  
         data.add_variable('yaw', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
-        data.add_variable_attribute('yaw', 'units', 'degrees', group=sensor)
+        dic={'long_name':'yaw of the spacecraft','units':'degrees','valid_min':'-180','valid_max':'180','coordinates':'longitude latitude','comment':'KMSF attitude yaw angle relative to the nadir track. The yaw angle is a right-handed rotation about the nadir (downward) direction. A yaw value of 0 deg indicates that the KMSF +x axis is aligned with the horizontal component of the Earth-relative velocity vector. A yaw value of 180 deg indicates that the spacecraft is in a yaw-flipped state, with the KMSF -x axis aligned with the horizontal component of the Earth-relative velocity vector'}
+        data.add_variable_attributes('yaw', dic, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'yaw', self.nb_nadir_pix, data, group=sensor)   
         data.add_variable('velocity_heading', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'heading of the spacecraft Earth-relative velocity vector','units':'degrees','valid_min':'0','valid_max':'360','coordinates':'longitude latitude','comment':'KMSF attitude yaw angle relative to the nadir track. The yaw angle is a right-handed rotation about the nadir (downward) direction. A yaw value of 0 deg indicates that the KMSF +x axis is aligned with the horizontal component of the Earth-relative velocity vector. A yaw value of 180 deg indicates that the spacecraft is in a yaw-flipped state, with the KMSF -x axis aligned with the horizontal component of the Earth-relative velocity vector'}
+        data.add_variable_attributes('velocity_heading', dic, group=sensor)
         fill_vector_param(self.nadir_heading, 'velocity_heading', self.nb_nadir_pix, data, group=sensor)
-        data.add_variable_attribute('velocity_heading', 'units', 'degrees', group=sensor)
         
         data.add_variable('x', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'x coordinates of the KMSF in the ECEF frame','units':'m','valid_min':'-10000000.0','valid_max':'10000000.0','comment':'x coordinate of the KMSF origin in ECEF frame'}
+        data.add_variable_attributes('x', dic, group=sensor)
         fill_vector_param(self.nadir_x, 'x', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('y', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'y coordinates of the KMSF in the ECEF frame','units':'m','valid_min':'-10000000.0','valid_max':'10000000.0','comment':'y coordinate of the KMSF origin in ECEF frame'}
+        data.add_variable_attributes('y', dic, group=sensor)
         fill_vector_param(self.nadir_y, 'y', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('z', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'z coordinates of the KMSF in the ECEF frame','units':'m','valid_min':'-10000000.0','valid_max':'10000000.0','comment':'z coordinate of the KMSF origin in ECEF frame'}
+        data.add_variable_attributes('z', dic, group=sensor)
         fill_vector_param(self.nadir_z, 'z', self.nb_nadir_pix, data, group=sensor)
     
         data.add_variable('vx', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'x component of the spacecraft velocity in the ECEF frame','units':'m/s','valid_min':'-10000.0','valid_max':'10000000.0','comment':'KMSF velocity component in x direction in the ECEF'}
+        data.add_variable_attributes('vx', dic, group=sensor)
         fill_vector_param(self.nadir_vx, 'vx', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('vy', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'y component of the spacecraft velocity in the ECEF frame','units':'m/s','valid_min':'-10000.0','valid_max':'10000000.0','comment':'KMSF velocity component in y direction in the ECEF'}
+        data.add_variable_attributes('vy', dic, group=sensor)
         fill_vector_param(self.nadir_vy, 'vy', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('vz', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'z component of the spacecraft velocity in the ECEF frame','units':'m/s','valid_min':'-10000.0','valid_max':'10000000.0','comment':'KMSF velocity component in z direction in the ECEF'}
+        data.add_variable_attributes('vz', dic, group=sensor)
         fill_vector_param(self.nadir_vz, 'vz', self.nb_nadir_pix, data, group=sensor)
         
         data.add_variable('plus_y_antenna_x', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'x coordinate of plus_y antenna phase center in the ECEF frame','units':'m','valid_min':'-10000000.0','valid_max':'10000000.0','comment':'x coordinate of the plus_y antenna phase center in the ECEF frame'}
+        data.add_variable_attributes('plus_y_antenna_x', dic, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'plus_y_antenna_x', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('plus_y_antenna_y', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'y coordinate of plus_y antenna phase center in the ECEF frame','units':'m','valid_min':'-10000000.0','valid_max':'10000000.0','comment':'x coordinate of the plus_y antenna phase center in the ECEF frame'}
+        data.add_variable_attributes('plus_y_antenna_y', dic, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'plus_y_antenna_y', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('plus_y_antenna_z', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'z coordinate of plus_y antenna phase center in the ECEF frame','units':'m','valid_min':'-10000000.0','valid_max':'10000000.0','comment':'z coordinate of the plus_y antenna phase center in the ECEF frame'}
+        data.add_variable_attributes('plus_y_antenna_z', dic, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'plus_y_antenna_z', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('minus_y_antenna_x', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'x coordinate of the minus_y antenna phase center in the ECEF frame','units':'m','valid_min':'-10000000.0','valid_max':'10000000.0','comment':'x coordinate of the minus_y antenna phase center in the ECEF frame'}
+        data.add_variable_attributes('minus_y_antenna_x', dic, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'minus_y_antenna_x', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('minus_y_antenna_y', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'y coordinate of the minus_y antenna phase center in the ECEF frame','units':'m','valid_min':'-10000000.0','valid_max':'10000000.0','comment':'y coordinate of the minus_y antenna phase center in the ECEF frame'}
+        data.add_variable_attributes('minus_y_antenna_y', dic, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'minus_y_antenna_y', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('minus_y_antenna_z', np.float64, 'num_tvps', my_var.FV_NETCDF["float64"], compress, group=sensor)
+        dic={'long_name':'z coordinate of the minus_y antenna phase center in the ECEF frame','units':'m','valid_min':'-10000000.0','valid_max':'10000000.0','comment':'z coordinate of the minus_y antenna phase center in the ECEF frame'}
+        data.add_variable_attributes('minus_y_antenna_z', dic, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'minus_y_antenna_z', self.nb_nadir_pix, data, group=sensor)
         data.add_variable('record_counter', np.int32, 'num_tvps', my_var.FV_NETCDF["int32"], compress, group=sensor)
+        dic={'long_name':'record counter','units':'1','valid_min':'1','valid_max':'999999999','coordinates':'longitude latitude','comment':'Index of the TVP record used to align data samples across granules'}
+        data.add_variable_attributes('record_counter', dic, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'record_counter', self.nb_nadir_pix, data, group=sensor) 
         data.add_variable('sc_event_flag', np.int8, 'num_tvps', my_var.FV_NETCDF["int8"], compress, group=sensor)
+        dic={'standard_name':'status_flag','flag_meanings':'nominal not_nominal','flag_values':'0 1','valid_min':'0','valid_max':'1','coordinates':'longitude latitude','comment':'spacecraft event flag'}
+        data.add_variable_attributes('sc_event_flag', dic, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'sc_event_flag', self.nb_nadir_pix, data, group=sensor) 
         data.add_variable('tvp_qual', np.int8, 'num_tvps', my_var.FV_NETCDF["int8"], compress, group=sensor)
+        dic={'standard_name':'status_flag','flag_meanings':'good bad','flag_values':'0 1','valid_min':'0','valid_max':'1','coordinates':'longitude latitude','comment':'spacecraft event flag'}
+        data.add_variable_attributes('tvp_qual', dic, group=sensor)
         fill_vector_param(np.zeros(self.nb_nadir_pix), 'tvp_qual', self.nb_nadir_pix, data, group=sensor) 
                 
         # =================
@@ -591,8 +633,12 @@ class l2_hr_pixc(object):
 
         # Group variables
         data.add_variable('noise_plus_y', np.float32, 'num_lines', my_var.FV_NETCDF["float32"], compress, group=noise)
+        dic={'long_name':'Noise estimate for the plus_y channel','units':'1','valid_min':'0.0','valid_max':'1e+20','comment':'Noise power for the plus_y channel expressed in linear units (arbitrary units that give noise-equivalent sigma0 when normalized by the X factor)'}
+        data.add_variable_attributes('noise_plus_y', dic, group=noise)
         fill_vector_param(np.full(self.nb_nadir_pix, -116.845780895788), 'noise_plus_y', self.nb_nadir_pix, data, group=noise)
         data.add_variable('noise_minus_y', np.float32, 'num_lines', my_var.FV_NETCDF["float32"], compress, group=noise)
+        dic={'long_name':'Noise estimate for the minus_y channel','units':'1','valid_min':'0.0','valid_max':'1e+20','comment':'Noise power for the minus_y channel expressed in linear units (arbitrary units that give noise-equivalent sigma0 when normalized by the X factor)'}
+        data.add_variable_attributes('noise_minus_y', dic, group=noise)
         fill_vector_param(np.full(self.nb_nadir_pix, -116.845780895788), 'noise_minus_y', self.nb_nadir_pix, data, group=noise)
 
         # Close NetCDF file
