@@ -30,16 +30,16 @@ import os
 from lxml import etree as ET
 from osgeo import ogr, osr
 
-import cnes.common.lib.my_tools as my_tools
-import cnes.common.lib.my_variables as my_var
-
 import cnes.common.service_error as service_error
 import cnes.common.service_config_file as service_config_file
+
+import cnes.common.lib.my_tools as my_tools
+import cnes.common.lib.my_variables as my_var
 
 
 def check_lake_db(in_xml_tree):
     """
-    Check lake_db file
+    Check lake_db filename: value in LakeTile XML files and in command file should be the same
     
     :param IN_xml_tree: XML tree
     :type IN_xml_tree: etree.parse
@@ -48,31 +48,36 @@ def check_lake_db(in_xml_tree):
     cfg = service_config_file.get_instance()
     # Get logger
     logger = logging.getLogger("locnes_products_shapefile")
-    logger.info("Read xml lake_tile")
+    logger.info("Compare LAKE_DB value in LakeTile XML file to value in command file")
     
-    # check Lake database
+    # Read PLD filename in the XML file
     try:
         lake_db_xml = in_xml_tree.xpath("//swot_product/processing_parameters/lake_db")[0].text
-    except(IndexError):
+    except(IndexError):  # Default is None
         lake_db_xml = "None"
-        logger.error("no lake_db information in lake_tile xml file")
+        logger.error("NO lake_db information in LakeTile XML file")
     
+    # Retrieve PLD filename from command file
     lake_db = cfg.get('DATABASES', 'LAKE_DB')
+    
+    # Both should be the same
     if (lake_db is None) and (lake_db_xml == "None"):
-        logger.warning('LAKE_DB not filled => LakeTile product not linked to a lake database')
+        logger.warning('LAKE_DB not filled => LakeSP product not linked to a prior lake database')
     else:
         if (lake_db is None):
-            message = "ERROR bad lake_db. In xml file: " + lake_db_xml + " in config file: None"
+            message = "ERROR bad lake_db. In XML file: " + lake_db_xml + " WHEREAS in config file: None"
             raise service_error.ProcessingError(message, logger)
         elif (os.path.basename(lake_db) != lake_db_xml):
-            message = "ERROR bad lake_db. In xml file: " + lake_db_xml + " in config file: " + os.path.basename(lake_db)
+            message = "ERROR bad lake_db. In XML file: " + lake_db_xml + " WHEREAS in config file: " + os.path.basename(lake_db)
             raise service_error.ProcessingError(message, logger)
+            
+    # Print PLD filename in log
     logger.debug('LAKE_DB = ' + str(cfg.get('DATABASES', 'LAKE_DB')))
 
 
 def check_lake_db_id(in_xml_tree):
     """
-    Check lake_db file
+    Check lake_db_id value: value in LakeTile XML files and in command file should be the same
     
     :param IN_xml_tree: XML tree
     :type IN_xml_tree: etree.parse
@@ -81,23 +86,27 @@ def check_lake_db_id(in_xml_tree):
     cfg = service_config_file.get_instance()
     # Get logger
     logger = logging.getLogger("locnes_products_shapefile")
-    logger.info("Read xml lake_tile")
+    logger.info("Compare LAKE_DB_ID value in LakeTile XML file to value in command file")
 
-    # check lake_db_id
-    # Lake identifier attribute name in the database
+    # Read lake identifier in LakeTile XML file
     try:
         lake_db_id_xml = in_xml_tree.xpath("//swot_product/processing_parameters/lake_db_id")[0].text
     except(IndexError):
         lake_db_id_xml = "None"
-        logger.error("no lake_db_id information in lake_tile xml file")
+        logger.error("NO lake_db_id information in LakeTile XML file")
     
+    # Retrieve lake identifier from command file
     lake_db_id = cfg.get('DATABASES', 'LAKE_DB_ID')
+    
+    #☻ Both should be the same
     if (lake_db_id is None) or (lake_db_id_xml == "None"):
         logger.warning('LAKE_DB_ID not filled')
     else:
         if (lake_db_id != lake_db_id_xml):
-            message = "ERROR bad lake_db_id. In xml file: " + lake_db_id + " in config file: " + lake_db_id_xml
+            message = "ERROR bad lake_db_id. In XML file: " + lake_db_id + " WHEREAS in config file: " + lake_db_id_xml
             raise service_error.ProcessingError(message, logger)
+            
+    # Print lake identifier in log
     logger.debug('LAKE_DB_ID = ' + str(cfg.get('DATABASES', 'LAKE_DB_ID')))
 
 
@@ -108,36 +117,41 @@ def set_config_from_xml(in_xml_tree):
     :param IN_xml_tree: XML tree (typically from .shp.xml file)
     :type IN_xml_tree: etree.parse
     """
-
     # Get instance of service config file
     cfg = service_config_file.get_instance()
     # Get logger
     logger = logging.getLogger("locnes_products_shapefile")
-    logger.info("Read xml lake_tile")
+    logger.info("Read LakeTile XML")
     
-    # Check if lake db specify in the command file is the same
-    # check Lake database
+    # Check if lake db specified in the command file is the same
+    # Check Lake database filename
     check_lake_db(in_xml_tree)
-    # check lake_db_id
+    # Check lake_db_id value
     check_lake_db_id(in_xml_tree)
 
-    # add CONFIG_PARAMS section
     section = "CONFIG_PARAMS"
+    # If section doesn't exist: add and init values
+    # If exists: check values
     if section not in cfg.sections():
-        # add value if not in service_config_file
+        
+        # Add value if not in service_config_file
         cfg.add_section(section)
+        
         # Water flag = 3=water near land edge  4=interior water
         flag_water = in_xml_tree.xpath("//swot_product/processing_parameters/flag_water")[0].text
         cfg.set(section, "FLAG_WATER", flag_water)
         logger.debug('FLAG_WATER = ' + str(cfg.get('CONFIG_PARAMS', 'FLAG_WATER')))
+        
         # Dark water flag = 23=darkwater near land  24=interior dark water
         flag_dark = in_xml_tree.xpath("//swot_product/processing_parameters/flag_dark")[0].text
         cfg.set(section, "FLAG_DARK", flag_dark)
         logger.debug('FLAG_DARK = ' + str(cfg.get('CONFIG_PARAMS', 'FLAG_DARK')))
+        
         # Min size for a lake to generate a lake product (=polygon + attributes) for it
         min_size = float(in_xml_tree.xpath("//swot_product/processing_parameters/min_size")[0].text)
         cfg.set(section, "MIN_SIZE", min_size)
         logger.debug('MIN_SIZE = ' + str(cfg.get('CONFIG_PARAMS', 'MIN_SIZE')))
+        
         # Maximal standard deviation of height inside a lake (-1 = do not compute lake height segmentation)
         std_height_max = float(in_xml_tree.xpath("//swot_product/processing_parameters/std_height_max")[0].text)
         cfg.set(section, "STD_HEIGHT_MAX", std_height_max)
@@ -147,6 +161,7 @@ def set_config_from_xml(in_xml_tree):
         imp_geoloc = bool(in_xml_tree.xpath("//swot_product/processing_parameters/imp_geoloc")[0].text)
         cfg.set(section, "IMP_GEOLOC", imp_geoloc)
         logger.debug('IMP_GEOLOC = ' + str(cfg.get('CONFIG_PARAMS', 'IMP_GEOLOC')))
+        
         # Method to compute lake boundary or polygon hull
         # 0 = convex hull
         # 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library
@@ -155,11 +170,13 @@ def set_config_from_xml(in_xml_tree):
         hull_method = float(in_xml_tree.xpath("//swot_product/processing_parameters/hull_method")[0].text)
         cfg.set(section, "HULL_METHOD", hull_method)
         logger.debug('HULL_METHOD = ' + str(cfg.get('CONFIG_PARAMS', 'HULL_METHOD')))
-        # max number of pixel for hull computation 1
+        
+        # Max number of pixels for hull computation method 1
         nb_pix_max_delauney = int(in_xml_tree.xpath("//swot_product/processing_parameters/nb_pix_max_delauney")[0].text)
         cfg.set(section, "NB_PIX_MAX_DELAUNEY", nb_pix_max_delauney)
         logger.debug('NB_PIX_MAX_DELAUNEY = ' + str(cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY')))
-        # max number of contour points for hull computation 2
+        
+        # Max number of contour points for hull computation method 2
         nb_pix_max_contour = int(in_xml_tree.xpath("//swot_product/processing_parameters/nb_pix_max_contour")[0].text)
         cfg.set(section, "NB_PIX_MAX_CONTOUR", nb_pix_max_contour)
         logger.debug('NB_PIX_MAX_CONTOUR = ' + str(cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_CONTOUR')))
@@ -183,44 +200,50 @@ def set_config_from_xml(in_xml_tree):
         logger.debug('BIGLAKE_GRID_RES = ' + str(cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_RES')))
 
     else:
-        # check values
+        
+        # Check values
         try:
+            
             # Water flag = 3=water near land edge  4=interior water
             flag_water_xml = in_xml_tree.xpath("//swot_product/processing_parameters/flag_water")[0].text
             flag_water = cfg.get(section, "FLAG_WATER")
             if (flag_water_xml != flag_water):
-                message = "ERROR bad flag_water. In xml file: " + str(flag_water_xml) + " in config file: " + str(flag_water)
+                message = "ERROR bad flag_water. In XML file: " + str(flag_water_xml) + " WHEREAS in config file: " + str(flag_water)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('FLAG_WATER = ' + str(cfg.get('CONFIG_PARAMS', 'FLAG_WATER')))
+            
             # Dark water flag = 23=darkwater near land  24=interior dark water
             flag_dark_xml = in_xml_tree.xpath("//swot_product/processing_parameters/flag_dark")[0].text
             flag_dark = cfg.get(section, "FLAG_DARK")
             if (flag_dark_xml != flag_dark):
-                message = "ERROR bad flag_dark. In xml file: " + str(flag_dark_xml) + " in config file: " + str(flag_dark)
+                message = "ERROR bad flag_dark. In XML file: " + str(flag_dark_xml) + " WHEREAS in config file: " + str(flag_dark)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('FLAG_DARK = ' + str(cfg.get('CONFIG_PARAMS', 'FLAG_DARK')))
+            
             # Min size for a lake to generate a lake product (=polygon + attributes) for it
             min_size_xml = float(in_xml_tree.xpath("//swot_product/processing_parameters/min_size")[0].text)
             min_size = cfg.getfloat(section, "MIN_SIZE")
             if (min_size_xml != min_size):
-                message = "ERROR bad min_size. In xml file: " + str(min_size_xml) + " in config file: " + str(min_size)
+                message = "ERROR bad min_size. In XML file: " + str(min_size_xml) + " WHEREAS in config file: " + str(min_size)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('MIN_SIZE = ' + str(cfg.get('CONFIG_PARAMS', 'MIN_SIZE')))
+            
             # Maximal standard deviation of height inside a lake (-1 = do not compute lake height segmentation)
             std_height_max_xml = float(in_xml_tree.xpath("//swot_product/processing_parameters/std_height_max")[0].text)
             std_height_max = cfg.getfloat(section, "STD_HEIGHT_MAX")
             if (std_height_max_xml != std_height_max):
-                message = "ERROR bad std_height_max. In xml file: " + str(std_height_max_xml) + " in config file: " + str(std_height_max)
+                message = "ERROR bad std_height_max. In XML file: " + str(std_height_max_xml) + " WHEREAS in config file: " + str(std_height_max)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('STD_HEIGHT_MAX = ' + str(cfg.get('CONFIG_PARAMS', 'STD_HEIGHT_MAX')))
     
             # To improve PixC golocation (=True) or not (=False)
-            imp_geoloc_xml = bool(in_xml_tree.xpath("//swot_product/processing_parameters/imp_geoloc")[0].text)
+            imp_geoloc_xml = (in_xml_tree.xpath("//swot_product/processing_parameters/imp_geoloc")[0].text).lower() == "true"
             imp_geoloc = cfg.getboolean(section, "IMP_GEOLOC")
             if (imp_geoloc_xml != imp_geoloc):
-                message = "ERROR bad imp_geoloc. In xml file: " + str(imp_geoloc_xml) + " in config file: " + str(imp_geoloc)
+                message = "ERROR bad imp_geoloc. In XML file: " + str(imp_geoloc_xml) + " WHEREAS in config file: " + str(imp_geoloc)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('IMP_GEOLOC = ' + str(cfg.get('CONFIG_PARAMS', 'IMP_GEOLOC')))
+            
             # Method to compute lake boundary or polygon hull
             # 0 = convex hull
             # 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library
@@ -229,22 +252,24 @@ def set_config_from_xml(in_xml_tree):
             hull_method_xml = float(in_xml_tree.xpath("//swot_product/processing_parameters/hull_method")[0].text)
             hull_method = cfg.getfloat(section, "HULL_METHOD")
             if (hull_method_xml != hull_method):
-                message = "ERROR bad hull_method. In xml file: " + str(hull_method_xml) + " in config file: " + str(hull_method)
+                message = "ERROR bad hull_method. In XML file: " + str(hull_method_xml) + " WHEREAS in config file: " + str(hull_method)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('HULL_METHOD = ' + str(cfg.get('CONFIG_PARAMS', 'HULL_METHOD')))
-            # max number of pixel for hull computation 1
+            
+            # Max number of pixels for hull computation method 1
             nb_pix_max_delauney_xml = int(in_xml_tree.xpath("//swot_product/processing_parameters/nb_pix_max_delauney")[0].text)
             nb_pix_max_delauney = cfg.getint(section, "NB_PIX_MAX_DELAUNEY")
             if (nb_pix_max_delauney_xml != nb_pix_max_delauney):
-                message = "ERROR bad nb_pix_max_delauney. In xml file: " + str(nb_pix_max_delauney_xml) + " in config file: " \
+                message = "ERROR bad nb_pix_max_delauney. In XML file: " + str(nb_pix_max_delauney_xml) + " WHEREAS in config file: " \
                                                                          + str(nb_pix_max_delauney)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('NB_PIX_MAX_DELAUNEY = ' + str(cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY')))
-            # max number of contour points for hull computation 2
+            
+            # Max number of contour points for hull computation method 2
             nb_pix_max_contour_xml = int(in_xml_tree.xpath("//swot_product/processing_parameters/nb_pix_max_contour")[0].text)
             nb_pix_max_contour = cfg.getint(section, "NB_PIX_MAX_CONTOUR")
             if (nb_pix_max_contour_xml != nb_pix_max_contour):
-                message = "ERROR bad nb_pix_max_contour. In xml file: " + str(nb_pix_max_contour_xml) + " in config file: " \
+                message = "ERROR bad nb_pix_max_contour. In XML file: " + str(nb_pix_max_contour_xml) + " WHEREAS in config file: " \
                                                                         + str(nb_pix_max_contour)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('NB_PIX_MAX_CONTOUR = ' + str(cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_CONTOUR')))
@@ -254,21 +279,21 @@ def set_config_from_xml(in_xml_tree):
             biglake_model_xml = in_xml_tree.xpath("//swot_product/processing_parameters/biglake_model")[0].text
             biglake_model = cfg.get(section, "BIGLAKE_MODEL")
             if (biglake_model_xml != biglake_model):
-                message = "ERROR bad biglake_model. In xml file: " + str(biglake_model_xml) + " in config file: " + str(biglake_model)
+                message = "ERROR bad biglake_model. In XML file: " + str(biglake_model_xml) + " WHEREAS in config file: " + str(biglake_model)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('BIGLAKE_MODEL = ' + str(cfg.get('CONFIG_PARAMS', 'BIGLAKE_MODEL')))
             # Min size for lake to be considered as big
             biglake_min_size_xml = float(in_xml_tree.xpath("//swot_product/processing_parameters/biglake_min_size")[0].text)
             biglake_min_size = cfg.getfloat(section, "BIGLAKE_MIN_SIZE")
             if (biglake_min_size_xml != biglake_min_size):
-                message = "ERROR bad biglake_min_size. In xml file: " + str(biglake_min_size_xml) + " in config file: " + str(biglake_min_size)
+                message = "ERROR bad biglake_min_size. In XML file: " + str(biglake_min_size_xml) + " WHEREAS in config file: " + str(biglake_min_size)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('BIGLAKE_MIN_SIZE = ' + str(cfg.get('CONFIG_PARAMS', 'BIGLAKE_MIN_SIZE')))
             # Grid spacing for lake height smoothing
             biglake_grid_spacing_xml = int(in_xml_tree.xpath("//swot_product/processing_parameters/biglake_grid_spacing")[0].text)
             biglake_grid_spacing = cfg.getint(section, "BIGLAKE_GRID_SPACING")
             if (biglake_grid_spacing_xml != biglake_grid_spacing):
-                message = "ERROR bad biglake_grid_spacing. In xml file: " + str(biglake_grid_spacing_xml) + " in config file: " \
+                message = "ERROR bad biglake_grid_spacing. In XML file: " + str(biglake_grid_spacing_xml) + " WHEREAS in config file: " \
                           + str(biglake_grid_spacing)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('BIGLAKE_GRID_SPACING = ' + str(cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_SPACING')))
@@ -276,7 +301,7 @@ def set_config_from_xml(in_xml_tree):
             biglake_grid_res_xml = int(in_xml_tree.xpath("//swot_product/processing_parameters/biglake_grid_res")[0].text)
             biglake_grid_res = cfg.getint(section, "BIGLAKE_GRID_RES")
             if (biglake_grid_res_xml != biglake_grid_res):
-                message = "ERROR bad biglake_grid_res. In xml file: " + str(biglake_grid_res_xml) + " in config file: " + str(biglake_grid_res)
+                message = "ERROR bad biglake_grid_res. In XML file: " + str(biglake_grid_res_xml) + " WHEREAS in config file: " + str(biglake_grid_res)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('BIGLAKE_GRID_RES = ' + str(cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_RES')))
 
@@ -363,7 +388,6 @@ class ShapefileProduct(object):
         general_metadata["contact"] = "claire.pottier@cnes.fr"
         self.metadata['global_attributes'] = general_metadata
         # 2.2 - Metadata specific to granule specification
-        self.metadata['content'] = OrderedDict()
         self.metadata['content'] = self.attributes
         
         # 3 - Shapefile attributes
@@ -419,14 +443,22 @@ class ShapefileProduct(object):
         for key, value in self.attributes.items():
             ogr_type = my_var.FORMAT_OGR[value['type']]
             if ogr_type == 0:
+                tmp_field = ogr.FieldDefn(str(key), my_var.FORMAT_OGR[value['type']])
                 logger.debug("> Create attribute %s of type ogr.OFTInteger" % key)
             elif ogr_type == 2:
+                tmp_field = ogr.FieldDefn(str(key), ogr.OFTReal)  # Init field
+                tmp_field.SetWidth(value['width'])  # Set width
+                tmp_field.SetPrecision(value['precision'])  # Set precision
+
                 logger.debug("> Create attribute %s of type ogr.OFTReal" % key)
             elif ogr_type == 4:
+                tmp_field = ogr.FieldDefn(str(key), my_var.FORMAT_OGR[value['type']])
                 logger.debug("> Create attribute %s of type ogr.OFTString" % key)
             else:
+                tmp_field = ogr.FieldDefn(str(key), my_var.FORMAT_OGR[value['type']])
                 logger.debug("> Create attribute {} of type {}".format(key, ogr_type))
-            self.layer.CreateField(ogr.FieldDefn(str(key), my_var.FORMAT_OGR[value['type']]))
+            
+            self.layer.CreateField(tmp_field)
 
     #----------------------------------------
     
@@ -538,6 +570,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['time'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "time (UTC)", 
                        'standard_name': "time", 
                        'calendar': "gregorian", 
@@ -548,7 +582,9 @@ class LakeSPShpProduct(ShapefileProduct):
                        'comment': "Time of measurement in seconds in the UTC time scale since 1 Jan 2000 00:00:00 UTC. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the attribute leap_second is set to the UTC time at which the leap second occurs."}
 
         self.attributes['time_tai'] = {'type': "float", 
-                       'fill_value': -999999999999, 
+                       'fill_value': -999999999999,
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "time (TAI)", 
                        'standard_name': "time", 
                        'calendar': "gregorian", 
@@ -567,7 +603,9 @@ class LakeSPShpProduct(ShapefileProduct):
                        'comment': "Time string giving UTC time. The format is YYYY-MM-DDThh:mm:ss.ssssssZ, where the Z suffix indicates UTC time."}
 
         self.attributes['wse'] = {'type': "float", 
-                       'fill_value': -999999999999, 
+                       'fill_value': -999999999999,
+                       'width': 16,
+                       'precision': 2,
                        'long_name': "lake-averaged water surface elevation with respect to the geoid", 
                        'units': "m", 
                        'valid_min': -1000, 
@@ -577,6 +615,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['wse_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 16,
+                       'precision': 2,
                        'long_name': "total uncertainty in lake water surface elevation", 
                        'units': "m", 
                        'valid_min': 0, 
@@ -586,6 +626,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['wse_r_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 16,
+                       'precision': 2,
                        'long_name': "random-only uncertainty in the height water surface elevation", 
                        'units': "m", 
                        'valid_min': 0, 
@@ -595,6 +637,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['wse_std'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 16,
+                       'precision': 2,
                        'long_name': "standard deviation of pixels wse", 
                        'units': "m", 
                        'valid_min': -1000, 
@@ -604,6 +648,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['area_total'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 16,
+                       'precision': 2,
                        'long_name': "total water area with estimate of dark water", 
                        'units': "m^2", 
                        'valid_min': 0, 
@@ -613,6 +659,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['area_tot_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 16,
+                       'precision': 2,
                        'long_name': "uncertainty in total water area", 
                        'units': "m^2", 
                        'valid_min': 0, 
@@ -622,6 +670,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['area_detct'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 16,
+                       'precision': 2,
                        'long_name': "area of detected water pixels", 
                        'units': "m^2", 
                        'valid_min': 0, 
@@ -631,6 +681,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['area_det_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 16,
+                       'precision': 2,
                        'long_name': "uncertainty in area of detected water", 
                        'units': "m^2", 
                        'valid_min': 0, 
@@ -640,6 +692,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['layovr_val'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 16,
+                       'precision': 2,
                        'long_name': "metric of layover effect", 
                        'units': "TBD", 
                        'valid_min': "TBD", 
@@ -649,6 +703,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['xtrk_dist'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "distance of lake polygon centroid to the satellite ground track", 
                        'units': "m", 
                        'valid_min': -75000, 
@@ -658,6 +714,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['delta_s_l'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "storage change computed by linear method", 
                        'units': "m^3", 
                        'valid_min': -10000000, 
@@ -667,6 +725,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['ds_l_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "uncertainty in storage change computed by linear method", 
                        'units': "m^3", 
                        'valid_min': -10000000, 
@@ -676,6 +736,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['delta_s_q'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "storage change computed by quadratic method", 
                        'units': "m^3", 
                        'valid_min': -10000000, 
@@ -685,6 +747,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['ds_q_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "uncertainty in storage change computed by quadratic method", 
                        'units': "m^3", 
                        'valid_min': -10000000, 
@@ -704,6 +768,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['dark_frac'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 20,
+                       'precision': 6,
                        'long_name': "fractional area of dark water", 
                        'units': 1, 
                        'valid_min': 0, 
@@ -756,6 +822,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['geoid_hght'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "geoid height", 
                        'standard_name': "geoid_height_above_reference_ellipsoid", 
                        'source': "EGM2008", 
@@ -768,6 +836,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['solid_tide'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "solid Earth tide height", 
                        'source': "Cartwright and Edden [1973] Corrected tables of tidal harmonics - J. Geophys. J. R. Astr. Soc., 33, 253-264", 
                        'units': "m", 
@@ -778,6 +848,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['pole_tide'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "height of pole tide", 
                        'units': "m", 
                        'valid_min': 0, 
@@ -787,6 +859,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['load_tide1'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "geocentric load tide height", 
                        'source': "FES2014", 
                        'institution': "LEGOS/CNES", 
@@ -798,6 +872,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['load_tide2'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "geocentric load tide height", 
                        'source': "GOT4.10c", 
                        'institution': "GSFC", 
@@ -809,6 +885,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['dry_trop_c'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "dry tropospheric vertical correction to WSE", 
                        'source': "European Centre for Medium-Range Weather Forecasting", 
                        'units': "m", 
@@ -819,6 +897,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['wet_trop_c'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "wet tropospheric vertical correction to WSE", 
                        'source': "European Centre for Medium-Range Weather Forecasting", 
                        'units': "m", 
@@ -829,6 +909,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['iono_c'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "ionospheric vertical correction to WSE", 
                        'source': "Global Ionosphere Maps", 
                        'institution': "JPL", 
@@ -840,6 +922,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['xovr_cal_c'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 17,
+                       'precision': 3,
                        'long_name': "crossover calibration height correction", 
                        'units': "m", 
                        'valid_min': -10, 
@@ -863,6 +947,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['p_height'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 16,
+                       'precision': 2,
                        'long_name': "reference height", 
                        'units': "m", 
                        'valid_min': -1000, 
@@ -872,6 +958,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['p_area'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 16,
+                       'precision': 2,
                        'long_name': "reference area", 
                        'units': "m", 
                        'valid_min': 0, 
@@ -881,6 +969,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['p_storage'] = {'type': "float", 
                        'fill_value': -999999999999, 
+                       'width': 16,
+                       'precision': 2,
                        'long_name': "maximum water storage", 
                        'units': "m^3", 
                        'valid_min': 0, 

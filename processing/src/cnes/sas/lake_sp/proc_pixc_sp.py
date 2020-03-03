@@ -376,6 +376,7 @@ class PixCEdgeSwath(object):
                     self.tile_num.append(previous_tile_number + 1)
                     nb_pix_azimuth_list.append(current_nb_pix_azimuth)
                     self.near_range.append(0)
+                    self.slant_range_spacing.append(0)
                     previous_tile_number = self.tile_num[-1]
                     cpt += 1
                     if cpt > 50:
@@ -418,6 +419,7 @@ class PixCEdgeSwath(object):
         :rtype OUT_tile_ref: string
         """
 
+        logger = logging.getLogger(self.__class__.__name__)
         # 1 - Open input NetCDF file in reading mode
         pixc_edge_reader = my_nc.MyNcReader(in_lake_tile_edge_filename)
 
@@ -426,27 +428,27 @@ class PixCEdgeSwath(object):
 
         current_cycle_num = int(pixc_edge_reader.get_att_value("cycle_number"))
         if current_cycle_num != self.cycle_num:
-            logging.error("Cycle of tile %d do note match with SP product %d" %(current_cycle_num, self.cycle_num))
+            logger.error("Cycle of tile %d do note match with SP product %d" %(current_cycle_num, self.cycle_num))
 
         current_pass_number = int(pixc_edge_reader.get_att_value("pass_number"))
         if current_pass_number != self.pass_num:
-            logging.error("Pass of tile %d do note match with SP product %d" %(current_pass_number, self.pass_num))
+            logger.error("Pass of tile %d do note match with SP product %d" %(current_pass_number, self.pass_num))
 
         current_swath_side = str(pixc_edge_reader.get_att_value("swath_side"))
         if current_swath_side != self.swath_side:
-            logging.error("Swath of tile %s do note match with PixCEdgeSwath %s" %(current_swath_side, self.swath_side))
+            logger.error("Swath of tile %s do note match with PixCEdgeSwath %s" %(current_swath_side, self.swath_side))
         current_date = int(pixc_edge_reader.get_att_value("start_time")[:8])
         if not self.date :
             self.date = current_date
         # Stop the process if acquisition dates are not same day or next day
         if np.fabs(current_date - self.date) > 1 :
-            logging.error("Input laketile_edge file do not correspond to the same aquisition date")
+            logger.error("Input laketile_edge file do not correspond to the same aquisition date")
 
         current_continent = str(pixc_edge_reader.get_att_value("continent"))
         if not self.continent in current_continent:
             # If cur_continent do not belong to the EDGE SP product, do not add pixc info
-            logging.error("Input laketile_edge %s file do not correspond to the same continent %s" %(in_lake_tile_edge_filename, self.continent))
-            retour = None, None, None, None, None
+            logger.error("Input laketile_edge %s file do not correspond to the same continent %s" %(in_lake_tile_edge_filename, self.continent))
+            retour = None, None, None
 
         else:
     
@@ -466,7 +468,7 @@ class PixCEdgeSwath(object):
             current_tile_poly.AddGeometry(ring)
 
             if not current_tile_poly.IsValid() :
-                logging.warning("Polygon tile of file %s is not valid" %(in_lake_tile_edge_filename))
+                logger.warning("Polygon tile of file %s is not valid" %(in_lake_tile_edge_filename))
             else :
                 self.tile_poly = self.tile_poly.Union(current_tile_poly)
     
@@ -627,7 +629,8 @@ class PixCEdgeSwath(object):
                 # 2.5 - Update global labels
                 for idx in range(old_labels.size):
                     self.labels[tile_idx[np.where(self.edge_label[tile_idx] == old_labels[idx])]] = new_labels[idx]
-        # exit()
+
+
     # ----------------------------------------
 
     def gather_edge_entities(self, in_tile_idx1, in_tile_idx2, delta_range):
@@ -957,13 +960,13 @@ class PixCEdgeSwath(object):
         range_tmp = self.range_index[in_indices]
         tile_index_tmp = self.tile_index[in_indices]
         concerned_tiles, counts = np.unique(tile_index_tmp, return_counts=True)
-
+        d_rg = 0
         for i, tile_num in enumerate(concerned_tiles):
 
             if i == 0:
                 out_range += list(range_tmp[np.where(tile_index_tmp == tile_num)])
             else :
-                d_rg = self.compute_range_variation_between_tiles(concerned_tiles[i-1], concerned_tiles[i])
+                d_rg += self.compute_range_variation_between_tiles(concerned_tiles[i-1], concerned_tiles[i])
                 out_range += list(range_tmp[np.where(tile_index_tmp == tile_num)] - d_rg)
         if min(out_range) != 0:
             out_range = out_range + min(out_range)
@@ -1090,14 +1093,18 @@ def match_labels(in_liste):
     labels_list = group_by_second(group_by_first(in_liste))
     labels_match_out = []
     for (set_label_tile1, set_label_tile2) in labels_list:
-        if None in set_label_tile1:
+
+        if set_label_tile1 == set([None]):
             for label in set_label_tile2:
-                labels_match_out.append((None, set([label])))
-        elif None in set_label_tile2:
+                labels_match_out.append((set_label_tile1, set([label])))
+        elif set_label_tile2 == set([None]):
             for label in set_label_tile1:
                 labels_match_out.append((set([label]), None))
         else :
+            set_label_tile1.discard(None)
+            set_label_tile2.discard(None)
             labels_match_out.append((set_label_tile1, set_label_tile2))
+
     return labels_match_out
 
 

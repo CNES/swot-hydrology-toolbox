@@ -45,6 +45,7 @@ from scipy.spatial import distance
 
 import cnes.common.service_error as service_error
 import cnes.common.service_config_file as service_config_file
+
 import cnes.common.lib.my_variables as my_var
 
 
@@ -819,7 +820,6 @@ def get_utm_coords_from_lonlat(in_long, in_lat, utm_epsg_code=None):
     :return: X coordinates, Y coordintes, UTM_epsg_code
     :rtype: tuple of (1D-array of float, 1D-array of float, int)
     """
-    logger = logging.getLogger("my_tools")
 
     if utm_epsg_code == None :
         lat_mean = np.mean(in_lat)
@@ -827,7 +827,6 @@ def get_utm_coords_from_lonlat(in_long, in_lat, utm_epsg_code=None):
         utm_epsg_code = get_utm_epsg_code(lon_mean, lat_mean)
 
     latlon_proj = pyproj.Proj(init="epsg:4326")
-    logger.debug("Convert coordinates into epsg code : %s" % (utm_epsg_code))
     utm_proj = pyproj.Proj(init='epsg:' + utm_epsg_code)
 
     X, Y = pyproj.transform(latlon_proj, utm_proj, in_long, in_lat)

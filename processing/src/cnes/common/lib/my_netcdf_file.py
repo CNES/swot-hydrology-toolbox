@@ -21,16 +21,16 @@
    Copyright (C) 2018 Centre National d’Etudes Spatiales
    This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
-
 """
 from __future__ import absolute_import, division, print_function, unicode_literals 
 
+import logging
 from netCDF4 import Dataset
 import numpy
-import logging
+
+import cnes.common.service_error as service_error
 
 import cnes.common.lib.my_variables as my_var
-import cnes.common.service_error as service_error
 
 
 class MyNcReader(object):
@@ -220,6 +220,8 @@ class MyNcReader(object):
             raise service_error.ProcessingError(message, logger)
         # TODO: remove when inumpy.t variables corrected (no NaN values anymore)
         out_type = str(out_data.dtype)
+
+        # replace nan with fill value from netCDF fill
         if out_type.startswith("float") or out_type.startswith("double"):
             nan_idx = numpy.argwhere(numpy.isnan(out_data))
             nb_nan = len(nan_idx)
@@ -233,10 +235,20 @@ class MyNcReader(object):
                                                                                                                           my_var.FV_NETCDF[out_type]))
                     out_data[nan_idx] = my_var.FV_NETCDF[out_type]
         # == END-TODO ==
-        
+
+        # replace fill value from netCDF file with fill value from my_variables
+
+        try:
+            if cur_content.variables[in_name]._FillValue != my_var.FV_NETCDF[out_type]:
+                logger.warning( "Fill value for type %s from netCDF file are different from my_vraible : %s w.r.t. %s " %(out_type, str(cur_content.variables[in_name]._FillValue), str(my_var.FV_NETCDF[out_type])))
+            out_data[numpy.where(out_data == cur_content.variables[in_name]._FillValue)] = my_var.FV_NETCDF[out_type]
+        except:
+            pass
+
         # 2 - Get not _FillValue indices
         fv_flag = False
         # TODO Change that try/except/pass without error class is not allowed
+
         try:
             not_nan_idx = numpy.where(out_data < cur_content.variables[in_name]._FillValue)
             if len(not_nan_idx) < len(out_data):
@@ -252,7 +264,8 @@ class MyNcReader(object):
                 out_data *= cur_content.variables[in_name].scale_factor
         except:
             pass
-            
+
+
         return out_data
     
     def get_var_value_or_empty(self, in_name, in_group=None):

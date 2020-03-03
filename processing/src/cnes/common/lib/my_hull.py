@@ -35,12 +35,13 @@ from scipy.spatial import distance, Delaunay
 import shapely.geometry as geometry
 from shapely.geometry import Point, LineString, MultiPoint, MultiLineString, Polygon, MultiPolygon, LinearRing
 from shapely.ops import cascaded_union
-from skimage.measure import find_contours
 from shapely.ops import unary_union
+from skimage.measure import find_contours
 
-import cnes.common.lib.my_tools as my_tools
 import cnes.common.service_config_file as service_config_file
 import cnes.common.service_error as service_error
+
+import cnes.common.lib.my_tools as my_tools
 
 
 def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix_range):
@@ -95,7 +96,9 @@ def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix
         retour = ogr.Geometry(ogr.wkbPolygon)
     return retour
 	
+
 #######################################
+
 
 def remove_holes_triangles(polygon) :
     """
@@ -122,7 +125,9 @@ def remove_holes_triangles(polygon) :
 
     return polygon_without_triangle
 
+
 #######################################
+
 
 def get_convex_hull(in_v_long, in_v_lat):
     """
@@ -147,7 +152,9 @@ def get_convex_hull(in_v_long, in_v_lat):
     # 1.2 - Compute the hull of these points
     return pixc_pts.ConvexHull()
 
+
 #######################################
+
 
 def get_concave_hull_from_basic_triangulation(in_v_long, in_v_lat, in_range, in_nb_pix_range):
     """
@@ -210,6 +217,7 @@ def get_concave_hull_from_basic_triangulation(in_v_long, in_v_lat, in_range, in_
     # 1.5 - Convert Shapely geometry to OGRPolygon or OGRMultiPolygon
     return ogr.CreateGeometryFromWkb(concave_hull.wkb)
 
+
 def alpha_shape(in_coords, in_alpha):
     """
     Compute the alpha shape (concave hull) of a set of points.
@@ -257,6 +265,7 @@ def alpha_shape(in_coords, in_alpha):
         retour = triangle_union
     return retour
 
+
 def get_circum_ratio(pa, pb, pc):
     """
     Compute the circumscribing circle radius of a triangle. The triangle is given by its corner coordinates pa, pb, pc.
@@ -294,7 +303,9 @@ def get_circum_ratio(pa, pb, pc):
 
     return circum_r
 
+
 #######################################
+
 
 def get_concav_hull_bis(in_coords):
     """
@@ -375,6 +386,7 @@ def get_concav_hull_bis(in_coords):
 
     return retour
 
+
 def get_max_segment(pa, pb, pc):
     """
     Compute the length of the longuest triangle edge. The triangle is given by its corner coordinates pa, pb, pc.
@@ -398,7 +410,9 @@ def get_max_segment(pa, pb, pc):
     # Get and return length of the longuest triangle edge
     return np.max([a, b, c])
 
+
 #######################################
+
 
 def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, in_v_lat):
     """
@@ -516,6 +530,7 @@ def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, i
 
     return lake_poly
 
+
 def compute_segment_intersection(s1, s2):
     """
     Return the intersection point of s1 and s2
@@ -549,6 +564,7 @@ def compute_segment_intersection(s1, s2):
 
     return inter
 
+
 def get_closest_point_from_list_of_ring(point, list_of_ring):
     """
     Return element of list_of_ring the closest of point
@@ -575,6 +591,7 @@ def get_closest_point_from_list_of_ring(point, list_of_ring):
 
     return list_of_ring
 
+
 def get_closest_point_from_list_of_point(point, list_of_points):
     """
     Return element of list_of_points the closest of point
@@ -593,6 +610,7 @@ def get_closest_point_from_list_of_point(point, list_of_points):
     else:
         id = distance.cdist([point], list_of_points).argmin()
     return list_of_points[id]
+
 
 def build_ring_from_list_of_points(list_of_points):
     """
@@ -629,6 +647,7 @@ def build_ring_from_list_of_points(list_of_points):
     list_of_points.append(list_of_points[0])
 
     return list_of_points
+
 
 def add_new_point_to_list_of_point(new_point, point_list):
     """
@@ -671,6 +690,7 @@ def add_new_point_to_list_of_point(new_point, point_list):
 
     return point_list
 
+
 def build_ring_without_integrity_issues_multi_ring(new_ring, multi_ring):
     """
     return ring without intersection with multi_ring
@@ -710,6 +730,7 @@ def build_ring_without_integrity_issues_multi_ring(new_ring, multi_ring):
 
     return new_ring
 
+
 def get_ogr_polygon_from_ring_list(multi_ring_list) :
     """
     return ogr geometry polygon from multi ring list
@@ -720,7 +741,6 @@ def get_ogr_polygon_from_ring_list(multi_ring_list) :
     :return: lake polygon
     :rtype: OGRPolygon
     """
-
 
     lake_poly = ogr.Geometry(ogr.wkbPolygon)
     for ring in multi_ring_list :
@@ -733,7 +753,9 @@ def get_ogr_polygon_from_ring_list(multi_ring_list) :
 
     return lake_poly
 
+
 #######################################
+
 
 def get_concave_hull_from_cgal_triangulation(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix_range):
     """
@@ -799,6 +821,7 @@ def get_concave_hull_from_cgal_triangulation(in_v_long, in_v_lat, in_range, in_a
 
     return retour
 
+
 def get_dist_if_neighbour(idx, in_x, in_range, in_azimuth):
     """
     For a given pixel of indice idx :
@@ -831,6 +854,7 @@ def get_dist_if_neighbour(idx, in_x, in_range, in_azimuth):
     else:
         dist = None
     return dist
+
 
 def evaluate_alpha_from_x_pixc_geolocation(in_x, in_range, in_azimuth):
     """
@@ -884,6 +908,7 @@ def evaluate_alpha_from_x_pixc_geolocation(in_x, in_range, in_azimuth):
 
     return alpha, x_2sigma
 
+
 def get_angle(p, q, r):
     """
     Compute angle between 3 points
@@ -912,6 +937,7 @@ def get_angle(p, q, r):
     if angle < 0.0:
         angle += 2 * np.pi
     return angle
+
 
 def find_rings(vertices, edges):
     """
@@ -990,6 +1016,7 @@ def find_rings(vertices, edges):
         rings.append(ring)
     return rings
 
+
 def find_polygons(rings):
     """
     Identify polygons from rings
@@ -1038,6 +1065,7 @@ def find_polygons(rings):
             polygons.append(Polygon(ext))
     return polygons
 
+
 def alpha_shape_with_cgal(coords, alpha):
     """
     Compute the alpha shape of a set of points.
@@ -1084,6 +1112,3 @@ def alpha_shape_with_cgal(coords, alpha):
             poly_shp = Polygon(polygons_list[0])
 
     return poly_shp
-
-
-
