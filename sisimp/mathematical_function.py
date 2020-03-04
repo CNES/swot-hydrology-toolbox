@@ -25,7 +25,7 @@ import lib.my_api as my_api
 from lib.my_variables import RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
 
 
-def calc_delta_h(IN_angles, IN_noise_height, IN_height_bias_std, seed=None):
+def calc_delta_h(IN_angles, IN_noise_height, IN_height_bias_std, sensor_wavelength, baseline, near_range, seed=None):
     """
     Calculate the delta h values and add noise
 
@@ -61,7 +61,12 @@ def calc_delta_h(IN_angles, IN_noise_height, IN_height_bias_std, seed=None):
         stdv[np.isnan(stdv)]= 0.
         
         OUT_noisy_h = np.random.normal(0, IN_height_bias_std) + np.random.normal(0, stdv)
-    return OUT_noisy_h
+        
+    h_amb = sensor_wavelength*near_range*np.sin(IN_angles)/baseline
+    
+    phase_noise_std = stdv*2*np.pi/h_amb
+
+    return OUT_noisy_h, phase_noise_std, h_amb/2/np.pi
 
 
 def calc_delta_jitter(IN_orbit_heading, IN_lat, IN_orbit_jitter):

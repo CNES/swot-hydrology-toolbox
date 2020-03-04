@@ -141,7 +141,6 @@ class GeolocRiver(object):
         self.new_height = np.copy(self.pixcvec.height)
         unfound_keys = 0
 
-        print(self.new_height)
 
         # For each pixcvec point
         for point_index in range(self.pixcvec.height.size):
@@ -172,8 +171,6 @@ class GeolocRiver(object):
             #  - Initiate logging service
             logger = logging.getLogger(self.__class__.__name__)
             logger.warning("Warning: {} points' (reach, node) were not found in the node file".format(unfound_keys))
-
-        print(self.new_height)
 
 
     def interpolate_pixc_height(self,reach_id, node_id,point_index, rivertile_index):

@@ -54,7 +54,8 @@ def fill_vector_param(variable, variable_name, ref_size, data_param, group=None)
 
 class l2_hr_pixc(object):
 
-    def __init__(self, IN_azimuth_index, IN_range_index, IN_classification, IN_pixel_area, IN_latitude, IN_longitude, IN_height, IN_crosstrack,
+    def __init__(self, IN_azimuth_index, IN_range_index, IN_classification, IN_pixel_area, IN_latitude, IN_longitude, IN_height, IN_phase_noise_std,
+                 IN_dh_dphi, IN_dlon_dphi, IN_dlat_dphi, IN_crosstrack,
                  IN_nadir_time, IN_nadir_latitude, IN_nadir_longitude, IN_nadir_altitude, IN_nadir_heading, IN_nadir_x, IN_nadir_y, IN_nadir_z, IN_nadir_vx, IN_nadir_vy, IN_nadir_vz, IN_nadir_near_range,
                  IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_nb_pix_range, IN_nb_pix_azimuth, IN_azimuth_spacing, IN_range_spacing, IN_near_range, IN_tile_coords):
         """
@@ -74,6 +75,8 @@ class l2_hr_pixc(object):
         :type IN_longitude: 1D-array of float
         :param IN_height: height
         :type IN_height: 1D-array of float
+        :param IN_phase_noise_std: phase noise standart deviation
+        :type IN_phase_noise_std: 1D-array of float        
         :param IN_crosstrack: crosstrack distance from nadir track
         :type IN_crosstrack: 1D-array of float
             
@@ -130,6 +133,11 @@ class l2_hr_pixc(object):
         self.latitude = IN_latitude
         self.longitude = IN_longitude
         self.height = IN_height
+        self.phase_noise_std = IN_phase_noise_std
+        self.dh_dphi = IN_dh_dphi
+        self.dlon_dphi = IN_dlon_dphi
+        self.dlat_dphi = IN_dlat_dphi
+        
         self.crosstrack = IN_crosstrack
         self.nb_water_pix = IN_azimuth_index.size
 
@@ -175,7 +183,7 @@ class l2_hr_pixc(object):
         self.outer_first = outer_first
         self.outer_last = outer_last
 
-    
+
     #----------------------------------
 
     def write_pixc_file(self, IN_output_file, compress=False):
@@ -258,13 +266,13 @@ class l2_hr_pixc(object):
         fill_vector_param(self.range_index, 'range_index', self.nb_water_pix, data, group=pixc)
         
         data.add_variable('interferogram', np.float32, ('points', 'depth'), my_var.FV_NETCDF["float32"], compress, group=pixc)
-        fill_vector_param(np.zeros([self.nb_water_pix, 2]), 'interferogram', self.nb_water_pix, data, group=pixc)
+        fill_vector_param(np.ones([self.nb_water_pix, 2])/np.sqrt(2), 'interferogram', self.nb_water_pix, data, group=pixc)
         data.add_variable('power_plus_y', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'power_plus_y', self.nb_water_pix, data, group=pixc)
+        fill_vector_param(np.ones(self.nb_water_pix), 'power_plus_y', self.nb_water_pix, data, group=pixc)
         data.add_variable('power_minus_y', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'power_minus_y', self.nb_water_pix, data, group=pixc)
+        fill_vector_param(np.ones(self.nb_water_pix), 'power_minus_y', self.nb_water_pix, data, group=pixc)
         data.add_variable('coherent_power', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'coherent_power', self.nb_water_pix, data, group=pixc)
+        fill_vector_param(np.ones(self.nb_water_pix), 'coherent_power', self.nb_water_pix, data, group=pixc)
         data.add_variable('x_factor_plus_y', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'x_factor_plus_y', self.nb_water_pix, data, group=pixc)
         data.add_variable('x_factor_minus_y', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
@@ -308,13 +316,13 @@ class l2_hr_pixc(object):
         fill_vector_param(np.zeros(self.nb_water_pix), 'inc', self.nb_water_pix, data, group=pixc)
         
         data.add_variable('phase_noise_std', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'phase_noise_std', self.nb_water_pix, data, group=pixc)        
+        fill_vector_param(self.phase_noise_std, 'phase_noise_std', self.nb_water_pix, data, group=pixc)        
         data.add_variable('dlatitude_dphase', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'dlatitude_dphase', self.nb_water_pix, data, group=pixc)
+        fill_vector_param(self.dlat_dphi, 'dlatitude_dphase', self.nb_water_pix, data, group=pixc)
         data.add_variable('dlongitude_dphase', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'dlongitude_dphase', self.nb_water_pix, data, group=pixc)                  
+        fill_vector_param(self.dlon_dphi, 'dlongitude_dphase', self.nb_water_pix, data, group=pixc)                  
         data.add_variable('dheight_dphase', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'dheight_dphase', self.nb_water_pix, data, group=pixc)  
+        fill_vector_param(self.dh_dphi, 'dheight_dphase', self.nb_water_pix, data, group=pixc)  
         data.add_variable('dheight_droll', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'dheight_droll', self.nb_water_pix, data, group=pixc)
         data.add_variable('dheight_dbaseline', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
@@ -330,7 +338,7 @@ class l2_hr_pixc(object):
         fill_vector_param(self.computeTime_TAI(self.illumination_time), 'illumination_time_tai', self.nb_water_pix, data, group=pixc)  # TODO: to improve
         
         data.add_variable('eff_num_medium_looks', np.int32, 'points', my_var.FV_NETCDF["int32"], compress, group=pixc)
-        fill_vector_param(np.full(self.nb_water_pix, 63.), 'eff_num_medium_looks', self.nb_water_pix, data, group=pixc)
+        fill_vector_param(np.full(self.nb_water_pix, 7.), 'eff_num_medium_looks', self.nb_water_pix, data, group=pixc)
         data.add_variable('sig0', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'sig0', self.nb_water_pix, data, group=pixc)
         data.add_variable('phase_unwrapping_region', np.int32, 'points', my_var.FV_NETCDF["int32"], compress, group=pixc)
@@ -351,10 +359,8 @@ class l2_hr_pixc(object):
         fill_vector_param(np.zeros(self.nb_water_pix), 'model_wet_tropo_cor', self.nb_water_pix, data, group=pixc)
         data.add_variable('iono_cor_gim_ka', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'iono_cor_gim_ka', self.nb_water_pix, data, group=pixc)     
-        data.add_variable('xover_height_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        fill_vector_param(np.zeros(self.nb_water_pix), 'xover_height_cor', self.nb_water_pix, data, group=pixc)
-        # ~ data.add_variable('height_cor_xover', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
-        # ~ fill_vector_param(np.zeros(self.nb_water_pix), 'height_cor_xover', self.nb_water_pix, data, group=pixc)        
+        data.add_variable('height_cor_xover', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
+        fill_vector_param(np.zeros(self.nb_water_pix), 'height_cor_xover', self.nb_water_pix, data, group=pixc)        
         data.add_variable('geoid', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'geoid', self.nb_water_pix, data, group=pixc)
         data.add_variable('solid_earth_tide', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
@@ -524,11 +530,28 @@ class l2_hr_pixc(object):
         tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
+        tmpField = ogr.FieldDefn(str('phi_std'), ogr.OFTReal)  # Phase noise standart deviation 
+        tmpField.SetWidth(15)
+        tmpField.SetPrecision(6)
+        outLayer.CreateField(tmpField)
+        tmpField = ogr.FieldDefn(str('dlat_dph'), ogr.OFTReal)  # latitude error relatively to the phase
+        tmpField.SetWidth(15)
+        tmpField.SetPrecision(6)
+        outLayer.CreateField(tmpField)
+        tmpField = ogr.FieldDefn(str('dlon_dph'), ogr.OFTReal)  # Longitude error relatively to the phase
+        tmpField.SetWidth(15)
+        tmpField.SetPrecision(6)
+        outLayer.CreateField(tmpField)
+        tmpField = ogr.FieldDefn(str('dh_dphi'), ogr.OFTReal)  # Height error relatively to the phase
+        tmpField.SetWidth(15)
+        tmpField.SetPrecision(6)
+        outLayer.CreateField(tmpField)
         # 1.5 - On recupere la definition de la couche
         outLayerDefn = outLayer.GetLayerDefn()
         
         # 2 - On traite point par point
-        for az_ind, range_index, classif, pixel_area, lat, lng, height, crosstrack in zip(self.azimuth_index, self.range_index, self.classification, self.pixel_area, self.latitude, self.longitude, self.height, self.crosstrack):
+        for az_ind, range_index, classif, pixel_area, lat, lng, height, crosstrack, phase_noise_std, dlat_dphi, dlon_dphi, dh_dphi in zip(self.azimuth_index, self.range_index, self.classification, \
+        self.pixel_area, self.latitude, self.longitude, self.height, self.crosstrack, self.phase_noise_std, self.dlat_dphi, self.dlon_dphi, self.dh_dphi):
             # 2.1 - On cree l'objet dans le format de la couche de sortie
             outFeature = ogr.Feature(outLayerDefn)
             # 2.2 - On lui assigne le point
@@ -544,6 +567,11 @@ class l2_hr_pixc(object):
             outFeature.SetField(str('long'), float(lng))
             outFeature.SetField(str('wse'), float(height))
             outFeature.SetField(str('cr_track'), float(crosstrack))
+            outFeature.SetField(str('phi_std'), float(phase_noise_std))
+            outFeature.SetField(str('dlat_dph'), float(dlat_dphi))
+            outFeature.SetField(str('dlon_dph'), float(dlon_dphi))
+            outFeature.SetField(str('dh_dphi'), float(dh_dphi))
+         
             # 2.4 - On ajoute l'objet dans la couche de sortie
             outLayer.CreateFeature(outFeature)
             

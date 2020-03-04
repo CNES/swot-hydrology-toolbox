@@ -24,6 +24,7 @@ NR_CROSS_TRACK = 10000.000  # NR cross track (m)
 SENSOR_WAVELENGTH = 0.008385803  # Sensor wavelength (m)
 NB_PIX_RANGE = 3117  # Number of pixels in range 3117 (10-60km) or 3500 (extended swath 5-65km)
 RANGE_SAMPLING = 0.75  # Range spacing of SWOT
+BASELINE = 10.
 
 # Noise parameters
 GEOLOCATION_IMPROVEMENT = 'no'
