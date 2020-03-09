@@ -42,7 +42,6 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
     # Retrieve index of tile_db_orbit the nearest of nadir_max_lat
     ind_max = tree.query([nadir_lat_deg_max, nadir_lon_deg_max])
     tile_db_orbit_cropped = tile_db_orbit[max(0, min(ind_max[1], ind_min[1])-1):min(len(tile_db_orbit), max(ind_max[1], ind_min[1])+2), :]
-    print(tile_db_orbit_cropped)
     vect_lat_lon_db_cropped = np.zeros([max(0, tile_db_orbit_cropped.shape[0]-1), 2])
     
     for i in range(max(0, tile_db_orbit_cropped.shape[0]-1)):
@@ -89,7 +88,6 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
         nb_pix_overlap_end = len(my_attributes.orbit_time) - 1 - max(nadir_az)
         add_nadir = np.arange(max(nadir_az)+1, max(nadir_az)+1+ nb_pix_overlap_end)
         nadir_az = np.concatenate((nadir_az, add_nadir))
-
     my_api.printInfo("[my_tiling] [crop_orbit] nadir az contains %d pixels " % nadir_az.size)
     my_api.printInfo("[my_tiling] [crop_orbit] Tile contains %d and %d of overlaping azimuth pixel in the begining and the end of the tile" %(nb_pix_overlap_begin, nb_pix_overlap_end))
 
@@ -111,7 +109,7 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
 
     my_new_attributes.lon  = (my_attributes.lon[nadir_az])
     my_new_attributes.lon_init = (my_attributes.lon[nadir_az])
-
+    
     my_new_attributes.lat = (my_attributes.lat[nadir_az])
     my_new_attributes.lat_init = (my_new_attributes.lat_init[nadir_az])
 

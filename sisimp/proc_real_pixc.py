@@ -448,7 +448,7 @@ class l2_hr_pixc(object):
         
         data.add_variable('instrument_range_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         dic={'long_name':'instrument range correction','units':'m','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Term that incorporates all calibration corrections applied to range before geolocation'}
-        data.add_variables_attributes('instrument_range_cor', dic, group=pixc)
+        data.add_variable_attributes('instrument_range_cor', dic, group=pixc)
         fill_vector_param(np.zeros(self.nb_water_pix), 'instrument_range_cor', self.nb_water_pix, data, group=pixc)
         data.add_variable('instrument_phase_cor', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         dic={'long_name':'instrument phase correction','units':'radians','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Term that incorporates all calibration corrections applied to attitude before geolocation'}

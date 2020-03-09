@@ -114,9 +114,12 @@ class orbitAttributes:
 
         # 3.1 - From orbit file
         self.azimuth_spacing = None  # Azimuth spacing
+        self.azimuth_layover = {} # Azimuth layover when using multi-tile
         self.lon = None
+        self.lon_orbit = None
         self.lon_init = None
         self.lat = None
+        self.lat_orbit = None
         self.lat_init = None
         self.alt = None
         self.heading = None
@@ -248,6 +251,7 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
         else :
             for lake in IN_attributes.liste_lacs:
                 lake.compute_pixels_in_given_lac(OUT_ind_lac_data)
+
     return OUT_burn_data, OUT_height_data, OUT_code_data, OUT_ind_lac_data, IN_attributes
                 
 
@@ -367,10 +371,22 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             #~ indice = np.logical_and(np.isin(r, lac.pixels[0]), np.isin(az, lac.pixels[1]))
             def merge(a,b):
                 return a*100000+b
-            titi = merge(lac.pixels[0], lac.pixels[1])
+            try:
+                layover_az=int(IN_attributes.azimuth_layover[lac.id])
+            except KeyError:
+                layover_az=0
+            lac_pixels_az = np.array([az_ind for az_ind in (np.array(lac.pixels[1], dtype=np.int) - layover_az).tolist()])
+            lac_pixels_r = np.array([r_ind for r_ind in (np.array(lac.pixels[0], dtype=np.int)).tolist()])
+            az_indices = np.where(lac_pixels_az > -1)
+            titi = merge(lac_pixels_r[az_indices], lac_pixels_az[az_indices])
             toto = merge(r, az)
             indice = np.isin(toto,titi)
-
+            if lac.id==42874:
+                print(lac_pixels_az, lac_pixels_r)
+                print(az, r)
+                print(titi, toto)
+                print(np.where(indice==True))
+            
             lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
             
@@ -437,7 +453,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
    
     
     # 5.3 - Compute final noisy heights (elevation + thermal noise + roll error + height model) 
-    elevation_tab_noisy = elevation_tab + delta_h           
+    elevation_tab_noisy = elevation_tab #+ delta_h           
     
     # 7 - Build velocity arrays
     nb_pix_nadir = IN_attributes.x.size  # Nb pixels at nadir
@@ -456,12 +472,12 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # Convert nadir latitudes/longitudes in degrees
     nadir_lat_deg = IN_attributes.lat * RAD2DEG
     nadir_lon_deg = IN_attributes.lon * RAD2DEG
-        
+    
     # Remove 1st and last values because just here for extrapolators (cf. read_orbit)
     nadir_alt = IN_attributes.alt
     nadir_heading = IN_attributes.heading
 
-    lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, h=elevation_tab+delta_h)
+    lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, h=elevation_tab)#+delta_h)
     lon_noisy *= RAD2DEG  # Conversion in degrees
     lat_noisy *= RAD2DEG  # Conversion in degrees
     
@@ -478,7 +494,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         # Get azimuth indices corresponding to this integer value of latitude
         nadir_az = np.arange(1, len(IN_attributes.alt)-1)
                     
-        az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth indices vector
+        az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth ivector
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
 
         # Get overlapping pixels du to tilling process
@@ -487,12 +503,29 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
 
         # Get pixel indices of water pixels corresponding to this latitude interval
         az_indices = np.where((az >= min(nadir_az) + nb_pix_overlap_begin -1 ) & (az <= max(nadir_az) - nb_pix_overlap_end +1 ))[0]
+        
         nb_pix = az_indices.size  # Number of water pixels for this latitude interval
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d water pixels" % nb_pix)
         
         if az_indices.size != 0:  # Write water pixels at this latitude
             
             sub_az, sub_r = [az[az_indices], r[az_indices]]
+            #if sub_az.size != az.size:
+            #    current_dic_latlon={}
+            #    for ind_lat in range(lat_noisy.size-1):
+            #        current_dic_latlon[(lat[ind_lat], lon[ind_lat])]=[nadir_lat_deg[ind_lat], nadir_lon_deg[ind_lat], nadir_alt[ind_lat],
+            #                nadir_heading[ind_lat], IN_attributes.x[ind_lat], IN_attributes.y[ind_lat], IN_attributes.z[ind_lat],
+            #                vx[ind_lat], vy[ind_lat], vz[ind_lat]]
+            #    try:
+            #        my_file=open('latlondic.pkl', 'wb')
+            #    except:
+            #        my_file=open('latlondic.pkl', 'rb')
+            #        pickle.dump(current_dic_latlon, my_file)
+            #        my_file.close()
+            #        my_file=open('latlondic.pkl', 'wb')
+            #    my_dic_latlon=pickle.load(my_file)
+            #    print(my_dic_latlon.keys())
+
             
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min r ind = %d - Max r ind = %d" % (np.min(sub_r), np.max(sub_r)))
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min az ind = %d - Max az ind = %d" % (np.min(sub_az), np.max(sub_az)))
@@ -749,47 +782,42 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     else:
                         lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
                         
-                # Find if lake already exist in database
-                if save_field:
-                    save = True
-                    # Open database reading mode
-                    try:
-                        lakes_database_r = open('lake_intersection_database.pkl', 'rb')
-                    except:
-                        # Create database if not existing
-                        lakes_database = open('lake_intersection_database.pkl','wb')
-                        pickle.dump(lac, lakes_database, pickle.HIGHEST_PROTOCOL)
-                        lakes_database.close()
-                        save=False
-                        lakes_database_r = open('lake_intersection_database.pkl', 'rb')
-
-                    # Research lake_id in database
-                    saved_lakes=[]
-                    while True: 
-                        try:
-                            # Loop on lake database
-                            current_lake=pickle.load(lakes_database_r)
-                            saved_lakes.append(current_lake)
-                            if id_lake == current_lake.id:
-                                lac=current_lake
-                                save=False
-                                break
-                        except EOFError:
-                            if save:
-                                saved_lakes.append(lac)
-                                lakes_database_r.close()
-                                lakes_database=open('lake_intersection_database.pkl', 'wb')
-                                for lake in saved_lakes:
-                                    pickle.dump(lake, lakes_database, pickle.HIGHEST_PROTOCOL)
-                                lakes_database.close()
-                            break
-                            
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
 
                 if IN_attributes.height_model == 'polynomial' and area > IN_attributes.height_model_min_area:
                     az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.compute_h(lat* RAD2DEG, lon* RAD2DEG))
                 else:
                     az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
+
+                # Create azimuth layover when lake over multi tile
+                if save_field:
+                    # Read DB
+                    try:
+                        lake_az_layover=open('lake_layover_db.pkl', 'rb')
+                        my_db_az_layover=pickle.load(lake_az_layover)
+                        #IN_attributes.azimuth_layover=my_db_az_layover
+                        try:
+                            # Get azimuth layover of current lake
+                            IN_attributes.azimuth_layover[id_lake] = my_db_az_layover[id_lake].copy()
+                        except KeyError:
+                            # If lake seen for first time - no layover
+                            IN_attributes.azimuth_layover[id_lake] = 0
+                            my_db_az_layover[id_lake] = 0
+                        lake_az_layover.close() 
+                        my_db_az_layover[id_lake]=max(az)-min(az)
+                        #try:
+                        #    my_db_az_layover[id_lake] = 10
+                        #except:
+                        #    print("TOTO")
+                        lake_az_layover=open('lake_layover_db.pkl', 'wb')
+                        # Add azimuth layover of lake's current tile layover
+                        pickle.dump(my_db_az_layover, lake_az_layover, pickle.HIGHEST_PROTOCOL)
+                        lake_az_layover.close()
+                    # Create DB if not existent    
+                    except:
+                        lake_az_layover=open('lake_layover_db.pkl', 'wb')
+                        pickle.dump({id_lake:max(az)-min(az)}, lake_az_layover, pickle.HIGHEST_PROTOCOL)
+                        lake_az_layover.close()
 
                 range_tab = np.concatenate((range_tab, r), -1)
                 npoints = len(az)
