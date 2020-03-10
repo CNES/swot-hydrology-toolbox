@@ -44,20 +44,21 @@ modeltimefmt = '%Y%m%d'
 shapefile_basename = '_Der_S2_SVM_SERTIT' 
 
 ## Specify filepaths :
-## path to parameter_orbit.rdf file and output orbit folder
+## path to the parameter_orbit.rdf file and output orbit folder
 orbit_rdf_path = '%s/config/parameter_orbit.rdf' %(testcase)
 output_orbit_path = '%s/1_select_orbit' %(testcase)
 
-## path to parameter_sisimp.rdf file
+## path to the parameter_sisimp.rdf file and output sisimp folder
 sisimp_rdf_path = '%s/config/parameter_sisimp_light.rdf' %(testcase)
+output_sisimp_path = '%s/2_sisimp' %(testcase)
 
 ## path to multi_lake_tile_command.cfg file
 lake_tile_cfg_path = '%s/config/multi_lake_tile_command.cfg' %(testcase)
 
-## path to passplan.txt
+## path to the passplan.txt file
 planpath = '%s/1_select_orbit/passplan.txt' %(testcase)
 
-## path to watermask shapefiles
+## path to the watermask shapefiles
 maskpath = '%s/0_water_mask/' %(testcase)
 
 
@@ -140,11 +141,11 @@ for i in range(ndates):
 	mask = '.'.join(mask.split('.')[:-1])
 	for j, line in zip(range(len(lines)),lines):
 		if line[0:26] == 'Run directory for orbits =':
-			lines[j] = 'Run directory for orbits = ./%s/1_select_orbit' %(testcase)
+			lines[j] = 'Run directory for orbits = ./%s' %(output_orbit_path)
 		elif line[0:16] == 'Shapefile path =':
 			lines[j] = 'Shapefile path = %s/%s' %(maskpath, mask)
 		elif line[0:18] == 'Output directory =':
-			lines[j] = 'Output directory = ./%s/2_sisimp' %(testcase)
+			lines[j] = 'Output directory = ./%s' %(output_sisimp_path)
 		elif line[0:16] == 'Multiple orbit =':
 			lines[j] = 'Multiple orbit = no'
 		elif "Orbit = " in line:
