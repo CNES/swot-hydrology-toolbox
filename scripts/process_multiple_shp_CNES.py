@@ -41,20 +41,20 @@ testcase = 'LT6_Cas_Der'
 ## See https://docs.python.org/2/library/datetime.html for more information.
 ## Example: If shapefile filename is "20170923_Der_S2_SVM_SERTIT.shp", then:
 modeltimefmt = '%Y%m%d'
-shapefile_basename = '_Der_S2_SVM_SERTIT_WGS84' 
+shapefile_basename = '_Der_S2_SVM_SERTIT' 
 
 ## Specify filepaths :
-## file path to parameter_orbit.rdf file and output orbit 
+## path to parameter_orbit.rdf file and output orbit folder
 orbit_rdf_path = '%s/config/parameter_orbit.rdf' %(testcase)
 output_orbit_path = '%s/1_select_orbit' %(testcase)
 
-## file path to parameter_sisimp.rdf file
+## path to parameter_sisimp.rdf file
 sisimp_rdf_path = '%s/config/parameter_sisimp_light.rdf' %(testcase)
 
-## file path to multi_lake_tile_command.cfg file
+## path to multi_lake_tile_command.cfg file
 lake_tile_cfg_path = '%s/config/multi_lake_tile_command.cfg' %(testcase)
 
-## file path to passplan.txt
+## path to passplan.txt
 planpath = '%s/1_select_orbit/passplan.txt' %(testcase)
 
 ## path to watermask shapefiles
