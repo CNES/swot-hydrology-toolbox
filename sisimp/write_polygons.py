@@ -371,21 +371,21 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             #~ indice = np.logical_and(np.isin(r, lac.pixels[0]), np.isin(az, lac.pixels[1]))
             def merge(a,b):
                 return a*100000+b
-            try:
-                layover_az=int(IN_attributes.azimuth_layover[lac.id])
-            except KeyError:
-                layover_az=0
-            lac_pixels_az = np.array([az_ind for az_ind in (np.array(lac.pixels[1], dtype=np.int) - layover_az).tolist()])
-            lac_pixels_r = np.array([r_ind for r_ind in (np.array(lac.pixels[0], dtype=np.int)).tolist()])
-            az_indices = np.where(lac_pixels_az > -1)
-            titi = merge(lac_pixels_r[az_indices], lac_pixels_az[az_indices])
+            #try:
+            #    layover_az=int(IN_attributes.azimuth_layover[lac.id])
+            #except KeyError:
+            #    layover_az=0
+            #lac_pixels_az = np.array([az_ind for az_ind in (np.array(lac.pixels[1], dtype=np.int) - layover_az + IN_attributes.nb_pix_overlap_end).tolist()])
+            #lac_pixels_r = np.array([r_ind for r_ind in (np.array(lac.pixels[0], dtype=np.int)).tolist()])
+            #az_indices = np.where(lac_pixels_az > -1)
+            titi = merge(lac.pixels[0], lac.pixels[1])
             toto = merge(r, az)
             indice = np.isin(toto,titi)
-            if lac.id==42874:
-                print(lac_pixels_az, lac_pixels_r)
-                print(az, r)
-                print(titi, toto)
-                print(np.where(indice==True))
+            #if lac.id==42874:
+            #    print(lac_pixels_az, lac_pixels_r)
+            #    print(min(az), max(az), min(lac.pixels[1]), max(lac.pixels[1]))
+            #    print(titi, toto)
+            #    print(np.where(indice==True))
             
             lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
@@ -547,6 +547,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             if nb_pix_overlap_end == 0:
                 nb_pix_overlap_end = 1
 
+            #TODO:keep only indices + negative values from azr_from_lonlat
             tile_nadir_lat_deg = nadir_lat_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
             tile_nadir_lon_deg = nadir_lon_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
             tile_orbit_time = IN_attributes.orbit_time[nb_pix_overlap_begin:-nb_pix_overlap_end]
@@ -754,7 +755,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 lon = lon * DEG2RAD
                 lat = lat * DEG2RAD
 
-                lac = None
 
                 if IN_attributes.height_model is None:
                     lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
@@ -781,43 +781,44 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                         lac = Height_in_file_Lac(ind+1, IN_attributes, id_lake)
                     else:
                         lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
-                        
+
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
 
                 if IN_attributes.height_model == 'polynomial' and area > IN_attributes.height_model_min_area:
+                    # Create database to sabe all parameters 
+                    if save_field:
+                        # Read DB
+                        try:
+                            lake_az_layover=open('lake_layover_db.pkl', 'rb')
+                            my_db_az_layover=pickle.load(lake_az_layover)
+                            try:
+                                # Get saved parameters for this lake
+                                lac.X0 = my_db_az_layover[id_lake][0].copy()
+                                lac.Y0 = my_db_az_layover[id_lake][1].copy()
+                                lac.COEFF_X2 = my_db_az_layover[id_lake][2].copy()
+                                lac.COEFF_Y2 = my_db_az_layover[id_lake][3].copy()
+                                lac.COEFF_X = my_db_az_layover[id_lake][4].copy()
+                                lac.COEFF_Y = my_db_az_layover[id_lake][5].copy()
+                                lac.COEFF_XY = my_db_az_layover[id_lake][6].copy()
+                                lac.COEFF_CST = my_db_az_layover[id_lake][7].copy()
+                            except KeyError:
+                                # If lake seen for first time - no layover
+                                my_db_az_layover[id_lake] = [lac.X0, lac.Y0, lac.COEFF_X2, lac.COEFF_Y2, lac.COEFF_X, lac.COEFF_Y, lac.COEFF_XY, lac.COEFF_CST] 
+                            lake_az_layover.close() 
+                            lake_az_layover=open('lake_layover_db.pkl', 'wb')
+                            # Add azimuth layover of lake's current tile layover
+                            pickle.dump(my_db_az_layover, lake_az_layover, pickle.HIGHEST_PROTOCOL)
+                            lake_az_layover.close()
+                        # Create DB if not existent    
+                        except:
+                            lake_az_layover=open('lake_layover_db.pkl', 'wb')
+                            pickle.dump({id_lake:[lac.X0, lac.Y0, lac.COEFF_X2, lac.COEFF_Y2, lac.COEFF_X, lac.COEFF_Y, lac.COEFF_XY, lac.COEFF_CST]}, lake_az_layover, pickle.HIGHEST_PROTOCOL)
+                            lake_az_layover.close()
+                    # Reset h_mean of the lake
+                    lac.set_hmean(np.mean(lac.compute_h(lat*RAD2DEG, lon*RAD2DEG)))
                     az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.compute_h(lat* RAD2DEG, lon* RAD2DEG))
                 else:
                     az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
-
-                # Create azimuth layover when lake over multi tile
-                if save_field:
-                    # Read DB
-                    try:
-                        lake_az_layover=open('lake_layover_db.pkl', 'rb')
-                        my_db_az_layover=pickle.load(lake_az_layover)
-                        #IN_attributes.azimuth_layover=my_db_az_layover
-                        try:
-                            # Get azimuth layover of current lake
-                            IN_attributes.azimuth_layover[id_lake] = my_db_az_layover[id_lake].copy()
-                        except KeyError:
-                            # If lake seen for first time - no layover
-                            IN_attributes.azimuth_layover[id_lake] = 0
-                            my_db_az_layover[id_lake] = 0
-                        lake_az_layover.close() 
-                        my_db_az_layover[id_lake]=max(az)-min(az)
-                        #try:
-                        #    my_db_az_layover[id_lake] = 10
-                        #except:
-                        #    print("TOTO")
-                        lake_az_layover=open('lake_layover_db.pkl', 'wb')
-                        # Add azimuth layover of lake's current tile layover
-                        pickle.dump(my_db_az_layover, lake_az_layover, pickle.HIGHEST_PROTOCOL)
-                        lake_az_layover.close()
-                    # Create DB if not existent    
-                    except:
-                        lake_az_layover=open('lake_layover_db.pkl', 'wb')
-                        pickle.dump({id_lake:max(az)-min(az)}, lake_az_layover, pickle.HIGHEST_PROTOCOL)
-                        lake_az_layover.close()
 
                 range_tab = np.concatenate((range_tab, r), -1)
                 npoints = len(az)
@@ -996,7 +997,7 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau=0.):
         indice = np.argmin(np.abs(gamma[i, :]))
         y[i] = beta[i, indice]
         ind[i] = indice - int(nb_points/2)
-    OUT_azcoord2 = OUT_azcoord + ind -0.5
+    OUT_azcoord2 = OUT_azcoord + ind #-0.5
     #~ # Compute range coordinate (across track)
     OUT_azcoord2[np.where(OUT_azcoord2 < 0)] = 0
     OUT_azcoord2[np.where(OUT_azcoord2 > len(alt)-1)] = len(alt)-1
