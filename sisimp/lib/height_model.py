@@ -85,7 +85,7 @@ def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, hei
         plt.figure()
         plt.imshow(h_corr)
         plt.show()
-    
+
     return h_corr
 
 

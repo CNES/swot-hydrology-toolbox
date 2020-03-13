@@ -105,7 +105,7 @@ class Gaussian_Lac(Lac):
         print("gaussian max height",np.max(self.height))
         
         self.h_interp = scipy.interpolate.RectBivariateSpline(latmin + self.dlat*np.arange(taille_lat),lonmin + self.dlon*np.arange(taille_lon),  self.height)
-        
+
     def compute_h(self, lat, lon):
     
         if self.mode == 'az':

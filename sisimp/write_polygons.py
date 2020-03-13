@@ -371,21 +371,9 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             #~ indice = np.logical_and(np.isin(r, lac.pixels[0]), np.isin(az, lac.pixels[1]))
             def merge(a,b):
                 return a*100000+b
-            #try:
-            #    layover_az=int(IN_attributes.azimuth_layover[lac.id])
-            #except KeyError:
-            #    layover_az=0
-            #lac_pixels_az = np.array([az_ind for az_ind in (np.array(lac.pixels[1], dtype=np.int) - layover_az + IN_attributes.nb_pix_overlap_end).tolist()])
-            #lac_pixels_r = np.array([r_ind for r_ind in (np.array(lac.pixels[0], dtype=np.int)).tolist()])
-            #az_indices = np.where(lac_pixels_az > -1)
             titi = merge(lac.pixels[0], lac.pixels[1])
             toto = merge(r, az)
             indice = np.isin(toto,titi)
-            #if lac.id==42874:
-            #    print(lac_pixels_az, lac_pixels_r)
-            #    print(min(az), max(az), min(lac.pixels[1]), max(lac.pixels[1]))
-            #    print(titi, toto)
-            #    print(np.where(indice==True))
             
             lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
@@ -510,22 +498,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         if az_indices.size != 0:  # Write water pixels at this latitude
             
             sub_az, sub_r = [az[az_indices], r[az_indices]]
-            #if sub_az.size != az.size:
-            #    current_dic_latlon={}
-            #    for ind_lat in range(lat_noisy.size-1):
-            #        current_dic_latlon[(lat[ind_lat], lon[ind_lat])]=[nadir_lat_deg[ind_lat], nadir_lon_deg[ind_lat], nadir_alt[ind_lat],
-            #                nadir_heading[ind_lat], IN_attributes.x[ind_lat], IN_attributes.y[ind_lat], IN_attributes.z[ind_lat],
-            #                vx[ind_lat], vy[ind_lat], vz[ind_lat]]
-            #    try:
-            #        my_file=open('latlondic.pkl', 'wb')
-            #    except:
-            #        my_file=open('latlondic.pkl', 'rb')
-            #        pickle.dump(current_dic_latlon, my_file)
-            #        my_file.close()
-            #        my_file=open('latlondic.pkl', 'wb')
-            #    my_dic_latlon=pickle.load(my_file)
-            #    print(my_dic_latlon.keys())
-
             
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min r ind = %d - Max r ind = %d" % (np.min(sub_r), np.max(sub_r)))
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min az ind = %d - Max az ind = %d" % (np.min(sub_az), np.max(sub_az)))
@@ -785,7 +757,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
 
                 if IN_attributes.height_model == 'polynomial' and area > IN_attributes.height_model_min_area:
-                    # Create database to sabe all parameters 
+                    # Create database to save all parameters 
                     if save_field:
                         # Read DB
                         try:
@@ -817,6 +789,27 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     # Reset h_mean of the lake
                     lac.set_hmean(np.mean(lac.compute_h(lat*RAD2DEG, lon*RAD2DEG)))
                     az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.compute_h(lat* RAD2DEG, lon* RAD2DEG))
+
+                elif IN_attributes.height_model=='gaussian' and area > IN_attributes.height_model_min_area:
+                    # Create DB to save gaussian parameters
+                    try:
+                        lake_gaussian_file=open('lake_gaussian_param.pkl', 'rb')
+                        my_db_param=pickle.load(lake_gaussian_file)
+                        try:
+                            lac.h_interp=my_db_param[id_lake]
+                        except KeyError:
+                            my_db_param[id_lake]=lac.h_interp
+                        lake_gaussian_file.close()
+                        lake_gaussian_file=open('lake_gaussian_param.pkl','wb')
+                        pickle.dump(my_db_param, lake_gaussian_file, pickle.HIGHEST_PROTOCOL)
+                        lake_gaussian_file.close()
+                    except:
+                        lake_gaussian_file=open('lake_gaussian_param.pkl', 'wb')
+                        pickle.dump({id_lake:lac.h_interp}, lake_gaussian_file, pickle.HIGHEST_PROTOCOL)
+                        lake_gaussian_file.close()
+                    lac.set_hmean(np.mean(lac.compute_h(lat*RAD2DEG, lon*RAD2DEG)))
+                    az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
+
                 else:
                     az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
 
