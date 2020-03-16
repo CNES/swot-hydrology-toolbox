@@ -26,6 +26,10 @@
 from osgeo import ogr
 
 
+######################
+# GENERIC PARAMETERS #
+######################
+
 # Earth parameters
 GEN_RAD_EARTH_EQ = 6378137.0  # Radius of the Earth model (WGS84 ellipsoid) at the equator
 GEN_RAD_EARTH_POLE = 6356752.31425  # Radius of the Earth model at the pole
@@ -34,6 +38,10 @@ GEN_APPROX_RAD_EARTH = (2*GEN_RAD_EARTH_EQ + GEN_RAD_EARTH_POLE)/3  # Radius (in
 # SWOT parameters
 GEN_RANGE_SPACING = 0.75  # Range spacing of SWOT
 
+
+###############
+# _FillValues #
+###############
 
 # FillValues for NetCDF files 
 FV_DOUBLE = 9.9692099683868690e+36
@@ -84,18 +92,31 @@ FV_SHP = {'int4': FV_INT_SHP,
           'str32': FV_STRING_SHP,
           'object': FV_STRING_SHP}
 
-# Conversion metadata type to OGR type
+
+########################################
+# Conversion metadata type to OGR type #
+########################################
+
 FORMAT_OGR = {'int4': ogr.OFTInteger,
               'int9': ogr.OFTInteger,
               'float': ogr.OFTReal,
               'text': ogr.OFTString}
 
-# Prior Lake Database structure
-# Table names
-lakedb_table_name = "lake"
-basin_table_name = "basin"
-lake_infl_table_name = "lake_influence"
-# Fields names
-lake_db_id = "lakedb_id"
-basin_db_id = "basin_id"
 
+#################################
+# Prior Lake Database structure #
+# Operational format in SQLite  #
+#################################
+
+# Table names
+PLD_TABLE_LAKE = "lake"
+PLD_TABLE_BASIN = "basin"
+PLD_TABLE_LAKE_INFL = "lake_influence"
+
+# Fields names
+PLD_FIELD_LAKE_ID = "lakedb_id"
+PLD_FIELD_BASIN_ID = "basin_id"
+PLD_FIELD_REF_AREA = "ref_area"
+PLD_FIELD_REF_HEIGHT = "ref_height"
+PLD_FIELD_NAMES = "names"
+PLD_FIELD_GRAND_ID = "grand_id"

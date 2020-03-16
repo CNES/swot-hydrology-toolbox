@@ -8,6 +8,7 @@ This file is part of the SWOT Hydrology Toolbox
 import argparse
 import glob
 import os
+import datetime
 
 import tools.my_filenames as my_names
 import tools.my_rdf as my_rdf
@@ -43,11 +44,6 @@ def write_annotation_file(ann_file,
 
 def l2pixc_to_rivertile(pixc_file, out_riverobs_file, out_pixc_vector_file, rdf_file, shpbasedir=None, log_level="info", gdem_file=None):
     LOGGER = logging.getLogger('swot_pixc2rivertile')
-
-    level = {'debug': logging.DEBUG, 'info': logging.INFO,
-             'warning': logging.WARNING, 'error': logging.ERROR}[log_level]
-    format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    logging.basicConfig(level=level, format=format)
 
     config = RDF.RDF()
     config.rdfParse(rdf_file)
@@ -108,16 +104,30 @@ def main():
     parser.add_argument('output_dir', help="output directory", type=str)
     parser.add_argument('parameter_riverobs', help="param file for RiverObs", type=str)
     parser.add_argument('--riverobs_path', help="full path to RiverObs software (if not in os.environ)", type=str)
-    parser.add_argument("--noshp", 
-        help="if true, don't produce shapefiles", 
-        nargs='?', type=bool, default=False, const=True)
+    parser.add_argument("--noshp",
+                        help="if true, don't produce shapefiles",
+                        nargs='?', type=bool, default=False, const=True)
+    parser.add_argument("--verbose", help="Verbose level (debug or info=default)", nargs="?", type=str, default="info")
+    parser.add_argument("--writelog", help="if true, write riverobs output to log file", nargs='?', type=bool, default=False, const=True)
     parser.add_argument(
         '-f', '--force', action='store_true', dest='force', default=False,
         help='force overwrite existing outputs; default is to quit')
     args = vars(parser.parse_args())
 
-    print("===== l2pixc_to_rivertile = BEGIN =====")
-    print("")
+    # Set logger
+    level = {'debug': logging.DEBUG, 'info': logging.INFO,
+             'warning': logging.WARNING, 'error': logging.ERROR}[args["verbose"]]
+    format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    if args["writelog"]:
+        logFile = os.path.join(args['output_dir'], "RiverTile_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".log")
+        print("> Log file = {}".format(logFile))
+        logging.basicConfig(filename=logFile, level=level, format=format)
+    else:
+        print("> No log file ; print info on screen")
+        logging.basicConfig(level=level, format=format)
+
+    logging.info("===== l2pixc_to_rivertile = BEGIN =====")
+    logging.info("")
 
     # Load rdf files
     if os.path.isfile(args['l2pixc_annotation_file']):
@@ -127,21 +137,21 @@ def main():
         # multi files case
         rdf_files = glob.glob(os.path.join(args['l2pixc_annotation_file'],"pixc*.rdf"))
     if len(rdf_files) == 0:
-        print("> NO PixC annotation file to deal with")
+        logging.info("> NO PixC annotation file to deal with")
     else:
-        print("> %d PixC annotation file(s) to deal with" % len(rdf_files))
-    print()
-    print()
-    
+        logging.info("> %d PixC annotation file(s) to deal with" % len(rdf_files))
+    logging.info("")
+    logging.info("")
+
     # Process per annotation file   
     for pixc_ann_file in rdf_files:
-        
-        print("***** Dealing with PixC annotation file %s *****" % pixc_ann_file)
-        
+
+        logging.info("***** Dealing with PixC annotation file %s *****" % pixc_ann_file)
+
         # Open and read RDF file
         rdf = my_rdf.myRdfReader(os.path.abspath(pixc_ann_file))
         ann_cfg = rdf.parameters
-        
+
         # Create output directories name
         # For RiverTile products
         river_dir = os.path.abspath(os.path.join(args['output_dir'], 'rivertile'))
@@ -151,7 +161,7 @@ def main():
         pixcvec_dir = os.path.abspath(os.path.join(args['output_dir'], 'pixcvec'))
         if not os.path.isdir(pixcvec_dir):
             os.makedirs(pixcvec_dir)
-    
+
         # Prepare args for l2pixc_to_rivertile.py
         # File path
         pixc_file = os.path.abspath(ann_cfg['l2pixc file'])
@@ -161,13 +171,13 @@ def main():
         river_ann_file = os.path.join(args['output_dir'], river_filenames.annot_file)
 
 
-        print("== Run RiverObs ==")
+        logging.info("== Run RiverObs ==")
         l2pixc_to_rivertile(pixc_file, output_riverobs, output_pixcvec, os.path.abspath(args['parameter_riverobs']), shpbasedir=river_dir,
                             log_level="info", gdem_file=None)
-        print("== Run RiverObs OK ==")
+        logging.info("== Run RiverObs OK ==")
 
-        print()
-        
+        logging.info("")
+
         # Rename the shapefiles
         # Node files
         new_nodes_files = glob.glob(os.path.join(river_dir, "nodes*"))
@@ -185,35 +195,35 @@ def main():
             if os.path.exists(new_filename):
                 os.remove(new_filename)
             os.rename(reach_file, new_filename)
-  
+
         # Convert PIXCVecRiver into shapefile if wanted
         if not args["noshp"]:
-            
+
             # write pixcvec shapefile
-            print("> Converting PIXCVecRiver .nc file to shapefile...")
-            pixcvec_vars = ["azimuth_index", 
+            logging.info("> Converting PIXCVecRiver .nc file to shapefile...")
+            pixcvec_vars = ["azimuth_index",
                             "range_index",
                             "pixc_index",
-                            "height_vectorproc", 
+                            "height_vectorproc",
                             "lake_flag",
                             "node_id",
                             "reach_id"]
             cnes.modules.geoloc.lib.pixc_to_shp.pixc_to_shp(
-                output_pixcvec, 
-                output_pixcvec.replace(".nc",".shp"), 
-                "latitude_vectorproc", "longitude_vectorproc", 
+                output_pixcvec,
+                output_pixcvec.replace(".nc",".shp"),
+                "latitude_vectorproc", "longitude_vectorproc",
                 pixcvec_vars, group_name=None)
 
         # Write annotation file
         write_annotation_file(
-            river_ann_file, 
+            river_ann_file,
             pixc_file,
             output_pixcvec)
-        
-        print()
 
-    print("")
-    print("===== l2pixc_to_rivertile = END =====")
+        logging.info("")
+
+    logging.info("")
+    logging.info("===== l2pixc_to_rivertile = END =====")
 
 
 #######################################

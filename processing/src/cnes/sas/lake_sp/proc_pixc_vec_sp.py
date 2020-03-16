@@ -175,7 +175,9 @@ class PixCVecSwath(object):
             pixc_vec_file = self.pixc_vec_file_list[tile_idx]
 
             # 2 - Init proc_pixc_vec.PixelCloudVec object
-            obj_pixc_vec = proc_pixc_vec.PixelCloudVec("SP", lake_tile_pixcvec_file)
+            obj_pixc_vec = proc_pixc_vec.PixelCloudVec("SP")
+            obj_pixc_vec.set_from_pixcvec_file(lake_tile_pixcvec_file)
+
             # obj_pixc_vec.setContinent(self.continent)
 
             # 3 - Get corresponding obj_pixc_edge_sp tile_idx

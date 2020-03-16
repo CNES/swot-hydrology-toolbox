@@ -12,12 +12,9 @@
 """
 .. module:: proc_pixc.py
    :synopsis: Deals with SWOT pixel cloud product
-    2017/02/28 - Creation
+    Created on 2017/02/28
 
 .. moduleauthor:: Claire POTTIER - CNES DSO/SI/TR
-
-.. todo: sortir les pixels oceans de la liste des pixels à traiter
-.. todo: entités qui contiennent pixels rivière et autres
 
 ..
    This file is part of the SWOT Hydrology Toolbox
@@ -33,17 +30,20 @@ import os
 from osgeo import ogr, osr
 from scipy import interpolate
 
+import cnes.common.service_config_file as service_config_file
+
 import cnes.common.lib.my_netcdf_file as my_nc
 import cnes.common.lib.my_tools as my_tools
-import cnes.common.service_config_file as service_config_file
 import cnes.common.lib.my_variables as my_variables
 import cnes.common.lib_lake.locnes_products_netcdf as nc_file
 
 
 class PixelCloud(object):
     """
-        class PixelCloud
+    class PixelCloud
+    Deal with SWOT pixel cloud product
     """
+    
     def __init__(self):
         """
         Constructor: init pixel cloud object
@@ -121,7 +121,6 @@ class PixelCloud(object):
         # Get instance of service config file
         self.cfg = service_config_file.get_instance()
         logger = logging.getLogger(self.__class__.__name__)
-
         logger.info("- start -")
 
         # Init PIXC variables
@@ -243,7 +242,8 @@ class PixelCloud(object):
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("L2_HR_PIXC file = %s" % in_pixc_file)
-        # get flag variables from configuration file
+        
+        # Get flag variables from configuration file
         flag_water = self.cfg.get("CONFIG_PARAMS", "FLAG_WATER")
         flag_dark = self.cfg.get("CONFIG_PARAMS", "FLAG_DARK")
         
@@ -276,8 +276,7 @@ class PixelCloud(object):
         self.near_range = np.double(self.pixc_metadata["near_range"])  # Slant range for the 1st image pixel
         self.nominal_slant_range_spacing = np.double(self.pixc_metadata["nominal_slant_range_spacing"])  # Slant range for the 1st image pixel
 
-        # 3 - Continent overflown
-        # Create polygon of tile from global attributes
+        # 3 - Create polygon of tile from global attributes
         ring = ogr.Geometry(ogr.wkbLinearRing)
         ring.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.get_att_value("inner_first_longitude"))),
                                                    float(pixc_reader.get_att_value("inner_first_latitude")))
@@ -306,32 +305,39 @@ class PixelCloud(object):
                 
         # 5 - Get indices corresponding to input classification flags
         logger.info("There are %d pixels in the input PIXC" % len(origin_longitude))
+        
         # 5.1 - Flag rejected pixels in a specific way
         tmp_classif = self.origin_classif  # Init temporary classif vector
         if in_index_reject is not None:
-            logger.info("%d pixels are river (but not reservoir) pixels => will be rejected" % in_index_reject.size)
+            logger.info("%d pixels are river (but not connected lakes) pixels => will be rejected" % in_index_reject.size)
             tmp_classif[in_index_reject] = 100  # Dummy value to ease selection hereafter
+            
         # 5.2 - Remove pixels with longitude or latitude = FillValue or NaN
+        # longitude = _FillValue
         nan_idx = np.where(origin_longitude == my_variables.FV_DOUBLE)[0]
         nb_nan = len(nan_idx)
         if nb_nan != 0:
             logger.info("%d pixels have _FillValue longitude => will be rejected" % nb_nan)
             tmp_classif[nan_idx] = 100 
+        # longitude = NaN
         nan_idx = np.argwhere(np.isnan(origin_longitude))
         nb_nan = len(nan_idx)
         if nb_nan != 0:
             logger.info("%d pixels have NaN longitude => will be rejected" % nb_nan)
             tmp_classif[nan_idx] = 100 
+        # latitude = _FillValue
         nan_idx = np.where(origin_latitude == my_variables.FV_DOUBLE)[0]
         nb_nan = len(nan_idx)
         if nb_nan != 0:
             logger.info("%d pixels have _FillValue latitude => will be rejected" % nb_nan)
             tmp_classif[nan_idx] = 100 
+        # latitude = NaN
         nan_idx = np.argwhere(np.isnan(origin_latitude))
         nb_nan = len(nan_idx)
         if nb_nan != 0:
             logger.info("%d pixels have NaN latitude => will be rejected" % nb_nan)
             tmp_classif[nan_idx] = 100 
+            
         # 5.3 - Build list of classification flags to keep
         tmp_flags = ""
         if flag_water != "":
@@ -340,8 +346,10 @@ class PixelCloud(object):
             if tmp_flags != "":
                 tmp_flags += ";"
             tmp_flags += flag_dark.replace('"','')  # Dark water flags
+            
         # 5.4 - Get list of classification flags
         list_classif_flags = tmp_flags.split(";")
+        
         # 5.5 - Get list of selected indices
         self.selected_index = None  # Init wanted indices vector
         for classif_flag in list_classif_flags:

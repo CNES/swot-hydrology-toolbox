@@ -159,9 +159,9 @@ class findOrbit(object):
                         outVar.setncatts({k: varin.getncattr(k) for k in varin.ncattrs()})
                         # Linear regression of variable
                         if v_name == "time":  # Specific consideration of time variable
-                            lin_reg = np.polyfit(index_over_dem[:], tmp_time[index_over_dem], 1)
+                            lin_reg = np.polyfit(index_over_dem[:], tmp_time[index_over_dem], 2)
                         else:
-                            lin_reg = np.polyfit(index_over_dem[:], varin[index_over_dem], 1)
+                            lin_reg = np.polyfit(index_over_dem[:], varin[index_over_dem], 2)
                         give_output = np.poly1d(lin_reg)
                         output_scale = np.linspace(index_over_dem[0], index_over_dem[-1], nb_sampling_points)
                         outVar[:] = give_output(output_scale)

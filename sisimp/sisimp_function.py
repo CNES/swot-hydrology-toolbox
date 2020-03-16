@@ -230,5 +230,7 @@ def write_swath_polygons(IN_attributes):
         feature.SetField(str("Swath"), str(swath))
         feature.SetGeometry(geom)
         layer.CreateFeature(feature)
-
+    nb_feature = layer.GetFeatureCount()
     dataSource.Destroy()
+    if nb_feature == 0:
+        shpDriver.DeleteDataSource(IN_attributes.sisimp_filenames.footprint_file)
