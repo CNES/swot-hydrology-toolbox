@@ -761,31 +761,31 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     if save_field:
                         # Read DB
                         try:
-                            lake_az_layover=open('lake_layover_db.pkl', 'rb')
-                            my_db_az_layover=pickle.load(lake_az_layover)
+                            lake_polynomial_file=open('lake_polynomial_param.pkl', 'rb')
+                            polynomial_param_db=pickle.load(lake_polynomial_file)
                             try:
                                 # Get saved parameters for this lake
-                                lac.X0 = my_db_az_layover[id_lake][0].copy()
-                                lac.Y0 = my_db_az_layover[id_lake][1].copy()
-                                lac.COEFF_X2 = my_db_az_layover[id_lake][2].copy()
-                                lac.COEFF_Y2 = my_db_az_layover[id_lake][3].copy()
-                                lac.COEFF_X = my_db_az_layover[id_lake][4].copy()
-                                lac.COEFF_Y = my_db_az_layover[id_lake][5].copy()
-                                lac.COEFF_XY = my_db_az_layover[id_lake][6].copy()
-                                lac.COEFF_CST = my_db_az_layover[id_lake][7].copy()
+                                lac.X0 = polynomial_param_db[id_lake][0].copy()
+                                lac.Y0 = polynomial_param_db[id_lake][1].copy()
+                                lac.COEFF_X2 = polynomial_param_db[id_lake][2].copy()
+                                lac.COEFF_Y2 = polynomial_param_db[id_lake][3].copy()
+                                lac.COEFF_X = polynomial_param_db[id_lake][4].copy()
+                                lac.COEFF_Y = polynomial_param_db[id_lake][5].copy()
+                                lac.COEFF_XY = polynomial_param_db[id_lake][6].copy()
+                                lac.COEFF_CST = polynomial_param_db[id_lake][7].copy()
                             except KeyError:
                                 # If lake seen for first time - no layover
-                                my_db_az_layover[id_lake] = [lac.X0, lac.Y0, lac.COEFF_X2, lac.COEFF_Y2, lac.COEFF_X, lac.COEFF_Y, lac.COEFF_XY, lac.COEFF_CST] 
-                            lake_az_layover.close() 
-                            lake_az_layover=open('lake_layover_db.pkl', 'wb')
+                                polynomial_param_db[id_lake] = [lac.X0, lac.Y0, lac.COEFF_X2, lac.COEFF_Y2, lac.COEFF_X, lac.COEFF_Y, lac.COEFF_XY, lac.COEFF_CST] 
+                            lake_polynomial_file.close() 
+                            lake_polynomial_file=open('lake_polynomial_param.pkl', 'wb')
                             # Add azimuth layover of lake's current tile layover
-                            pickle.dump(my_db_az_layover, lake_az_layover, pickle.HIGHEST_PROTOCOL)
-                            lake_az_layover.close()
+                            pickle.dump(polynomial_param_db, lake_polynomial_file, pickle.HIGHEST_PROTOCOL)
+                            lake_polynomial_file.close()
                         # Create DB if not existent    
                         except:
-                            lake_az_layover=open('lake_layover_db.pkl', 'wb')
-                            pickle.dump({id_lake:[lac.X0, lac.Y0, lac.COEFF_X2, lac.COEFF_Y2, lac.COEFF_X, lac.COEFF_Y, lac.COEFF_XY, lac.COEFF_CST]}, lake_az_layover, pickle.HIGHEST_PROTOCOL)
-                            lake_az_layover.close()
+                            lake_polynomial_file=open('lake_polynomial_param.pkl', 'wb')
+                            pickle.dump({id_lake:[lac.X0, lac.Y0, lac.COEFF_X2, lac.COEFF_Y2, lac.COEFF_X, lac.COEFF_Y, lac.COEFF_XY, lac.COEFF_CST]}, lake_polynomial_file, pickle.HIGHEST_PROTOCOL)
+                            lake_polynomial_file.close()
                     # Reset h_mean of the lake
                     lac.set_hmean(np.mean(lac.compute_h(lat*RAD2DEG, lon*RAD2DEG)))
                     az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.compute_h(lat* RAD2DEG, lon* RAD2DEG))
@@ -794,14 +794,14 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     # Create DB to save gaussian parameters
                     try:
                         lake_gaussian_file=open('lake_gaussian_param.pkl', 'rb')
-                        my_db_param=pickle.load(lake_gaussian_file)
+                        gaussian_param_db=pickle.load(lake_gaussian_file)
                         try:
-                            lac.h_interp=my_db_param[id_lake]
+                            lac.h_interp=gaussian_param_db[id_lake]
                         except KeyError:
-                            my_db_param[id_lake]=lac.h_interp
+                            gaussian_param_db[id_lake]=lac.h_interp
                         lake_gaussian_file.close()
                         lake_gaussian_file=open('lake_gaussian_param.pkl','wb')
-                        pickle.dump(my_db_param, lake_gaussian_file, pickle.HIGHEST_PROTOCOL)
+                        pickle.dump(gaussian_param_db, lake_gaussian_file, pickle.HIGHEST_PROTOCOL)
                         lake_gaussian_file.close()
                     except:
                         lake_gaussian_file=open('lake_gaussian_param.pkl', 'wb')
