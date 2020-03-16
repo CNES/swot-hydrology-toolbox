@@ -282,7 +282,6 @@ class MultiLakeSP(object):
         writer_command_file.write("#######################################\n")        
         writer_command_file.close()  # Close command file
         return out_cmd_file
-    
 
 #######################################
         

@@ -139,8 +139,8 @@ class GeolocRiver(object):
         """
 
         self.new_height = np.copy(self.pixcvec.height)
-
         unfound_keys = 0
+
 
         # For each pixcvec point
         for point_index in range(self.pixcvec.height.size):
@@ -155,13 +155,14 @@ class GeolocRiver(object):
                 rivertile_index = self.node_reach_dict[key]
 
                 # If possible, interpolate new point height from the associated node and the next/previous closest
+                
                 if interpolate_pixc_between_nodes and (reach_id, node_id - 1) in self.node_reach_dict and \
                                 (reach_id, node_id + 1) in self.node_reach_dict:
                     self.interpolate_pixc_height(reach_id,node_id,point_index,rivertile_index)
 
                 # Simple case: just use the node height to estimate improved_height
                 else:
-                    new_height = self.rivertile.h_n_ave[rivertile_index]
+                    new_height = self.rivertile.h_n_ave_fit[rivertile_index]
                     # avoid wrong data
                     if new_height >= MIN_HEIGHT_VALUE:
                         self.new_height[point_index] = new_height
@@ -170,6 +171,7 @@ class GeolocRiver(object):
             #  - Initiate logging service
             logger = logging.getLogger(self.__class__.__name__)
             logger.warning("Warning: {} points' (reach, node) were not found in the node file".format(unfound_keys))
+
 
     def interpolate_pixc_height(self,reach_id, node_id,point_index, rivertile_index):
 
@@ -264,7 +266,6 @@ class GeolocRiver(object):
             nadir_vx_vect[i] = nadir_vx[ind_sensor]
             nadir_vy_vect[i] = nadir_vy[ind_sensor]
             nadir_vz_vect[i] = nadir_vz[ind_sensor]
-
         # improuve height with vectorised pixel
         p_final, p_final_llh, h_mu, (iter_grad, nfev_minimize_scalar) = geoloc.pointcloud_height_geoloc_vect(np.transpose(np.array([x, y, z])),
                                                                                                              h_noisy,
@@ -322,7 +323,6 @@ def geoloc_river(pixc, pixcvec, sensor, rivertile, fit_heights_per_reach, interp
     if fit_heights_per_reach == 'fitted_height_from_riverobs':
         # Use fitted height from riverobs
         geolocriver.rivertile.h_n_ave_fit = geolocriver.rivertile.fit_height
-
 
     geolocriver.estimate_pixvec_height_for_geoloc(interpolate_pixc_between_nodes)
     geolocriver.apply_improved_geoloc(method=method)

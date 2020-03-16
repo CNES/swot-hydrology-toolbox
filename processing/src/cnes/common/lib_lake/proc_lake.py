@@ -16,11 +16,6 @@
 
 .. moduleauthor: Claire POTTIER (CNES DSO/SI/TR) and Cécile CAZALS (CS)
 
-.. todo:: revoir la date
-.. todo:: revoir le lien de màj du PIXC_VEC tag si plrs lacs associés à l'objet ou si aucun lac (on prend l'identifiant de la tuile ?)
-.. todo:: revoir le calcul des erreurs
-.. todo:: améliorer le calcul de la hauteur moyenne
-
 ..
    This file is part of the SWOT Hydrology Toolbox
    Copyright (C) 2018 Centre National d’Etudes Spatiales
@@ -29,8 +24,11 @@
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import numpy as np
 import logging
+import numpy as np
+
+import cnes.common.service_config_file as service_config_file
+import cnes.common.service_error as service_error
 
 from cnes.modules.geoloc.scripts.biglake_model import BigLakeModel
 
@@ -41,13 +39,11 @@ import cnes.common.lib_lake.locnes_products_shapefile as shp_file
 import cnes.common.lib_lake.proc_pixc_vec as proc_pixc_vec
 import cnes.common.lib_lake.storage_change as storage_change
 
-import cnes.common.service_config_file as service_config_file
-import cnes.common.service_error as service_error
-
 
 class LakeProduct(object):
     """
-        class LakeProduct
+    class LakeProduct
+    Manage LakeTile and LakeSP products
     """
     def __init__(self, in_product_type, in_obj_pixc, in_obj_pixc_vec, in_obj_lake_db, in_layer_name):
         """
@@ -76,7 +72,7 @@ class LakeProduct(object):
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("- start -")
         
-        # Init variables
+        # 1 - Init variables
         # Product type
         if (in_product_type != "TILE") and (in_product_type != "SP"):
             message = "ERROR = product type is %s ; should be SP or TILE" % in_product_type
@@ -90,14 +86,14 @@ class LakeProduct(object):
         # Lake database object
         self.obj_lake_db = in_obj_lake_db
         
-        # Initialize lake product layer
+        # 2 - Initialize lake product memory layer
         self.shp_mem_layer = shp_file.LakeSPShpProduct(self.type, in_layer_name)
         
-        # Other variables
+        # 3 - Other variables
         self.uniq_prior_id = set()  # List of uniq prior identifiers linked to observed objects
 
+        # 4 - ONLY FOR LakeTile: find continent associated to tile
         if self.type == "TILE":
-            # Find tile associated continent
             continent = self.obj_lake_db.link_poly_to_continent(self.obj_pixc.tile_poly)
             self.obj_pixc.pixc_metadata["continent"] = continent
             self.obj_pixc_vec.pixcvec_metadata["continent"] = continent
@@ -284,9 +280,9 @@ class LakeProduct(object):
                 logger.debug("> Get observed lakes linked to this a priori lake")
                 self.shp_mem_layer.layer.SetAttributeFilter("lake_id LIKE '%{}%'".format(p_id))
                 
-                # 10.3 - Set lake name and GRand identifier from prior database
+                # 10.3 - Set lake name GRand identifier, lake height and area from prior database
                 logger.debug("> Set prior info")
-                self.set_prior_info(lake_name, grand_id)
+                self.set_prior_info(lake_name, grand_id, ref_height, ref_area)
                 
                 # 10.4 - Compute storage change
                 logger.debug("> Compute storage change")
@@ -344,9 +340,10 @@ class LakeProduct(object):
             
         # 2 - Link to lake a priori database
         list_prior, pixc_vec_tag = self.obj_lake_db.link_to_db(out_geom, in_imp_lon, in_imp_lat)
-        # Save in self
-        for prior_id in list_prior:
-            self.uniq_prior_id.add(prior_id)
+
+        # Save in self only the first prior id, the id of the lake biggest intersection with obslake.
+        if list_prior:
+            self.uniq_prior_id.add(list_prior[0])
         
         # 3 - Compute lake attributes
         
@@ -404,7 +401,21 @@ class LakeProduct(object):
         selected_load_tide1 = self.obj_pixc.load_tide_sol1[selected_indices]  # Load tide 1
         
         # Mean water surface elevation over the lake and uncertainty
-        selected_wse = selected_height - selected_geoid_hght - selected_solid_tide - selected_pole_tide - selected_load_tide1
+        selected_wse = selected_height
+
+        # use only values and not fill values
+        valid_geoid = np.where(selected_geoid_hght != my_var.FV_NETCDF[str(selected_geoid_hght.dtype)])
+        selected_wse[valid_geoid] -= selected_geoid_hght[valid_geoid]
+
+        valid_solid_tide = np.where(selected_solid_tide != my_var.FV_NETCDF[str(selected_solid_tide.dtype)])
+        selected_wse[valid_solid_tide] -= selected_solid_tide[valid_solid_tide]
+
+        valid_pole_tide = np.where(selected_pole_tide != my_var.FV_NETCDF[str(selected_pole_tide.dtype)])
+        selected_wse[valid_pole_tide] -= selected_pole_tide[valid_pole_tide]
+
+        valid_load_tide1 = np.where(selected_load_tide1 != my_var.FV_NETCDF[str(selected_load_tide1.dtype)])
+        selected_wse[valid_load_tide1] -= selected_load_tide1[valid_load_tide1]
+
         out_attributes["wse"] = my_tools.compute_mean_2sigma(selected_wse, in_nan=my_var.FV_FLOAT)
         out_attributes["wse_u"] = my_var.FV_REAL
         out_attributes["wse_r_u"] = my_var.FV_REAL
@@ -490,44 +501,50 @@ class LakeProduct(object):
 
     # ----------------------------------------
     
-    def set_prior_info(self, in_name, in_grand):
+    def set_prior_info(self, in_name, in_grand, in_height, in_area):
         """
-        Set name and grand_id attributes to prior values for all objects linked to current prior lake
+        Set name, grand_id, heigth and area attributes to prior values for all objects linked to current prior lake
         
         :param in_name: name of the prior lake
         :type in_name: string
         :param in_grand: GRanD identifier 
         :type in_grand: int
+        :param in_height: PLD lake height
+        :type in_height: float
+        :param in_area: PLD lake area
+        :type in_area: float
         """
-        
         for obs_lake in self.shp_mem_layer.layer:
-            
             # 1 - Update prior name
             if in_name is not None:
-                obs_name = obs_lake.GetField(str("p_name"))
-                if obs_name == my_var.FV_STRING_SHP:
-                    obs_lake.SetField(str("p_name"), in_name)
-                else:
-                    obs_lake.SetField(str("p_name"), "%s;%s" % (obs_name, in_name))
+                obs_lake.SetField(str("p_name"), in_name)
             else:
                 obs_lake.SetField(str("p_name"), my_var.FV_STRING_SHP)
                     
             # 2 - Update GRanD identifier
             if in_grand is not None:
-                obs_grand = obs_lake.GetField(str("grand_id"))
-                if obs_grand == my_var.FV_STRING_SHP:
-                    obs_lake.SetField(str("grand_id"), in_grand)
-                else:
-                    obs_lake.SetField(str("grand_id"), "%s;%d" % (obs_grand, in_grand))
+                obs_lake.SetField(str("grand_id"), in_grand)
             else:
-                obs_lake.SetField(str("grand_id"), my_var.FV_STRING_SHP)
+                obs_lake.SetField(str("grand_id"), my_var.FV_INT9_SHP)
+
+            # 3 - Update height
+            if in_height is not None:
+                obs_lake.SetField(str("p_height"), in_height)
+            else:
+                obs_lake.SetField(str("p_height"), my_var.FV_REAL)
+
+            # 4 - Update area
+            if in_area is not None:
+                obs_lake.SetField(str("p_area"), in_area)
+            else:
+                obs_lake.SetField(str("p_area"), my_var.FV_REAL)
                     
-            # 3 - Update maximum water storage value
+            # 5 - Update maximum water storage value
             obs_lake.SetField(str("p_storage"), my_var.FV_REAL)
         
-            # 4 - Rewrite feature with updated attributes
+            # 6 - Rewrite feature with updated attributes
             self.shp_mem_layer.layer.SetFeature(obs_lake)
-    
+
     def set_storage_change(self, in_ref_height, in_ref_area):
         """
         Set storage change value for all objects linked to current prior lake

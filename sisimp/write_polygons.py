@@ -350,13 +350,11 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     ri = IN_attributes.near_range + r * IN_attributes.range_sampling  # Radar-to-ground distance
     
     Hi = IN_attributes.alt[az]  # Altitude
-    angles = np.arccos(Hi/ri)  # Look angles
-    pixel_area = IN_attributes.azimuth_spacing * IN_attributes.range_sampling / np.sin(angles)  # Pixel area
     
-    # 3 - Build cross-track distance array
-    # Compute theorical cross-track distance for water pixels
-    sign = [-1, 1][IN_swath.lower() == 'right']
-    y = sign * np.sqrt((ri + Hi) * (ri - Hi) / (1. + Hi / GEN_APPROX_RAD_EARTH))
+    # ~ # 3 - Build cross-track distance array
+    # ~ # Compute theorical cross-track distance for water pixels
+    # ~ sign = [-1, 1][IN_swath.lower() == 'right']
+    # ~ y = sign * np.sqrt((ri + Hi) * (ri - Hi) / (1. + Hi / GEN_APPROX_RAD_EARTH))
 
     elevation_tab = np.zeros(len(az))
 
@@ -377,17 +375,32 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             
             lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
-            
+
+
+    # 3 - Build cross-track distance array
+    # Compute theorical cross-track distance for water pixels
+    # ~ sign = [-1, 1][IN_swath.lower() == 'right']
+    # ~ y = sign * np.sqrt((ri + Hi - elevation_tab) * (ri - (Hi-elevation_tab)) / (1. + (Hi-elevation_tab) / GEN_APPROX_RAD_EARTH))
+    # ~ angles = np.arccos((Hi - elevation_tab)/ri)  # Look angles
+    
+    angles = np.arccos((ri**2 + (GEN_APPROX_RAD_EARTH+Hi)**2 - (GEN_APPROX_RAD_EARTH+elevation_tab)**2)/(2*ri*(GEN_APPROX_RAD_EARTH+Hi)))
+    theta = np.arccos(((GEN_APPROX_RAD_EARTH+Hi)**2 + (GEN_APPROX_RAD_EARTH+elevation_tab)**2 - ri**2)/(2*(GEN_APPROX_RAD_EARTH+elevation_tab)*(GEN_APPROX_RAD_EARTH+Hi)))
+    y = theta*GEN_APPROX_RAD_EARTH
+    
+    pixel_area = IN_attributes.azimuth_spacing * IN_attributes.range_sampling / np.sin(angles)  # Pixel area
+    
     # 4.1 - Compute noise over height
     if IN_attributes.dark_water.lower() == "yes":
         noise_seed = int(str(time.time()).split('.')[1])
         delta_h = np.zeros(elevation_tab.shape)
+        phase_noise_std = np.zeros(elevation_tab.shape)
+        dh_dphi = np.zeros(elevation_tab.shape)
         water_pixels = np.where(classification_tab == IN_attributes.water_flag)
         dw_pixels = np.where(classification_tab == IN_attributes.darkwater_flag)
-        delta_h[water_pixels] = math_fct.calc_delta_h(angles[water_pixels], IN_attributes.noise_height, IN_attributes.height_bias_std, seed=noise_seed)
-        delta_h[dw_pixels] = math_fct.calc_delta_h(angles[dw_pixels], IN_attributes.dw_detected_noise_height, IN_attributes.height_bias_std, seed=noise_seed)
+        delta_h[water_pixels], phase_noise_std[water_pixels], dh_dphi[water_pixels] = math_fct.calc_delta_h(angles[water_pixels], IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+        delta_h[dw_pixels], phase_noise_std[dw_pixels], dh_dphi[dw_pixels] = math_fct.calc_delta_h(angles[dw_pixels], IN_attributes.dw_detected_noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
     else:
-        delta_h = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std)
+        delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
 
     # 4.2 Add residual roll error
     try:
@@ -469,6 +482,10 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     lon_noisy *= RAD2DEG  # Conversion in degrees
     lat_noisy *= RAD2DEG  # Conversion in degrees
     
+    dlon_dphi = (lon_noisy-lon)/delta_h*dh_dphi
+    dlat_dphi = (lat_noisy-lat)/delta_h*dh_dphi
+    
+    
     ######################
     # Write output files #
     ######################
@@ -540,7 +557,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
 
             # Init L2_HR_PIXC object
             my_pixc = proc_real_pixc.l2_hr_pixc(sub_az, sub_r, classification_tab[az_indices], pixel_area[az_indices],
-                                                lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
+                                                lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], phase_noise_std[az_indices],
+                                                dh_dphi[az_indices], dlon_dphi[az_indices], dlat_dphi[az_indices], y[az_indices],
                                                 tile_orbit_time, tile_nadir_lat_deg, tile_nadir_lon_deg, tile_nadir_alt, tile_nadir_heading,
                                                 tile_x, tile_y, tile_z, tile_vx, tile_vy, tile_vz,
                                                 IN_attributes.near_range, IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number,
@@ -616,13 +634,20 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     # 2 - Select water bodies polygons in the swath
     layer, da_shapefile = my_shp.open_shp(IN_filename, swath_polygon)
 
-
-    # Compute near_range (assuming height is nul, should be done differrently to handle totpography)
-    
-    IN_attributes.near_range = compute_near_range(IN_attributes, layer, cycle_number = IN_cycle_number)
+    # Compute near_range 
+    IN_attributes.near_range, hmean = compute_near_range(IN_attributes, layer, cycle_number = IN_cycle_number)
     layer.ResetReading()
     
-    #~ IN_attributes.near_range = np.amin(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+    ## LOOP if hmean different from 0: 
+    if hmean != 0:
+        # 1 - Make swath polygons
+        swath_polygon = make_swath_polygon(IN_swath, IN_attributes, hmean=hmean)
+        # 2 - Select water bodies polygons in the swath
+        layer, da_shapefile = my_shp.open_shp(IN_filename, swath_polygon)
+        # Compute near_range (assuming height is nul, should be done differrently to handle totpography)
+        IN_attributes.near_range, hmean = compute_near_range(IN_attributes, layer, cycle_number = IN_cycle_number)
+        layer.ResetReading()    
+        ## LOOP
     
     nb_features = layer.GetFeatureCount()
 
@@ -681,6 +706,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
             # 4.2.2 - Compute the zone resulting of the intersection between polygon and swath
             intersection = geom.Intersection(swath_polygon)
+            
             save_field = False
             try:
                 id_lake = polygon_index.GetField("code")
@@ -692,6 +718,11 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 save_field = True
                 intersection=geom
             
+# ~ =======
+            # ~ if not intersection:
+                # ~ geom_buff = geom.Clone().Buffer(0)
+                # ~ intersection =  geom_buff.Intersection(swath_polygon)
+# ~ >>>>>>> develop
             # 4.2.3 - Convert polygons coordinates
             add_ring = False
 
@@ -874,7 +905,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 #######################################
         
         
-def make_swath_polygon(IN_swath, IN_attributes):
+def make_swath_polygon(IN_swath, IN_attributes, hmean=0):
     """
     Make left of right swath polygon
     
@@ -895,9 +926,13 @@ def make_swath_polygon(IN_swath, IN_attributes):
     # y = ymax * np.ones(len(az))
     # lon2_, lat2_ = math_fct.lonlat_from_azy_old(az, y, IN_attributes.lat_init, IN_attributes.lon_init, IN_attributes.heading_init)
 
-    IN_ri = np.sqrt((IN_attributes.alt[az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2)
-    lon1, lat1 = math_fct.lonlat_from_azy(az, IN_ri, IN_attributes, IN_swath, h=0, IN_unit="deg")
-    lon2, lat2 = math_fct.lonlat_from_azy(az, IN_ri + 3117*0.75, IN_attributes, IN_swath, h=0, IN_unit="deg")
+    # ~ IN_ri = np.sqrt((IN_attributes.alt[az] + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2)
+    
+    theta = IN_attributes.nr_cross_track/(GEN_APPROX_RAD_EARTH+hmean)
+    IN_ri = np.sqrt((GEN_APPROX_RAD_EARTH+IN_attributes.alt[az])**2+(GEN_APPROX_RAD_EARTH+hmean)**2-2*np.cos(theta)*(GEN_APPROX_RAD_EARTH+hmean)*(GEN_APPROX_RAD_EARTH+IN_attributes.alt[az]))
+    
+    lon1, lat1 = math_fct.lonlat_from_azy(az, IN_ri, IN_attributes, IN_swath, h=hmean, IN_unit="deg")
+    lon2, lat2 = math_fct.lonlat_from_azy(az, IN_ri + IN_attributes.nb_pix_range*IN_attributes.range_sampling, IN_attributes, IN_swath, h=hmean, IN_unit="deg")
     
     lonswath = np.concatenate((lon1, lon2[::-1]))
     latswath = np.concatenate((lat1, lat2[::-1]))
@@ -1106,6 +1141,7 @@ def intersect(input, output, indmax, IN_attributes, overwrite=False):
     return liste_lac
 
 def compute_near_range(IN_attributes, layer, cycle_number=0):
+    hmean=0.
     if IN_attributes.height_model == 'reference_height':
         count, height_tot = 0, 0
         fields_count = layer.GetLayerDefn().GetFieldCount()
@@ -1118,7 +1154,6 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
         if count != 0:
             hmean = height_tot/count
             near_range = np.mean(np.sqrt((IN_attributes.alt - hmean + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-
         else:
             near_range = 0
     if IN_attributes.height_model == 'gaussian':
@@ -1133,7 +1168,7 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
         near_range = np.mean(np.sqrt((IN_attributes.alt - hmean + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
     my_api.printInfo("[write_polygons] [reproject_shapefile] Near_range =  %d" % (near_range))
     
-    return near_range
+    return near_range, hmean
 
 def compute_tile_coords(IN_attributes, IN_swath, nadir_az_size, nb_pix_overlap_begin):
 

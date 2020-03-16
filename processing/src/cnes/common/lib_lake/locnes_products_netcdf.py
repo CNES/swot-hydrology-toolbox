@@ -33,7 +33,7 @@ import cnes.common.lib.my_tools as my_tools
 
 class NetCDFProduct(object):
     """
-    Deal with some of SWOT NetCDF products: LakeTile_pixcvec and PIXCVec, LakeTile_edge
+    Deal with some of SWOT NetCDF products: LakeTile_pixcvec, LakeTile_edge and PIXCVec
     """
     
     def __init__(self):
@@ -76,6 +76,7 @@ class NetCDFProduct(object):
         :type in_metadata: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
+        logger.debug("- start -")
         
         metadata_keys = self.metadata.keys()
         
@@ -130,6 +131,7 @@ class NetCDFProduct(object):
         :type in_param: OrderedDict
         """
         logger = logging.getLogger(self.__class__.__name__)
+        logger.debug("- start -")
         
         var_keys = self.variables.keys()
         
@@ -146,7 +148,10 @@ class NetCDFProduct(object):
         
         :param in_nc_writer: NetCDF file writer
         :type in_nc_writer: my_netcdf_file.MyNcWriter
-        """        
+        """          
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.debug("- start -")
+        
         for key, value in self.metadata.items():
             in_nc_writer.add_global_attribute(key, value)
 

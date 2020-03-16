@@ -299,8 +299,7 @@ class RiverTile(object):
             self.s = node_outputs['s']
             self.h_n_ave = node_outputs['h_n_ave']
             self.h_n_ave_fit = copy.deepcopy(node_outputs['h_n_ave'])
-            self.fit_height = node_outputs['fit_height']
-            # self.fit_height = []
+            self.fit_height = node_outputs['fit_height']+node_outputs['geoid_hght']+node_outputs['load_tide1']+node_outputs['solid_tide']+node_outputs['pole_tide']
 
         except Exception as exc:
             message = str(exc.__class__) + str(exc)
