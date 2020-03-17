@@ -98,16 +98,6 @@ def call_multi_lake_sp(parameter_lakesp, lakesp_dir, laketile_dir, env=None):
     #     print("== Run LakeTile NOK ==")
     print()
 
-    # # Rename to old input filenames if files had been renamed
-    # if flag_rename_pixc:
-    #     print("Get back to old PixC filename [%s] to [%s]" % (pixcname, pixc_file))
-    #     print()
-    #     os.rename(pixcname, pixc_file)
-    # if flag_rename_pixcvec:
-    #     print("Get back to old PIXCVecRiver filename [%s] to [%s]" % (pixcvecname, pixcvec_file))
-    #     print()
-    #     os.rename(pixcvecname, pixcvec_file)
-
 
 #######################################
 
