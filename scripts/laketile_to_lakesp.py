@@ -93,9 +93,7 @@ def call_multi_lake_sp(parameter_lakesp, lakesp_dir, laketile_dir, env=None):
     # 4 - Run processing
     multi_lake_sp_proc.run_processing()
 
-    print("== Run LakeTile OK ==")
-    # except:
-    #     print("== Run LakeTile NOK ==")
+
     print()
 
 
@@ -135,7 +133,7 @@ def main():
     print()
     for laketile_annotation in args['laketile_annotation_file_list']:
 
-        print(">>>>> Dealing with river annotation file %s <<<<<" % laketile_annotation)
+        print(">>>>> Dealing with lake annotation file %s <<<<<" % laketile_annotation)
         print()
 
         # Load annotation file
