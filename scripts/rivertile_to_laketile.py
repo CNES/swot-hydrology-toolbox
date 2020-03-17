@@ -21,7 +21,6 @@ try:
 except:
     tbx_path = os.getcwd().replace(os.sep + "scripts", "")
 sys.path.insert(0, tbx_path)
-
 from processing.PGE.lake_tile import pge_lake_tile as pge_lake_tile
 
 
@@ -76,15 +75,19 @@ def make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_n
 
     
 
-def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvecriver_file, flag_rename_pixc, pixcname, flag_rename_pixcvec, pixcvecname, env=None):
+def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time, env=None):
 
     config = cfg.ConfigParser()
     config.read(parameter_laketile)
 
+    # Create symlinks to input with the right name convention
+    links_dir = join(lake_dir, "inputs")
+
+    pixcname, flag_rename_pixc, pixcvecname, flag_rename_pixcvec = make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time)
 
     # Fill missing values in pge_lake_tile rdf file
-    config.set('PATHS', "PIXC file", pixc_file)
-    config.set('PATHS', "PIXCVecRiver file", pixcvecriver_file)
+    config.set('PATHS', "PIXC file", pixcname)
+    config.set('PATHS', "PIXCVecRiver file", pixcvecname)
     config.set('PATHS', "Output directory", lake_dir)
     logFile_path = config.get('LOGGING', "logFile").replace("REPLACE_ME/", lake_dir+os.path.sep)
     config.set('LOGGING', "logFile", logFile_path)
@@ -112,6 +115,7 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvecriver_fil
     print("== Run LakeTile OK ==")
 
     print()
+    return pixcname
 
     # Rename to old input filenames if files had been renamed
     if flag_rename_pixc:
@@ -119,9 +123,9 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvecriver_fil
         print()
         os.rename(pixcname, pixc_file)
     if flag_rename_pixcvec:
-        print("Get back to old PIXCVecRiver filename [%s] to [%s]" % (pixcvecname, pixcvecriver_file))
+        print("Get back to old PIXCVecRiver filename [%s] to [%s]" % (pixcvecname, pixcvec_file))
         print()
-        os.rename(pixcvecname, pixcvecriver_file)
+        os.rename(pixcvecname, pixcvec_file)
 
 
 #######################################
@@ -201,22 +205,19 @@ def main():
         # Read config from config repository by default, or from the script arguments
         parameter_laketile = args["parameter_laketile"]
 
-        # Create symlinks to input with the right name convention
-        links_dir = join(args["output_dir"], "inputs")
-
-        pixcname, flag_rename_pixc, pixcvecname, flag_rename_pixcvec = make_input_symlinks(links_dir, pixc_file,
-                                                                                           pixcvec_file, cycle_number,
-                                                                                           pass_number, tile_number,
-                                                                                           start_time, stop_time)
-
-        call_pge_lake_tile(parameter_laketile, args['output_dir'], pixcname, pixcvecname, flag_rename_pixc, pixc_file, flag_rename_pixcvec, pixcvec_file, env=env)
+        pixc_name = call_pge_lake_tile(parameter_laketile, args['output_dir'],
+                           pixc_file, pixcvec_file,
+                           cycle_number, pass_number, tile_number, start_time, stop_time, env=env)
         
         print()
         print()
         # Write annotation file
 
+        # Create symlinks to input with the right name convention
+        links_dir = join(args['output_dir'], "inputs")
+
         # File path
-        pixc_file = os.path.join(links_dir, pixcname)
+        pixc_file = os.path.join(links_dir, pixc_name)
         lake_filenames = my_names.lakeTileFilenames(IN_pixc_file=pixc_file)
         laketile_shp_file = os.path.join(args['output_dir'], lake_filenames.laketile_shp_file)
         laketile_pixcvec_file = os.path.join(args['output_dir'], lake_filenames.laketile_pixcvec_file)
