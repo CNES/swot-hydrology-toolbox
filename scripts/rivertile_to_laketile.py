@@ -16,20 +16,6 @@ import subprocess
 
 import tools.my_rdf as my_rdf
 import tools.my_filenames as my_names
-#Import of PGE
-try:
-    tbx_path = os.environ['SWOT_HYDROLOGY_TOOLBOX']
-except:
-    tbx_path = os.getcwd().replace(os.sep + "scripts", "")
-
-try :
-    lakesrc = os.environ['SWOT_CNES']
-    sys.path.insert(0, lakesrc)
-    from PGE.lake_tile import pge_lake_tile as pge_lake_tile
-except:
-    sys.path.insert(0, tbx_path)
-    from processing.PGE.lake_tile import pge_lake_tile as pge_lake_tile
-
 
 def write_annotation_file(ann_file, laketile_shp_file, laketile_edge_file, laketile_pixcvec_file):
     """
@@ -117,8 +103,46 @@ def make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_n
     
     return pixcname, flag_rename_pixc, pixcvecname, flag_rename_pixcvec
 
+def set_swot_cnes_env():
+    print("== Run Locnes from swotCNES ==")
+    try:
+        lakesrc = os.environ['SWOT_CNES']
+        sys.path.insert(0, lakesrc)
+        if os.environ['SWOT_HYDROLOGY_TOOLBOX']:
+            for path in sys.path:
+                if path.startswith(os.environ['SWOT_HYDROLOGY_TOOLBOX']):
+                    sys.path.remove(path)
+        from PGE.lake_tile import pge_lake_tile as pge_lake_tile
 
-def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time, env=None):
+    except:
+        print("swotCNES environment not found : please set SWOT_CNES variable")
+        pge_lake_tile = None
+        exit()
+    return pge_lake_tile
+
+def set_swot_hydro_env():
+    print("== Run Locnes from swot-hydrology-toolbox ==")
+    try:
+        try:
+            tbx_path = os.environ['SWOT_HYDROLOGY_TOOLBOX']
+        except:
+            tbx_path = os.getcwd().replace(os.sep + "scripts", "")
+        sys.path.insert(0, tbx_path)
+
+        if os.environ['SWOT_CNES']:
+            swot_cnes_path = str(os.environ['SWOT_CNES'])
+            tmp_sys_path = sys.path.copy()
+            for path in tmp_sys_path:
+                if str(path).startswith(swot_cnes_path):
+                    sys.path.remove(path)
+        from processing.PGE.lake_tile import pge_lake_tile as pge_lake_tile
+    except:
+        print("swot-hydrology-toolbox environment not found : please set SWOT_HYDROLOGY_TOOLBOX variable")
+        pge_lake_tile = None
+        exit()
+    return pge_lake_tile
+
+def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time, pge_lake_tile):
 
     config = cfg.ConfigParser()
     config.read(parameter_laketile)
@@ -134,42 +158,25 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cy
     config.set('PATHS', "Output directory", lake_dir)
     config.set('LOGGING', "logFile", os.path.join(lake_dir, "LogFile.log"))
 
-
     # Write the parameter file
     laketile_cfg = join(lake_dir, "laketile.cfg")
+
 
     with open(laketile_cfg, 'w') as cfg_file:
         config.write(cfg_file)
 
-    if env == "swotCNES":
-        print("== Run LakeTile from swotCNES ==")
-        PGE = None
-        try:
-            # 1 - Instantiate PGE
-            # print(os.environ)
-            print(os.path.abspath(inspect.getfile(pge_lake_tile)))
+    PGE = None
+    try:
+        # 1 - Instantiate PGE
+        PGE = pge_lake_tile.PGELakeTile(laketile_cfg)
 
-            PGE = pge_lake_tile.PGELakeTile(laketile_cfg)
+        # 2 - Start PGE Lake Tile
+        PGE.start()
+    finally:
+        if PGE is not None:
+            # 3 - Stop PGE Lake Tile
+            PGE.stop()
 
-            # 2 - Start PGE Lake Tile
-            PGE.start()
-        finally:
-            if PGE is not None:
-                # 3 - Stop PGE Lake Tile
-                PGE.stop()
-    else :
-        print("== Run LakeTile from swot-hydrology-toolbox ==")
-        PGE = None
-        try:
-            # 1 - Instantiate PGE
-            PGE = pge_lake_tile.PGELakeTile(laketile_cfg)
-
-            # 2 - Start PGE Lake Tile
-            PGE.start()
-        finally:
-            if PGE is not None:
-                # 3 - Stop PGE Lake Tile
-                PGE.stop()
 
     print("== Run LakeTile OK ==")
 
@@ -202,16 +209,14 @@ def main():
         '-swotCNES', action='store_true', dest='swotCNES', default=None, help='only for CNES developer users, switch to swotCNES processing env')
             
     args = vars(parser.parse_args())
-                  
-    if args['swotCNES']:
-        print("Running swotCNES environnment")
-        env = 'swotCNES'
-    else:
-        env = None
-
 
     print("===== rivertile_to_laketile = BEGIN =====")
     print("")
+
+    if args['swotCNES']:
+        pge_lake_tile = set_swot_cnes_env()
+    else:
+        pge_lake_tile = set_swot_hydro_env()
 
     # unit or multi river annotation file test
     if os.path.isfile(args['river_annotation_file']):
@@ -281,7 +286,7 @@ def main():
 
         pixc_name = call_pge_lake_tile(parameter_laketile, args['output_dir'],
                            pixc_file, pixcvec_file,
-                           cycle_number, pass_number, tile_number, start_time, stop_time, env=env)
+                           cycle_number, pass_number, tile_number, start_time, stop_time, pge_lake_tile)
         
         print()
         print()

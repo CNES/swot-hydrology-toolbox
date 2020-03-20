@@ -16,20 +16,6 @@ import subprocess
 
 import tools.my_rdf as my_rdf
 
-#Import of PGE
-try:
-    tbx_path = os.environ['SWOT_HYDROLOGY_TOOLBOX']
-except:
-    tbx_path = os.getcwd().replace(os.sep + "scripts", "")
-try :
-    lakesrc = os.environ['SWOT_CNES']
-    pge_lake_sp_src = os.path.join(lakesrc, "PGE" + os.path.sep + "lake_sp")
-    sys.path.insert(0, pge_lake_sp_src)
-    import multi_lake_sp as multi_lake_sp
-except:
-    sys.path.insert(0, tbx_path)
-    from processing.PGE.lake_tile import multi_lake_sp as multi_lake_sp
-
 
 def make_input_symlinks(links_dir, laketile_shp_file, laketile_edge_file, laketile_pixcvec_file):
     """ Makes symlinks to pixc with the right name for locnes input """
@@ -63,9 +49,48 @@ def make_input_symlinks(links_dir, laketile_shp_file, laketile_edge_file, laketi
     laketile_pixcvec_name = os.path.basename(laketile_pixcvec_file)
     swot_symlink(laketile_pixcvec_file, laketile_pixcvec_name)
 
-    
+def set_swot_cnes_env():
+    print("== Run Locnes from swotCNES ==")
+    try:
+        lakesrc = os.environ['SWOT_CNES']
+        pge_lake_sp_src = os.path.join(lakesrc, "PGE" + os.path.sep + "lake_sp")
+        sys.path.insert(0, pge_lake_sp_src)
+        if os.environ['SWOT_HYDROLOGY_TOOLBOX']:
+            for path in sys.path:
+                if path.startswith(os.environ['SWOT_HYDROLOGY_TOOLBOX']):
+                    sys.path.remove(path)
+        import multi_lake_sp as multi_lake_sp
 
-def call_multi_lake_sp(parameter_lakesp, lakesp_dir, laketile_dir, env=None):
+    except:
+        print("swotCNES environment not found : please set SWOT_CNES variable")
+        multi_lake_sp = None
+        exit()
+    return multi_lake_sp
+
+def set_swot_hydro_env():
+    print("== Run Locnes from swot-hydrology-toolbox ==")
+    try:
+        try:
+            tbx_path = os.environ['SWOT_HYDROLOGY_TOOLBOX']
+        except:
+            tbx_path = os.getcwd().replace(os.sep + "scripts", "")
+        pge_lake_sp_src = os.path.join(tbx_path, "processing" + os.path.sep + "PGE" + os.path.sep + "lake_sp")
+        sys.path.insert(0, pge_lake_sp_src)
+        if os.environ['SWOT_CNES']:
+            swot_cnes_path = str(os.environ['SWOT_CNES'])
+            tmp_sys_path = sys.path.copy()
+            for path in tmp_sys_path:
+                if str(path).startswith(swot_cnes_path):
+                    sys.path.remove(path)
+
+        import multi_lake_sp as multi_lake_sp
+    except:
+        print("swot-hydrology-toolbox environment not found : please set SWOT_HYDROLOGY_TOOLBOX variable")
+        multi_lake_sp = None
+        exit()
+    return multi_lake_sp
+
+def call_multi_lake_sp(parameter_lakesp, lakesp_dir, laketile_dir, multi_lake_sp):
 
     config = cfg.ConfigParser()
     config.read(parameter_lakesp)
@@ -117,9 +142,9 @@ def main():
     args = vars(parser.parse_args())
 
     if args['swotCNES']:
-        env = 'swotCNES'
+        multi_lake_sp = set_swot_hydro_env()
     else:
-        env = None
+        multi_lake_sp = set_swot_hydro_env()
 
     print("===== laketile_to_lakesp = BEGIN =====")
     print("")
@@ -161,7 +186,7 @@ def main():
     print()
     print()
 
-    call_multi_lake_sp(parameter_lakesp, args['output_dir'], links_dir, env=env)
+    call_multi_lake_sp(parameter_lakesp, args['output_dir'], links_dir, multi_lake_sp)
 
     print("===== laketile_to_lakesp = END =====")
 
