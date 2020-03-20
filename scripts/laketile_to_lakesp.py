@@ -21,9 +21,15 @@ try:
     tbx_path = os.environ['SWOT_HYDROLOGY_TOOLBOX']
 except:
     tbx_path = os.getcwd().replace(os.sep + "scripts", "")
-sys.path.insert(0, tbx_path)
-sys.path.insert(0, os.path.join(tbx_path, "processing"+os.sep+"PGE"+os.sep+"lake_sp"))
-import multi_lake_sp
+try :
+    lakesrc = os.environ['SWOT_CNES']
+    pge_lake_sp_src = os.path.join(lakesrc, "PGE" + os.path.sep + "lake_sp")
+    sys.path.insert(0, pge_lake_sp_src)
+    import multi_lake_sp as multi_lake_sp
+except:
+    sys.path.insert(0, tbx_path)
+    from processing.PGE.lake_tile import multi_lake_sp as multi_lake_sp
+
 
 def make_input_symlinks(links_dir, laketile_shp_file, laketile_edge_file, laketile_pixcvec_file):
     """ Makes symlinks to pixc with the right name for locnes input """
