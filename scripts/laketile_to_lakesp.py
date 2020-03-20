@@ -142,7 +142,7 @@ def main():
     args = vars(parser.parse_args())
 
     if args['swotCNES']:
-        multi_lake_sp = set_swot_hydro_env()
+        multi_lake_sp = set_swot_cnes_env()
     else:
         multi_lake_sp = set_swot_hydro_env()
 
