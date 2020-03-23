@@ -357,18 +357,11 @@ class LakeSPFilenames(object):
         cfg = service_config_file.get_instance()
 
         # 1 - Init variables
-        self.lake_tile_file_list = in_lake_tile_file_list  # list of LakeTile_shp files full path
+        self.lake_tile_file_list = in_lake_tile_file_list  # List of LakeTile_shp files full path
         self.out_dir = in_out_dir  # Output directory
         self.product_counter = 1  # Product counter
-        # get parameters
-        self.lake_sp_pattern = LAKE_SP_PATTERN
-        self.lake_sp_prefix = LAKE_SP_PREFIX
-        self.lake_sp_pattern = self.lake_sp_pattern.replace("LAKE_SP_PREFIX + ", self.lake_sp_prefix).replace('"', '')
-        self.lake_sp_pattern_no_cont = LAKE_SP_PATTERN_NO_CONT.replace("LAKE_SP_PREFIX + ", self.lake_sp_prefix).replace('"', '')
-
+        # Get CRID from configuration file
         self.lake_sp_crid = cfg.get("CRID", "LAKE_SP_CRID")
-        # Lake Id prefix
-        self.lake_id_prefix = ""
 
         # 2 - Retrieve info from LakeTile filename
         tmp_dict = get_info_from_filename(self.lake_tile_file_list[0], "LakeTile")
@@ -440,18 +433,18 @@ class LakeSPFilenames(object):
         """
 
         if self.continent is "":
-            filename = self.lake_sp_pattern_no_cont % (self.cycle_num, self.pass_num, self.start_date, self.stop_date, self.lake_sp_crid, self.product_counter)
+            filename = LAKE_SP_PATTERN_NO_CONT % (self.cycle_num, self.pass_num, self.start_date, self.stop_date, self.lake_sp_crid, self.product_counter)
         else:
-            filename = self.lake_sp_pattern % (self.cycle_num, self.pass_num, self.continent, self.start_date, self.stop_date, self.lake_sp_crid, self.product_counter)
+            filename = LAKE_SP_PATTERN % (self.cycle_num, self.pass_num, self.continent, self.start_date, self.stop_date, self.lake_sp_crid, self.product_counter)
         self.lake_sp_file = os.path.join(self.out_dir, filename)
 
         # Test existence and modify self.product_counter if needed
         while os.path.exists(self.lake_sp_file):
             self.product_counter += 1
             if self.continent is "":
-                filename = self.lake_sp_pattern_no_cont % (self.cycle_num, self.pass_num, self.start_date, self.stop_date, self.lake_sp_crid, self.product_counter)
+                filename = LAKE_SP_PATTERN_NO_CONT % (self.cycle_num, self.pass_num, self.start_date, self.stop_date, self.lake_sp_crid, self.product_counter)
             else:
-                filename = self.lake_sp_pattern % (self.cycle_num, self.pass_num, self.continent, self.start_date, self.stop_date, self.lake_sp_crid, self.product_counter)
+                filename = LAKE_SP_PATTERN % (self.cycle_num, self.pass_num, self.continent, self.start_date, self.stop_date, self.lake_sp_crid, self.product_counter)
             self.lake_sp_file = os.path.join(self.out_dir, filename)
 
 

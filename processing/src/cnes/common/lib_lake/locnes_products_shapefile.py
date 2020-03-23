@@ -379,6 +379,7 @@ class ShapefileProduct(object):
         general_metadata = OrderedDict()
         general_metadata["conventions"] = "Esri conventions as given in \"ESRI Shapefile Technical Description, an ESRI White Paper, July 1998\" http://www.esri.com/library/whitepapers/pdfs/shapefile.pdf"
         general_metadata["title"] = ""
+        general_metadata["short_name"] = ""
         general_metadata["institution"] = "CNES"
         general_metadata["source"] = "Ka-band radar interferometer"
         general_metadata["history"] = "%sZ: Creation" % my_tools.swot_timeformat(datetime.datetime.utcnow(), in_format=1)
@@ -388,7 +389,7 @@ class ShapefileProduct(object):
         general_metadata["contact"] = "claire.pottier@cnes.fr"
         self.metadata['global_attributes'] = general_metadata
         # 2.2 - Metadata specific to granule specification
-        self.metadata['content'] = self.attributes
+        self.metadata['attributes'] = self.attributes
         
         # 3 - Shapefile attributes
         self.data_source = None  # Data source
@@ -560,13 +561,19 @@ class LakeSPShpProduct(ShapefileProduct):
         self.attributes['obs_id'] = {'type': "text", 
                        'long_name': "identifier of the observed lake", 
                        'tag_basic_expert': "Basic", 
-                       'comment': "Unique lake identifier within the product. The format of the identifier is CBBTTTSNNNNNN, where C=continent, B=basin, TTT=tile number within the pass, S=swath side, N=lake counter within the tile."}
+                       'comment': "Unique lake identifier within the product. The format of the identifier is CBBTTTSNNNNNN, where C=continent code, B=basin code, TTT=tile number within the pass, S=swath side, N=lake counter within the tile."}
 
         self.attributes['lake_id'] = {'type': "text", 
                        'fill_value': "no_data", 
                        'long_name': "lake ID(s) from prior database", 
                        'tag_basic_expert': "Basic", 
-                       'comment': "List of identifiers of prior lakes that intersect the observed lake. The format of the identifier is CBBNNNNNNT, where C=continent, B=basin, N=lake counter within the basin, T=type. The different lake identifiers are separated by semicolons."}
+                       'comment': "List of identifiers of prior lakes that intersect the observed lake. The format of the identifier is CBBNNNNNNT, where C=continent code, B=basin code, N=lake counter within the basin, T=type. The different lake identifiers are separated by semicolons."}
+        
+        self.attributes['overlap'] = {'type': "text", 
+                       'fill_value': "no_data", 
+                       'long_name': "fraction of observed lake covered by each prior lake", 
+                       'tag_basic_expert': "Basic", 
+                       'comment': "List of fractions of observed lake area covered by each prior lake identified in lake_id attribute. The different fractions are separated by semicolons and refer one-to-one to the identifiers listed in the lake_id attribute."}
 
         self.attributes['time'] = {'type': "float", 
                        'fill_value': -999999999999, 
@@ -600,12 +607,12 @@ class LakeSPShpProduct(ShapefileProduct):
                        'tai_utc_difference': "[value of TAI-UTC at time of first record]", 
                        'leap_second': "YYYY-MM-DD hh:mm:ss", 
                        'tag_basic_expert': "Basic", 
-                       'comment': "Time string giving UTC time. The format is YYYY-MM-DDThh:mm:ss.ssssssZ, where the Z suffix indicates UTC time."}
+                       'comment': "Time string giving UTC time. The format is YYYY-MM-DDThh:mm:ssZ, where the Z suffix indicates UTC time."}
 
         self.attributes['wse'] = {'type': "float", 
                        'fill_value': -999999999999,
                        'width': 16,
-                       'precision': 2,
+                       'precision': 6,
                        'long_name': "lake-averaged water surface elevation with respect to the geoid", 
                        'units': "m", 
                        'valid_min': -1000, 
@@ -616,7 +623,7 @@ class LakeSPShpProduct(ShapefileProduct):
         self.attributes['wse_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
                        'width': 16,
-                       'precision': 2,
+                       'precision': 6,
                        'long_name': "total uncertainty in lake water surface elevation", 
                        'units': "m", 
                        'valid_min': 0, 
@@ -627,7 +634,7 @@ class LakeSPShpProduct(ShapefileProduct):
         self.attributes['wse_r_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
                        'width': 16,
-                       'precision': 2,
+                       'precision': 6,
                        'long_name': "random-only uncertainty in the height water surface elevation", 
                        'units': "m", 
                        'valid_min': 0, 
@@ -648,45 +655,45 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['area_total'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 16,
-                       'precision': 2,
+                       'width': 13,
+                       'precision': 6,
                        'long_name': "total water area with estimate of dark water", 
-                       'units': "m^2", 
+                       'units': "km^2", 
                        'valid_min': 0, 
-                       'valid_max': 2000000, 
+                       'valid_max': 200000, 
                        'tag_basic_expert': "Basic", 
                        'comment': "Total estimated area, including dark water that was not detected as water in the SWOT observation but identified through the use of a prior water likelihood map."}
 
         self.attributes['area_tot_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 16,
-                       'precision': 2,
+                       'width': 13,
+                       'precision': 6,
                        'long_name': "uncertainty in total water area", 
-                       'units': "m^2", 
+                       'units': "km^2", 
                        'valid_min': 0, 
-                       'valid_max': 2000000, 
+                       'valid_max': 200000, 
                        'tag_basic_expert': "Basic", 
                        'comment': "Total uncertainty (random and systematic) in the total water area."}
 
         self.attributes['area_detct'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 16,
-                       'precision': 2,
+                       'width': 13,
+                       'precision': 6,
                        'long_name': "area of detected water pixels", 
-                       'units': "m^2", 
+                       'units': "km^2", 
                        'valid_min': 0, 
-                       'valid_max': 1000000000, 
+                       'valid_max': 200000, 
                        'tag_basic_expert': "Expert", 
                        'comment': "Aggregation of used detected pixels area."}
 
         self.attributes['area_det_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 16,
-                       'precision': 2,
+                       'width': 13,
+                       'precision': 6,
                        'long_name': "uncertainty in area of detected water", 
-                       'units': "m^2", 
+                       'units': "km^2", 
                        'valid_min': 0, 
-                       'valid_max': 1000000000, 
+                       'valid_max': 200000, 
                        'tag_basic_expert': "Expert", 
                        'comment': "Total uncertainty (random and systematic) in the area of detected water pixels."}
 
@@ -714,45 +721,45 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['delta_s_l'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 17,
-                       'precision': 3,
+                       'width': 13,
+                       'precision': 7,
                        'long_name': "storage change computed by linear method", 
-                       'units': "m^3", 
-                       'valid_min': -10000000, 
-                       'valid_max': 10000000, 
+                       'units': "km^3", 
+                       'valid_min': -1000, 
+                       'valid_max': 1000, 
                        'tag_basic_expert': "Basic", 
                        'comment': "Storage change with regards to the reference area and height from PLD"}
 
         self.attributes['ds_l_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 17,
-                       'precision': 3,
+                       'width': 13,
+                       'precision': 7,
                        'long_name': "uncertainty in storage change computed by linear method", 
-                       'units': "m^3", 
-                       'valid_min': -10000000, 
-                       'valid_max': 10000000, 
+                       'units': "km^3", 
+                       'valid_min': -1000, 
+                       'valid_max': 1000, 
                        'tag_basic_expert': "Basic", 
                        'comment': "Uncertainty in storage change computed by linear method."}
 
         self.attributes['delta_s_q'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 17,
-                       'precision': 3,
+                       'width': 13,
+                       'precision': 7,
                        'long_name': "storage change computed by quadratic method", 
-                       'units': "m^3", 
-                       'valid_min': -10000000, 
-                       'valid_max': 10000000, 
+                       'units': "km^3", 
+                       'valid_min': -1000, 
+                       'valid_max': 1000, 
                        'tag_basic_expert': "Basic", 
                        'comment': "Storage change with regards to the reference area and height from PLD"}
 
         self.attributes['ds_q_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 17,
-                       'precision': 3,
+                       'width': 13,
+                       'precision': 7,
                        'long_name': "uncertainty in storage change computed by quadratic method", 
-                       'units': "m^3", 
-                       'valid_min': -10000000, 
-                       'valid_max': 10000000, 
+                       'units': "km^3", 
+                       'valid_min': -1000, 
+                       'valid_max': 1000, 
                        'tag_basic_expert': "Basic", 
                        'comment': "Uncertainty in storage change computed by quadratic method."}
 
@@ -781,23 +788,23 @@ class LakeSPShpProduct(ShapefileProduct):
                        'fill_value': -999, 
                        'long_name': "climatological ice cover flag", 
                        'source': "UNC", 
-                       'flag_meanings': "no_ice_cover partial_ice_cover full_ice_cover not_available", 
-                       'flag_values': "0 1 2 255", 
+                       'flag_meanings': "no_ice_cover partial_ice_cover full_ice_cover", 
+                       'flag_values': "0 1 2", 
                        'valid_min': 0, 
-                       'valid_max': 255, 
+                       'valid_max': 2, 
                        'tag_basic_expert': "Basic", 
-                       'comment': "Climatological ice cover flag indicating whether the lake is ice-covered on the day of the observation based on external climatological information (not the SWOT measurement). Values of 0, 1, and 2 indicate that the lake is not ice covered, partially ice covered, and fully ice covered, respectively. A value of 255 indicates that this flag is not available."}
+                       'comment': "Climatological ice cover flag indicating whether the lake is ice-covered on the day of the observation based on external climatological information (not the SWOT measurement). Values of 0, 1, and 2 indicate that the lake is likely not ice covered, likely partially ice covered, and likely fully ice covered, respectively."}
 
         self.attributes['ice_dyn_f'] = {'type': "int4", 
                        'fill_value': -999, 
                        'long_name': "dynamical ice cover flag", 
                        'source': "UNC", 
-                       'flag_meanings': "no_ice_cover partial_ice_cover full_ice_cover not_available", 
-                       'flag_values': "0 1 2 255", 
+                       'flag_meanings': "no_ice_cover partial_ice_cover full_ice_cover", 
+                       'flag_values': "0 1 2", 
                        'valid_min': 0, 
-                       'valid_max': 255, 
+                       'valid_max': 2, 
                        'tag_basic_expert': "Basic", 
-                       'comment': "Dynamic ice cover flag indicating whether the lake is ice-covered on the day of the observation based on analysis of external satellite optical data. Values of 0, 1, and 2 indicate that the lake is not ice covered, partially ice covered, and fully ice covered, respectively. A value of 255 indicates that this flag is not available."}
+                       'comment': "Dynamic ice cover flag indicating whether the lake is ice-covered on the day of the observation based on analysis of external optical satellite data. Values of 0, 1, and 2 indicate that the lake is not ice covered, partially ice covered, and fully ice covered, respectively."}
 
         self.attributes['partial_f'] = {'type': "int4", 
                        'fill_value': -999, 
@@ -839,12 +846,12 @@ class LakeSPShpProduct(ShapefileProduct):
                        'width': 17,
                        'precision': 3,
                        'long_name': "solid Earth tide height", 
-                       'source': "Cartwright and Edden [1973] Corrected tables of tidal harmonics - J. Geophys. J. R. Astr. Soc., 33, 253-264", 
+                       'source': "Cartwright and Taylor (1971) and Cartwright and Edden (1973 )", 
                        'units': "m", 
                        'valid_min': -1, 
                        'valid_max': 1, 
                        'tag_basic_expert': "Expert", 
-                       'comment': "Solid-Earth (Body) tide height, averaged over the lake. The zero-frequency permanent tide component is not included. The value is computed from the Cartwright/Taylor model."}
+                       'comment': "Solid-Earth (Body) tide height, averaged over the lake. The zero-frequency permanent tide component is not included."}
 
         self.attributes['pole_tide'] = {'type': "float", 
                        'fill_value': -999999999999, 
@@ -852,36 +859,37 @@ class LakeSPShpProduct(ShapefileProduct):
                        'precision': 3,
                        'long_name': "height of pole tide", 
                        'units': "m", 
+                       'source': "Wahr (1985) and Desai et al. (2015)", 
                        'valid_min': 0, 
                        'valid_max': 0, 
                        'tag_basic_expert': "Expert", 
-                       'comment': "Geocentric pole tide height. The sum total of the contribution from the solid-Earth (body) pole tide height and the load pole tide height (i.e., the effect of the ocean pole tide loading of the Earth's crust)."}
+                       'comment': "Geocentric pole tide height. The sum total of the contribution from the solid-Earth (body) pole tide height and the load pole tide height (i.e., the effect of the ocean pole tide loading of the Earth’s crust).."}
 
         self.attributes['load_tide1'] = {'type': "float", 
                        'fill_value': -999999999999, 
                        'width': 17,
                        'precision': 3,
                        'long_name': "geocentric load tide height", 
-                       'source': "FES2014", 
+                       'source': "FES2014b (Carrere et al., 2016)", 
                        'institution': "LEGOS/CNES", 
                        'units': "m", 
                        'valid_min': 0, 
                        'valid_max': 0, 
                        'tag_basic_expert': "Expert", 
-                       'comment': "Geocentric load tide height. The effect of the ocean tide loading of the Earth's crust. This value is used to compute wse. The value is computed from the FES2014 ocean tide model."}
+                       'comment': "Geocentric load tide height. The effect of the ocean tide loading of the Earth’s crust. This value is used to compute wse."}
 
         self.attributes['load_tide2'] = {'type': "float", 
                        'fill_value': -999999999999, 
                        'width': 17,
                        'precision': 3,
                        'long_name': "geocentric load tide height", 
-                       'source': "GOT4.10c", 
+                       'source': "GOT4.10c (Ray, 2013)", 
                        'institution': "GSFC", 
                        'units': "m", 
                        'valid_min': 0, 
                        'valid_max': 0, 
                        'tag_basic_expert': "Expert", 
-                       'comment': "Geocentric load tide height. The effect of the ocean tide loading of the Earth's crust. The value is computed from the GOT4.10c ocean tide model."}
+                       'comment': "Geocentric load tide height. The effect of the ocean tide loading of the Earth’s crust."}
 
         self.attributes['dry_trop_c'] = {'type': "float", 
                        'fill_value': -999999999999, 
@@ -889,11 +897,12 @@ class LakeSPShpProduct(ShapefileProduct):
                        'precision': 3,
                        'long_name': "dry tropospheric vertical correction to WSE", 
                        'source': "European Centre for Medium-Range Weather Forecasting", 
+                       'institution': "ECMWF", 
                        'units': "m", 
                        'valid_min': -3, 
                        'valid_max': -1, 
                        'tag_basic_expert': "Expert", 
-                       'comment': "Equivalent vertical correction due to dry troposphere delay. Adding the reported correction to the reported lake WSE results in the uncorrected lake WSE. The value is computed from the European Centre for Medium-Range Weather Forecasts (ECMWF) model."}
+                       'comment': "Equivalent vertical correction due to dry troposphere delay. Adding the reported correction to the reported lake WSE results in the uncorrected lake WSE."}
 
         self.attributes['wet_trop_c'] = {'type': "float", 
                        'fill_value': -999999999999, 
@@ -901,11 +910,12 @@ class LakeSPShpProduct(ShapefileProduct):
                        'precision': 3,
                        'long_name': "wet tropospheric vertical correction to WSE", 
                        'source': "European Centre for Medium-Range Weather Forecasting", 
+                       'institution': "ECMWF", 
                        'units': "m", 
                        'valid_min': -1, 
                        'valid_max': 0, 
                        'tag_basic_expert': "Expert", 
-                       'comment': "Equivalent vertical correction due to wet troposphere delay. Adding the reported correction to the reported lake WSE results in the uncorrected lake WSE. The value is computed from the ECMWF model."}
+                       'comment': "Equivalent vertical correction due to wet troposphere delay. Adding the reported correction to the reported lake WSE results in the uncorrected lake WSE."}
 
         self.attributes['iono_c'] = {'type': "float", 
                        'fill_value': -999999999999, 
@@ -918,8 +928,8 @@ class LakeSPShpProduct(ShapefileProduct):
                        'valid_min': 0, 
                        'valid_max': 0, 
                        'tag_basic_expert': "Expert", 
-                       'comment': "Equivalent vertical correction due to ionosphere delay. Adding the reported correction to the reported lake WSE results in the uncorrected lake WSE. The value is computed from the JPL Global Ionosphere Maps (GIM)."}
-
+                       'comment': "Equivalent vertical correction due to ionosphere delay. Adding the reported correction to the reported lake WSE results in the uncorrected lake WSE."}
+ 
         self.attributes['xovr_cal_c'] = {'type': "float", 
                        'fill_value': -999999999999, 
                        'width': 17,
@@ -936,48 +946,65 @@ class LakeSPShpProduct(ShapefileProduct):
                        'long_name': "name(s) of the lake", 
                        'comment': "Name(s) of the lake, retrieved from Open Street Map, IGN Carthage, GLWD and vMap0 databases. The different names are separated by semicolons."}
 
-        self.attributes['grand_id'] = {'type': "int9", 
+        self.attributes['p_grand_id'] = {'type': "int9", 
                        'fill_value': -99999999, 
                        'long_name': "reservoir Id from GRanD database", 
                        'source': "https://doi.org/10.1890/100125", 
                        'valid_min': 0, 
-                       'valid_max': 9999, 
+                       'valid_max': 10000, 
                        'tag_basic_expert': "Expert", 
                        'comment': "Reservoir ID from the Global Reservoir and Dam (GRanD) database. 0=The lake is not a registered reservoir."}
 
-        self.attributes['p_height'] = {'type': "float", 
+        self.attributes['p_max_wse'] = {'type': "float", 
                        'fill_value': -999999999999, 
                        'width': 16,
                        'precision': 2,
-                       'long_name': "reference height", 
+                       'long_name': "maximum water surface elevation", 
                        'units': "m", 
                        'valid_min': -1000, 
                        'valid_max': 100000, 
                        'tag_basic_expert': "Basic", 
-                       'comment': "Reference height from the PLD, used to compute the storage change."}
+                       'comment': "Maximum water surface elevation (except flooding events) from the prior lake database, used to compute storage change."}
 
-        self.attributes['p_area'] = {'type': "float", 
+        self.attributes['p_max_area'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 16,
-                       'precision': 2,
-                       'long_name': "reference area", 
-                       'units': "m", 
+                       'width': 13,
+                       'precision': 6,
+                       'long_name': "maximum water surface area", 
+                       'units': "km^2", 
                        'valid_min': 0, 
-                       'valid_max': 500000000000, 
+                       'valid_max': 500000, 
                        'tag_basic_expert': "Basic", 
-                       'comment': "Reference area from the PLD, used to compute the storage change."}
+                       'comment': "Maximum water surface area  (except flooding events)from the prior lake database, used to compute storage change."}
+
+        self.attributes['p_ref_date'] = {'type': "text", 
+                       'fill_value': "no_data", 
+                       'long_name': "reference date for the storage change attributes", 
+                       'tag_basic_expert': "Basic", 
+                       'comment': "Reference date from the prior lake database for the storage change attributes, corresponding to the date of the first valid measurement. The format is YYYY-MM-DD ."}
+
+        self.attributes['p_ref_ds'] = {'type': "float", 
+                       'fill_value': -999999999999, 
+                       'width': 13,
+                       'precision': 7,
+                       'long_name': "Reference storage change", 
+                       'units': "km^3", 
+                       'valid_min': -1000, 
+                       'valid_max': 1000, 
+                       'tag_basic_expert': "Basic", 
+                       'comment': "Reference storage change from the prior lake database used to translate the storage change values initially computed with respect to the p_max_wse and p_max_area of the PLD lake, to the storage change relative to p_ref_date."}
 
         self.attributes['p_storage'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 16,
-                       'precision': 2,
+                       'width': 13,
+                       'precision': 7,
                        'long_name': "maximum water storage", 
-                       'units': "m^3", 
+                       'units': "km^3", 
                        'valid_min': 0, 
-                       'valid_max': 10000000, 
+                       'valid_max': 30000, 
                        'tag_basic_expert': "Basic", 
-                       'comment': "Maximum water storage value from the PLD, computed between the minimum (or ground when a bathymetry is available) and maximum observed levels of the lake."}
-        
+                       'comment': "Maximum water storage value from the prior lake database, computed between the minimum (or ground when a bathymetry is available) and maximum observed levels of the lake."}
+       
         # 3 - Init metadata depending on product type
         if in_product_type == "TILE":
             self.init_metadata_laketile(in_pixc_metadata=in_pixc_metadata, in_proc_metadata=in_proc_metadata)
@@ -1003,7 +1030,8 @@ class LakeSPShpProduct(ShapefileProduct):
         cfg = service_config_file.get_instance()
         
         # 1 - Update general metadata
-        self.metadata["global_attributes"]["title"] = "Level 2 KaRIn high rate lake tile vector product – LakeTile_shp"
+        self.metadata["global_attributes"]["title"] = "Level 2 KaRIn high rate lake tile vector product"
+        self.metadata["global_attributes"]["short_name"] = "SWOT_L2_HR_LakeTile_shp"
         self.metadata["global_attributes"]["references"] = ""
         self.metadata["global_attributes"]["reference_document"] = "SWOT-TN-CDM-0673-CNES"
         
@@ -1065,6 +1093,7 @@ class LakeSPShpProduct(ShapefileProduct):
         
         # 1 - Update general metadata
         self.metadata["global_attributes"]["title"] = "Level 2 KaRIn high rate lake single pass vector product"
+        self.metadata["global_attributes"]["short_name"] = "SWOT_L2_HR_LakeSP"
         self.metadata["global_attributes"]["references"] = ""
         self.metadata["global_attributes"]["reference_document"] = "SWOT-TN-CDM-0673-CNES"
         

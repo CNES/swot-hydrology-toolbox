@@ -77,7 +77,7 @@ class SASLakeSP(object):
 
     def run_processing(self):
         """
-        Process SAS_L2_HR_LakeTile
+        Process SAS_L2_HR_LakeSP
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.sigmsg("")

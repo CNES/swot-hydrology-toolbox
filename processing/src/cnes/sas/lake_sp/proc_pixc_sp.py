@@ -32,6 +32,7 @@ import logging
 import cnes.common.lib.my_netcdf_file as my_nc
 import cnes.common.lib.my_tools as my_tools
 import cnes.common.service_config_file as service_config_file
+import cnes.common.lib.my_variables as my_variables
 
 class PixCEdge(object):
     """
@@ -281,6 +282,7 @@ class PixCEdgeSwath(object):
 
         # 4. Init Pixc variables from laketile edge file
         self.classif = np.array(())
+        self.classif_without_dw = np.array(())
         self.range_index = np.array(()).astype('int')
         self.azimuth_index = np.array(()).astype('int')
         self.pixel_area = np.array(())
@@ -295,10 +297,18 @@ class PixCEdgeSwath(object):
         self.latitude = np.array(())
         self.longitude = np.array(())
         self.height = np.array(())
+        self.corrected_height = np.array(())
         self.cross_track = np.array(())
         self.pixel_area = np.array(())
         self.inc = np.array(())
+        self.interferogram = np.array(())
+        self.interferogram_flattened = np.array(())
+        self.power_plus_y = np.array(())
+        self.power_minus_y = np.array(())
+        self.phase_noise_std = np.array(())
         self.dheight_dphase = np.array(())
+        self.dlatitude_dphase = np.array(())
+        self.dlongitude_dphase = np.array(())
         self.dheight_droll = np.array(())
         self.dheight_dbaseline = np.array(())
         self.dheight_drange = np.array(())
@@ -335,6 +345,13 @@ class PixCEdgeSwath(object):
         self.nadir_vz = np.array(())  # Velocity in Z coordinate
         self.nadir_sc_event_flag = np.array(())
         self.nadir_tvp_qual = np.array(())
+        self.plus_y_antenna_x = np.array(())  # x position of plus antenna
+        self.plus_y_antenna_y = np.array(())  # y position of plus antenna
+        self.plus_y_antenna_z = np.array(())  # z position of plus antenna
+        self.minus_y_antenna_x = np.array(()) # x position of minus antenna
+        self.minus_y_antenna_y = np.array(()) # y position of minus antenna
+        self.minus_y_antenna_z = np.array(()) # z position of minus antenna
+
 
     # ----------------------------------------
 
@@ -371,7 +388,7 @@ class PixCEdgeSwath(object):
 
                 cpt = 0
                 while current_tile_number != previous_tile_number + 1:
-                    logger.info("Adding empty tile %d%s" % (previous_tile_number + 1, self.swath_side))
+                    logger.warning("Tile %d%s is missing, an empty tile is added" % (previous_tile_number + 1, self.swath_side))
                     # if current tile is not adjacent to previous tile, add an empty tile to tile_ref
                     self.tile_num.append(previous_tile_number + 1)
                     nb_pix_azimuth_list.append(current_nb_pix_azimuth)
@@ -485,7 +502,9 @@ class PixCEdgeSwath(object):
                 self.pixc_metadata["continent"] = self.continent
                 self.pixc_metadata["ellipsoid_semi_major_axis"] = str(pixc_edge_reader.get_att_value("ellipsoid_semi_major_axis"))
                 self.pixc_metadata["ellipsoid_flattening"] = str(pixc_edge_reader.get_att_value("ellipsoid_flattening"))
-    
+                self.wavelength= np.float(str(pixc_edge_reader.get_att_value("wavelength")))
+                self.looks_to_efflooks= np.float(str(pixc_edge_reader.get_att_value("looks_to_efflooks")))
+   
     
             # 5 - Get number of pixels
             out_nb_pix = pixc_edge_reader.get_dim_value('points')
@@ -503,24 +522,41 @@ class PixCEdgeSwath(object):
     
                 # 5.2 - Variables from L2_HR_PIXC product
                 self.classif = np.concatenate((self.classif, pixc_edge_reader.get_var_value("classification")))
+ 
+                # Classification flags without wd
+                self.classif_without_dw = np.concatenate((self.classif_without_dw, pixc_edge_reader.get_var_value("classification")))
+                self.classif_without_dw[self.classif == my_variables.LAND_NEAR_DARK_WATER_CLASSES] = 0
+                self.classif_without_dw[self.classif == my_variables.DARK_EDGE_CLASSES] = 0
+                self.classif_without_dw[self.classif == my_variables.DARK_CLASSES] = 0
+                
+                
                 self.range_index = np.concatenate((self.range_index, pixc_edge_reader.get_var_value("range_index")))
                 self.azimuth_index = np.concatenate((self.azimuth_index, pixc_edge_reader.get_var_value("azimuth_index")))
                 self.pixel_area = np.concatenate((self.pixel_area, pixc_edge_reader.get_var_value("pixel_area")))
-                self.water_frac = np.concatenate((self.pixel_area, pixc_edge_reader.get_var_value("water_frac")))
-                self.water_frac_uncert = np.concatenate((self.pixel_area, pixc_edge_reader.get_var_value("water_frac_uncert")))
-                self.false_detection_rate = np.concatenate((self.pixel_area, pixc_edge_reader.get_var_value("false_detection_rate")))
-                self.missed_detection_rate = np.concatenate((self.pixel_area, pixc_edge_reader.get_var_value("missed_detection_rate")))
-                self.prior_water_prob = np.concatenate((self.pixel_area, pixc_edge_reader.get_var_value("prior_water_prob")))
-                self.bright_land_flag = np.concatenate((self.pixel_area, pixc_edge_reader.get_var_value("bright_land_flag")))
-                self.layover_impact = np.concatenate((self.pixel_area, pixc_edge_reader.get_var_value("layover_impact")))
-                self.num_rare_looks = np.concatenate((self.pixel_area, pixc_edge_reader.get_var_value("num_rare_looks")))
+                self.water_frac = np.concatenate((self.water_frac, pixc_edge_reader.get_var_value("water_frac")))
+                self.water_frac_uncert = np.concatenate((self.water_frac_uncert, pixc_edge_reader.get_var_value("water_frac_uncert")))
+                self.false_detection_rate = np.concatenate((self.false_detection_rate, pixc_edge_reader.get_var_value("false_detection_rate")))
+                self.missed_detection_rate = np.concatenate((self.missed_detection_rate, pixc_edge_reader.get_var_value("missed_detection_rate")))
+                self.prior_water_prob = np.concatenate((self.prior_water_prob, pixc_edge_reader.get_var_value("prior_water_prob")))
+                self.bright_land_flag = np.concatenate((self.bright_land_flag, pixc_edge_reader.get_var_value("bright_land_flag")))
+                self.layover_impact = np.concatenate((self.layover_impact, pixc_edge_reader.get_var_value("layover_impact")))
+                self.num_rare_looks = np.concatenate((self.num_rare_looks, pixc_edge_reader.get_var_value("num_rare_looks")))
                 self.latitude = np.concatenate((self.latitude, pixc_edge_reader.get_var_value("latitude")))
                 self.longitude = np.concatenate((self.longitude, pixc_edge_reader.get_var_value("longitude")))
                 self.height = np.concatenate((self.height, pixc_edge_reader.get_var_value("height")))
+                self.corrected_height = np.concatenate((self.corrected_height, pixc_edge_reader.get_var_value("height")))
                 self.cross_track = np.concatenate((self.cross_track, pixc_edge_reader.get_var_value("cross_track")))
-                self.pixel_area = np.concatenate((self.pixel_area, pixc_edge_reader.get_var_value("pixel_area")))
                 self.inc = np.concatenate((self.inc, pixc_edge_reader.get_var_value("inc")))
+                self.interferogram = np.concatenate((self.interferogram, pixc_edge_reader.get_var_value("interferogram")[:,0] + 1j*pixc_edge_reader.get_var_value("interferogram")[:,1]))      
+                self.interferogram_flattened = np.concatenate((self.interferogram_flattened, 0*pixc_edge_reader.get_var_value("interferogram")[:,0] + 0*1j*pixc_edge_reader.get_var_value("interferogram")[:,1]))      
+
+                self.power_plus_y = np.concatenate((self.power_plus_y, pixc_edge_reader.get_var_value("power_plus_y")))
+                self.power_minus_y = np.concatenate((self.power_minus_y, pixc_edge_reader.get_var_value("power_minus_y")))
+                
+                self.phase_noise_std = np.concatenate((self.phase_noise_std, pixc_edge_reader.get_var_value("phase_noise_std")))
                 self.dheight_dphase = np.concatenate((self.dheight_dphase, pixc_edge_reader.get_var_value("dheight_dphase")))
+                self.dlatitude_dphase = np.concatenate((self.dlatitude_dphase, pixc_edge_reader.get_var_value("dlatitude_dphase")))
+                self.dlongitude_dphase = np.concatenate((self.dlongitude_dphase, pixc_edge_reader.get_var_value("dlongitude_dphase")))
                 self.dheight_droll = np.concatenate((self.dheight_droll, pixc_edge_reader.get_var_value("dheight_droll")))
                 self.dheight_dbaseline = np.concatenate((self.dheight_droll, pixc_edge_reader.get_var_value("dheight_dbaseline")))
                 self.dheight_drange = np.concatenate((self.dheight_drange, pixc_edge_reader.get_var_value("dheight_drange")))
@@ -562,7 +598,12 @@ class PixCEdgeSwath(object):
                 self.nadir_vz = np.concatenate((self.nadir_vz, pixc_edge_reader.get_var_value("nadir_vz")))
                 self.nadir_sc_event_flag = np.concatenate((self.nadir_sc_event_flag, pixc_edge_reader.get_var_value("nadir_sc_event_flag")))
                 self.nadir_tvp_qual = np.concatenate((self.nadir_tvp_qual, pixc_edge_reader.get_var_value("nadir_tvp_qual")))
-    
+                self.plus_y_antenna_x = np.concatenate((self.plus_y_antenna_x, pixc_edge_reader.get_var_value("plus_y_antenna_x")))
+                self.plus_y_antenna_y = np.concatenate((self.plus_y_antenna_y, pixc_edge_reader.get_var_value("plus_y_antenna_y")))
+                self.plus_y_antenna_z = np.concatenate((self.plus_y_antenna_z, pixc_edge_reader.get_var_value("plus_y_antenna_z")))
+                self.minus_y_antenna_x = np.concatenate((self.minus_y_antenna_x, pixc_edge_reader.get_var_value("minus_y_antenna_x")))
+                self.minus_y_antenna_y = np.concatenate((self.minus_y_antenna_y, pixc_edge_reader.get_var_value("minus_y_antenna_y")))
+                self.minus_y_antenna_z = np.concatenate((self.minus_y_antenna_z, pixc_edge_reader.get_var_value("minus_y_antenna_z")))   
                 # 5.4 - Update metadata from PixC info
                 self.pixc_metadata["start_time"] = min(self.pixc_metadata["start_time"], str(pixc_edge_reader.get_att_value("start_time")))
                 self.pixc_metadata["stop_time"] = max(self.pixc_metadata["stop_time"], str(pixc_edge_reader.get_att_value("stop_time")))

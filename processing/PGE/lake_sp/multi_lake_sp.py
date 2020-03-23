@@ -182,10 +182,10 @@ class MultiLakeSP(object):
             my_lake_tile.stop()
 
             print("")
+            print(timer.stop())
             print("")
             print("")
 
-        print(timer_proc.stop())
         print("****************************************************************************************************************")
         print("")
         print("")

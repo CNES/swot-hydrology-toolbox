@@ -58,6 +58,7 @@ class NetCDFProduct(object):
         self.metadata = OrderedDict()
         self.metadata["conventions"] = "CF-1.7"
         self.metadata["title"] = ""
+        self.metadata["short_name"] = ""
         self.metadata["institution"] = "CNES"
         self.metadata["source"] = ""
         self.metadata["history"] = "%sZ: Creation" % my_tools.swot_timeformat(datetime.datetime.utcnow(), in_format=1)
@@ -88,7 +89,7 @@ class NetCDFProduct(object):
 
     #----------------------------------------
         
-    def write_product(self, in_out_file, in_size, in_variables):
+    def write_product(self, in_out_file, in_size, in_variables, is_complex=False):
         """
         Write NetCDF product
         
@@ -108,6 +109,8 @@ class NetCDFProduct(object):
         # 1 - Write dimension
         self.dim["value"] = in_size
         nc_writer.add_dimension(self.dim["name"], self.dim["value"])
+        if is_complex:
+            nc_writer.add_dimension("complex_depth", 2)
         
         # 2 - Write variables
         if in_size == 0:
@@ -139,6 +142,7 @@ class NetCDFProduct(object):
             if key in var_keys:
                 in_nc_writer.add_variable(key, self.variables[key]['dtype'], self.dim["name"], in_attributes=self.variables[key])
                 in_nc_writer.fill_variable(key, value)
+
             else:
                 logger.debug("Variable %s key is not known" % key)
     
@@ -159,19 +163,14 @@ class NetCDFProduct(object):
 #######################################
 
 
-class LakeTilePixcvecProduct(NetCDFProduct):
+class CommonPixcvec(NetCDFProduct):
     """
-    Deal with LakeTile_pixcvec NetCDF file
+    Gather items common to LakeTile_pixcvec and PIXCVec NetCDF files
     """
     
-    def __init__(self, in_pixcvecriver_metadata=None, in_proc_metadata=None):
+    def __init__(self):
         """
-        Constructor; specific to LakeTile_pixcvec NetCDF file
-        
-        :param in_pixcvecriver_metadata: metadata specific to L2_HR_PIXCVecRiver product
-        :type in_pixcvecriver_metadata: dict
-        :param in_proc_metadata: metadata specific to LakeTile processing
-        :type in_proc_metadata: dict
+        Constructor
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("- start -")
@@ -182,83 +181,91 @@ class LakeTilePixcvecProduct(NetCDFProduct):
         # 2 - Init dimension name
         self.dim["name"] = "points"
         
-        # 3 - Init variables info specific to LakeTile_pixcvec file
+        # 3 - Init variables info; they are common to LakeTile_pixcvec and PIXCVec NetCDF files
         # All variables are defined with the same scheme :
         # type of variable
         # list of variable attribute name: value
 
         # azimuth_index
-        self.variables["azimuth_index"] = {'dtype': np.int32,
-           'long_name': "rare interferogram azimuth index",
-           'units': 1,
-           'valid_min': 0,
-           'valid_max': 999999,
-           'comment': "Rare interferogram azimuth index"}
+        self.variables["azimuth_index"] = {'dtype': np.int32,   
+                                              'long_name': "rare interferogram azimuth index",
+                                              'units': 1,
+                                              'valid_min': 0,
+                                              'valid_max': 999999,
+                                              'comment': "Rare interferogram azimuth index"}
         # range_index
         self.variables["range_index"] = {'dtype': np.int32,
-            'long_name': "rare interferogram range index",
-            'units': 1,
-            'valid_min': 0,
-            'valid_max': 999999,
-            'comment': "Rare interferogram range index"}
+                                          'long_name': "rare interferogram range index",
+                                          'units': 1,
+                                          'valid_min': 0,
+                                          'valid_max': 999999,
+                                          'comment': "Rare interferogram range index"}
         # latitude_vectorproc
         self.variables["latitude_vectorproc"] = {'dtype': np.double,
-            'long_name': "latitude (positive N, negative S)",
-            'standard_name': "latitude",
-            'units': "degrees_north",
-            'valid_min': -90.0,
-            'valid_max': 90.0,
-            'comment': "Improved geodetic latitude [-90,90] (degrees north of equator) of the pixel."}
+                                                  'long_name': "height-constrained geolocation latitude",
+                                                  'standard_name': "latitude",
+                                                  'units': "degrees_north",
+                                                  'valid_min': -80.0,
+                                                  'valid_max': 80.0,
+                                                  'comment': "Height-constrained geodetic latitude of the pixel. Units are in degrees north of the equator."}
         # longitude_vectorproc
         self.variables["longitude_vectorproc"] = {'dtype': np.double,
-            'long_name': "longitude (degrees East)",
-            'standard_name': "longitude",
-            'units': "degrees_east",
-            'valid_min': -180.0,
-            'valid_max': 180.0,
-            'comment': "Improved longitude [-180,180( of the pixel."}
-        # wse_vectorproc
-        self.variables["wse_vectorproc"] = {'dtype': np.float,
-            'long_name': "water surface elevation above reference ellipsoid",
-            'units': "m",
-            'valid_min': -999999,
-            'valid_max': 999999,
-            'comment': "Improved water surface elevation of the pixel above the reference ellipsoid."}
+                                                  'long_name': "height-constrained geolocation longitude",
+                                                  'standard_name': "longitude",
+                                                  'units': "degrees_east",
+                                                  'valid_min': -180.0,
+                                                  'valid_max': 180.0,
+                                                  'comment': "Height-constrained geodetic longitude of the pixel. Positive=degrees east of the Greenwich meridian. Negative=degrees west of the Greenwich meridian."}
+        # height_vectorproc
+        self.variables["height_vectorproc"] = {'dtype': np.float,
+                                                  'long_name': "height above reference ellipsoid",
+                                                  'units': "m",
+                                                  'valid_min': -1500,
+                                                  'valid_max': 1500,
+                                                  'comment': "Height-constrained height of the pixel above the reference ellipsoid."}
+        # reach_id
+        self.variables["reach_id"] = {'dtype': str,
+                                      'long_name': "identifier of the associated prior river reach",
+                                      'comment': "Unique reach identifier from the prior river database. \
+                                                  The format of the identifier is CBBBBBRRRRT, where C=continent, B=basin, R=reach, T=type."}
         # node_id
         self.variables["node_id"] = {'dtype': str,
-            'long_name': "identifier of the associated prior river node",
-            'comment': "Identifier of the river node (retrieved from the river node a priori database) associated to the pixel."}
-        # lakedb_id
-        self.variables["lakedb_id"] = {'dtype': str,
-             'long_name': "identifier of the associated prior lake",
-             'comment': "Identifier of the lake (retrieved from the prior lake database) associated to the pixel."}
-        # lakeobs_id
-        self.variables["lakeobs_id"] = {'dtype': str,
-             'long_name': "identifier of the associated unknown object",
-             'comment': "Tile-specific identifier of the unknown object (i.e. not referenced neither in the river a priori database, \
-             nor in the prior lake database) associated to the pixel."}
-        # ice_climatological_flag
-        self.variables["ice_climatological_flag"] = {'dtype': np.int8,
-             'long_name': "climatological ice cover flag",
-             'flag_meanings': "not ice covered; ice covered",
-             'flag_values': "0 1",
-             'institution': "University of North Carolina",
-             'comment': "Indicates if the surface is ice-covered on the day of the observation based on climatological ice coverage"}
-        # ice_dynamical_flag
-        self.variables["ice_dynamical_flag"] = {'dtype': np.int8,
-             'long_name': "dynamical ice cover flag",
-             'flag_meanings': "not ice covered; ice covered",
-             'flag_values': "0 1",
-             'institution': "University of North Carolina",
-             'comment': "Indicates if the surface is ice-covered on the day of the observation based on dynamical ice coverage, \
-             determined from analysis of optical channel satellite data"}
+                                      'long_name': "identifier of the associated prior river node",
+                                      'comment': "Unique node identifier from the prior river database. \
+                                                  The format of the identifier is CBBBBBRRRRNNNT, where C=continent, B=basin, R=reach, N=node, T=type of water body."}
+        # lake_id
+        self.variables["lake_id"] = {'dtype': str,
+                                      'long_name': "identifier of the associated prior lake",
+                                      'comment': "Identifier of the lake from the lake prior database) associated to the pixel. \
+                                                    The format of the identifier is CBBNNNNNNT, where C=continent, B=basin, N=counter within the basin, T=type of water body."}
+        # obs_id
+        self.variables["obs_id"] = {'dtype': str,
+                                      'long_name': "identifier of the observed object",
+                                      'comment': "Tile-specific identifier of the observed object associated to the pixel. \
+                                                      The format of the identifier is CBBTTTSNNNNNN, where C=continent, B=basin, T=tile number, S=swath side, N=lake counter within the PIXC tile."}
+        # ice_clim_f
+        self.variables["ice_clim_f"] = {'dtype': np.uint8,
+                                          'long_name': "climatological ice cover flag",
+                                          'flag_meanings': "no_ice_cover partial_ice_cover full_ice_cover",
+                                          'flag_values': "0 1 2",
+                                          'institution': "University of North Carolina",
+                                          'comment': "Climatological ice cover flag indicating whether the pixel is ice-covered on the day of the observation \
+                                                      based on external climatological information (not the SWOT measurement). \
+                                                      Values of 0, 1, and 2 indicate that the surface is not ice covered, partially ice covered, \
+                                                      and fully ice covered, respectively. A value of 255 indicates that this flag is not available."}
+        # ice_dyn_f
+        self.variables["ice_dyn_f"] = {'dtype': np.uint8,
+                                          'long_name': "dynamical ice cover flag",
+                                          'flag_meanings': "no_ice_cover partial_ice_cover full_ice_cover",
+                                          'flag_values': "0 1 2",
+                                          'institution': "University of North Carolina",
+                                          'comment': "Dynamic ice cover flag indicating whether the pixel is ice-covered on the day of the observation \
+                                                      based on analysis of external satellite optical data. Values of 0, 1, and 2 indicate \
+                                                      that the surface is not ice covered, partially ice covered, and fully ice covered, respectively. \
+                                                      A value of 255 indicates that this flag is not available."}
                 
-        # 4 - Init metadata specific to LakeTile_pixcvec file
-        # 4.1 - Update general metadata
-        self.metadata["title"] = "Level 2 KaRIn high rate lake tile vector product – LakeTile_pixcvec"
-        # code commenté self.metadata["references"] = ""
-        self.metadata["reference_document"] = "SWOT-TN-CDM-0677-CNES"
-        # 4.2 - Metadata retrieved from L2_HR_PIXCVecRiver product
+        # 4 - Init metadata common to LakeTile_pixcvec and PIXCVec files
+        # 4.1 - Metadata retrieved from L2_HR_PIXC product
         # The values are defined later in TBD function
         self.metadata["cycle_number"] = -9999
         self.metadata["pass_number"] = -9999
@@ -278,14 +285,78 @@ class LakeTilePixcvecProduct(NetCDFProduct):
         self.metadata["continent"] = ""
         self.metadata["ellipsoid_semi_major_axis"] = ""
         self.metadata["ellipsoid_flattening"] = ""
+        # 4.2 - Processing metadata
+        self.metadata["xref_input_l2_hr_pixc_file"] = ""
         self.metadata["xref_static_river_db_file"] = ""
+        self.metadata["xref_static_lake_db_file"] = ""
+
+
+class LakeTilePixcvecProduct(CommonPixcvec):
+    """
+    Deal with LakeTile_pixcvec NetCDF file
+    """
+    
+    def __init__(self, in_pixcvecriver_metadata=None, in_proc_metadata=None):
+        """
+        Constructor; specific to LakeTile_pixcvec NetCDF file
+        
+        :param in_pixcvecriver_metadata: metadata specific to L2_HR_PIXCVecRiver product
+        :type in_pixcvecriver_metadata: dict
+        :param in_proc_metadata: metadata specific to LakeTile processing
+        :type in_proc_metadata: dict
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.info("- start -")
+        
+        # 1 - Init CommonPixcvec
+        super().__init__()
+                
+        # 2 - Init metadata specific to LakeTile_pixcvec file
+        # 2.1 - Update general metadata
+        self.metadata["title"] = "Level 2 KaRIn high rate lake tile vector product"
+        self.metadata["short_name"] = "SWOT_L2_HR_LakeTile_Pixcvec"
+        # code commenté self.metadata["references"] = ""
+        self.metadata["reference_document"] = "SWOT-TN-CDM-0677-CNES"
         if in_pixcvecriver_metadata is not None:
             self.set_metadata_val(in_pixcvecriver_metadata)
-        # 4.3 - Processing metadata
-        self.metadata["xref_static_lake_db_file"] = ""
-        self.metadata["xref_input_l2_hr_pixc_file"] = ""
+        # 2.3 - Processing metadata
         self.metadata["xref_input_l2_hr_pixc_vec_river_file"] = ""
         self.metadata["xref_l2_hr_lake_tile_param_file"] = ""
+        if in_proc_metadata is not None:
+            self.set_metadata_val(in_proc_metadata)
+
+
+class PixcvecProduct(CommonPixcvec):
+    """
+    Deal with PIXCVec NetCDF file
+    """
+    
+    def __init__(self, in_laketile_pixcvec_metadata=None, in_proc_metadata=None):
+        """
+        Constructor; specific to PIXCVec NetCDF file
+        
+        :param in_laketile_pixcvec_metadata: metadata specific to L2_HR_LakeTile_Pixcvec product
+        :type in_laketile_pixcvec_metadata: dict
+        :param in_proc_metadata: metadata specific to LakeTile processing
+        :type in_proc_metadata: dict
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.info("- start -")
+        
+        # 1 - Init CommonPixcvec
+        super().__init__()
+                
+        # 4 - Init metadata specific to PIXCVec file
+        # 4.1 - Update general metadata
+        self.metadata["title"] = "Level 2 KaRIn high rate pixel cloud vector attribute product"
+        self.metadata.pop("short_name", None)  # Metadata short_name has to be removed
+        # code commenté self.metadata["references"] = ""
+        self.metadata["reference_document"] = "SWOT-TN-CDM-0677-CNES"
+        # 4.2 - Metadata retrieved from L2_HR_LakeTile_Pixcvec product
+        if in_laketile_pixcvec_metadata is not None:
+            self.set_metadata_val(in_laketile_pixcvec_metadata)
+        # 4.3 - Processing metadata
+        self.metadata["xref_l2_hr_lake_sp_param_file"] = ""
         if in_proc_metadata is not None:
             self.set_metadata_val(in_proc_metadata)
 
@@ -468,6 +539,27 @@ class LakeTileEdgeProduct(NetCDFProduct):
                       "valid_min": 0,
                       "valid_max": 999999,
                       "comment": "Incidence angle."}
+        # interferogram
+        self.variables["interferogram"] = {'dtype': np.float,
+                      "long_name": "rare unflatten interferogram",
+                      "units": "complex",
+                      "valid_min": -999999,
+                      "valid_max": 999999,
+                      "comment": "Rare unflatten interferogram."}
+        # power_plus_y
+        self.variables["power_plus_y"] = {'dtype': np.float,
+                      "long_name": "power plus y",
+                      "units": "watt",
+                      "valid_min": -999999,
+                      "valid_max": 999999,
+                      "comment": "Power for plus antenna"}
+        # power_minus_y
+        self.variables["power_minus_y"] = {'dtype': np.float,
+                      "long_name": "power minus y",
+                      "units": "watt",
+                      "valid_min": -999999,
+                      "valid_max": 999999,
+                      "comment": "Power for minus antenna"}
         # phase_noise_std
         self.variables["phase_noise_std"] = {'dtype': np.float,
                       "long_name": "phase noise standard deviation",
@@ -482,6 +574,20 @@ class LakeTileEdgeProduct(NetCDFProduct):
                       "valid_min": -999999,
                       "valid_max": 999999,
                       "comment": "Sensititvity of the height estimate to the interferogram phase."}
+        # dlatitude_dphase
+        self.variables["dlatitude_dphase"] = {'dtype': np.float,
+                      "long_name": "sensititvity of latitude estimate to interferogram phase",
+                      "units": "m/radian",
+                      "valid_min": -999999,
+                      "valid_max": 999999,
+                      "comment": "Sensititvity of the latitude estimate to the interferogram phase."}
+        # dlongitude_dphase
+        self.variables["dlongitude_dphase"] = {'dtype': np.float,
+                      "long_name": "sensititvity of longitude estimate to interferogram phase",
+                      "units": "m/radian",
+                      "valid_min": -999999,
+                      "valid_max": 999999,
+                      "comment": "Sensititvity of the longitude estimate to the interferogram phase."}
         # dheight_droll
         self.variables["dheight_droll"] = {'dtype': np.float,
             'long_name': "sensititvity of height estimate to spacecraft roll", 
@@ -754,10 +860,53 @@ class LakeTileEdgeProduct(NetCDFProduct):
             'valid_min': 0,
             'valid_max': 1,
             'comment': "Quality flag for TVP data"}
-        
+        # plus_y_antenna_x
+        self.variables["plus_y_antenna_x"] = {'dtype': np.double,
+            'long_name': "x coordinate of the plus_y antenna phase center in the ECEF frame",
+            'units': "m",
+            'valid_min': -10000000.0,
+            'valid_max': 10000000.0,
+            'comment': "x coordinate of the plus_y antenna phase center in the ECEF frame"}
+        # plus_y_antenna_y
+        self.variables["plus_y_antenna_y"] = {'dtype': np.double,
+            'long_name': "y coordinate of the plus_y antenna phase center in the ECEF frame",
+            'units': "m",
+            'valid_min': -10000000.0,
+            'valid_max': 10000000.0,
+            'comment': "y coordinate of the plus_y antenna phase center in the ECEF frame"}
+        # plus_y_antenna_z
+        self.variables["plus_y_antenna_z"] = {'dtype': np.double,
+            'long_name': "z coordinate of the plus_y antenna phase center in the ECEF frame",
+            'units': "m",
+            'valid_min': -10000000.0,
+            'valid_max': 10000000.0,
+            'comment': "z coordinate of the plus_y antenna phase center in the ECEF frame"}
+        # minus_y_antenna_x
+        self.variables["minus_y_antenna_x"] = {'dtype': np.double,
+            'long_name': "x coordinate of the minus_y antenna phase center in the ECEF frame",
+            'units': "m",
+            'valid_min': -10000000.0,
+            'valid_max': 10000000.0,
+            'comment': "x coordinate of the minus_y antenna phase center in the ECEF frame"}
+        # minus_y_antenna_x
+        self.variables["minus_y_antenna_y"] = {'dtype': np.double,
+            'long_name': "y coordinate of the minus_y antenna phase center in the ECEF frame",
+            'units': "m",
+            'valid_min': -10000000.0,
+            'valid_max': 10000000.0,
+            'comment': "y coordinate of the minus_y antenna phase center in the ECEF frame"}
+        # minus_y_antenna_z
+        self.variables["minus_y_antenna_z"] = {'dtype': np.double,
+            'long_name': "z coordinate of the minus_y antenna phase center in the ECEF frame",
+            'units': "m",
+            'valid_min': -10000000.0,
+            'valid_max': 10000000.0,
+            'comment': "z coordinate of the minus_y antenna phase center in the ECEF frame"}
+            
         # 4 - Init metadata specific to LakeTile_pixcvec file
         # 4.1 - Update general metadata
-        self.metadata["title"] = "Level 2 KaRIn high rate lake tile vector product – LakeTile_edge"
+        self.metadata["title"] = "Level 2 KaRIn high rate lake tile vector product"
+        self.metadata["short_name"] = "SWOT_L2_HR_LakeTile_Edge"
         # code commenté self.metadata["references"] = ""
         self.metadata["reference_document"] = "SWOT-TN-CDM-0673-CNES"
         # 4.2 - Metadata retrieved from L2_HR_PIXC product
@@ -784,6 +933,9 @@ class LakeTileEdgeProduct(NetCDFProduct):
         self.metadata["interferogram_size_azimuth"] = -9999
         self.metadata["near_range"] = -9999.0
         self.metadata["nominal_slant_range_spacing"] = -9999.0
+        self.metadata["wavelength"] = -9999.0
+        self.metadata["looks_to_efflooks"] = -9999.0
+
         if in_pixc_metadata is not None:
             self.set_metadata_val(in_pixc_metadata)
         # 4.3 - Processing metadata

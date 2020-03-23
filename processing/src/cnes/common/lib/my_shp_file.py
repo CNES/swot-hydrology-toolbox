@@ -95,10 +95,10 @@ def merge_2_layers(in_layer1, in_layer2, in_cur_continent):
     :rtype out_layer: OGRlayer
     """
     logger = logging.getLogger("my_shp_file")
-    logger.debug("[LakeProduct] == mergeLayerRL ==")
+    logger.info("- start -")
 
     continent_pfaf_id = lake_db.compute_basin_id_from_continent(in_cur_continent)
-    if in_cur_continent :
+    if in_cur_continent:
         logger.debug("Filter layer by continent %s " %(str(in_cur_continent)))
         in_layer1.SetAttributeFilter("lake_id like '" + continent_pfaf_id + "%' or obs_id like '" + continent_pfaf_id + "%'")
         in_layer2.SetAttributeFilter("lake_id like '" + continent_pfaf_id + "%' or obs_id like '" + continent_pfaf_id + "%'")
@@ -106,6 +106,7 @@ def merge_2_layers(in_layer1, in_layer2, in_cur_continent):
     nb_feature1 = in_layer1.GetFeatureCount()
     nb_feature2 = in_layer2.GetFeatureCount()
     logger.debug("Merge %d features of layer 1 to %d feature of layer 2" %(nb_feature1, nb_feature2))
+    
     # 1 - Get layer definitions
     layer_defn1 = in_layer1.GetLayerDefn()
     layer_defn2 = in_layer2.GetLayerDefn()
@@ -168,3 +169,4 @@ def write_mem_layer_as_shp(in_mem_layer, in_shp_filename):
     
     # 4 - Close output file
     data_source.Destroy()
+    

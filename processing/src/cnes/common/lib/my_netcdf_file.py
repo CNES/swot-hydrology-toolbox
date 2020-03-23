@@ -240,7 +240,7 @@ class MyNcReader(object):
 
         try:
             if cur_content.variables[in_name]._FillValue != my_var.FV_NETCDF[out_type]:
-                logger.warning( "Fill value for type %s from netCDF file are different from my_vraible : %s w.r.t. %s " %(out_type, str(cur_content.variables[in_name]._FillValue), str(my_var.FV_NETCDF[out_type])))
+                logger.warning( "Fill value for type %s from netCDF file are different from my_variable : %s w.r.t. %s " %(out_type, str(cur_content.variables[in_name]._FillValue), str(my_var.FV_NETCDF[out_type])))
             out_data[numpy.where(out_data == cur_content.variables[in_name]._FillValue)] = my_var.FV_NETCDF[out_type]
         except:
             pass
@@ -415,7 +415,7 @@ class MyNcWriter(object):
 
     #----------------------------------------
         
-    def add_variable(self, in_name, in_datatype, in_dimensions, in_group=None, in_attributes=None, in_compress=True):
+    def add_variable(self, in_name, in_datatype, in_dimensions, in_group=None, in_attributes=None, in_compress=True, is_complex=False):
         """
         Add the data content of the variable
         
@@ -477,8 +477,12 @@ class MyNcWriter(object):
             #cur_content.createVariable(in_name, 'c', in_dimensions, in_compress, 2)
             cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2)
         elif numpy.dtype(in_datatype).name in my_var.FV_NETCDF:
-            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, \
-                                       fill_value=my_var.FV_NETCDF[numpy.dtype(in_datatype).name])
+            if in_name=='interferogram':
+                cur_content.createVariable(in_name, in_datatype, (in_dimensions, 'complex_depth'), in_compress, 2, \
+                                           fill_value=my_var.FV_NETCDF[numpy.dtype(in_datatype).name])
+            else:
+                cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, \
+                                           fill_value=my_var.FV_NETCDF[numpy.dtype(in_datatype).name])
         else:
             # datatype not recognized !
             message = "datatype not recognized : %s %s" % str(numpy.dtype(in_datatype).name)
@@ -557,8 +561,12 @@ class MyNcWriter(object):
                         logger.warning("{} NaN values remaining in {} variable => replaced by {} (_FillValue unknown)".format(nb_nan, in_name, \
                                                                                                                          my_var.FV_NETCDF[data_type]))
                         in_data[nan_idx] = my_var.FV_NETCDF[data_type]
-            # Write the whole array
-            cur_content.variables[in_name][:] = in_data
+            # ~ # Write the whole array
+            if in_name=="interferogram":
+                cur_content.variables[in_name][:,:] = in_data
+            else:
+                cur_content.variables[in_name][:] = in_data
+
         else:
             # Variable not recognized !
             logger.debug("Could not fill variable %s because it does not exist" % in_name)
