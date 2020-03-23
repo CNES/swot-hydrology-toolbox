@@ -454,7 +454,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
    
     
     # 5.3 - Compute final noisy heights (elevation + thermal noise + roll error + height model) 
-    elevation_tab_noisy = elevation_tab #+ delta_h           
+    elevation_tab_noisy = elevation_tab + delta_h           
     
     # 7 - Build velocity arrays
     nb_pix_nadir = IN_attributes.x.size  # Nb pixels at nadir
