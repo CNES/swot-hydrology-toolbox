@@ -172,9 +172,15 @@ def main():
 
 
         logging.info("== Run RiverObs ==")
-        l2pixc_to_rivertile(pixc_file, output_riverobs, output_pixcvec, os.path.abspath(args['parameter_riverobs']), shpbasedir=river_dir,
+        try :
+            l2pixc_to_rivertile(pixc_file, output_riverobs, output_pixcvec, os.path.abspath(args['parameter_riverobs']), shpbasedir=river_dir,
                             log_level="info", gdem_file=None)
-        logging.info("== Run RiverObs OK ==")
+            logging.info("== Run RiverObs OK ==")
+            logging.info("")
+        except:
+            logging.warning("== Run RiverObs NOK ==")
+            logging.info("")
+            continue
 
         logging.info("")
 
