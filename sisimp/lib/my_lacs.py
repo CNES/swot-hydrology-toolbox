@@ -19,6 +19,7 @@ class Lac:
         self.seed = int(str(time.time()).split('.')[1])
         self.hmean = None
         self.nb_pix = 0
+        self.h_ref=0
 
     def compute_pixels_in_given_lac(self, OUT_ind_lac_data):
         self.pixels = np.where(OUT_ind_lac_data == self.num)
