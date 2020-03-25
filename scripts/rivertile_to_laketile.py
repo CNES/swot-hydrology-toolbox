@@ -81,8 +81,8 @@ def make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_n
             os.symlink(target, outpath)
             flag_rename = False
         except:
-            # outpath = os.path.join(os.path.dirname(target), outname)
-            # os.rename(target, outpath)
+            outpath = os.path.join(os.path.dirname(target), outname)
+            os.rename(target, outpath)
             flag_rename = True
             print("symlink impossible => change filename [%s] to [%s]" % (target, outpath))
             print()
