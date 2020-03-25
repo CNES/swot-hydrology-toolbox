@@ -65,16 +65,15 @@ def copy_group(src, dst):
         dst[name][:] = data
 
 
-def make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time):
+def make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time, gdem=None):
     """ Makes symlinks to pixc with the right name for locnes input """
 
     def swot_symlink(target, name):
         crid = "Dx0000"
         product_counter = "01"
         outname = name.format(cycle_number, pass_number, tile_number, start_time, stop_time, crid, product_counter)
-        if not os.path.isdir(links_dir):
-            os.makedirs(links_dir)
-        outpath = join(links_dir, outname)
+        outpath = abspath(join(links_dir, outname))
+
         if os.path.islink(outpath): # Overwrite if existing
             print("Overwritting existing {}".format(outpath))
             os.remove(outpath)
@@ -82,19 +81,27 @@ def make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_n
             os.symlink(target, outpath)
             flag_rename = False
         except:
-            outpath = os.path.join(os.path.dirname(target), outname)
-            os.rename(target, outpath)
+            # outpath = os.path.join(os.path.dirname(target), outname)
+            # os.rename(target, outpath)
             flag_rename = True
             print("symlink impossible => change filename [%s] to [%s]" % (target, outpath))
             print()
         return outpath, flag_rename
 
-    flag_rename_pixc = False
-    if not os.path.basename(pixc_file).startswith("SWOT_L2_HR_PIXC"):
-        pixcname, flag_rename_pixc = swot_symlink(pixc_file, "SWOT_L2_HR_PIXC_{}_{}_{}_{}_{}_{}_{}.nc")
+    if not gdem:
+        flag_rename_pixc = False
+        if not os.path.basename(pixc_file).startswith("SWOT_L2_HR_PIXC"):
+            pixcname, flag_rename_pixc = swot_symlink(pixc_file, "SWOT_L2_HR_PIXC_{}_{}_{}_{}_{}_{}_{}.nc")
+        else:
+            pixcname = pixc_file
     else:
-        pixcname = pixc_file
-    
+        flag_rename_pixc = False
+        crid = "Dx0000"
+        product_counter = "01"
+        outname = "SWOT_L2_HR_PIXC_{}_{}_{}_{}_{}_{}_{}.nc".format(cycle_number, pass_number, tile_number, start_time, stop_time, crid, product_counter)
+        pixcname = os.path.join(links_dir, outname)
+        gdem_pixc_to_pixc(pixc_file, pixcname)
+
     flag_rename_pixcvec = False
     if not os.path.basename(pixcvec_file).startswith("SWOT_L2_HR_PIXCVecRiver"):
         pixcvecname, flag_rename_pixcvec = swot_symlink(pixcvec_file, "SWOT_L2_HR_PIXCVecRiver_{}_{}_{}_{}_{}_{}_{}.nc")
@@ -142,19 +149,14 @@ def set_swot_hydro_env():
         exit()
     return pge_lake_tile
 
-def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time, pge_lake_tile):
+def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, pge_lake_tile):
 
     config = cfg.ConfigParser()
     config.read(parameter_laketile)
 
-    # Create symlinks to input with the right name convention
-    links_dir = join(lake_dir, "inputs")
-
-    pixcname, flag_rename_pixc, pixcvecname, flag_rename_pixcvec = make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time)
-
     # Fill missing values in pge_lake_tile rdf file
-    config.set('PATHS', "PIXC file", pixcname)
-    config.set('PATHS', "PIXCVecRiver file", pixcvecname)
+    config.set('PATHS', "PIXC file", pixc_file)
+    config.set('PATHS', "PIXCVecRiver file", pixcvec_file)
     config.set('PATHS', "Output directory", lake_dir)
     config.set('LOGGING', "logFile", os.path.join(lake_dir, "LogFile.log"))
 
@@ -182,7 +184,7 @@ def call_pge_lake_tile(parameter_laketile, lake_dir, pixc_file, pixcvec_file, cy
 
     print()
 
-
+def rename_old_input_files(pixc_file, pixcvec_file, pixcname, flag_rename_pixc, pixcvecname, flag_rename_pixcvec):
     # Rename to old input filenames if files had been renamed
     if flag_rename_pixc:
         print("Get back to old PixC filename [%s] to [%s]" % (pixcname, pixc_file))
@@ -242,24 +244,20 @@ def main():
         # Load annotation file
         ann_rdf = my_rdf.myRdfReader(os.path.abspath(river_annotation))
         ann_cfg = ann_rdf.parameters
-	
-        # Prepare args for pge_lake_tile.py
-        if args['gdem']:
-            links_dir = join(args['output_dir'], "inputs")
-            pixc_file = abspath(ann_cfg["gdem pixc file"])
-            pixcvec_file = abspath(ann_cfg['pixcvec file from gdem'])
-            pixc_name = os.path.basename(pixc_file)
-            gdem_pixc_to_pixc(pixc_file, os.path.join(links_dir, pixc_name))
-            pixc_file = os.path.join(abspath(links_dir), pixc_name)
-        else :
-            pixc_file    = abspath(ann_cfg['pixc file'])
-            pixcvec_file = abspath(ann_cfg['pixcvec file'])
 
-        print(". PixC file = %s" % pixc_file)
-        print(". PIXCVecRiver file = %s" % pixcvec_file)
+
+        # set pixc sources
+        if args['gdem']:
+            pixc_path = abspath(ann_cfg["gdem pixc file"])
+            pixcvec_path = abspath(ann_cfg['pixcvec file from gdem'])
+        else :
+            pixc_path    = abspath(ann_cfg['pixc file'])
+            pixcvec_path = abspath(ann_cfg['pixcvec file'])
+
+
 	
         # Read pixc file attributes and format with leading zeros
-        with Dataset(pixc_file, "r") as pixc_dataset:
+        with Dataset(pixc_path, "r") as pixc_dataset:
 	                
             cycle_number = "{:03d}".format(pixc_dataset.getncattr("cycle_number"))
             pass_number = "{:03d}".format(pixc_dataset.getncattr("pass_number"))
@@ -280,24 +278,36 @@ def main():
             print(". Stop time = %s" % stop_time)
             
         print()
-        	            
-        # Read config from config repository by default, or from the script arguments
-        parameter_laketile = args["parameter_laketile"]
-
-        pixc_name = call_pge_lake_tile(parameter_laketile, args['output_dir'],
-                           pixc_file, pixcvec_file,
-                           cycle_number, pass_number, tile_number, start_time, stop_time, pge_lake_tile)
-        
-        print()
-        print()
-        # Write annotation file
 
         # Create symlinks to input with the right name convention
         links_dir = join(args['output_dir'], "inputs")
+        if not os.path.isdir(links_dir):
+            os.makedirs(links_dir)
 
+        print("Input PixC file : %s" % (pixc_path))
+        print("Input PIXCVecRiver file : %s" % (pixcvec_path))
+
+
+        sym_pixc_path, flag_rename_pixc, sym_pixcvec_path, flag_rename_pixcvec = make_input_symlinks(links_dir, pixc_path,
+                                                                                           pixcvec_path, cycle_number,
+                                                                                           pass_number, tile_number,
+                                                                                           start_time, stop_time, args['gdem'])
+        print("Renamed PixC file : %s" % (sym_pixc_path))
+        print("Renamed PIXCVecRiver file : %s" % (sym_pixcvec_path))
+
+
+        # Read config from config repository by default, or from the script arguments
+        parameter_laketile = args["parameter_laketile"]
+
+        call_pge_lake_tile(parameter_laketile, args['output_dir'], sym_pixc_path, sym_pixcvec_path, pge_lake_tile)
+
+        rename_old_input_files(pixc_path, pixcvec_path, sym_pixc_path, flag_rename_pixc, sym_pixcvec_path, flag_rename_pixcvec)
+
+        print()
+        print()
+        # Write annotation file
         # File path
-        pixc_file = os.path.join(links_dir, pixc_name)
-        lake_filenames = my_names.lakeTileFilenames(IN_pixc_file=pixc_file)
+        lake_filenames = my_names.lakeTileFilenames(IN_pixc_file=sym_pixc_path)
         laketile_shp_file = os.path.join(args['output_dir'], lake_filenames.laketile_shp_file)
         laketile_pixcvec_file = os.path.join(args['output_dir'], lake_filenames.laketile_pixcvec_file)
         laketile_edge_file = os.path.join(args['output_dir'], lake_filenames.laketile_edge_file)
