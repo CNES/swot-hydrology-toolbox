@@ -32,12 +32,16 @@ from lib.my_variables import RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
 from lib.roll_module import Roll_module
 from lib.tropo_module import Tropo_module
 
+from inversion_algo import inversionCore
+
 import mathematical_function as math_fct
 import proc_real_pixc
 import proc_real_pixc_vec_river
 
 import pickle
 
+GEN_RAD_EARTH = 6378137.0
+GEN_RAD_EARTH_POLE = 6356752.31425
 
 class orbitAttributes:
     
@@ -375,6 +379,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             
             lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
+            elevation_tab[indice] += lac.h_ref
 
 
     # 3 - Build cross-track distance array
@@ -549,11 +554,51 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             tile_vx = vx[nb_pix_overlap_begin:-nb_pix_overlap_end]
             tile_vy = vy[nb_pix_overlap_begin:-nb_pix_overlap_end]
             tile_vz = vz[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            
+            # Calcul x, y, z of satellite on earth
+            x_earth, y_earth, z_earth = inversionCore.convert_llh2ecef(tile_nadir_lat_deg, tile_nadir_lon_deg, np.zeros(len(tile_nadir_lat_deg)), GEN_RAD_EARTH, GEN_RAD_EARTH_POLE)
+            nadir_vx = tile_x - x_earth
+            nadir_vy = tile_y - y_earth
+            nadir_vz = tile_z - z_earth
+
+            # Calcul norm for each vector
+            norm_sat = [np.sqrt(x*x + y*y + z*z) for x, y, z in zip(tile_vx, tile_vy, tile_vz)]
+            norm_nadir = [np.sqrt(x*x + y*y + z*z) for x, y, z in zip(nadir_vx, nadir_vy, nadir_vz)]
+
+            # Normalize vectors
+            norm_vx = [val / norm_val for val, norm_val in zip(tile_vx, norm_sat)]
+            norm_vy = [val / norm_val for val, norm_val in zip(tile_vy, norm_sat)]
+            norm_vz = [val / norm_val for val, norm_val in zip(tile_vz, norm_sat)]
+
+            norm_nadir_vx = [val/norm_val for val, norm_val in zip(nadir_vx, norm_nadir)]
+            norm_nadir_vy = [val/norm_val for val, norm_val in zip(nadir_vy, norm_nadir)]
+            norm_nadir_vz = [val/norm_val for val, norm_val in zip(nadir_vz, norm_nadir)]
+
+            # Calcul normal vector
+            normal_vector = [np.cross([vx, vy, vz], [nadir_vx, nadir_vy, nadir_vz]) for vx, vy, vz, nadir_vx, nadir_vy, nadir_vz in zip(norm_vx, norm_vy, norm_vz, norm_nadir_vx, norm_nadir_vy, norm_nadir_vz)]
+           
+            # Find sensors coordinates
+            sensor_plus_y_x = [x + nv[0]*5 for x, nv in zip(tile_x, normal_vector)]
+            sensor_plus_y_y = [y + nv[1]*5 for y, nv in zip(tile_y, normal_vector)]
+            sensor_plus_y_z = [z + nv[2]*5 for z, nv in zip(tile_z, normal_vector)]
+
+            sensor_minus_y_x = [x - nv[0]*5 for x, nv in zip(tile_x, normal_vector)]
+            sensor_minus_y_y = [y - nv[1]*5 for y, nv in zip(tile_y, normal_vector)]
+            sensor_minus_y_z = [z - nv[2]*5 for z, nv in zip(tile_z, normal_vector)]
+
+            # Calcul interferogram for all water pixel 
+            interf_2d = []
+            x_water, y_water, z_water = inversionCore.convert_llh2ecef(lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], GEN_RAD_EARTH, GEN_RAD_EARTH_POLE)
+            for i, (x_w, y_w, z_w) in enumerate(zip(x_water, y_water, z_water), 0):
+                interferogram = my_tools.compute_interferogram(sensor_plus_y_x[sub_az[i]], sensor_plus_y_y[sub_az[i]], sensor_plus_y_z[sub_az[i]],\
+                    sensor_minus_y_x[sub_az[i]], sensor_minus_y_y[sub_az[i]], sensor_minus_y_z[sub_az[i]], x_w, y_w, z_w) 
+                interf_2d.append([interferogram[0], interferogram[1]])
 
             nadir_az_size = tile_nadir_lat_deg.size
 
             tile_coords = compute_tile_coords(IN_attributes, IN_swath, nadir_az_size, nb_pix_overlap_begin)
             IN_attributes.tile_coords[left_or_right] = tile_coords
+
 
             # Init L2_HR_PIXC object
             my_pixc = proc_real_pixc.l2_hr_pixc(sub_az, sub_r, classification_tab[az_indices], pixel_area[az_indices],
@@ -563,7 +608,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                                                 tile_x, tile_y, tile_z, tile_vx, tile_vy, tile_vz,
                                                 IN_attributes.near_range, IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number,
                                                 IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az_size, IN_attributes.azimuth_spacing,
-                                                IN_attributes.range_sampling, IN_attributes.near_range, tile_coords)
+                                                IN_attributes.range_sampling, IN_attributes.near_range, tile_coords, interf_2d)
             
             # Update filenames with tile ref
             IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])
@@ -786,6 +831,12 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                         lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
 
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
+                try:
+                    lac.h_ref=float(polygon_index.GetField("ref_height"))
+                    if lac.h_ref==None:
+                        lac.h_ref=0
+                except:
+                    lac.h_ref=0
 
                 if IN_attributes.height_model == 'polynomial' and area > IN_attributes.height_model_min_area:
                     # Create database to save all parameters 

@@ -57,7 +57,7 @@ class l2_hr_pixc(object):
     def __init__(self, IN_azimuth_index, IN_range_index, IN_classification, IN_pixel_area, IN_latitude, IN_longitude, IN_height, IN_phase_noise_std,
                  IN_dh_dphi, IN_dlon_dphi, IN_dlat_dphi, IN_crosstrack,
                  IN_nadir_time, IN_nadir_latitude, IN_nadir_longitude, IN_nadir_altitude, IN_nadir_heading, IN_nadir_x, IN_nadir_y, IN_nadir_z, IN_nadir_vx, IN_nadir_vy, IN_nadir_vz, IN_nadir_near_range,
-                 IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_nb_pix_range, IN_nb_pix_azimuth, IN_azimuth_spacing, IN_range_spacing, IN_near_range, IN_tile_coords):
+                 IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_nb_pix_range, IN_nb_pix_azimuth, IN_azimuth_spacing, IN_range_spacing, IN_near_range, IN_tile_coords, IN_interferogram):
         """
         Constructor of the pixel cloud product
 
@@ -163,6 +163,7 @@ class l2_hr_pixc(object):
         self.nadir_vx = IN_nadir_vx
         self.nadir_vy = IN_nadir_vy
         self.nadir_vz = IN_nadir_vz
+        self.interferogram = IN_interferogram
         self.nadir_near_range = IN_nadir_near_range
         self.nb_nadir_pix = IN_nadir_time.size
 
@@ -275,7 +276,7 @@ class l2_hr_pixc(object):
         data.add_variable('interferogram', np.float32, ('points', 'depth'), my_var.FV_NETCDF["float32"], compress, group=pixc)
         dic={'long_name':'rare interferogram','units':'1','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Complex unflattened rare interferogram'}
         data.add_variable_attributes('interferogram', dic, group=pixc)
-        fill_vector_param(np.ones([self.nb_water_pix, 2])/np.sqrt(2), 'interferogram', self.nb_water_pix, data, group=pixc)
+        fill_vector_param(self.interferogram, 'interferogram', self.nb_water_pix, data, group=pixc)#np.ones([self.nb_water_pix, 2])/np.sqrt(2)
 
         data.add_variable('power_plus_y', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         dic={'long_name':'power for plus_y channel','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Power for plus_y channel (arbitrary units that give sigma0 when nois substracted and normalized by the X factor)'}
