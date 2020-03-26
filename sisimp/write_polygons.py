@@ -555,7 +555,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             tile_vy = vy[nb_pix_overlap_begin:-nb_pix_overlap_end]
             tile_vz = vz[nb_pix_overlap_begin:-nb_pix_overlap_end]
             
-            # Calcul x, y, z of satellite
+            # Calcul x, y, z of satellite on earth
             x_earth, y_earth, z_earth = inversionCore.convert_llh2ecef(tile_nadir_lat_deg, tile_nadir_lon_deg, np.zeros(len(tile_nadir_lat_deg)), GEN_RAD_EARTH, GEN_RAD_EARTH_POLE)
             nadir_vx = tile_x - x_earth
             nadir_vy = tile_y - y_earth

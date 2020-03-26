@@ -110,9 +110,9 @@ def compute_interferogram(plus_y_ant_x, plus_y_ant_y, plus_y_ant_z, minus_y_ant_
     +(plus_y_ant_y - tile_y)**2 \
     +(plus_y_ant_z - tile_z)**2)
 
-    dist_minus = np.sqrt((plus_y_ant_x - tile_x)**2 \
-    +(plus_y_ant_y - tile_y)**2 \
-    +(plus_y_ant_z - tile_z)**2)
+    dist_minus = np.sqrt((minus_y_ant_x - tile_x)**2 \
+    +(minus_y_ant_y - tile_y)**2 \
+    +(minus_y_ant_z - tile_z)**2)
 
     phase_ref = -2*np.pi/0.008385803020979*(dist_plus - dist_minus)
     interferogram = np.exp(1.j*phase_ref)
