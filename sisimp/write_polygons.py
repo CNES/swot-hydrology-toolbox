@@ -407,6 +407,34 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     else:
         delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
 
+    # 4.1 bis - Compute mean noise over points
+    # calcul new values of r, az coord for all points
+    ind_all = np.where(IN_water_pixels == IN_water_pixels)
+    r_all, az_all = [ind_all[0], ind_all[1]]
+    ri_all = IN_attributes.near_range + r_all * IN_attributes.range_sampling
+    Hi_all = IN_attributes.alt[az_all]
+    elevation_tab = np.zeros(len(az_all))
+    h_mean_convol = np.zeros((len(IN_water_pixels), len(IN_water_pixels[0])))
+    def merge(a,b):
+        return a*100000+b
+    titi = merge(lac.pixels[0], lac.pixels[1])
+    toto = merge(r_all, az_all)
+    indice = np.isin(toto,titi)
+    
+    lon, lat = math_fct.lonlat_from_azy(az_all, ri_all, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
+    elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
+    elevation_tab[indice] += lac.h_ref
+
+    new_angles = np.arccos((ri_all**2 + (GEN_APPROX_RAD_EARTH+Hi_all)**2 - (GEN_APPROX_RAD_EARTH+elevation_tab)**2)/(2*ri_all*(GEN_APPROX_RAD_EARTH+Hi_all)))
+
+    print(np.where(IN_attributes.noise_height[:, 1]<1.e-5)
+
+    delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(new_angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+    print(delta_h)
+    for i, (x, y) in enumerate(zip(ri_all, az_all)):
+        h_mean_convol[x][y] = delta_h[i]
+    print(h_mean_convol)
+
     # 4.2 Add residual roll error
     try:
         if IN_attributes.roll_repo is not None:
