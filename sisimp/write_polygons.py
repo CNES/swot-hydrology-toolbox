@@ -20,6 +20,7 @@ import sys
 import os
 import utm 
 import pyproj
+from scipy import ndimage
 from scipy.spatial import cKDTree
 import time
 
@@ -394,26 +395,27 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     
     pixel_area = IN_attributes.azimuth_spacing * IN_attributes.range_sampling / np.sin(angles)  # Pixel area
     
-    # 4.1 - Compute noise over height
-    if IN_attributes.dark_water.lower() == "yes":
-        noise_seed = int(str(time.time()).split('.')[1])
-        delta_h = np.zeros(elevation_tab.shape)
-        phase_noise_std = np.zeros(elevation_tab.shape)
-        dh_dphi = np.zeros(elevation_tab.shape)
-        water_pixels = np.where(classification_tab == IN_attributes.water_flag)
-        dw_pixels = np.where(classification_tab == IN_attributes.darkwater_flag)
-        delta_h[water_pixels], phase_noise_std[water_pixels], dh_dphi[water_pixels] = math_fct.calc_delta_h(angles[water_pixels], IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
-        delta_h[dw_pixels], phase_noise_std[dw_pixels], dh_dphi[dw_pixels] = math_fct.calc_delta_h(angles[dw_pixels], IN_attributes.dw_detected_noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
-    else:
-        delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+    ## 4.1 - Compute noise over height
+    #if IN_attributes.dark_water.lower() == "yes":
+    #    noise_seed = int(str(time.time()).split('.')[1])
+    #    delta_h = np.zeros(elevation_tab.shape)
+    #    phase_noise_std = np.zeros(elevation_tab.shape)
+    #    dh_dphi = np.zeros(elevation_tab.shape)
+    #    water_pixels = np.where(classification_tab == IN_attributes.water_flag)
+    #    dw_pixels = np.where(classification_tab == IN_attributes.darkwater_flag)
+    #    delta_h[water_pixels], phase_noise_std[water_pixels], dh_dphi[water_pixels] = math_fct.calc_delta_h(angles[water_pixels], IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+    #    delta_h[dw_pixels], phase_noise_std[dw_pixels], dh_dphi[dw_pixels] = math_fct.calc_delta_h(angles[dw_pixels], IN_attributes.dw_detected_noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+    #else:
+    #    delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
 
     # 4.1 bis - Compute mean noise over points
     # calcul new values of r, az coord for all points
+    noise_seed = int(str(time.time()).split('.')[1])
     ind_all = np.where(IN_water_pixels == IN_water_pixels)
     r_all, az_all = [ind_all[0], ind_all[1]]
     ri_all = IN_attributes.near_range + r_all * IN_attributes.range_sampling
     Hi_all = IN_attributes.alt[az_all]
-    elevation_tab = np.zeros(len(az_all))
+    elevation_tab_all = np.zeros(len(az_all))
     h_mean_convol = np.zeros((len(IN_water_pixels), len(IN_water_pixels[0])))
     def merge(a,b):
         return a*100000+b
@@ -421,19 +423,19 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     toto = merge(r_all, az_all)
     indice = np.isin(toto,titi)
     
-    lon, lat = math_fct.lonlat_from_azy(az_all, ri_all, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
-    elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
-    elevation_tab[indice] += lac.h_ref
+    lon_all, lat_all = math_fct.lonlat_from_azy(az_all, ri_all, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
+    elevation_tab_all[indice] = lac.compute_h(lat_all[indice], lon_all[indice])
+    elevation_tab_all[indice] += lac.h_ref
 
-    new_angles = np.arccos((ri_all**2 + (GEN_APPROX_RAD_EARTH+Hi_all)**2 - (GEN_APPROX_RAD_EARTH+elevation_tab)**2)/(2*ri_all*(GEN_APPROX_RAD_EARTH+Hi_all)))
+    new_angles = np.arccos((ri_all**2 + (GEN_APPROX_RAD_EARTH+Hi_all)**2 - (GEN_APPROX_RAD_EARTH+elevation_tab_all)**2)/(2*ri_all*(GEN_APPROX_RAD_EARTH+Hi_all)))
 
-    print(np.where(IN_attributes.noise_height[:, 1]<1.e-5)
+    delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(IN_water_pixels, new_angles, angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
 
-    delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(new_angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
-    print(delta_h)
-    for i, (x, y) in enumerate(zip(ri_all, az_all)):
-        h_mean_convol[x][y] = delta_h[i]
-    print(h_mean_convol)
+    conv_delta_h = ndimage.convolve(delta_h, np.array([[1/9, 1/9, 1/9], [1/9, 1/9, 1/9], [1/9, 1/9, 1/9]]))
+
+    ind=np.where(IN_water_pixels!=0)
+    delta_h = conv_delta_h[ind] # Keep only water points
+
 
     # 4.2 Add residual roll error
     try:

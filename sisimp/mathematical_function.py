@@ -25,7 +25,7 @@ import lib.my_api as my_api
 from lib.my_variables import RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
 
 
-def calc_delta_h(IN_angles, IN_noise_height, IN_height_bias_std, sensor_wavelength, baseline, near_range, seed=None):
+def calc_delta_h(IN_water_pixels, IN_angles_h, IN_angles, IN_noise_height, IN_height_bias_std, sensor_wavelength, baseline, near_range, seed=None):
     """
     Calculate the delta h values and add noise
 
@@ -48,27 +48,28 @@ def calc_delta_h(IN_angles, IN_noise_height, IN_height_bias_std, sensor_waveleng
         my_api.printInfo("One or more incidence angles are greater than the max value defined in the noise file ! Values higher than {0} degrees will be set to      the maximum value defined in the file.".format(np.max(IN_noise_height[:, 0])))
 
     stdv = 0
-    OUT_noisy_h = 0
+    #OUT_noisy_h = 0
+    OUT_noisy_h = np.zeros((len(IN_water_pixels), len(IN_water_pixels[0])))
     if (IN_noise_height[:, 1] < 1.e-5).any() and not IN_height_bias_std < 1.e-5:  # Case noise file as one or more zeros
-        OUT_noisy_h = np.random.normal(0, IN_height_bias_std)
+
+        #OUT_noisy_h = np.random.normal(0, IN_height_bias_std)
+        OUT_noisy_h = np.random.normal(0, IN_height_bias_std, (len(IN_water_pixels), len(IN_water_pixels[0])))
+
         stdv = np.zeros(len(IN_angles))
-        print("if")
     elif not (IN_noise_height[:, 1] < 1.e-5).any() and IN_height_bias_std < 1.e-5:  # Case height bias equals zero
         stdv = np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1])
         stdv[np.isnan(stdv)]= 0.
-        OUT_noisy_h = np.random.normal(0, stdv)
-        print("else if")
+        #OUT_noisy_h = np.random.normal(0, stdv)
+        OUT_noisy_h = np.random.normal(0, stdv, (len(IN_water_pixels), len(IN_water_pixels[0])))
     elif (IN_noise_height[:, 1] < 1.e-5).any() and IN_height_bias_std < 1.e-5:  # Case both are equals to zero
-        OUT_noisy_h = 0.
+        #OUT_noisy_h = 0.
         stdv = np.zeros(len(IN_angles))
-        print("else if 2")
 
     else:  # Case none are equals to zero
         stdv = np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1])
         stdv[np.isnan(stdv)]= 0.
-        
-        OUT_noisy_h = np.random.normal(0, IN_height_bias_std) + np.random.normal(0, stdv)
-        print("else")
+        stdv_h = np.interp(IN_angles_h*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1])
+        OUT_noisy_h = np.random.normal(0, IN_height_bias_std, (len(IN_water_pixels), len(IN_water_pixels[0]))) + np.random.normal(0, stdv, (len(IN_water_pixels), len(IN_water_pixels[0])))
         
     h_amb = sensor_wavelength*near_range*np.sin(IN_angles)/baseline
     
