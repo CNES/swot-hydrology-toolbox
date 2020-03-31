@@ -409,34 +409,22 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     #    delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
 
     # 4.1 bis - Compute mean noise over points
-    # calcul new values of r, az coord for all points
     noise_seed = int(str(time.time()).split('.')[1])
-    #ind_all = np.where(IN_water_pixels == IN_water_pixels)
-    #r_all, az_all = [ind_all[0], ind_all[1]]
-    #ri_all = IN_attributes.near_range + r_all * IN_attributes.range_sampling
-    #Hi_all = IN_attributes.alt[az_all]
-    #elevation_tab_all = np.zeros(len(az_all))
-    #h_mean_convol = np.zeros((len(IN_water_pixels), len(IN_water_pixels[0])))
-    #
-    #lon_all, lat_all = math_fct.lonlat_from_azy(az_all, ri_all, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
-    #elevation_tab_all[indice] = lac.compute_h(lat_all[indice], lon_all[indice])
-    #elevation_tab_all[indice] += lac.h_ref
 
-    #new_angles = np.arccos((ri_all**2 + (GEN_APPROX_RAD_EARTH+Hi_all)**2 - (GEN_APPROX_RAD_EARTH+elevation_tab_all)**2)/(2*ri_all*(GEN_APPROX_RAD_EARTH+Hi_all)))
-    new_angles = np.zeros((len(IN_water_pixels), len(IN_water_pixels[0])))
-    r_all = np.arange(0, len(IN_water_pixels)-1)
-    ri_all = IN_attributes.near_range + r_all * IN_attributes.range_sampling
-    Hi_all = IN_attributes.alt[np.arange(0, len(IN_water_pixels[0])-1)]
+    angles_pixels = np.zeros((len(IN_water_pixels), len(IN_water_pixels[0])))
+    r_pixels = np.arange(0, len(IN_water_pixels)-1)
+    ri_pixels = IN_attributes.near_range + r_pixels * IN_attributes.range_sampling
+    Hi_pixels = IN_attributes.alt[np.arange(0, len(IN_water_pixels[0])-1)]
     for az_ind in range(len(IN_water_pixels[0])-1):
-        lon_all, lat_all = math_fct.lonlat_from_azy(np.ones(len(ri_all), dtype=np.int)*i, ri_all, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
-        elevation_az = lac.compute_h(lat_all, lon_all)
-        Hi_all = IN_attributes.alt[i]
-        angles_az = np.arccos((ri_all**2 + (GEN_APPROX_RAD_EARTH+Hi_all)**2 - (GEN_APPROX_RAD_EARTH+elevation_az)**2)/(2*ri_all*(GEN_APPROX_RAD_EARTH+Hi_all)))
+        lon_pixels, lat_pixels = math_fct.lonlat_from_azy(np.ones(len(ri_pixels), dtype=np.int)*i, ri_pixels, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
+        elevation_az = lac.compute_h(lat_pixels, lon_pixels)
+        Hi_pixels = IN_attributes.alt[i]
+        angles_az = np.arccos((ri_pixels**2 + (GEN_APPROX_RAD_EARTH+Hi_pixels)**2 - (GEN_APPROX_RAD_EARTH+elevation_az)**2)/(2*ri_pixels*(GEN_APPROX_RAD_EARTH+Hi_pixels)))
         angles_az[np.isnan(angles_az)]=0.
         for r_ind in range(len(angles_az)-1):
-            new_angles[r_ind][az_ind]=angles_az[r_ind]
+            angles_pixels[r_ind][az_ind]=angles_az[r_ind]
 
-    delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(IN_water_pixels, new_angles, angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+    delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(IN_water_pixels, angles_pixels, angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
 
     conv_delta_h = ndimage.convolve(delta_h, np.array([[1/9, 1/9, 1/9], [1/9, 1/9, 1/9], [1/9, 1/9, 1/9]]))
 
