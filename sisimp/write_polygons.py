@@ -362,6 +362,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # ~ y = sign * np.sqrt((ri + Hi) * (ri - Hi) / (1. + Hi / GEN_APPROX_RAD_EARTH))
 
     elevation_tab = np.zeros(len(az))
+    water_frac = np.zeros(len(az))
 
     processing = np.round(np.linspace(0, len(IN_attributes.liste_lacs), 11), 0)
     for i, lac in enumerate(IN_attributes.liste_lacs):
@@ -381,7 +382,26 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
             elevation_tab[indice] += lac.h_ref
-
+            # TODO : Calcul water_frac for all pts
+            #for i, val in enumerate(indice):
+            #    if val:
+            #        ring = ogr.Geometry(ogr.wkbLinearRing)
+            #        ring.AddPoint( lon[i] + (IN_attributes.range_sampling / GEN_RAD_EARTH)*(180./np.pi)/np.cos(lat[i]*np.pi/180.), lat[i] + (IN_attributes.azimuth_spacing / GEN_RAD_EARTH)*(180./np.pi))
+            #        ring.AddPoint( lon[i] - (IN_attributes.range_sampling / GEN_RAD_EARTH)*(180./np.pi)/np.cos(lat[i]*np.pi/180.), lat[i] + (IN_attributes.azimuth_spacing / GEN_RAD_EARTH)*(180./np.pi))
+            #        ring.AddPoint( lon[i] + (IN_attributes.range_sampling / GEN_RAD_EARTH)*(180./np.pi)/np.cos(lat[i]*np.pi/180.), lat[i] - (IN_attributes.azimuth_spacing / GEN_RAD_EARTH)*(180./np.pi))
+            #        ring.AddPoint( lon[i] - (IN_attributes.range_sampling / GEN_RAD_EARTH)*(180./np.pi)/np.cos(lat[i]*np.pi/180.), lat[i] - (IN_attributes.azimuth_spacing / GEN_RAD_EARTH)*(180./np.pi))
+            #        ring.CloseRings()
+            #    
+            #        poly_point = ogr.Geometry(ogr.wkbPolygon)
+            #        poly_point.AddGeometry(ring)
+            #        poly_intersection = swath_polygon.Intersection(poly_point)
+            #        if poly_intersection==None:
+            #            water_frac[i]=1.0
+            #        else:
+            #            try:
+            #                water_frac[i] = (poly_point.GetArea() - (poly_point.GetArea() - poly_intersection.GetArea()))/poly_point.GetArea()
+            #            except ZeroDivisionError:
+            #                water_frac[i] = poly_point.GetArea()
 
     # 3 - Build cross-track distance array
     # Compute theorical cross-track distance for water pixels
@@ -619,6 +639,10 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                     sensor_minus_y_x[sub_az[i]], sensor_minus_y_y[sub_az[i]], sensor_minus_y_z[sub_az[i]], x_w, y_w, z_w) 
                 interf_2d.append([interferogram[0], interferogram[1]])
 
+            #  Calcul water frac for each point 
+
+            
+            
             nadir_az_size = tile_nadir_lat_deg.size
 
             tile_coords = compute_tile_coords(IN_attributes, IN_swath, nadir_az_size, nb_pix_overlap_begin)
@@ -884,13 +908,13 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                                 # If lake seen for first time - no layover
                                 polynomial_param_db[id_lake] = [lac.X0, lac.Y0, lac.COEFF_X2, lac.COEFF_Y2, lac.COEFF_X, lac.COEFF_Y, lac.COEFF_XY, lac.COEFF_CST] 
                             lake_polynomial_file.close() 
-                            lake_polynomial_file=open('lake_polynomial_param.pkl', 'wb')
+                            lake_polynomial_file=open(os.path.join(IN_attributes.out_dir,'lake_polynomial_param.pkl'), 'wb')
                             # Add azimuth layover of lake's current tile layover
                             pickle.dump(polynomial_param_db, lake_polynomial_file, pickle.HIGHEST_PROTOCOL)
                             lake_polynomial_file.close()
                         # Create DB if not existent    
                         except:
-                            lake_polynomial_file=open('lake_polynomial_param.pkl', 'wb')
+                            lake_polynomial_file=open(os.path.join(IN_attributes.out_dir,'lake_polynomial_param.pkl'), 'wb')
                             pickle.dump({id_lake:[lac.X0, lac.Y0, lac.COEFF_X2, lac.COEFF_Y2, lac.COEFF_X, lac.COEFF_Y, lac.COEFF_XY, lac.COEFF_CST]}, lake_polynomial_file, pickle.HIGHEST_PROTOCOL)
                             lake_polynomial_file.close()
                     # Reset h_mean of the lake
@@ -900,18 +924,18 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 elif IN_attributes.height_model=='gaussian' and area > IN_attributes.height_model_min_area:
                     # Create DB to save gaussian parameters
                     try:
-                        lake_gaussian_file=open('lake_gaussian_param.pkl', 'rb')
+                        lake_gaussian_file=open(os.path.join(IN_attributes.out_dir,'lake_gaussian_param.pkl'), 'rb')
                         gaussian_param_db=pickle.load(lake_gaussian_file)
                         try:
                             lac.h_interp=gaussian_param_db[id_lake]
                         except KeyError:
                             gaussian_param_db[id_lake]=lac.h_interp
                         lake_gaussian_file.close()
-                        lake_gaussian_file=open('lake_gaussian_param.pkl','wb')
+                        lake_gaussian_file=open(os.path.join(IN_attributes.out_dir,'lake_gaussian_param.pkl'),'wb')
                         pickle.dump(gaussian_param_db, lake_gaussian_file, pickle.HIGHEST_PROTOCOL)
                         lake_gaussian_file.close()
                     except:
-                        lake_gaussian_file=open('lake_gaussian_param.pkl', 'wb')
+                        lake_gaussian_file=open(os.path.join(IN_attributes.out_dir,'lake_gaussian_param.pkl'), 'wb')
                         pickle.dump({id_lake:lac.h_interp}, lake_gaussian_file, pickle.HIGHEST_PROTOCOL)
                         lake_gaussian_file.close()
                     lac.set_hmean(np.mean(lac.compute_h(lat*RAD2DEG, lon*RAD2DEG)))
