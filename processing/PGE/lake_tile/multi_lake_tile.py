@@ -159,11 +159,12 @@ class MultiLakeTile(object):
         print("")
 
         timer_proc = my_timer.Timer()
-        timer_proc.start()
 
         if self.nb_input != 0:
 
             for indf in range(self.nb_input):  # Deal with all selected files
+                
+                timer_proc.start()  # Init timer
 
                 print("****************************************************************************************************************")
                 print("***** Dealing with tile %d / %d = %s *****" % (indf+1, self.nb_input, self.list_pixc[indf]))
@@ -183,7 +184,7 @@ class MultiLakeTile(object):
                 my_lake_tile.stop()
 
                 print("")
-                print(timer.stop())
+                print(timer_proc.stop())  # Print tile process duration
                 print("")
                 print("")
 

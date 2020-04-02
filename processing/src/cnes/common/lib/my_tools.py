@@ -44,8 +44,8 @@ else:
 from scipy.spatial import distance
 
 import cnes.common.service_error as service_error
+
 import cnes.common.lib.my_variables as my_var
-import jpl.modules.aggregate as aggregate
 
 
 def test_file(in_file, in_extent=None):
@@ -624,110 +624,6 @@ def compute_mean_2sigma(in_v_val, in_nan=None):
 
     return retour
 
-def compute_height_with_uncertainties(obj_pixc, good, method='weight', interferogram_flatten = None, height=None):
-
-    """
-    Return the aggregate height with corresponding uncertainty  : 
-    (height_out, height_std_out, height_uncert_out, lat_uncert_out,
-        lon_uncert_out)
-    Use aggregage.py function from jpl 
-    """
-    height_std_pix = np.abs(obj_pixc.phase_noise_std * obj_pixc.dheight_dphase)
-    # set bad pix height std to high number to deweight 
-    # instead of giving infs/nans
-    bad_num = 1.0e5
-    height_std_pix[height_std_pix<=0] = bad_num
-    height_std_pix[np.isinf(height_std_pix)] = bad_num
-    height_std_pix[np.isnan(height_std_pix)] = bad_num
-    # call the general function
-    if height == 'only_height':
-        return  aggregate.height_only(obj_pixc.height,  good, height_std=height_std_pix, method=method)
-    
-    if height == 'corrected' :
-        return aggregate.height_with_uncerts(
-            obj_pixc.corrected_height,  good, obj_pixc.num_rare_looks, obj_pixc.num_med_looks,
-            obj_pixc.interferogram_flattened, obj_pixc.power_plus_y, obj_pixc.power_minus_y, obj_pixc.looks_to_efflooks,
-            obj_pixc.dheight_dphase, obj_pixc.dlatitude_dphase, obj_pixc.dlongitude_dphase, height_std = height_std_pix,
-            method=method)
-
-def compute_interferogram_flatten(obj_pixc, pix_index, pos_pixel):
-    """
-    Return the flattened interferogram using improved geolocation output coordinates  : 
-    interferogram_flatten
-    """
-    # Compute for each pixel in the water body the distances between the target and each sensor 
-    dist_e = np.sqrt((obj_pixc.plus_y_antenna_x[pix_index]-pos_pixel[:,0])**2 \
-    +(obj_pixc.plus_y_antenna_y[pix_index] -pos_pixel[:,1])**2 \
-    +(obj_pixc.plus_y_antenna_z[pix_index]-pos_pixel[:,2])**2)
-    
-    dist_r = np.sqrt((obj_pixc.minus_y_antenna_x[pix_index]-pos_pixel[:,0])**2 \
-    +(obj_pixc.minus_y_antenna_y[pix_index] -pos_pixel[:,1])**2 \
-    +(obj_pixc.minus_y_antenna_z[pix_index]-pos_pixel[:,2])**2)
-    
-    # Compute the corresponding reference phase and flatten the interferogram for these pixel
-    phase_ref = -2*np.pi/obj_pixc.wavelength*(dist_e - dist_r)
-    interferogram_flatten  = obj_pixc.interferogram[pix_index]*np.exp(-1.j*phase_ref)
-
-    return interferogram_flatten
-
-def sig0_with_uncert(obj_pixc, good):
-    """
-    Returns the aggregate sigma0 and sigma0_unc
-    """
-    rdr_sig0 = np.mean(obj_pixc.sig0[good])
-    rdr_sig0_std = aggregate.height_uncert_std(
-        obj_pixc.sig0, good, obj_pixc.num_rare_looks, obj_pixc.num_med_looks)
-    rdr_sig0_u = None
-    return rdr_sig0, rdr_sig0_std, rdr_sig0_u
-
-def area_with_uncert(obj_pixc, good, method='composite'):
-    """
-    Return the aggregate width_area with corresponding uncertainty 
-    """
-    # compute the pixel assignment error?
-    # call the general function, TODO
-
-    # should normally just use all the data 
-    # (not just the use_heights pixels), but could use goodvar 
-    # to filter out outliers
-    
-    interior_water_klass = my_var.INTERIOR_WATER_CLASSES
-    water_edge_klass = my_var.WATER_EDGE_CLASSES
-    land_edge_klass = my_var.LAND_EDGE_CLASSES
-    land_near_dark_water_klass = my_var.LAND_NEAR_DARK_WATER_CLASSES
-    dark_edge_klass = my_var.DARK_EDGE_CLASSES
-    dark_klass = my_var.DARK_CLASSES
-
-    # decode/encode the water classes to send to external function
-    # first set everything to interior water
-    classif_full_water = np.zeros(np.shape(obj_pixc.classif)) + interior_water_klass
-
-    # call the external function to aggregate areas and uncertainties
-    
-    area, area_unc, area_pcnt_uncert = aggregate.area_with_uncert(
-        obj_pixc.pixel_area, obj_pixc.water_frac, obj_pixc.water_frac_uncert,
-        obj_pixc.darea_dheight, classif_full_water, obj_pixc.false_detection_rate,
-        obj_pixc.missed_detection_rate, good,
-        Pca=0.9, Pw=0.5, Ptf=0.5, ref_dem_std=10,
-        interior_water_klass=interior_water_klass,
-        water_edge_klass=water_edge_klass,
-        land_edge_klass=land_edge_klass,
-        method=method)
-
-    area_det, area_det_unc, area_det_pcnt_uncert = \
-        aggregate.area_with_uncert(
-            obj_pixc.pixel_area, obj_pixc.water_frac, obj_pixc.water_frac_uncert,
-            obj_pixc.darea_dheight, obj_pixc.classif_without_dw, obj_pixc.false_detection_rate,
-            obj_pixc.missed_detection_rate, good,
-            Pca=0.9, Pw=0.5, Ptf=0.5, ref_dem_std=10,
-            interior_water_klass=interior_water_klass,
-            water_edge_klass=water_edge_klass,
-            land_edge_klass=land_edge_klass,
-            method=method)
-        
-    return (area, area_unc, area_det,
-            area_det_unc)
-                
 
 def compute_std(in_v_val, in_nan=None):
     """

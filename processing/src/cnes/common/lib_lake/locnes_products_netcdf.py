@@ -42,6 +42,7 @@ class NetCDFProduct(object):
         
         Variables of the object:
         - dim / dict: key=dimension name ; value=number of elements in the 1-D array variables
+        - is_complex / boolean: =True if there is at least 1 complex variable in the NetCDF (ie 2 dimensions); =False if not (default)
         - variables / OrderedDict: dictionary having key=variables names and value=OrderedDict of NetCDF variable attributes
         - metadata / OrderedDict: dictionary having key=global attributes and value=their values
         """
@@ -50,6 +51,7 @@ class NetCDFProduct(object):
         self.dim = {}
         self.dim["name"] = ""
         self.dim["value"] = 0
+        self.is_complex = False
         
         # 2 - Init variables
         self.variables = OrderedDict()
@@ -89,7 +91,7 @@ class NetCDFProduct(object):
 
     #----------------------------------------
         
-    def write_product(self, in_out_file, in_size, in_variables, is_complex=False):
+    def write_product(self, in_out_file, in_size, in_variables):
         """
         Write NetCDF product
         
@@ -106,11 +108,18 @@ class NetCDFProduct(object):
         # Open file in writing mode
         nc_writer = my_nc.MyNcWriter(in_out_file)
         
-        # 1 - Write dimension
+        # 1 - Write dimension(s)
         self.dim["value"] = in_size
         nc_writer.add_dimension(self.dim["name"], self.dim["value"])
-        if is_complex:
+        # Add specific dimension if NetCDF with complex variables
+        if self.is_complex:
             nc_writer.add_dimension("complex_depth", 2)
+        # Add specific dimensions for char variables
+        for key, value in in_variables.items():
+            if np.dtype(self.variables[key]['dtype']).char == 'S':
+                dim_name = "nchar_" + key
+                dim_size = int(self.variables[key]['dtype'][1:])
+                nc_writer.add_dimension(dim_name, dim_size)
         
         # 2 - Write variables
         if in_size == 0:
@@ -140,9 +149,16 @@ class NetCDFProduct(object):
         
         for key, value in in_variables.items():
             if key in var_keys:
-                in_nc_writer.add_variable(key, self.variables[key]['dtype'], self.dim["name"], in_attributes=self.variables[key])
+                # Add variable depending on its type
+                if np.dtype(self.variables[key]['dtype']).char == 'S':  # Table of char
+                    dim_nchar = "nchar_" + key
+                    in_nc_writer.add_variable(key, 'c', (self.dim["name"], dim_nchar), in_attributes=self.variables[key])
+                elif self.is_complex and (len(value.shape) == 2):  # Complex variable
+                    in_nc_writer.add_variable(key, self.variables[key]['dtype'], (self.dim["name"], "complex_depth"), in_attributes=self.variables[key])
+                else:
+                    in_nc_writer.add_variable(key, self.variables[key]['dtype'], self.dim["name"], in_attributes=self.variables[key])
+                # Fill variable
                 in_nc_writer.fill_variable(key, value)
-
             else:
                 logger.debug("Variable %s key is not known" % key)
     
@@ -224,22 +240,22 @@ class CommonPixcvec(NetCDFProduct):
                                                   'valid_max': 1500,
                                                   'comment': "Height-constrained height of the pixel above the reference ellipsoid."}
         # reach_id
-        self.variables["reach_id"] = {'dtype': str,
+        self.variables["reach_id"] = {'dtype': 'S11',
                                       'long_name': "identifier of the associated prior river reach",
                                       'comment': "Unique reach identifier from the prior river database. \
                                                   The format of the identifier is CBBBBBRRRRT, where C=continent, B=basin, R=reach, T=type."}
         # node_id
-        self.variables["node_id"] = {'dtype': str,
+        self.variables["node_id"] = {'dtype': 'S14',
                                       'long_name': "identifier of the associated prior river node",
                                       'comment': "Unique node identifier from the prior river database. \
                                                   The format of the identifier is CBBBBBRRRRNNNT, where C=continent, B=basin, R=reach, N=node, T=type of water body."}
         # lake_id
-        self.variables["lake_id"] = {'dtype': str,
+        self.variables["lake_id"] = {'dtype': 'S10',
                                       'long_name': "identifier of the associated prior lake",
                                       'comment': "Identifier of the lake from the lake prior database) associated to the pixel. \
                                                     The format of the identifier is CBBNNNNNNT, where C=continent, B=basin, N=counter within the basin, T=type of water body."}
         # obs_id
-        self.variables["obs_id"] = {'dtype': str,
+        self.variables["obs_id"] = {'dtype': 'S13',
                                       'long_name': "identifier of the observed object",
                                       'comment': "Tile-specific identifier of the observed object associated to the pixel. \
                                                       The format of the identifier is CBBTTTSNNNNNN, where C=continent, B=basin, T=tile number, S=swath side, N=lake counter within the PIXC tile."}
@@ -386,6 +402,7 @@ class LakeTileEdgeProduct(NetCDFProduct):
         
         # 2 - Init dimension name
         self.dim["name"] = "points"
+        self.is_complex = True
         
         # 3 - Init variables info specific to LakeTile_edge file
         # All variables are defined with the same scheme :
@@ -428,6 +445,30 @@ class LakeTileEdgeProduct(NetCDFProduct):
             'valid_min': 0,
             'valid_max': 999999,
             'comment': "Rare interferogram range index"}
+        # interferogram
+        self.variables["interferogram"] = {'dtype': np.float,
+                      "long_name": "rare interferogram",
+                      "units": 1,
+                      "valid_min": -999999,
+                      "valid_max": 999999,
+                      "coordinates": "longitude latitude",
+                      "comment": "Complex unflattened rare interferogram."}
+        # power_plus_y
+        self.variables["power_plus_y"] = {'dtype': np.float,
+                      "long_name": "power for plus_y channel",
+                      "units": 1,
+                      "valid_min": 0,
+                      "valid_max": 999999,
+                      "coordinates": "longitude latitude",
+                      "comment": "Power for the plus_y channel (arbitrary units that give sigma0 when noise subtracted and normalized by the X factor)."}
+        # power_minus_y
+        self.variables["power_minus_y"] = {'dtype': np.float,
+                      "long_name": "power for minus_y channel",
+                      "units": 1,
+                      "valid_min": 0,
+                      "valid_max": 999999,
+                      "coordinates": "longitude latitude",
+                      "comment": "Power for the minus_y channel (arbitrary units that give sigma0 when noise subtracted and normalized by the X factor)."}
         # water_frac
         self.variables["water_frac"] = {'dtype': np.float,
                       "long_name": "water fraction",
@@ -464,13 +505,6 @@ class LakeTileEdgeProduct(NetCDFProduct):
                       "valid_min": 0,
                       "valid_max": 1,
                       "comment": "Probability of falsely detecting no water when there is water."}
-        # prior_water_prob
-        self.variables["prior_water_prob"] = {'dtype': np.float,
-                      'long_name': "prior water probability",
-                      'units': 1,
-                      'valid_min': 0,
-                      'valid_max': 1,
-                      'comment': "Prior probability of water occurring."}
         # bright_land_flag
         self.variables["bright_land_flag"] = {'dtype': np.int8, 
                       'long_name': 'bright land flag',
@@ -488,8 +522,8 @@ class LakeTileEdgeProduct(NetCDFProduct):
                       'valid_max': 999999,
                       'comment': "Estimate of the height error caused by layover, which may not be reliable on a pixel by pixel basis,\
                       but may be useful to augment aggregated height uncertainties."}
-        # num_rare_looks
-        self.variables["num_rare_looks"] = {'dtype': np.int8,
+        # eff_num_rare_looks
+        self.variables["eff_num_rare_looks"] = {'dtype': np.int8,
                       'long_name': "number of rare looks",
                       'units': 1,
                       'valid_min': 0,
@@ -539,27 +573,6 @@ class LakeTileEdgeProduct(NetCDFProduct):
                       "valid_min": 0,
                       "valid_max": 999999,
                       "comment": "Incidence angle."}
-        # interferogram
-        self.variables["interferogram"] = {'dtype': np.float,
-                      "long_name": "rare unflatten interferogram",
-                      "units": "complex",
-                      "valid_min": -999999,
-                      "valid_max": 999999,
-                      "comment": "Rare unflatten interferogram."}
-        # power_plus_y
-        self.variables["power_plus_y"] = {'dtype': np.float,
-                      "long_name": "power plus y",
-                      "units": "watt",
-                      "valid_min": -999999,
-                      "valid_max": 999999,
-                      "comment": "Power for plus antenna"}
-        # power_minus_y
-        self.variables["power_minus_y"] = {'dtype': np.float,
-                      "long_name": "power minus y",
-                      "units": "watt",
-                      "valid_min": -999999,
-                      "valid_max": 999999,
-                      "comment": "Power for minus antenna"}
         # phase_noise_std
         self.variables["phase_noise_std"] = {'dtype': np.float,
                       "long_name": "phase noise standard deviation",
@@ -567,6 +580,20 @@ class LakeTileEdgeProduct(NetCDFProduct):
                       "valid_min": -999999,
                       "valid_max": 999999,
                       "comment": "Estimate of the phase noise standard deviation."}
+        # dlatitude_dphase
+        self.variables["dlatitude_dphase"] = {'dtype': np.float,
+                      "long_name": "sensitivity of latitude estimate to interferogram phase",
+                      "units": "degrees/radian",
+                      "valid_min": -999999,
+                      "valid_max": 999999,
+                      "comment": "Sensitivity of the latitude estimate to the interferogram phase."}
+        # dlongitude_dphase
+        self.variables["dlongitude_dphase"] = {'dtype': np.float,
+                      "long_name": "sensitivity of longitude estimate to interferogram phase",
+                      "units": "degrees/radian",
+                      "valid_min": -999999,
+                      "valid_max": 999999,
+                      "comment": "Sensitivity of the longitude estimate to the interferogram phase."}
         # dheight_dphase
         self.variables["dheight_dphase"] = {'dtype': np.float,
                       "long_name": "sensititvity of height estimate to interferogram phase",
@@ -574,34 +601,6 @@ class LakeTileEdgeProduct(NetCDFProduct):
                       "valid_min": -999999,
                       "valid_max": 999999,
                       "comment": "Sensititvity of the height estimate to the interferogram phase."}
-        # dlatitude_dphase
-        self.variables["dlatitude_dphase"] = {'dtype': np.float,
-                      "long_name": "sensititvity of latitude estimate to interferogram phase",
-                      "units": "m/radian",
-                      "valid_min": -999999,
-                      "valid_max": 999999,
-                      "comment": "Sensititvity of the latitude estimate to the interferogram phase."}
-        # dlongitude_dphase
-        self.variables["dlongitude_dphase"] = {'dtype': np.float,
-                      "long_name": "sensititvity of longitude estimate to interferogram phase",
-                      "units": "m/radian",
-                      "valid_min": -999999,
-                      "valid_max": 999999,
-                      "comment": "Sensititvity of the longitude estimate to the interferogram phase."}
-        # dheight_droll
-        self.variables["dheight_droll"] = {'dtype': np.float,
-            'long_name': "sensititvity of height estimate to spacecraft roll", 
-            'units': "m/degrees",
-            'valid_min': -999999,
-            'valid_max': 999999,
-            'comment': "Sensititvity of the height estimate to the spacecraft roll."}
-        # dheight_dbaseline
-        self.variables["dheight_dbaseline"] = {'dtype': np.float,
-            'long_name': "sensititvity of height estimate to interferometric baseline", 
-            'units': "m/m",
-            'valid_min': -999999,
-            'valid_max': 999999,
-            'comment': "Sensititvity of the height estimate to the interferometric baseline."}
         # dheight_drange
         self.variables["dheight_drange"] = {'dtype': np.float,
             'long_name': "sensititvity of height estimate to range (delay)", 
@@ -616,55 +615,13 @@ class LakeTileEdgeProduct(NetCDFProduct):
             'valid_min': -999999,
             'valid_max': 999999,
             'comment': "Sensititvity of the pixel area to the reference height."}
-        # num_med_looks
-        self.variables["num_med_looks"] = {'dtype': np.int32,
+        # eff_num_medium_looks
+        self.variables["eff_num_medium_looks"] = {'dtype': np.int32,
             'long_name': "number of medium looks", 
             'units': "1",
             'valid_min': 0,
             'valid_max': 999999,
             'comment': "Number of medium looks taken (number of pixels of the same class as this pixel in the adaptive averaging window)."}
-        # sig0
-        self.variables["sig0"] = {'dtype': np.float,
-            'long_name': "sigma0", 
-            'units': "1",
-            'valid_min': -999999,
-            'valid_max': 999999,
-            'comment': "Normalized radar cross section, or backscatter brightness."}
-        # phase_unwrapping_region
-        self.variables["phase_unwrapping_region"] = {'dtype': np.int32,
-            'long_name': "phase unwrapping region index", 
-            'units': "1",
-            'valid_min': -1,
-            'valid_max': 99999999,
-            'comment': "Phase unwrapping region index."}
-        # instrument_range_cor
-        self.variables["instrument_range_cor"] = {'dtype': np.float,
-            'long_name': "instrument range correction", 
-            'units': "m",
-            'valid_min': -999999,
-            'valid_max': 999999,
-            'comment': "Term that incorporates all calibration corrections applied to range before geolocation."}
-        # instrument_phase_cor
-        self.variables["instrument_phase_cor"] = {'dtype': np.float,
-            'long_name': "instrument phase correction", 
-            'units': "radians",
-            'valid_min': -999999,
-            'valid_max': 999999,
-            'comment': "Term that incorporates all calibration corrections applied to phase before geolocation."}
-        # instrument_baseline_cor
-        self.variables["instrument_baseline_cor"] = {'dtype': np.float,
-            'long_name': "instrument baseline correction", 
-            'units': "m",
-            'valid_min': -999999,
-            'valid_max': 999999,
-            'comment': "Term that incorporates all calibration corrections applied to baseline before geolocation."}
-        # instrument_attitude_cor
-        self.variables["instrument_attitude_cor"] = {'dtype': np.float,
-            'long_name': "instrument attitude correction", 
-            'units': "degrees",
-            'valid_min': -999999,
-            'valid_max': 999999,
-            'comment': "Term that incorporates all calibration corrections applied to attitude before geolocation."}
         # model_dry_tropo_cor
         self.variables["model_dry_tropo_cor"] = {'dtype': np.float,
             'long_name': "dry troposphere vertical correction", 
@@ -701,14 +658,34 @@ class LakeTileEdgeProduct(NetCDFProduct):
             accounting for the differential delay between the two KaRIn antennas. The equivalent vertical correction is computed by \
             applying obliquity factors to the slant-path correction. Adding the reported correction to the reported pixel height \
             results in the uncorrected pixel height."}
-        # xover_height_cor
-        self.variables["xover_height_cor"] = {'dtype': np.float,
+        # height_cor_xover
+        self.variables["height_cor_xover"] = {'dtype': np.float,
             'long_name': "corssover calibration height correction", 
             'units': "m",
             'valid_min': -1000,
             'valid_max': 1000,
             'comment': "Equivalent height correction estimated from crossover calibration.  The correction is applied before\
             geolocation in terms of roll, baseline dilation, etc., but reported as an equivalent height correction."}
+        # geoid
+        self.variables["geoid"] = {'dtype': np.float,
+            'long_name': "geoid height", 
+            'standard_name': "geoid_height_above_reference_ellipsoid",
+            'source': "EGM2008",
+            'institution': "GSFC",
+            'units': "m",
+            'valid_min': -999999,
+            'valid_max': 999999,
+            'comment': "Geoid height above the reference ellipsoid.  The value is computed from the EGM2008\
+            geoid model with a correction to refer the value to the mean tide system (i.e., includes the zero-frequency permanent tide)"}
+        # solid_earth_tide
+        self.variables["solid_earth_tide"] = {'dtype': np.float,
+            'long_name': "solid earth tide", 
+            'source': "Cartwright and Edden [1973] Corrected tables of tidal harmonics - J. Geophys. J. R. Astr. Soc., 33, 253-264",
+            'units': "m",
+            'valid_min': -999999,
+            'valid_max': 999999,
+            'comment': "Cartwright/Taylor solid earth tide; units are meters above the reference ellipsoid. \
+            The zero-frequency permanent tide is not included."}
         # load_tide_sol1
         self.variables["load_tide_sol1"] = {'dtype': np.float,
             'long_name': "geocentric load tide height (solution 1)", 
@@ -734,34 +711,6 @@ class LakeTileEdgeProduct(NetCDFProduct):
             'valid_min': -999999,
             'valid_max': 999999,
             'comment': "Geocentric pole tide height; units are meters above the reference ellipsoid."}
-        # solid_earth_tide
-        self.variables["solid_earth_tide"] = {'dtype': np.float,
-            'long_name': "solid earth tide", 
-            'source': "Cartwright and Edden [1973] Corrected tables of tidal harmonics - J. Geophys. J. R. Astr. Soc., 33, 253-264",
-            'units': "m",
-            'valid_min': -999999,
-            'valid_max': 999999,
-            'comment': "Cartwright/Taylor solid earth tide; units are meters above the reference ellipsoid. \
-            The zero-frequency permanent tide is not included."}
-        # geoid
-        self.variables["geoid"] = {'dtype': np.float,
-            'long_name': "geoid height", 
-            'standard_name': "geoid_height_above_reference_ellipsoid",
-            'source': "EGM2008",
-            'institution': "GSFC",
-            'units': "m",
-            'valid_min': -999999,
-            'valid_max': 999999,
-            'comment': "Geoid height above the reference ellipsoid.  The value is computed from the EGM2008\
-            geoid model with a correction to refer the value to the mean tide system (i.e., includes the zero-frequency permanent tide)"}
-        # surface_type_flag
-        self.variables["surface_type_flag"] = {'dtype': np.int8,
-            'long_name': "surface type map", 
-            'institution': "GSFC",
-            'units': "1",
-            'valid_min': -999999,
-            'valid_max': 999999,
-            'comment': "DTM2000.1 surface type map. [flag values, meanings, valid_min, valid_max TBD]"}
         # pixc_qual
         self.variables["pixc_qual"] = {'dtype': np.int8,
             'flag_meanings': "good bad",
@@ -846,6 +795,48 @@ class LakeTileEdgeProduct(NetCDFProduct):
             'valid_min': -10000.0,
             'valid_max': 10000.0,
             'comment': "KMSF velocity component in z direction in the ECEF frame."}
+        # nadir_plus_y_antenna_x
+        self.variables["nadir_plus_y_antenna_x"] = {'dtype': np.double,
+            'long_name': "x coordinate of plus_y antenna phase center in the ECEF frame",
+            'units': "m",
+            'valid_min': -10000000.0,
+            'valid_max': 10000000.0,
+            'comment': "x coordinate of plus_y antenna phase center in the ECEF frame."}
+        # nadir_plus_y_antenna_y
+        self.variables["nadir_plus_y_antenna_y"] = {'dtype': np.double,
+            'long_name': "y coordinate of plus_y antenna phase center in the ECEF frame",
+            'units': "m",
+            'valid_min': -10000000.0,
+            'valid_max': 10000000.0,
+            'comment': "y coordinate of plus_y antenna phase center in the ECEF frame."}
+        # nadir_plus_y_antenna_z
+        self.variables["nadir_plus_y_antenna_z"] = {'dtype': np.double,
+            'long_name': "z coordinate of plus_y antenna phase center in the ECEF frame",
+            'units': "m",
+            'valid_min': -10000000.0,
+            'valid_max': 10000000.0,
+            'comment': "z coordinate of plus_y antenna phase center in the ECEF frame."}
+        # nadir_minus_y_antenna_x
+        self.variables["nadir_minus_y_antenna_x"] = {'dtype': np.double,
+            'long_name': "x coordinate of minus_y antenna phase center in the ECEF frame",
+            'units': "m",
+            'valid_min': -10000000.0,
+            'valid_max': 10000000.0,
+            'comment': "x coordinate of minus_y antenna phase center in the ECEF frame."}
+        # nadir_minus_y_antenna_y
+        self.variables["nadir_minus_y_antenna_y"] = {'dtype': np.double,
+            'long_name': "y coordinate of minus_y antenna phase center in the ECEF frame",
+            'units': "m",
+            'valid_min': -10000000.0,
+            'valid_max': 10000000.0,
+            'comment': "y coordinate of minus_y antenna phase center in the ECEF frame."}
+        # nadir_minus_y_antenna_z
+        self.variables["nadir_minus_y_antenna_z"] = {'dtype': np.double,
+            'long_name': "z coordinate of minus_y antenna phase center in the ECEF frame",
+            'units': "m",
+            'valid_min': -10000000.0,
+            'valid_max': 10000000.0,
+            'comment': "z coordinate of minus_y antenna phase center in the ECEF frame."}
         # nadir_sc_event_flag
         self.variables["nadir_sc_event_flag"] = {'dtype': np.int8,
             'flag_meanings': "nominal not_nominal",
@@ -860,49 +851,7 @@ class LakeTileEdgeProduct(NetCDFProduct):
             'valid_min': 0,
             'valid_max': 1,
             'comment': "Quality flag for TVP data"}
-        # plus_y_antenna_x
-        self.variables["plus_y_antenna_x"] = {'dtype': np.double,
-            'long_name': "x coordinate of the plus_y antenna phase center in the ECEF frame",
-            'units': "m",
-            'valid_min': -10000000.0,
-            'valid_max': 10000000.0,
-            'comment': "x coordinate of the plus_y antenna phase center in the ECEF frame"}
-        # plus_y_antenna_y
-        self.variables["plus_y_antenna_y"] = {'dtype': np.double,
-            'long_name': "y coordinate of the plus_y antenna phase center in the ECEF frame",
-            'units': "m",
-            'valid_min': -10000000.0,
-            'valid_max': 10000000.0,
-            'comment': "y coordinate of the plus_y antenna phase center in the ECEF frame"}
-        # plus_y_antenna_z
-        self.variables["plus_y_antenna_z"] = {'dtype': np.double,
-            'long_name': "z coordinate of the plus_y antenna phase center in the ECEF frame",
-            'units': "m",
-            'valid_min': -10000000.0,
-            'valid_max': 10000000.0,
-            'comment': "z coordinate of the plus_y antenna phase center in the ECEF frame"}
-        # minus_y_antenna_x
-        self.variables["minus_y_antenna_x"] = {'dtype': np.double,
-            'long_name': "x coordinate of the minus_y antenna phase center in the ECEF frame",
-            'units': "m",
-            'valid_min': -10000000.0,
-            'valid_max': 10000000.0,
-            'comment': "x coordinate of the minus_y antenna phase center in the ECEF frame"}
-        # minus_y_antenna_x
-        self.variables["minus_y_antenna_y"] = {'dtype': np.double,
-            'long_name': "y coordinate of the minus_y antenna phase center in the ECEF frame",
-            'units': "m",
-            'valid_min': -10000000.0,
-            'valid_max': 10000000.0,
-            'comment': "y coordinate of the minus_y antenna phase center in the ECEF frame"}
-        # minus_y_antenna_z
-        self.variables["minus_y_antenna_z"] = {'dtype': np.double,
-            'long_name': "z coordinate of the minus_y antenna phase center in the ECEF frame",
-            'units': "m",
-            'valid_min': -10000000.0,
-            'valid_max': 10000000.0,
-            'comment': "z coordinate of the minus_y antenna phase center in the ECEF frame"}
-            
+        
         # 4 - Init metadata specific to LakeTile_pixcvec file
         # 4.1 - Update general metadata
         self.metadata["title"] = "Level 2 KaRIn high rate lake tile vector product"
@@ -927,15 +876,14 @@ class LakeTileEdgeProduct(NetCDFProduct):
         self.metadata["outer_last_latitude"] = -9999.0
         self.metadata["outer_last_longitude"] = -9999.0
         self.metadata["continent"] = ""
-        self.metadata["ellipsoid_semi_major_axis"] = ""
-        self.metadata["ellipsoid_flattening"] = ""
-        self.metadata["interferogram_size_range"] = -9999
-        self.metadata["interferogram_size_azimuth"] = -9999
+        self.metadata["wavelength"] = -9999.0
         self.metadata["near_range"] = -9999.0
         self.metadata["nominal_slant_range_spacing"] = -9999.0
-        self.metadata["wavelength"] = -9999.0
+        self.metadata["interferogram_size_range"] = -9999
+        self.metadata["interferogram_size_azimuth"] = -9999
         self.metadata["looks_to_efflooks"] = -9999.0
-
+        self.metadata["ellipsoid_semi_major_axis"] = ""
+        self.metadata["ellipsoid_flattening"] = ""
         if in_pixc_metadata is not None:
             self.set_metadata_val(in_pixc_metadata)
         # 4.3 - Processing metadata

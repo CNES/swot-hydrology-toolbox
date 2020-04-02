@@ -14,6 +14,7 @@ Author (s): Brent Williams
 
 import numpy as np
 import scipy.stats
+from scipy import interpolate
 
 def simple(in_var, metric='mean'):
     """
@@ -147,7 +148,6 @@ def height_uncert_multilook(
     """
     # multilook the rare interferogram over the raster bin
     #  by averaging cerain fields
-
     agg_real = simple(np.real(ifgram[good])*weight_norm[good])
     agg_imag = simple(np.imag(ifgram[good])*weight_norm[good])
     agg_p1 = simple(power1[good]*weight_norm[good])
@@ -156,7 +156,7 @@ def height_uncert_multilook(
 
     # compute coherence
     coh = abs(agg_real + 1j *agg_imag)/np.sqrt(agg_p1*agg_p2)
-
+    
     # get total num_eff_looks
     rare_looks = num_rare_looks#/looks_to_efflooks
     agg_looks = simple(rare_looks[good])
@@ -182,7 +182,7 @@ def height_uncert_multilook(
 
     lon_uncert_out = np.sqrt(
         phase_var) * np.abs(np.array(agg_dlon_dphi2)/np.array(agg_dlon_dphi))
-        
+
     return height_uncert_out, lat_uncert_out, lon_uncert_out
 
 def height_with_uncerts(
@@ -443,3 +443,34 @@ def area_with_uncert(
     # normalize to get area percent error
     area_pcnt_uncert = area_unc/abs(area_agg)*100.0
     return area_agg, area_unc, area_pcnt_uncert
+
+def get_sensor_index(pixc):
+    """ Return the sensor index for a pixel cloud from illumination time """
+    f = interpolate.interp1d(pixc['tvp']['time'], range(len(pixc['tvp']['time'])))
+    illumination_time = pixc['pixel_cloud']['illumination_time'].data[
+        np.logical_not(pixc['pixel_cloud']['illumination_time'].mask)]
+    sensor_index = (np.rint(f(illumination_time))).astype(int).flatten()
+    return sensor_index
+
+
+def flatten_interferogram(
+        ifgram, plus_y_antenna_xyz, minus_y_antenna_xyz, target_xyz, tvp_index,
+        wavelength):
+    """ Return the flattened interferogram using provided geolocations """
+    # Compute distance between target and sensor for each pixel
+    dist_e = np.sqrt(
+        (plus_y_antenna_xyz[0][tvp_index] - target_xyz[0])**2
+        + (plus_y_antenna_xyz[1][tvp_index] - target_xyz[1])**2
+        + (plus_y_antenna_xyz[2][tvp_index] - target_xyz[2])**2)
+
+    dist_r = np.sqrt(
+        (minus_y_antenna_xyz[0][tvp_index] - target_xyz[0])**2
+        + (minus_y_antenna_xyz[1][tvp_index] - target_xyz[1])**2
+        + (minus_y_antenna_xyz[2][tvp_index] - target_xyz[2])**2)
+
+    # Compute the corresponding reference phase and flatten the interferogram
+    phase_ref = -2*np.pi / wavelength*(dist_e - dist_r)
+    interferogram_flatten  = ifgram*np.exp(-1.j*phase_ref)
+
+    return interferogram_flatten
+

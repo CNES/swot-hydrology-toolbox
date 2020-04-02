@@ -11,8 +11,8 @@
 # ======================================================
 """
 .. module:: proc_pixc_sp.py
-   :synopsis: Deals with subset of pixel cloud, for objects located at top or bottom edge of a tile; i.e. gather pixels involved in edge lake product retrieved from all tiles of L2_HR_LakeTile_edge files
-    Created on 27/09/2017
+   :synopsis: Deals with subset of pixel cloud, for objects located at top or bottom edge of a tile; i.e. gather pixels retrieved from all L2_HR_LakeTile_edge files 
+    Created on 09/27/2017
 
 .. moduleauthor:: Cécile Cazals - CS
 
@@ -20,7 +20,6 @@
    This file is part of the SWOT Hydrology Toolbox
    Copyright (C) 2018 Centre National d’Etudes Spatiales
    This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
-
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals 
@@ -31,133 +30,149 @@ import logging
 
 import cnes.common.lib.my_netcdf_file as my_nc
 import cnes.common.lib.my_tools as my_tools
+import cnes.common.lib.my_variables as my_var
+
 import cnes.common.service_config_file as service_config_file
-import cnes.common.lib.my_variables as my_variables
+
+import jpl.modules.aggregate as jpl_aggregate
+
 
 class PixCEdge(object):
     """
-        class PixCEdge
+    class PixCEdge
+    This class is designed to process all L2_HR_LakeTile_edge files of two half-swath thought 2 PixCEdgeSwath objects
     """
-    def __init__(self, in_lake_tile_edge_path_list, in_cycle, in_pass, in_continent) :
+    def __init__(self, in_lake_tile_edge_path_list, in_cycle, in_pass, in_continent):
         """
-            This class is designed to process all L2_HR_LakeTile edge files of two swath thought 2 PixCEdgeSwath objects
+        Constructor: init aggregation of all LakeTile_edge files of one continent-pass
 
-            :param in_lake_tile_edge_path_list: list of LakeTile edge files full path
-            :type in_lake_tile_edge_path_list: list of string
-            :param in_cycle num: cycle number
-            :type in_cycle: int
-            :param in_pass_num: pass number
-            :type in_pass_num: int
-            :param in_continent: continent code
-            :type in_continent: str
+        :param in_lake_tile_edge_path_list: list of LakeTile_edge files full path
+        :type in_lake_tile_edge_path_list: list of string
+        :param in_cycle num: cycle number
+        :type in_cycle: int
+        :param in_pass_num: pass number
+        :type in_pass_num: int
+        :param in_continent: continent code
+        :type in_continent: str
 
-            Variables of the object:
-                - lake_tile_edge_path_r / list of string : list of full path to laketile edge files for right swath
-                - lake_tile_edge_path_l / list of string : list of full path to laketile edge files for left swath
-                - pixc_edge_r / PixCEdgeSwath: object to process right swath
-                - pixc_edge_l / PixCEdgeSwath: object to process left swath
-                - tile_poly / ogr.Polygon: polygon of all tiles on both swath
-                - nb_pixels / int: number of pixels to process in both swath
-
+        Variables of the object:
+        - lake_tile_edge_path_r / list of string: list of full path to LakeTile_edge files for right half-swath
+        - lake_tile_edge_path_l / list of string: list of full path to LakeTile_edge files for left half-swath
+        - pixc_edge_r / PixCEdgeSwath: object to process right half-swath
+        - pixc_edge_l / PixCEdgeSwath: object to process left half-swath
+        - tile_poly / ogr.Polygon: polygon of all tiles on both half-swaths
+        - nb_pixels / int: number of pixels to process in both half-swaths
         """
 
         # Get instance of service config file
         self.cfg = service_config_file.get_instance()
         logger = logging.getLogger(self.__class__.__name__)
-
         logger.info("- start -")
 
-        self.lake_tile_edge_path_r = [ file for file in in_lake_tile_edge_path_list if "R_20" in file]
-        self.lake_tile_edge_path_r.sort()
-        self.lake_tile_edge_path_l = [ file for file in in_lake_tile_edge_path_list if "L_20" in file]
-        self.lake_tile_edge_path_l.sort()
-
-        logger.info("== INIT Right swath for continent %s with files ==" %(in_continent))
+        # 1 - Init object gathering LakeTile_edge files for RIGHT half-swath
+        logger.info("== INIT *RIGHT* half-swath for continent %s with LakeTile_edge files ==" % in_continent)
+        # 1.1 - List LakeTile_edge files
+        self.lake_tile_edge_path_r = [file for file in in_lake_tile_edge_path_list if "R_20" in file]
+        self.lake_tile_edge_path_r.sort()  # Sort in alphabetic order
+        # Print list of files
         for file in self.lake_tile_edge_path_r:
             logger.info(file)
         logger.info("===================================")
-        self.pixc_edge_r = PixCEdgeSwath( in_cycle, in_pass, in_continent, "R")
+        # 1.2 - Init PIXC_edge object
+        self.pixc_edge_r = PixCEdgeSwath(in_cycle, in_pass, in_continent, "R")
 
-        logger.info("== INIT Left swath for continent %s with files ==" %(in_continent))
+        # 2 - Init object gathering LakeTile_edge files for LEFT half-swath
+        logger.info("== INIT *LEFT* half-swath for continent %s with LakeTile_edge files ==" % in_continent)
+        # 2.1 - List LakeTile_edge files
+        self.lake_tile_edge_path_l = [file for file in in_lake_tile_edge_path_list if "L_20" in file]
+        self.lake_tile_edge_path_l.sort()  # Sort in alphabetic order
+        # Print list of files
         for file in self.lake_tile_edge_path_l:
             logger.info(file)
         logger.info("===================================")
+        # 2.2 - Init PIXC_edge object
         self.pixc_edge_l = PixCEdgeSwath( in_cycle, in_pass, in_continent, "L")
-
-        self.pixc_metadata = {}  # dictionary of SP metadata
+        
+        # 3 - Init SP metadata
+        self.pixc_metadata = {}
 
     def set_pixc_edge_from_laketile_edge_file(self):
         """
-            Load pixc data from both swath
-            Fill metadata
-
+        Load LakeTile_edge PIXC data from both half-swaths
+        And fill metadata
         """
         logger = logging.getLogger(self.__class__.__name__)
 
-        # Load left swath
+        # 1 - Load _edge data from both half-swaths
+        # 1.1 - Load left swath
         self.pixc_edge_l.set_pixc_edge_swath_from_laketile_edge_file(self.lake_tile_edge_path_l)
-
-        # Load right swath
+        # 1.2 - Load right swath
         self.pixc_edge_r.set_pixc_edge_swath_from_laketile_edge_file(self.lake_tile_edge_path_r)
 
-        # Update tile_poly with both swath
+        # 2 - Update tile_poly with both swath
         self.tile_poly = self.pixc_edge_r.tile_poly.Union(self.pixc_edge_l.tile_poly)
 
-        # Update nb_pixels with both swath
+        # 3 - Update nb_pixels with both swath
         self.nb_pixels = self.pixc_edge_r.nb_pixels + self.pixc_edge_l.nb_pixels
 
-        # Assert that both swath belong to the same SP product (cycle, pass and continent) and fill metadata
-        if self.pixc_edge_l.cycle_num == self.pixc_edge_r.cycle_num :
+        # 4 - Assert that both swath belong to the same SP product (cycle, pass and continent) and fill metadata
+        # 4.1 - Cycle number
+        if self.pixc_edge_l.cycle_num == self.pixc_edge_r.cycle_num:
             self.pixc_metadata["cycle_number"] =  self.pixc_edge_l.cycle_num
-        else :
+        else:
             logger.error("Cycle number for swath left and right are not the same")
-
-        if self.pixc_edge_l.pass_num == self.pixc_edge_r.pass_num :
+        # 4.2 - Pass number
+        if self.pixc_edge_l.pass_num == self.pixc_edge_r.pass_num:
             self.pixc_metadata["pass_number"] =  self.pixc_edge_l.pass_num
-        else :
+        else:
             logger.error("Pass number for swath left and right are not the same")
-
-        if self.pixc_edge_l.continent == self.pixc_edge_r.continent :
+        # 4.3 - Continent code
+        if self.pixc_edge_l.continent == self.pixc_edge_r.continent:
             self.pixc_metadata["continent"] =  self.pixc_edge_l.continent
-        else :
+        else:
             logger.error("Continent for swath left and right are not the same")
-
+        # 4.4 - Start and stop time
         self.pixc_metadata["start_time"] = min(self.pixc_edge_l.pixc_metadata["start_time"], self.pixc_edge_r.pixc_metadata["start_time"])
         self.pixc_metadata["stop_time"] = max(self.pixc_edge_l.pixc_metadata["stop_time"], self.pixc_edge_r.pixc_metadata["stop_time"])
-
+        # 4.5 - Polygon of the swath
         self.pixc_metadata["polygon"] = str(self.tile_poly)
 
-        # Assert that ellipsoid_semi_major_axis and ellipsoid_flattening are the same and fill metadat
-        if self.pixc_edge_l.pixc_metadata["ellipsoid_semi_major_axis"] == self.pixc_edge_r.pixc_metadata["ellipsoid_semi_major_axis"] :
+        # 5 - Assert that ellipsoid_semi_major_axis and ellipsoid_flattening are the same and fill metadata
+        # 5.1 - ellipsoid_semi_major_axis
+        if self.pixc_edge_l.pixc_metadata["ellipsoid_semi_major_axis"] == self.pixc_edge_r.pixc_metadata["ellipsoid_semi_major_axis"]:
             self.pixc_metadata["ellipsoid_semi_major_axis"] =  self.pixc_edge_l.pixc_metadata["ellipsoid_semi_major_axis"]
-        else :
-            logger.error("Ellipsoid semi major axis for swath left and right are not the same")
-
-        if self.pixc_edge_l.pixc_metadata["ellipsoid_flattening"] == self.pixc_edge_r.pixc_metadata["ellipsoid_flattening"] :
+        else:
+            logger.error("Ellipsoid semi major axis for left and right half-swaths are not the same")
+        # 5.2 - ellipsoid_flattening
+        if self.pixc_edge_l.pixc_metadata["ellipsoid_flattening"] == self.pixc_edge_r.pixc_metadata["ellipsoid_flattening"]:
             self.pixc_metadata["ellipsoid_flattening"] =  self.pixc_edge_l.pixc_metadata["ellipsoid_flattening"]
-        else :
+        else:
             logger.error("Ellipsoid flattening for swath left and right are not the same")
+    
+
+#######################################
 
 
 class PixCEdgeSwath(object):
     """
-        class PixCEdgeSwath
+    class PixCEdgeSwath
+    This class is designed to process all L2_HR_LakeTile_edge files of one single swath. 
+    LakeTile edge files contain pixel cloud information (from L2_HR_PIXC) for pixels involved in lakes located 
+    at the top/bottom edges of tiles.
     """
 
     def __init__(self, in_cycle, in_pass, in_continent, in_swath_side):
         """
-        This class is designed to process all L2_HR_LakeTile edge files of one swath. LakeTile edge files contain pixel cloud information (from L2_HR_PIXC) for pixels involved in lakes located at the top/bottom edges of tiles.
+        Constructor: init aggregation of all LakeTile_edge files of one half-swath of a continent-pass
+        
+        The LakeTile_edge file contains only needed PixC variables information, but also additional information like:
 
-        The LakeTile edge file contains only PixC variables needed information, but also additional information like:
-
-            - edge_loc field, the edge location of the lake : top of the tile, bottom of the tile or both top and bottom (0=bottom 1=top 2=both)
+            - edge_loc field, the edge location of the lake: top of the tile, bottom of the tile or both top and bottom (0=bottom 1=top 2=both)
             - edge_label contains the object labels retrieved from PGE_LakeTile labeling process.
             - edge_index contains the L2_HR_PIXC initial pixels indices. This information is needed to update the improved geoloc and tag fields of LakeTile pixcvec files.
 
-        This class processes all LakeTile edge files of a single swath to gather all entities at the edge of tile into lake entities.
+        This class processes all LakeTile_edge files of a single swath to gather all entities at the edge of tile into lake entities.
 
-        :param in_lake_tile_edge_path_list: list of LakeTile edge files full path
-        :type in_lake_tile_edge_path_list: list of string
         :param in_cycle num: cycle number
         :type in_cycle: int
         :param in_pass_num: pass number
@@ -168,85 +183,94 @@ class PixCEdgeSwath(object):
         :type in_swath_side: string
 
         Variables of the object:
-            - Global PixCEdgeSwath infos:
-                - cycle_num / int: cycle number (= global attribute named cycle_number in LakeTile_edge)
-                - pass_num / int: pass number (= global attribute named pass_number in LakeTile_edge)
-                - swath_side / string : R=Right L=Left swath side
-                - date / int : date of acquisition (ex : 20000101 )
-                - nb_pix_range / int: number of pixels in range dimension (= global attribute named nb_pix_range in LakeTile_edge)
-                - nb_pixels / int : total number of pixels
-                - pixc_metadata / dict : metadata processing ...
-                - tile_poly / ogr.Polygon: polygon of the PixC tile
+            
+        - Global PixCEdgeSwath infos:
+            - cycle_num / int: cycle number (= global attribute named cycle_number in LakeTile_edge)
+            - pass_num / int: pass number (= global attribute named pass_number in LakeTile_edge)
+            - swath_side / string: R=Right L=Left swath side
+            - date / int: date of acquisition (ex: 20000101 )
+            - nb_pix_range / int: number of pixels in range dimension (= global attribute named nb_pix_range in LakeTile_edge)
+            - nb_pixels / int: total number of pixels
+            - pixc_metadata / dict: metadata processing ...
+            - tile_poly / ogr.Polygon: polygon of the PixC tile
 
-            - Variables specific to processing:
-                - tile_num / list of int : List of tile number to process ex: [76, 77, 78]
-                - tile_index /list of int : Tile_num reference of each pixel ex: [0, 0, 0, 1, 2, 2, 2, 2]
-                - labels / 1D-array of int : arrays of new labels
-                - is_boundary_pix / list of bool : if pixel belong to the first / last azimuth of single pass
-		- near_range / list of float : store the near range of each tiles
-        	- slant_range_spacing / list of int : store the slant range samplig of each tiles (supposed to be 0.75)
+        - Variables specific to processing:
+            - tile_num / list of int: List of tile number to process ex: [76, 77, 78]
+            - tile_index /list of int: Tile_num reference of each pixel ex: [0, 0, 0, 1, 2, 2, 2, 2]
+            - labels / 1D-array of int: arrays of new labels
+            - is_boundary_pix / list of bool: if pixel belong to the first / last azimuth of single pass
+            - near_range / list of float: store the near range of each tiles
+            - slant_range_spacing / list of int: store the slant range samplig of each tiles (supposed to be 0.75)
+            - classif_full_water / 1D-array of int: classification as if all pixels were interior water pixels
+            - classif_without_dw / 1D-array of int: classification of all water pixels (ie with dark water pixels removed)
+            - interferogram_flattened / 1D-array of complex: flattened interferogram
+            - inundated_area / 1D-array of int: area of pixels covered by water
+            - height_std_pix / 1D-array of float: height std
+            - corrected_height / 1D-array of float: height corrected from geoid and other tide corrections
+            
+        - From L2_HR_LakeTile_edge file:
+            
             - Edge objects info:
                 - edge_loc
                 - edge_label
                 - edge_index
 
-            - Pixc variables from laketile edge file:
+            - From PIXC/pixel_group variables:
                 - nb_pix_range / int: number of pixels in range dimension (= global attribute named interferogram_size_range in L2_HR_PIXC)
                 - nb_pix_azimuth / int: number of pixels in azimuth dimension (= global attribute named interferogram_size_azimuth in L2_HR_PIXC)
-                - [origin_]classif / 1D-array of byte: classification value of pixels (= variable named classification in L2_HR_PIXC)
-                - [origin_]range_index / 1D-array of int: range indices of water pixels (= variable named range_index in L2_HR_PIXC)
-                - [origin_]azimuth_index / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in L2_HR_PIXC)
+                - classif / 1D-array of byte: classification value of pixels (= variable named classification in L2_HR_PIXC)
+                - range_index / 1D-array of int: range indices of water pixels (= variable named range_index in L2_HR_PIXC)
+                - azimuth_index / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in L2_HR_PIXC)
+                - interferogram / 2D-array of float: rare interferogram
+                - power_plus_y / 1D-array of float: power for plus_y channel
+                - power_minus_y / 1D-array of float: power for minus_y channel
                 - water_frac / 1D array of float: water fraction
                 - water_frac_uncert / 1D array of float: water fraction uncertainty
                 - false_detection_rate / 1D array of float: alse detection rate
                 - missed_detection_rate / 1D array of float: missed detection rate
-                - prior_water_prob / 1D array of float: prior water probability
                 - bright_land_flag / 1D array of byte: bright land flag
                 - layover_impact /1D array of float: layover impact
-                - num_rare_looks / 1D array of byte: number of rare looks
-                - [origin_]latitude / 1D-array of float: latitude of water pixels
-                - [origin_]longitude / 1D-array of float: longitude of water pixels
+                - eff_num_rare_looks / 1D array of byte: number of rare looks
+                - latitude / 1D-array of float: latitude of water pixels
+                - longitude / 1D-array of float: longitude of water pixels
                 - height / 1D-array of float: height of water pixels
                 - cross_track / 1D-array of float: cross-track distance from nadir to center of water pixels
                 - pixel_area / 1D-array of int: area of water pixels
                 - inc / 1D array of float: incidence angle
+                - phase_noise_std / 1D-array of float: phase noise standard deviation
+                - dlatitude_dphase / 1D-array of float: sensitivity of latitude estimate to interferogram phase
+                - dlongitude_dphase / 1D-array of float: sensitivity of longitude estimate to interferogram phase
                 - dheight_dphase / 1D array of float: sensitivity of height estimate to interferogram phase
-                - dheight_droll / 1D array of float: sensitivity of height estimate to spacecraft roll
-                - dheight_dbaseline / 1D array of float: sensitivity of height estimate to interferometric baseline
                 - dheight_drange / 1D array of float: sensitivity of height estimate to range
                 - darea_dheight / 1D array of float: sensitivity of pixel area to reference height
-                - num_med_looks / 1D array of int: number of medium looks
-                - sig0 / 1D array of float: sigma0
-                - phase_unwrapping_region / 1D array of float: phase unwrapping region index
-                - instrument_range_cor / 1D array of float: instrument range correction
-                - instrument_phase_cor / 1D array of float: instrument phase correction
-                - instrument_baseline_cor / 1D array of float: instrument baseline correction
-                - instrument_attitude_cor / 1D array of float: instrument attitude correction
+                - eff_num_medium_looks / 1D array of int: number of medium looks
                 - model_dry_tropo_cor / 1D array of float: dry troposphere vertical correction
                 - model_wet_tropo_cor / 1D array of float: wet troposphere vertical correction
                 - iono_cor_gim_ka / 1D array of float: ionosphere vertical correction
-                - xover_height_cor / 1D array of float: crossover calibration height correction
-                - load_tide_sol1 / 1D array of float: load tide height (GOT4.10)
-                - load_tide_sol2 / 1D array of float: load tide height (FES2014)
-                - pole_tide / 1D array of float: pole tide height
-                - solid_earth_tide / 1D array of float: solid earth tide
+                - height_cor_xover / 1D array of float: crossover calibration height correction
                 - geoid / 1D array of float: geoid
-                - surface_type_flag / 1D array of byte: surface type flag
+                - solid_earth_tide / 1D array of float: solid earth tide
+                - load_tide_sol1 / 1D array of float: load tide height (FES2014)
+                - load_tide_sol2 / 1D array of float: load tide height (GOT4.10)
+                - pole_tide / 1D array of float: pole tide height
+                - pixc_qual / 1D-array of byte: status flag
+                - wavelength / float: wavelength corresponding to the effective radar carrier frequency 
+                - looks_to_efflooks / float: ratio between the number of actual samples and the effective number of independent samples during spatial averaging over a large 2-D area
 
-            - Info of the nadir point associated to the PixC:
+            - From PIXC/tvp group variables:
                 - nadir_time[_tai] / 1D-array of float: observation UTC [TAI] time of each nadir pixel (= variable named time[tai] in L2_HR_PIXC file)
                 - nadir_longitude / 1D-array of float: longitude of each nadir pixel (= variable named longitude in L2_HR_PIXC file)
                 - nadir_latitude / 1D-array of float: latitude of each nadir pixel (= variable named latitude in L2_HR_PIXC file)
                 - nadir_[x|y|z] / 1D-array of float: [x|y|z] cartesian coordinates of each nadir pixel (= variables named [x|y|z] in L2_HR_PIXC file)
                 - nadir_[vx|vy|vz] / 1D-array of float: velocity vector of each nadir pixel in cartesian coordinates (= variables named velocity_unit_[x|y|z] in L2_HR_PIXC file)
+                - nadir_plus_y_antenna_[x|y|z] / 1D-array of float: position vector of the +y KaRIn antenna phase center in ECEF coordinates (= variables named plus_y_antenna_[x|y|z] in L2_HR_PIXC file)
+                - nadir_minus_y_antenna_[x|y|z] / 1D-array of float: position vector of the -y KaRIn antenna phase center in ECEF coordinates (= variables named minus_y_antenna_[x|y|z] in L2_HR_PIXC file)
                 - nadir_sc_event_flag / 1D array of byte: spacecraft event flag
                 - nadir_tvp_qual / 1D array of byte: quality flag
-        
         """
         # Get instance of service config file
         self.cfg = service_config_file.get_instance()
         logger = logging.getLogger(self.__class__.__name__)
-
         logger.info("- start -")
 
         # 1. Init Global PixCEdgeSwath infos
@@ -254,85 +278,52 @@ class PixCEdgeSwath(object):
         self.pass_num = in_pass # Orbit number
         self.swath_side = in_swath_side # swath R or L
         self.continent = in_continent
-        self.date = None # date of acquisition
-        self.nb_pix_range = 0 # Number of pixel in range
-        self.nb_pixels = 0 # Number of pixels to process
-        self.tile_poly = ogr.Geometry(ogr.wkbMultiPolygon)  # Tiles polygon union
-        self.pixc_metadata = {} # dictionary of SP edge metadata
-        self.pixc_metadata["cycle_number"] = -9999
-        self.pixc_metadata["pass_number"] = -9999
-        self.pixc_metadata["start_time"] = ""
-        self.pixc_metadata["stop_time"] = ""
-        self.pixc_metadata["continent"] = self.continent
-        self.pixc_metadata["ellipsoid_semi_major_axis"] = ""
-        self.pixc_metadata["ellipsoid_flattening"] = ""
-
-        # 2. Init variables specific to processing
-        self.tile_num = []  # List of tile number to process ex: [76, 77, 78]
-        self.tile_index = []  # Tile reference of each pixel
-        self.labels =  np.array(()).astype('int')  # Init labels to 0
-        self.is_boundary_pix = []  # If pixel belong to the first / last azimuth of single pass
-        self.near_range = []
-        self.slant_range_spacing = []
-
-        # 3. Init edge objects info
+        
+        # 2. Init LakeTile_edge variables
+        # 2.1. Edge info
         self.edge_loc =  np.array(()).astype('int')  # Localization (top/bottom/both)
         self.edge_label = np.array(()).astype('int')  # Label in tile
         self.edge_index = np.array(()).astype('int')  # Index in original L2_HR_PIXC product
-
-        # 4. Init Pixc variables from laketile edge file
+        # 2.2. From PIXC/pixel_cloud
         self.classif = np.array(())
-        self.classif_without_dw = np.array(())
         self.range_index = np.array(()).astype('int')
         self.azimuth_index = np.array(()).astype('int')
-        self.pixel_area = np.array(())
+        self.interferogram = np.array(())
+        self.power_plus_y = np.array(())
+        self.power_minus_y = np.array(())
         self.water_frac = np.array(())
         self.water_frac_uncert = np.array(())
         self.false_detection_rate = np.array(())
         self.missed_detection_rate = np.array(())
-        self.prior_water_prob = np.array(())
         self.bright_land_flag = np.array(())
         self.layover_impact = np.array(())
-        self.num_rare_looks = np.array(())
+        self.eff_num_rare_looks = np.array(())
         self.latitude = np.array(())
         self.longitude = np.array(())
         self.height = np.array(())
-        self.corrected_height = np.array(())
         self.cross_track = np.array(())
         self.pixel_area = np.array(())
         self.inc = np.array(())
-        self.interferogram = np.array(())
-        self.interferogram_flattened = np.array(())
-        self.power_plus_y = np.array(())
-        self.power_minus_y = np.array(())
         self.phase_noise_std = np.array(())
-        self.dheight_dphase = np.array(())
         self.dlatitude_dphase = np.array(())
         self.dlongitude_dphase = np.array(())
-        self.dheight_droll = np.array(())
-        self.dheight_dbaseline = np.array(())
+        self.dheight_dphase = np.array(())
         self.dheight_drange = np.array(())
         self.darea_dheight = np.array(())
-        self.num_med_looks = np.array(())
-        self.sig0 = np.array(())
-        self.phase_unwrapping_region = np.array(())
-        self.instrument_range_cor = np.array(())
-        self.instrument_phase_cor = np.array(())
-        self.instrument_baseline_cor = np.array(())
-        self.instrument_attitude_cor = np.array(())
+        self.eff_num_medium_looks = np.array(())
         self.model_dry_tropo_cor = np.array(())
         self.model_wet_tropo_cor = np.array(())
         self.iono_cor_gim_ka = np.array(())
-        self.xover_height_cor = np.array(())
+        self.height_cor_xover = np.array(())
+        self.geoid = np.array(())
+        self.solid_earth_tide = np.array(())
         self.load_tide_sol1 = np.array(())
         self.load_tide_sol2 = np.array(())
         self.pole_tide = np.array(())
-        self.solid_earth_tide = np.array(())
-        self.geoid = np.array(())
-        self.surface_type_flag = np.array(())
         self.pixc_qual = np.array(())
-
-        # 5. Init info of the nadir point associated to the PixC
+        self.wavelength = -9999.0
+        self.looks_to_efflooks = -9999.0
+        # 2.3. From PIXC/tvp group
         self.nadir_time = np.array(())  # Time
         self.nadir_time_tai = np.array(())
         self.nadir_longitude = np.array(())  # Longitude
@@ -343,25 +334,51 @@ class PixCEdgeSwath(object):
         self.nadir_vx = np.array(())  # Velocity in X coordinate
         self.nadir_vy = np.array(())  # Velocity in Y coordinate
         self.nadir_vz = np.array(())  # Velocity in Z coordinate
+        self.nadir_plus_y_antenna_x = np.array(())
+        self.nadir_plus_y_antenna_y = np.array(())
+        self.nadir_plus_y_antenna_z = np.array(())
+        self.nadir_minus_y_antenna_x = np.array(())
+        self.nadir_minus_y_antenna_y = np.array(())
+        self.nadir_minus_y_antenna_z = np.array(())
         self.nadir_sc_event_flag = np.array(())
         self.nadir_tvp_qual = np.array(())
-        self.plus_y_antenna_x = np.array(())  # x position of plus antenna
-        self.plus_y_antenna_y = np.array(())  # y position of plus antenna
-        self.plus_y_antenna_z = np.array(())  # z position of plus antenna
-        self.minus_y_antenna_x = np.array(()) # x position of minus antenna
-        self.minus_y_antenna_y = np.array(()) # y position of minus antenna
-        self.minus_y_antenna_z = np.array(()) # z position of minus antenna
+        
+        # 3. Init dictionary of SP_edge metadata
+        self.pixc_metadata = {}
+        self.pixc_metadata["cycle_number"] = -9999
+        self.pixc_metadata["pass_number"] = -9999
+        self.pixc_metadata["start_time"] = ""
+        self.pixc_metadata["stop_time"] = ""
+        self.pixc_metadata["continent"] = self.continent
+        self.pixc_metadata["ellipsoid_semi_major_axis"] = ""
+        self.pixc_metadata["ellipsoid_flattening"] = ""
 
+        # 4. Init variables specific to processing
+        self.date = None  # Date of acquisition
+        self.nb_pix_range = 0  # Number of pixels in range
+        self.nb_pixels = 0  # Number of pixels to process
+        self.tile_poly = ogr.Geometry(ogr.wkbMultiPolygon)  # Tiles polygon union
+        self.tile_num = []  # List of tile number to process ex: [76, 77, 78]
+        self.tile_index = []  # Tile reference of each pixel
+        self.labels = np.array(()).astype('int')  # Init labels to 0
+        self.is_boundary_pix = []  # If pixel belongs to the first / last azimuth of single pass
+        self.near_range = []
+        self.slant_range_spacing = []
+        self.classif_full_water = np.array(())
+        self.classif_without_dw = np.array(())
+        self.interferogram_flattened = np.array(())
+        self.inundated_area = np.array(())
+        self.height_std_pix = np.array(())
+        self.corrected_height = np.array(())
 
     # ----------------------------------------
 
     def set_pixc_edge_swath_from_laketile_edge_file(self, in_lake_tile_edge_path_list):
         """
-        This function loads NetCDF information form all tiles and merge of all PIXC_edge info into 1D vectors
+        This function loads NetCDF information from all tiles and merge all PIXC_edge info into 1D vectors
 
         :param in_lake_tile_edge_path_list: list of full path of the NetCDF file to load
         :type in_lake_tile_edge_path_list: list of string
-
         """
         logger = logging.getLogger(self.__class__.__name__)
 
@@ -405,7 +422,6 @@ class PixCEdgeSwath(object):
             self.near_range.append(current_near_range)
             self.slant_range_spacing.append(current_slant_range_spacing)
 
-
         # Convert list to numpy array
         self.tile_index = np.array(self.tile_index)
         self.labels = np.zeros((self.nb_pixels))
@@ -430,13 +446,13 @@ class PixCEdgeSwath(object):
         :param in_lake_tile_edge_filename: full path of the NetCDF file to load
         :type in_lake_tile_edge_filename: string
         
-        :return out_nb_pix: number of pixel loaded
-        :rtype out_nb_pix: integer
-        :return OUT_tile_ref: reference of loaded tile
-        :rtype OUT_tile_ref: string
+        :return: out_nb_pix = number of pixel loaded
+        :rtype: out_nb_pix = integer
+        :return: out_tile_ref = reference of loaded tile
+        :rtype: out_tile_ref = string
         """
-
         logger = logging.getLogger(self.__class__.__name__)
+        
         # 1 - Open input NetCDF file in reading mode
         pixc_edge_reader = my_nc.MyNcReader(in_lake_tile_edge_filename)
 
@@ -455,10 +471,10 @@ class PixCEdgeSwath(object):
         if current_swath_side != self.swath_side:
             logger.error("Swath of tile %s do note match with PixCEdgeSwath %s" %(current_swath_side, self.swath_side))
         current_date = int(pixc_edge_reader.get_att_value("start_time")[:8])
-        if not self.date :
+        if not self.date:
             self.date = current_date
         # Stop the process if acquisition dates are not same day or next day
-        if np.fabs(current_date - self.date) > 1 :
+        if np.fabs(current_date - self.date) > 1:
             logger.error("Input laketile_edge file do not correspond to the same aquisition date")
 
         current_continent = str(pixc_edge_reader.get_att_value("continent"))
@@ -484,17 +500,15 @@ class PixCEdgeSwath(object):
             current_tile_poly = ogr.Geometry(ogr.wkbPolygon)
             current_tile_poly.AddGeometry(ring)
 
-            if not current_tile_poly.IsValid() :
+            if not current_tile_poly.IsValid():
                 logger.warning("Polygon tile of file %s is not valid" %(in_lake_tile_edge_filename))
-            else :
+            else:
                 self.tile_poly = self.tile_poly.Union(current_tile_poly)
     
             # 3 - Initialization of object variables if not already done
             if not self.tile_num:
-                self.nb_pix_range = pixc_edge_reader.get_att_value("interferogram_size_range")
-                # Find associated continent
-
-    
+                
+                # 3.1 - Values for metadata
                 self.pixc_metadata["cycle_number"] = self.cycle_num
                 self.pixc_metadata["pass_number"] = self.pass_num
                 self.pixc_metadata["start_time"] = str(pixc_edge_reader.get_att_value("start_time"))
@@ -502,9 +516,11 @@ class PixCEdgeSwath(object):
                 self.pixc_metadata["continent"] = self.continent
                 self.pixc_metadata["ellipsoid_semi_major_axis"] = str(pixc_edge_reader.get_att_value("ellipsoid_semi_major_axis"))
                 self.pixc_metadata["ellipsoid_flattening"] = str(pixc_edge_reader.get_att_value("ellipsoid_flattening"))
-                self.wavelength= np.float(str(pixc_edge_reader.get_att_value("wavelength")))
-                self.looks_to_efflooks= np.float(str(pixc_edge_reader.get_att_value("looks_to_efflooks")))
-   
+                
+                # 3.2 - Other variables
+                self.nb_pix_range = int(pixc_edge_reader.get_att_value("interferogram_size_range"))
+                self.wavelength = np.float(pixc_edge_reader.get_att_value("wavelength"))  # Wavelength
+                self.looks_to_efflooks = np.float(pixc_edge_reader.get_att_value("looks_to_efflooks"))  # Ratio between the number of actual samples and the effective number of independent samples
     
             # 5 - Get number of pixels
             out_nb_pix = pixc_edge_reader.get_dim_value('points')
@@ -512,77 +528,87 @@ class PixCEdgeSwath(object):
             out_near_range = pixc_edge_reader.get_att_value("near_range")
             out_slant_range_spacing = pixc_edge_reader.get_att_value("nominal_slant_range_spacing")
 
-            # 6 - Update vectors if there are pixels
+            # 6 - Update vectors if there are pixels in the current LakeTile_edge file
             if out_nb_pix > 0:
     
-                # 5.1 - Edge objects info
+                # 5.1 - Add edge objects info
                 self.edge_label = np.concatenate((self.edge_label, pixc_edge_reader.get_var_value("edge_label")))
                 self.edge_index = np.concatenate((self.edge_index, pixc_edge_reader.get_var_value("edge_index")))
                 self.edge_loc = np.concatenate((self.edge_loc, pixc_edge_reader.get_var_value("edge_loc")))
     
-                # 5.2 - Variables from L2_HR_PIXC product
-                self.classif = np.concatenate((self.classif, pixc_edge_reader.get_var_value("classification")))
- 
-                # Classification flags without wd
-                self.classif_without_dw = np.concatenate((self.classif_without_dw, pixc_edge_reader.get_var_value("classification")))
-                self.classif_without_dw[self.classif == my_variables.LAND_NEAR_DARK_WATER_CLASSES] = 0
-                self.classif_without_dw[self.classif == my_variables.DARK_EDGE_CLASSES] = 0
-                self.classif_without_dw[self.classif == my_variables.DARK_CLASSES] = 0
-                
+                # 5.2 - Add variables from PIXC/pixel_cloud
+                tmp_classif = pixc_edge_reader.get_var_value("classification")
+                self.classif = np.concatenate((self.classif, tmp_classif))
+                # Simulate classification of only full water pixels
+                self.classif_full_water = np.concatenate((self.classif_full_water, np.zeros(out_nb_pix) + my_var.CLASSIF_INTERIOR_WATER))
+                # Keep only classification of water pixels (ie remove dark water flags)
+                tmp_classif_without_dw = np.copy(tmp_classif)
+                tmp_classif_without_dw[tmp_classif == my_var.CLASSIF_LAND_NEAR_DARK_WATER] = 0
+                tmp_classif_without_dw[tmp_classif == my_var.CLASSIF_DARK_EDGE] = 0
+                tmp_classif_without_dw[tmp_classif == my_var.CLASSIF_DARK] = 0
+                self.classif_without_dw = np.concatenate((self.classif_without_dw, tmp_classif_without_dw))
                 
                 self.range_index = np.concatenate((self.range_index, pixc_edge_reader.get_var_value("range_index")))
                 self.azimuth_index = np.concatenate((self.azimuth_index, pixc_edge_reader.get_var_value("azimuth_index")))
-                self.pixel_area = np.concatenate((self.pixel_area, pixc_edge_reader.get_var_value("pixel_area")))
-                self.water_frac = np.concatenate((self.water_frac, pixc_edge_reader.get_var_value("water_frac")))
-                self.water_frac_uncert = np.concatenate((self.water_frac_uncert, pixc_edge_reader.get_var_value("water_frac_uncert")))
-                self.false_detection_rate = np.concatenate((self.false_detection_rate, pixc_edge_reader.get_var_value("false_detection_rate")))
-                self.missed_detection_rate = np.concatenate((self.missed_detection_rate, pixc_edge_reader.get_var_value("missed_detection_rate")))
-                self.prior_water_prob = np.concatenate((self.prior_water_prob, pixc_edge_reader.get_var_value("prior_water_prob")))
-                self.bright_land_flag = np.concatenate((self.bright_land_flag, pixc_edge_reader.get_var_value("bright_land_flag")))
-                self.layover_impact = np.concatenate((self.layover_impact, pixc_edge_reader.get_var_value("layover_impact")))
-                self.num_rare_looks = np.concatenate((self.num_rare_looks, pixc_edge_reader.get_var_value("num_rare_looks")))
-                self.latitude = np.concatenate((self.latitude, pixc_edge_reader.get_var_value("latitude")))
-                self.longitude = np.concatenate((self.longitude, pixc_edge_reader.get_var_value("longitude")))
-                self.height = np.concatenate((self.height, pixc_edge_reader.get_var_value("height")))
-                self.corrected_height = np.concatenate((self.corrected_height, pixc_edge_reader.get_var_value("height")))
-                self.cross_track = np.concatenate((self.cross_track, pixc_edge_reader.get_var_value("cross_track")))
-                self.inc = np.concatenate((self.inc, pixc_edge_reader.get_var_value("inc")))
-                self.interferogram = np.concatenate((self.interferogram, pixc_edge_reader.get_var_value("interferogram")[:,0] + 1j*pixc_edge_reader.get_var_value("interferogram")[:,1]))      
-                self.interferogram_flattened = np.concatenate((self.interferogram_flattened, 0*pixc_edge_reader.get_var_value("interferogram")[:,0] + 0*1j*pixc_edge_reader.get_var_value("interferogram")[:,1]))      
-
+                
+                interferogram_value = pixc_edge_reader.get_var_value("interferogram")
+                tmp_interferogram = interferogram_value[:,0] + 1j*interferogram_value[:,1]
+                self.interferogram = np.concatenate((self.interferogram, tmp_interferogram))
+                tmp_interferogram_flattened = 0 * tmp_interferogram
+                self.interferogram_flattened = np.concatenate((self.interferogram_flattened, tmp_interferogram_flattened))
                 self.power_plus_y = np.concatenate((self.power_plus_y, pixc_edge_reader.get_var_value("power_plus_y")))
                 self.power_minus_y = np.concatenate((self.power_minus_y, pixc_edge_reader.get_var_value("power_minus_y")))
                 
-                self.phase_noise_std = np.concatenate((self.phase_noise_std, pixc_edge_reader.get_var_value("phase_noise_std")))
-                self.dheight_dphase = np.concatenate((self.dheight_dphase, pixc_edge_reader.get_var_value("dheight_dphase")))
+                tmp_water_frac = pixc_edge_reader.get_var_value("water_frac")
+                self.water_frac = np.concatenate((self.water_frac, tmp_water_frac))
+                self.water_frac_uncert = np.concatenate((self.water_frac_uncert, pixc_edge_reader.get_var_value("water_frac_uncert")))
+                self.false_detection_rate = np.concatenate((self.false_detection_rate, pixc_edge_reader.get_var_value("false_detection_rate")))
+                self.missed_detection_rate = np.concatenate((self.missed_detection_rate, pixc_edge_reader.get_var_value("missed_detection_rate")))
+                self.bright_land_flag = np.concatenate((self.bright_land_flag, pixc_edge_reader.get_var_value("bright_land_flag")))
+                self.layover_impact = np.concatenate((self.layover_impact, pixc_edge_reader.get_var_value("layover_impact")))
+                self.eff_num_rare_looks = np.concatenate((self.eff_num_rare_looks, pixc_edge_reader.get_var_value("eff_num_rare_looks")))
+                
+                self.latitude = np.concatenate((self.latitude, pixc_edge_reader.get_var_value("latitude")))
+                self.longitude = np.concatenate((self.longitude, pixc_edge_reader.get_var_value("longitude")))
+                tmp_height = pixc_edge_reader.get_var_value("height")
+                self.height = np.concatenate((self.height, tmp_height))
+                
+                self.cross_track = np.concatenate((self.cross_track, pixc_edge_reader.get_var_value("cross_track")))
+                tmp_pixel_area = pixc_edge_reader.get_var_value("pixel_area")
+                self.pixel_area = np.concatenate((self.pixel_area, tmp_pixel_area))
+                tmp_inundated_area = np.copy(tmp_pixel_area)
+                ind_ok = np.where(self.water_frac < my_var.FV_FLOAT)
+                if len(ind_ok) > 0:
+                    tmp_inundated_area[ind_ok] = tmp_pixel_area[ind_ok] * tmp_water_frac[ind_ok]
+                self.inundated_area = np.concatenate((self.inundated_area, tmp_inundated_area))
+                
+                self.inc = np.concatenate((self.inc, pixc_edge_reader.get_var_value("inc")))
+                tmp_phase_noise_std = pixc_edge_reader.get_var_value("phase_noise_std")
+                self.phase_noise_std = np.concatenate((self.phase_noise_std, tmp_phase_noise_std))
                 self.dlatitude_dphase = np.concatenate((self.dlatitude_dphase, pixc_edge_reader.get_var_value("dlatitude_dphase")))
                 self.dlongitude_dphase = np.concatenate((self.dlongitude_dphase, pixc_edge_reader.get_var_value("dlongitude_dphase")))
-                self.dheight_droll = np.concatenate((self.dheight_droll, pixc_edge_reader.get_var_value("dheight_droll")))
-                self.dheight_dbaseline = np.concatenate((self.dheight_droll, pixc_edge_reader.get_var_value("dheight_dbaseline")))
+                tmp_dheight_dphase = pixc_edge_reader.get_var_value("dheight_dphase")
+                self.dheight_dphase = np.concatenate((self.dheight_dphase, tmp_dheight_dphase))
                 self.dheight_drange = np.concatenate((self.dheight_drange, pixc_edge_reader.get_var_value("dheight_drange")))
                 self.darea_dheight = np.concatenate((self.darea_dheight, pixc_edge_reader.get_var_value("darea_dheight")))
-                self.num_med_looks = np.concatenate((self.num_med_looks, pixc_edge_reader.get_var_value("num_med_looks")))
-                self.sig0 = np.concatenate((self.sig0, pixc_edge_reader.get_var_value("sig0")))
-                self.phase_unwrapping_region = np.concatenate((self.phase_unwrapping_region,
-                                                               pixc_edge_reader.get_var_value("phase_unwrapping_region")))
-                self.instrument_range_cor = np.concatenate((self.instrument_range_cor,
-                                                            pixc_edge_reader.get_var_value("instrument_range_cor")))
-                self.instrument_phase_cor = np.concatenate((self.instrument_phase_cor,
-                                                            pixc_edge_reader.get_var_value("instrument_phase_cor")))
-                self.instrument_baseline_cor = np.concatenate((self.instrument_baseline_cor,
-                                                               pixc_edge_reader.get_var_value("instrument_baseline_cor")))
-                self.instrument_attitude_cor = np.concatenate((self.instrument_attitude_cor,
-                                                               pixc_edge_reader.get_var_value("instrument_attitude_cor")))
+                self.eff_num_medium_looks = np.concatenate((self.eff_num_medium_looks, pixc_edge_reader.get_var_value("eff_num_medium_looks")))
+                
                 self.model_dry_tropo_cor = np.concatenate((self.model_dry_tropo_cor, pixc_edge_reader.get_var_value("model_dry_tropo_cor")))
                 self.model_wet_tropo_cor = np.concatenate((self.model_wet_tropo_cor, pixc_edge_reader.get_var_value("model_wet_tropo_cor")))
                 self.iono_cor_gim_ka = np.concatenate((self.iono_cor_gim_ka, pixc_edge_reader.get_var_value("iono_cor_gim_ka")))
-                self.xover_height_cor = np.concatenate((self.xover_height_cor, pixc_edge_reader.get_var_value("xover_height_cor")))
-                self.load_tide_sol1 = np.concatenate((self.load_tide_sol1, pixc_edge_reader.get_var_value("load_tide_sol1")))
-                self.load_tide_sol2 = np.concatenate((self.load_tide_sol2, pixc_edge_reader.get_var_value("load_tide_sol2")))
-                self.pole_tide = np.concatenate((self.pole_tide, pixc_edge_reader.get_var_value("pole_tide")))
-                self.solid_earth_tide = np.concatenate((self.solid_earth_tide, pixc_edge_reader.get_var_value("solid_earth_tide")))
-                self.geoid = np.concatenate((self.geoid, pixc_edge_reader.get_var_value("geoid")))
-                self.surface_type_flag = np.concatenate((self.surface_type_flag, pixc_edge_reader.get_var_value("surface_type_flag")))
+                self.height_cor_xover = np.concatenate((self.height_cor_xover, pixc_edge_reader.get_var_value("height_cor_xover")))
+                
+                tmp_geoid = pixc_edge_reader.get_var_value("geoid")
+                self.geoid = np.concatenate((self.geoid, tmp_geoid))
+                tmp_solid_earth_tide = pixc_edge_reader.get_var_value("solid_earth_tide")
+                self.solid_earth_tide = np.concatenate((self.solid_earth_tide, tmp_solid_earth_tide))
+                tmp_load_tide_sol1 = pixc_edge_reader.get_var_value("load_tide_sol1")
+                self.load_tide_sol1 = np.concatenate((self.load_tide_sol1, tmp_load_tide_sol1))
+                tmp_load_tide_sol2 = pixc_edge_reader.get_var_value("load_tide_sol2")
+                self.load_tide_sol2 = np.concatenate((self.load_tide_sol2, tmp_load_tide_sol2))
+                tmp_pole_tide = pixc_edge_reader.get_var_value("pole_tide")
+                self.pole_tide = np.concatenate((self.pole_tide, tmp_pole_tide))
+                
                 self.pixc_qual = np.concatenate((self.pixc_qual, pixc_edge_reader.get_var_value("pixc_qual")))
     
                 # 5.3 - Info of the nadir point associated to the PixC
@@ -596,18 +622,45 @@ class PixCEdgeSwath(object):
                 self.nadir_vx = np.concatenate((self.nadir_vx, pixc_edge_reader.get_var_value("nadir_vx")))
                 self.nadir_vy = np.concatenate((self.nadir_vy, pixc_edge_reader.get_var_value("nadir_vy")))
                 self.nadir_vz = np.concatenate((self.nadir_vz, pixc_edge_reader.get_var_value("nadir_vz")))
+                self.nadir_plus_y_antenna_x = np.concatenate((self.nadir_plus_y_antenna_x, pixc_edge_reader.get_var_value("nadir_plus_y_antenna_x")))
+                self.nadir_plus_y_antenna_y = np.concatenate((self.nadir_plus_y_antenna_y, pixc_edge_reader.get_var_value("nadir_plus_y_antenna_y")))
+                self.nadir_plus_y_antenna_z = np.concatenate((self.nadir_plus_y_antenna_z, pixc_edge_reader.get_var_value("nadir_plus_y_antenna_z")))
+                self.nadir_minus_y_antenna_x = np.concatenate((self.nadir_minus_y_antenna_x, pixc_edge_reader.get_var_value("nadir_minus_y_antenna_x")))
+                self.nadir_minus_y_antenna_y = np.concatenate((self.nadir_minus_y_antenna_y, pixc_edge_reader.get_var_value("nadir_minus_y_antenna_y")))
+                self.nadir_minus_y_antenna_z = np.concatenate((self.nadir_minus_y_antenna_z, pixc_edge_reader.get_var_value("nadir_minus_y_antenna_z")))
                 self.nadir_sc_event_flag = np.concatenate((self.nadir_sc_event_flag, pixc_edge_reader.get_var_value("nadir_sc_event_flag")))
                 self.nadir_tvp_qual = np.concatenate((self.nadir_tvp_qual, pixc_edge_reader.get_var_value("nadir_tvp_qual")))
-                self.plus_y_antenna_x = np.concatenate((self.plus_y_antenna_x, pixc_edge_reader.get_var_value("plus_y_antenna_x")))
-                self.plus_y_antenna_y = np.concatenate((self.plus_y_antenna_y, pixc_edge_reader.get_var_value("plus_y_antenna_y")))
-                self.plus_y_antenna_z = np.concatenate((self.plus_y_antenna_z, pixc_edge_reader.get_var_value("plus_y_antenna_z")))
-                self.minus_y_antenna_x = np.concatenate((self.minus_y_antenna_x, pixc_edge_reader.get_var_value("minus_y_antenna_x")))
-                self.minus_y_antenna_y = np.concatenate((self.minus_y_antenna_y, pixc_edge_reader.get_var_value("minus_y_antenna_y")))
-                self.minus_y_antenna_z = np.concatenate((self.minus_y_antenna_z, pixc_edge_reader.get_var_value("minus_y_antenna_z")))   
+    
                 # 5.4 - Update metadata from PixC info
                 self.pixc_metadata["start_time"] = min(self.pixc_metadata["start_time"], str(pixc_edge_reader.get_att_value("start_time")))
                 self.pixc_metadata["stop_time"] = max(self.pixc_metadata["stop_time"], str(pixc_edge_reader.get_att_value("stop_time")))
-    
+                                
+                # 5.5 - Set bad PIXC height std to high number to deweight 
+                # instead of giving infs/nans
+                tmp_height_std_pix = np.abs(tmp_phase_noise_std * tmp_dheight_dphase)
+                bad_num = 1.0e5
+                tmp_height_std_pix[self.height_std_pix<=0] = bad_num
+                tmp_height_std_pix[np.isinf(self.height_std_pix)] = bad_num
+                tmp_height_std_pix[np.isnan(self.height_std_pix)] = bad_num
+                self.height_std_pix = np.concatenate((self.height_std_pix, tmp_height_std_pix))
+            
+                # 6.4 - Compute height wrt the geoid and apply tide corrections
+                # Compute indices of PIXC for which corrections are all valid
+                valid_geoid = np.where(tmp_geoid < my_var.FV_NETCDF[str(tmp_geoid.dtype)])[0]
+                valid_solid_earth_tide = np.where(tmp_solid_earth_tide < my_var.FV_NETCDF[str(tmp_solid_earth_tide.dtype)])[0]
+                valid_pole_tide = np.where(tmp_pole_tide < my_var.FV_NETCDF[str(tmp_pole_tide.dtype)])[0]
+                valid_load_tide_sol1 = np.where(tmp_load_tide_sol1 < my_var.FV_NETCDF[str(tmp_load_tide_sol1.dtype)])[0]
+                inter1 = np.intersect1d(valid_geoid, valid_solid_earth_tide)
+                inter2 = np.intersect1d(valid_pole_tide, inter1)
+                ind_valid_corr = np.intersect1d(valid_load_tide_sol1, inter2)
+                # Compute corrected height for these PIXC
+                tmp_corrected_height = np.zeros(out_nb_pix) + my_var.FV_FLOAT
+                tmp_corrected_height[ind_valid_corr] = tmp_height[ind_valid_corr] \
+                                                       - tmp_geoid[ind_valid_corr] \
+                                                       - tmp_solid_earth_tide[ind_valid_corr] \
+                                                       - tmp_pole_tide[ind_valid_corr] \
+                                                       - tmp_load_tide_sol1[ind_valid_corr]
+                self.corrected_height = np.concatenate((self.corrected_height, tmp_corrected_height))
     
             # 6 - Close file
             pixc_edge_reader.close()
@@ -623,6 +676,7 @@ class PixCEdgeSwath(object):
         This function gives new labels to entities gathered at tile edges.
         """
         logger = logging.getLogger(self.__class__.__name__)
+        
         # 1 - Deal with all edges
 
         for i_edge, tile_num in enumerate(self.tile_num[:-1]):  # Loop over tile edges
@@ -670,7 +724,6 @@ class PixCEdgeSwath(object):
                 # 2.5 - Update global labels
                 for idx in range(old_labels.size):
                     self.labels[tile_idx[np.where(self.edge_label[tile_idx] == old_labels[idx])]] = new_labels[idx]
-
 
     # ----------------------------------------
 
@@ -737,9 +790,9 @@ class PixCEdgeSwath(object):
         rg2, az2 = self.get_edge_pixels(in_tile_idx2, "bottom")
 
         # # 2 - Concatenate pixels range in a numpy array
-        if delta_range > 0 :
+        if delta_range > 0:
             rg = np.concatenate((rg1 + delta_range, rg2))
-        else :
+        else:
             rg = np.concatenate((rg1, rg2 - delta_range))
 
         # 3 - Concatenate pixels azimuth in a numpy array
@@ -822,7 +875,7 @@ class PixCEdgeSwath(object):
             old_l1 = np.unique(old_labels_subset1[np.where(in_new_labels_subset1 == new_l)])
             old_l2 = np.unique(old_labels_subset2[np.where(in_new_labels_subset2 == new_l)])
 
-            # Most current case : at one label of tile1 corresponds one label of tile 2
+            # Most current case: at one label of tile1 corresponds one label of tile 2
             if old_l1.size == 1 and old_l2.size == 1:
                 # appending to correspondance a tuple with old label 1 and old label 2
                 correspondance.append((old_l1[0], old_l2[0]))
@@ -838,7 +891,7 @@ class PixCEdgeSwath(object):
                 for idx2 in np.arange(old_l2.size):
                     correspondance.append((None, old_l2[idx2]))
 
-            # Case that rarely occurs : the lake meanders along the border between two tiles, in this case severals labels 
+            # Case that rarely occurs: the lake meanders along the border between two tiles, in this case severals labels 
             # from tile1 matches with several labels of tile2.
             else:
                 for idx1 in np.arange(old_l1.size):
@@ -847,11 +900,11 @@ class PixCEdgeSwath(object):
 
         # To give an explicit example, labels of tile1 of replaced by letters belonging to ['a', ..] and labels of tile2 
         # are replaces by lettres belonging to [ 'r', ...]
-        # correspondance : [(a, r), (a, s), (b, s), (b, t), (c, u), (d, u)]
+        # correspondance: [(a, r), (a, s), (b, s), (b, t), (c, u), (d, u)]
         # labels a, b and r, s, t belong to the same entity, labels c, d, u belong to a separate entity.
 
-        # The fonction lib.matchLabels returns reorganised correspondance labels :
-        # label_matched : [([a, b], [r, s, t]), ([c, d], [u])]
+        # The fonction lib.matchLabels returns reorganised correspondance labels:
+        # label_matched: [([a, b], [r, s, t]), ([c, d], [u])]
         label_matched = match_labels(correspondance)
 
         logger.debug(" %d labels of first tile matched with %d labels of second tile into %d entities" % (np.unique(old_labels_subset1).size,
@@ -861,11 +914,11 @@ class PixCEdgeSwath(object):
         # need new labels for global lake_sp processings
         unique_label = np.arange(len(label_matched)).astype('int') + max(self.labels) + 1
         # local labels from half edge tiles 1 and 2 are moved into new labels global only for Lake_sp processings
-        # Ex : label_matched : [([a, b],[r,s,t]),([c,d],[u])]
+        # Ex: label_matched: [([a, b],[r,s,t]),([c,d],[u])]
         # The for loop iterates over entities at current tile edge
         for idx, (label_tile_1, label_tile_2) in enumerate(label_matched):
             # l contains the tuple corresponding to the idx^th entity
-            # Ex : l : ([a, b], [r, s, t])
+            # Ex: l: ([a, b], [r, s, t])
 
             # new_labels[idx] contains a label specefic for lake_SP processings
             new_label = unique_label[idx]
@@ -1006,7 +1059,7 @@ class PixCEdgeSwath(object):
 
             if i == 0:
                 out_range += list(range_tmp[np.where(tile_index_tmp == tile_num)])
-            else :
+            else:
                 d_rg += self.compute_range_variation_between_tiles(concerned_tiles[i-1], concerned_tiles[i])
                 out_range += list(range_tmp[np.where(tile_index_tmp == tile_num)] - d_rg)
         if min(out_range) != 0:
@@ -1019,7 +1072,7 @@ class PixCEdgeSwath(object):
         """
         This fuction returns the tile reference of the tile containing the larger number of pixels with the given label.
             
-        :param in_lake_tile_label : labels of lake to process
+        :param in_lake_tile_label: labels of lake to process
         :type in_lake_tile_label: int
         
         :return: tile reference
@@ -1118,6 +1171,130 @@ class PixCEdgeSwath(object):
 
         return np.array(near_range)
 
+    # ----------------------------------------
+    
+    def compute_height(self, in_pixc_index, method='weight'):
+        """
+        Caller of JPL aggregate.py/height_only function 
+        which computes the aggregation of PIXC height over a feature
+    
+        :param in_pixc_index: indices of pixels to consider for computation
+        :type in_pixc_index: 1D-array of int
+        :param method: type of aggregator ('weight', 'uniform', or 'median')
+        :type method: string
+        
+        :return: out_height = aggregated height
+        :rtype: out_height = float
+        """
+    
+        # Call JPL function
+        out_height, weight_norm = jpl_aggregate.height_only(self.height, in_pixc_index, height_std=self.height_std_pix, method=method)
+        
+        return out_height
+    
+    def compute_height_with_uncertainties(self, in_pixc_index, method='weight'):
+        """
+        Caller of JPL aggregate.py/height_with_uncerts function 
+        which computes the aggregation of PIXC height over a feature, with corresponding uncertainty
+    
+        :param in_pixc_index: indices of pixels to consider for computation
+        :type in_pixc_index: 1D-array of int
+        :param method: type of aggregator ('weight', 'uniform', or 'median')
+        :type method: string
+        
+        :return: out_height = aggregated height
+        :rtype: out_height = float
+        :return: out_height_std = standard deviation of the heights
+        :rtype: out_height_std = float
+        :return: out_height_unc = height uncertainty for the feature
+        :rtype: out_height_unc = float
+        """
+        
+        # Call JPL function
+        out_height, out_height_std, out_height_unc, lat_unc, lon_unc = jpl_aggregate.height_with_uncerts(
+                    self.corrected_height, in_pixc_index, self.eff_num_rare_looks, self.eff_num_medium_looks,
+                    self.interferogram_flattened, self.power_plus_y, self.power_minus_y, self.looks_to_efflooks,
+                    self.dheight_dphase, self.dlatitude_dphase, self.dlongitude_dphase, height_std=self.height_std_pix,
+                    method=method)
+        
+        return out_height, out_height_std, out_height_unc
+
+    def compute_area_with_uncertainties(self, in_pixc_index, method='composite'):
+        """
+        Caller of JPL aggregate.py/area_with_uncert function 
+        which computes the aggregation of PIXC area over a feature, with corresponding uncertainty
+    
+        :param in_pixc_index: indices of pixels to consider for computation
+        :type in_pixc_index: 1D-array of int
+        :param method: type of aggregator ('weight', 'uniform', or 'median')
+        :type method: string
+        
+        :return: out_area = total water area (=water + dark water pixels)
+        :rtype: out_area = float
+        :return: out_area_unc = uncertainty in total water area
+        :rtype: out_area_unc = float
+        :return: out_area_detct = area of detected water pixels
+        :rtype: out_area_detct = float
+        :return: out_area_detct_unc = uncertainty in area of detected water
+        :rtype: out_area_detct_unc = float
+        """
+        # == TODO: compute the pixel assignment error?
+        # call the general function
+
+        # Should normally just use all the data 
+        # (not just the use_heights pixels), but could use goodvar 
+        # to filter out outliers
+
+        # 1 - Aggregate PIXC area and uncertainty considering all PIXC (ie water + dark water)
+        # Call external function common with RiverObs
+        out_area, out_area_unc, area_pcnt_uncert = jpl_aggregate.area_with_uncert(
+                self.pixel_area, self.water_frac, self.water_frac_uncert,
+                self.darea_dheight, self.classif_full_water, self.false_detection_rate,
+                self.missed_detection_rate, in_pixc_index,
+                Pca=0.9, Pw=0.5, Ptf=0.5, ref_dem_std=10,
+                interior_water_klass=my_var.CLASSIF_INTERIOR_WATER,
+                water_edge_klass=my_var.CLASSIF_WATER_EDGE,
+                land_edge_klass=my_var.CLASSIF_LAND_EDGE,
+                method=method)
+        
+        # 2 - Aggregate PIXC area and uncertainty considering only water PIXC (ie detected water)
+        # Call external function common with RiverObs
+        out_area_detct, out_area_detct_unc, area_detct_pcnt_uncert = jpl_aggregate.area_with_uncert(
+                self.pixel_area, self.water_frac, self.water_frac_uncert,
+                self.darea_dheight, self.classif_without_dw, self.false_detection_rate,
+                self.missed_detection_rate, in_pixc_index,
+                Pca=0.9, Pw=0.5, Ptf=0.5, ref_dem_std=10,
+                interior_water_klass=my_var.CLASSIF_INTERIOR_WATER,
+                water_edge_klass=my_var.CLASSIF_WATER_EDGE,
+                land_edge_klass=my_var.CLASSIF_LAND_EDGE,
+                method=method)
+        
+        return out_area, out_area_unc, out_area_detct, out_area_detct_unc
+    
+    def compute_interferogram_flattened(self, in_pixc_index, in_p_final):
+        """
+        Flatten the interferogram for the feature definied by the PIXC of indices in_pixc_index
+        
+        :param in_pixc_index: indices of pixels defining the studied feature
+        :type in_pixc_index: 1D-array of int
+        :param in_p_final: position of pixels of the feature in geocentric coordinates (same length as in_pixc_index)
+        :type in_p_final: numpy 2D-array of float; size (3=x/y/z, nb_pixc)
+        """
+        
+        # 1 - Format variables
+        # 1.1 - Cartesian coordinates of plus_y antenna
+        plus_y_antenna_xyz = (self.nadir_plus_y_antenna_x , self.nadir_plus_y_antenna_y , self.nadir_plus_y_antenna_z)
+        # 1.2 - Cartesian coordinates of minus_y antenna
+        minus_y_antenna_xyz = (self.nadir_minus_y_antenna_x , self.nadir_minus_y_antenna_y, self.nadir_minus_y_antenna_z)
+        # 1.3 - Position of PIXC in geocentric coordinates
+        target_xyz = (in_p_final[:,0], in_p_final[:,1], in_p_final[:,2])
+        
+        # 2 - Call to external function, common with RiverObs
+        self.interferogram_flattened[in_pixc_index] = jpl_aggregate.flatten_interferogram(
+                self.interferogram[in_pixc_index], 
+                plus_y_antenna_xyz, minus_y_antenna_xyz, 
+                target_xyz, in_pixc_index, self.wavelength)          
+
 
 #######################################
 
@@ -1126,10 +1303,10 @@ def match_labels(in_liste):
     """
     This function reorganise labels in order to group labels by entities
         
-    :param IN_liste: ex : [(a, r), (a, s), (b, s), (b, t), (c, u), (d, u)]. Labels a, b and r, s, t belong to the same entity, labels c, d, u belong to a separate entity.
+    :param IN_liste: ex: [(a, r), (a, s), (b, s), (b, t), (c, u), (d, u)]. Labels a, b and r, s, t belong to the same entity, labels c, d, u belong to a separate entity.
     
     :return: labels gathered by entities
-             ex : [(set([a, b]), set([r, s, t])), (set([c, d]), set([u]))] <=> [([a, b], [r, s, t]), ([c, d], [u])]
+             ex: [(set([a, b]), set([r, s, t])), (set([c, d]), set([u]))] <=> [([a, b], [r, s, t]), ([c, d], [u])]
     """
     labels_list = group_by_second(group_by_first(in_liste))
     labels_match_out = []
@@ -1141,7 +1318,7 @@ def match_labels(in_liste):
         elif set_label_tile2 == set([None]):
             for label in set_label_tile1:
                 labels_match_out.append((set([label]), None))
-        else :
+        else:
             set_label_tile1.discard(None)
             set_label_tile2.discard(None)
             labels_match_out.append((set_label_tile1, set_label_tile2))
@@ -1153,9 +1330,9 @@ def group_by_first(in_liste):
     """
     This function take a list of tuples. The list is grouped by the first element of tuple and returned as a dictionary.
         
-    :param IN_liste: la list of tuple. Ex : [ (a, r), (b, r),  (c, s), (c, t)]
+    :param IN_liste: la list of tuple. Ex: [ (a, r), (b, r),  (c, s), (c, t)]
     
-    :return out_dico : ex : {a: set([r]), b: set([r]), c : set([t]}
+    :return out_dico: ex: {a: set([r]), b: set([r]), c: set([t]}
     """
 
     out_dico = {}
@@ -1172,9 +1349,9 @@ def group_by_second(in_dict):
     """
     This function take a dictionary. The dictionary is grouped by second elements and returned as a list of tuple of set.
         
-    :param in_dict: result of group by first function: {a: set([r]), b: set([r]), c : set([t]}
+    :param in_dict: result of group by first function: {a: set([r]), b: set([r]), c: set([t]}
     
-    :return: a list of tuple of set. ex : [(set([a, b]), set([r])), (set([c]), set([s, t]))]
+    :return: a list of tuple of set. ex: [(set([a, b]), set([r])), (set([c]), set([s, t]))]
     """
     
     # Init
@@ -1199,8 +1376,8 @@ def checklist_inter(in_value, in_result):
     """
     Check if an element of value is contained in result
         
-    :param in_value: a set of elements ex : set([r])
-    :param in_result: a tuple of set ex : (set([a]), set([r]))
+    :param in_value: a set of elements ex: set([r])
+    :param in_result: a tuple of set ex: (set([a]), set([r]))
     
     :return: set([r])
     """
@@ -1211,10 +1388,10 @@ def merge(in_result, in_key, in_value):
     """
     Merge value with element of tuple key in result.
         
-    :param in_result: a tuple of set ex : (set([a]), set([r]))
-    :param in_key: key of first element of tuple. ex : b
-    :param in_value: set to merge ex : set([r])
+    :param in_result: a tuple of set ex: (set([a]), set([r]))
+    :param in_key: key of first element of tuple. ex: b
+    :param in_value: set to merge ex: set([r])
     
-    :return: merged tuple of set. ex :set([a, b]), set([r])
+    :return: merged tuple of set. ex:set([a, b]), set([r])
     """
     return (in_result[0].union(set([in_key])), in_result[1].union(in_value))

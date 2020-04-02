@@ -25,6 +25,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals 
 
 import logging
+import netCDF4
 from netCDF4 import Dataset
 import numpy
 
@@ -415,7 +416,7 @@ class MyNcWriter(object):
 
     #----------------------------------------
         
-    def add_variable(self, in_name, in_datatype, in_dimensions, in_group=None, in_attributes=None, in_compress=True, is_complex=False):
+    def add_variable(self, in_name, in_datatype, in_dimensions, in_group=None, in_attributes=None, in_compress=True):
         """
         Add the data content of the variable
         
@@ -439,54 +440,16 @@ class MyNcWriter(object):
             cur_content = self.content
         else:
             cur_content = in_group
-        """        
-<<<<<<< HEAD
-        if (in_datatype is numpy.double) or (in_datatype is numpy.float64):
-            # double netCDF variable
-            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_DOUBLE)
-        elif (in_datatype is numpy.float):
-            # float netCDF variable
-            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_FLOAT)
-        elif (in_datatype is numpy.int32) or (in_datatype is int):
-            # int netCDF variable
-            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_INT)
-        elif (in_datatype is numpy.uint32):
-            # unsigned int netCDF variable
-            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_UINT)
-        elif (in_datatype is numpy.int16):
-            # short netCDF variable
-            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_SHORT)
-        elif (in_datatype is numpy.uint16):
-            # unsigned short netCDF variable
-            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_USHORT)
-        elif (in_datatype is numpy.int8):
-            # byte netCDF variable
-            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_BYTE)
-        elif (in_datatype is numpy.uint8):
-            # unsigned byte netCDF variable
-            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_UBYTE)
-        elif (in_datatype is str):
-            # char netCDF variable command below is not correctly support in python netCDF...
-            #cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, fill_value=my_variables.FV_STRING)
-            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2)
-=======
-        """
+            
         # Create variable depending on its type
-        if in_datatype is str:
-            # string type is not allowed in netCDF, force NC_CHAR type
-            #cur_content.createVariable(in_name, 'c', in_dimensions, in_compress, 2)
-            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2)
+        if numpy.dtype(in_datatype).char == 'c':  # Table of char
+            cur_content.createVariable(in_name, 'c', in_dimensions, in_compress, 2)
         elif numpy.dtype(in_datatype).name in my_var.FV_NETCDF:
-            if in_name=='interferogram':
-                cur_content.createVariable(in_name, in_datatype, (in_dimensions, 'complex_depth'), in_compress, 2, \
-                                           fill_value=my_var.FV_NETCDF[numpy.dtype(in_datatype).name])
-            else:
-                cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, \
-                                           fill_value=my_var.FV_NETCDF[numpy.dtype(in_datatype).name])
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, \
+                                       fill_value=my_var.FV_NETCDF[numpy.dtype(in_datatype).name])
         else:
             # datatype not recognized !
-            message = "datatype not recognized : %s %s" % str(numpy.dtype(in_datatype).name)
-            print(str(my_var.FV_NETCDF))
+            message = "datatype not recognized : %s" % str(numpy.dtype(in_datatype).name)
             raise service_error.ProcessingError(message, logger)
             
         # Add variable attributes
@@ -547,8 +510,10 @@ class MyNcWriter(object):
             cur_content = in_group
 
         if in_name in cur_content.variables:
-            # Test existence of NaNs and replace them by _FillValue
             data_type = str(in_data.dtype)
+            
+            # == Case of float and double
+            # Test existence of NaNs and replace them by _FillValue
             if data_type.startswith("float") or data_type.startswith("double"):
                 nan_idx = numpy.argwhere(numpy.isnan(in_data))
                 nb_nan = len(nan_idx)
@@ -561,13 +526,17 @@ class MyNcWriter(object):
                         logger.warning("{} NaN values remaining in {} variable => replaced by {} (_FillValue unknown)".format(nb_nan, in_name, \
                                                                                                                          my_var.FV_NETCDF[data_type]))
                         in_data[nan_idx] = my_var.FV_NETCDF[data_type]
-            # ~ # Write the whole array
-            if in_name=="interferogram":
+            
+            # == In case of table of char
+            if data_type.startswith("|S"):
+                # Data needs to be converted before being written in NetCDF file
+                cur_content.variables[in_name][:] = netCDF4.stringtochar(in_data)
+            elif len(in_data.shape) == 2:
                 cur_content.variables[in_name][:,:] = in_data
             else:
                 cur_content.variables[in_name][:] = in_data
-
+                
         else:
             # Variable not recognized !
-            logger.debug("Could not fill variable %s because it does not exist" % in_name)
+            logger.warning("Could not fill variable %s because it does not exist" % in_name)
             

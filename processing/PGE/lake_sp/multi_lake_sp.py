@@ -160,13 +160,14 @@ class MultiLakeSP(object):
         print("")
 
         timer_proc = my_timer.Timer()
-        timer_proc.start()
 
         for (cycle_num, pass_num) in self.cycle_pass_set:  # Deal with all selected files
+        
+            timer_proc.start()
 
-            print("****************************************************************************************************************")
+            print("***********************************************")
             print("***** Dealing with cycle %s and pass %s *****" % (cycle_num, pass_num))
-            print("****************************************************************************************************************")
+            print("***********************************************")
             print("")
             print("")
 
@@ -182,7 +183,7 @@ class MultiLakeSP(object):
             my_lake_tile.stop()
 
             print("")
-            print(timer.stop())
+            print(timer_proc.stop())
             print("")
             print("")
 

@@ -385,13 +385,13 @@ class PGELakeTile():
         """
         logger = logging.getLogger(self.__class__.__name__)
         
-        # 1 - Init PIXCVec product by retrieving data from the pixel cloud complementary file after river processing
+        # 1 - Init PIXCVec object by retrieving data from the pixel cloud complementary file after river processing
         logger.info("> 1.1 - Init pixel cloud complementary file...")
         self.obj_pixc_vec = proc_pixc_vec.PixelCloudVec("TILE")
         self.obj_pixc_vec.set_from_pixcvec_file(self.pixc_vec_river_file)
         logger.info("")
 
-        # 2 - Init Pixc product by retrieving needed data from the pixel cloud
+        # 2 - Init PIXC object by retrieving needed data from the pixel cloud
         logger.info("> 1.2 - Retrieving needed data from the pixel cloud...")
         self.obj_pixc = proc_pixc.PixelCloud()
         self.obj_pixc.set_from_pixc_file(self.pixc_file, self.obj_pixc_vec.reject_index)
