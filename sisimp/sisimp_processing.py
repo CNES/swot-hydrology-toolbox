@@ -140,6 +140,7 @@ class Processing(object):
             self.my_attributes.range_sampling = read_parameter(parameters, "Range sampling", my_var.RANGE_SAMPLING, float)
             self.my_attributes.nb_pix_range = read_parameter(parameters, "Number of pixels in range", my_var.NB_PIX_RANGE, int)
             self.my_attributes.orbit_jitter = read_parameter(parameters, "Orbit jitter", my_var.ORBIT_JITTER, float)
+            self.my_attributes.baseline = read_parameter(parameters, "Baseline", my_var.BASELINE, float)
 
             # Height model parameter
             self.my_attributes.height_model = read_parameter(parameters, "Height model", my_var.HEIGHT_MODEL, str)
@@ -357,17 +358,13 @@ class Processing(object):
             my_api.printInfo("[sisimp_processing] >>> CYCLE %03d and ORBIT %03d <<<" % (elem[0], elem[1]))
             my_api.printInfo("########################################################")
             my_api.printInfo("")
-
             # 1 - Read orbit file
             self.my_attributes = sisimp_fct.read_orbit(elem[2], elem[0], self.my_attributes)
             my_api.printInfo("")
-            
             # 2 - Init SISIMP filenames object
             self.my_attributes.sisimp_filenames = my_names.sisimpFilenames(self.my_attributes.out_dir, self.my_attributes.mission_start_time, self.my_attributes.cycle_duration, elem[0], elem[1])
             
-            
             ## loop over tile
-            
             
             tile_values, tile_list = tiling.get_tiles_from_orbit(self.my_attributes, elem[1])
             
@@ -384,9 +381,7 @@ class Processing(object):
                     my_api.printInfo("========================================================")
                     my_api.printInfo("[sisimp_processing] Processing tile %d " %(tile_number))
                     my_api.printInfo("========================================================")
-
                     self.my_new_attributes = tiling.crop_orbit(self.my_attributes, tile_values, tile_number, tropo.tropo_map_rg_az)
-
                     # 3 - Process right swath
                     self.my_new_attributes = sisimp_fct.make_pixel_cloud("Right", elem[0], elem[1], self.my_new_attributes)
                     my_api.printInfo("")

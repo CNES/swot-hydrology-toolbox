@@ -76,12 +76,12 @@ def set_swot_hydro_env():
             tbx_path = os.getcwd().replace(os.sep + "scripts", "")
         pge_lake_sp_src = os.path.join(tbx_path, "processing" + os.path.sep + "PGE" + os.path.sep + "lake_sp")
         sys.path.insert(0, pge_lake_sp_src)
-        if os.environ['SWOT_CNES']:
-            swot_cnes_path = str(os.environ['SWOT_CNES'])
-            tmp_sys_path = sys.path.copy()
-            for path in tmp_sys_path:
-                if str(path).startswith(swot_cnes_path):
-                    sys.path.remove(path)
+        # ~ if os.environ['SWOT_CNES']:
+            # ~ swot_cnes_path = str(os.environ['SWOT_CNES'])
+            # ~ tmp_sys_path = sys.path.copy()
+            # ~ for path in tmp_sys_path:
+                # ~ if str(path).startswith(swot_cnes_path):
+                    # ~ sys.path.remove(path)
 
         import multi_lake_sp as multi_lake_sp
     except:

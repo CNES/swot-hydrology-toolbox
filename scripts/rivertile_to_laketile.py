@@ -135,13 +135,12 @@ def set_swot_hydro_env():
         except:
             tbx_path = os.getcwd().replace(os.sep + "scripts", "")
         sys.path.insert(0, tbx_path)
-
-        if os.environ['SWOT_CNES']:
-            swot_cnes_path = str(os.environ['SWOT_CNES'])
-            tmp_sys_path = sys.path.copy()
-            for path in tmp_sys_path:
-                if str(path).startswith(swot_cnes_path):
-                    sys.path.remove(path)
+        # ~ if os.environ['SWOT_CNES']:
+            # ~ swot_cnes_path = str(os.environ['SWOT_CNES'])
+            # ~ tmp_sys_path = sys.path.copy()
+            # ~ for path in tmp_sys_path:
+                # ~ if str(path).startswith(swot_cnes_path):
+                    # ~ sys.path.remove(path)
         from processing.PGE.lake_tile import pge_lake_tile as pge_lake_tile
     except:
         print("swot-hydrology-toolbox environment not found : please set SWOT_HYDROLOGY_TOOLBOX variable")

@@ -32,10 +32,16 @@ from lib.my_variables import RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
 from lib.roll_module import Roll_module
 from lib.tropo_module import Tropo_module
 
+from inversion_algo import inversionCore
+
 import mathematical_function as math_fct
 import proc_real_pixc
 import proc_real_pixc_vec_river
 
+import pickle
+
+GEN_RAD_EARTH = 6378137.0
+GEN_RAD_EARTH_POLE = 6356752.31425
 
 class orbitAttributes:
     
@@ -112,9 +118,12 @@ class orbitAttributes:
 
         # 3.1 - From orbit file
         self.azimuth_spacing = None  # Azimuth spacing
+        self.azimuth_layover = {} # Azimuth layover when using multi-tile
         self.lon = None
+        self.lon_orbit = None
         self.lon_init = None
         self.lat = None
+        self.lat_orbit = None
         self.lat_init = None
         self.alt = None
         self.heading = None
@@ -192,7 +201,7 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
     ds = gdal.GetDriverByName(str('MEM')).Create('', nx, ny, nb_rasterBand, GDT_Float32)
     ds.SetGeoTransform([-0.5, 1, 0, -0.5, 0, 1])
     ds.GetRasterBand(1).WriteArray(cover)
-
+    
     # Burn with a value 1 the pixels that are in a polygon
     gdal.RasterizeLayer(ds, [1], layer, None, None, burn_values=[1])
     #~ #                                        , options=['ALL_TOUCHED=TRUE'])
@@ -246,13 +255,14 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
         else :
             for lake in IN_attributes.liste_lacs:
                 lake.compute_pixels_in_given_lac(OUT_ind_lac_data)
+
     return OUT_burn_data, OUT_height_data, OUT_code_data, OUT_ind_lac_data, IN_attributes
                 
 
 #######################################
     
 
-def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_orbit_number, IN_attributes):
+def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_orbit_number, IN_attributes, swath_polygon):
     """
     Check what pixels are marked as water and write their position.
     Real PixC files (Version 08/2018) are produced.
@@ -366,9 +376,10 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             titi = merge(lac.pixels[0], lac.pixels[1])
             toto = merge(r, az)
             indice = np.isin(toto,titi)
-
+            
             lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
+            elevation_tab[indice] += lac.h_ref
 
 
     # 3 - Build cross-track distance array
@@ -387,12 +398,14 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     if IN_attributes.dark_water.lower() == "yes":
         noise_seed = int(str(time.time()).split('.')[1])
         delta_h = np.zeros(elevation_tab.shape)
+        phase_noise_std = np.zeros(elevation_tab.shape)
+        dh_dphi = np.zeros(elevation_tab.shape)
         water_pixels = np.where(classification_tab == IN_attributes.water_flag)
         dw_pixels = np.where(classification_tab == IN_attributes.darkwater_flag)
-        delta_h[water_pixels] = math_fct.calc_delta_h(angles[water_pixels], IN_attributes.noise_height, IN_attributes.height_bias_std, seed=noise_seed)
-        delta_h[dw_pixels] = math_fct.calc_delta_h(angles[dw_pixels], IN_attributes.dw_detected_noise_height, IN_attributes.height_bias_std, seed=noise_seed)
+        delta_h[water_pixels], phase_noise_std[water_pixels], dh_dphi[water_pixels] = math_fct.calc_delta_h(angles[water_pixels], IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+        delta_h[dw_pixels], phase_noise_std[dw_pixels], dh_dphi[dw_pixels] = math_fct.calc_delta_h(angles[dw_pixels], IN_attributes.dw_detected_noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
     else:
-        delta_h = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std)
+        delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
 
     # 4.2 Add residual roll error
     try:
@@ -465,7 +478,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # Convert nadir latitudes/longitudes in degrees
     nadir_lat_deg = IN_attributes.lat * RAD2DEG
     nadir_lon_deg = IN_attributes.lon * RAD2DEG
-        
+    
     # Remove 1st and last values because just here for extrapolators (cf. read_orbit)
     nadir_alt = IN_attributes.alt
     nadir_heading = IN_attributes.heading
@@ -473,6 +486,10 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     lon_noisy, lat_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, h=elevation_tab+delta_h)
     lon_noisy *= RAD2DEG  # Conversion in degrees
     lat_noisy *= RAD2DEG  # Conversion in degrees
+    
+    dlon_dphi = (lon_noisy-lon)/delta_h*dh_dphi
+    dlat_dphi = (lat_noisy-lat)/delta_h*dh_dphi
+    
     
     ######################
     # Write output files #
@@ -487,7 +504,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         # Get azimuth indices corresponding to this integer value of latitude
         nadir_az = np.arange(1, len(IN_attributes.alt)-1)
                     
-        az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth indices vector
+        az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth ivector
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
 
         # Get overlapping pixels du to tilling process
@@ -496,6 +513,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
 
         # Get pixel indices of water pixels corresponding to this latitude interval
         az_indices = np.where((az >= min(nadir_az) + nb_pix_overlap_begin -1 ) & (az <= max(nadir_az) - nb_pix_overlap_end +1 ))[0]
+        
         nb_pix = az_indices.size  # Number of water pixels for this latitude interval
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d water pixels" % nb_pix)
         
@@ -523,6 +541,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             if nb_pix_overlap_end == 0:
                 nb_pix_overlap_end = 1
 
+            #TODO:keep only indices + negative values from azr_from_lonlat
             tile_nadir_lat_deg = nadir_lat_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
             tile_nadir_lon_deg = nadir_lon_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
             tile_orbit_time = IN_attributes.orbit_time[nb_pix_overlap_begin:-nb_pix_overlap_end]
@@ -535,20 +554,61 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             tile_vx = vx[nb_pix_overlap_begin:-nb_pix_overlap_end]
             tile_vy = vy[nb_pix_overlap_begin:-nb_pix_overlap_end]
             tile_vz = vz[nb_pix_overlap_begin:-nb_pix_overlap_end]
+            
+            # Calcul x, y, z of satellite on earth
+            x_earth, y_earth, z_earth = inversionCore.convert_llh2ecef(tile_nadir_lat_deg, tile_nadir_lon_deg, np.zeros(len(tile_nadir_lat_deg)), GEN_RAD_EARTH, GEN_RAD_EARTH_POLE)
+            nadir_vx = tile_x - x_earth
+            nadir_vy = tile_y - y_earth
+            nadir_vz = tile_z - z_earth
+
+            # Calcul norm for each vector
+            norm_sat = [np.sqrt(x*x + y*y + z*z) for x, y, z in zip(tile_vx, tile_vy, tile_vz)]
+            norm_nadir = [np.sqrt(x*x + y*y + z*z) for x, y, z in zip(nadir_vx, nadir_vy, nadir_vz)]
+
+            # Normalize vectors
+            norm_vx = [val / norm_val for val, norm_val in zip(tile_vx, norm_sat)]
+            norm_vy = [val / norm_val for val, norm_val in zip(tile_vy, norm_sat)]
+            norm_vz = [val / norm_val for val, norm_val in zip(tile_vz, norm_sat)]
+
+            norm_nadir_vx = [val/norm_val for val, norm_val in zip(nadir_vx, norm_nadir)]
+            norm_nadir_vy = [val/norm_val for val, norm_val in zip(nadir_vy, norm_nadir)]
+            norm_nadir_vz = [val/norm_val for val, norm_val in zip(nadir_vz, norm_nadir)]
+
+            # Calcul normal vector
+            normal_vector = [np.cross([vx, vy, vz], [nadir_vx, nadir_vy, nadir_vz]) for vx, vy, vz, nadir_vx, nadir_vy, nadir_vz in zip(norm_vx, norm_vy, norm_vz, norm_nadir_vx, norm_nadir_vy, norm_nadir_vz)]
+           
+            # Find sensors coordinates
+            sensor_plus_y_x = [x + nv[0]*5 for x, nv in zip(tile_x, normal_vector)]
+            sensor_plus_y_y = [y + nv[1]*5 for y, nv in zip(tile_y, normal_vector)]
+            sensor_plus_y_z = [z + nv[2]*5 for z, nv in zip(tile_z, normal_vector)]
+
+            sensor_minus_y_x = [x - nv[0]*5 for x, nv in zip(tile_x, normal_vector)]
+            sensor_minus_y_y = [y - nv[1]*5 for y, nv in zip(tile_y, normal_vector)]
+            sensor_minus_y_z = [z - nv[2]*5 for z, nv in zip(tile_z, normal_vector)]
+
+            # Calcul interferogram for all water pixel 
+            interf_2d = []
+            x_water, y_water, z_water = inversionCore.convert_llh2ecef(lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], GEN_RAD_EARTH, GEN_RAD_EARTH_POLE)
+            for i, (x_w, y_w, z_w) in enumerate(zip(x_water, y_water, z_water), 0):
+                interferogram = my_tools.compute_interferogram(sensor_plus_y_x[sub_az[i]], sensor_plus_y_y[sub_az[i]], sensor_plus_y_z[sub_az[i]],\
+                    sensor_minus_y_x[sub_az[i]], sensor_minus_y_y[sub_az[i]], sensor_minus_y_z[sub_az[i]], x_w, y_w, z_w) 
+                interf_2d.append([interferogram[0], interferogram[1]])
 
             nadir_az_size = tile_nadir_lat_deg.size
 
             tile_coords = compute_tile_coords(IN_attributes, IN_swath, nadir_az_size, nb_pix_overlap_begin)
             IN_attributes.tile_coords[left_or_right] = tile_coords
 
+
             # Init L2_HR_PIXC object
             my_pixc = proc_real_pixc.l2_hr_pixc(sub_az, sub_r, classification_tab[az_indices], pixel_area[az_indices],
-                                                lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], y[az_indices],
+                                                lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], phase_noise_std[az_indices],
+                                                dh_dphi[az_indices], dlon_dphi[az_indices], dlat_dphi[az_indices], y[az_indices],
                                                 tile_orbit_time, tile_nadir_lat_deg, tile_nadir_lon_deg, tile_nadir_alt, tile_nadir_heading,
                                                 tile_x, tile_y, tile_z, tile_vx, tile_vy, tile_vz,
                                                 IN_attributes.near_range, IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number,
                                                 IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az_size, IN_attributes.azimuth_spacing,
-                                                IN_attributes.range_sampling, IN_attributes.near_range, tile_coords)
+                                                IN_attributes.range_sampling, IN_attributes.near_range, tile_coords, interf_2d)
             
             # Update filenames with tile ref
             IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])
@@ -641,7 +701,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
     # Exit if no feature to deal with
     if nb_features == 0:
-        return None, IN_attributes
+        return None, IN_attributes, None
 
     # 3 - Create the output shapefile
     swath_t = '%s_swath' % IN_swath
@@ -669,6 +729,8 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
     nb_lakes = layer.GetFeatureCount()
     processing = np.round(np.linspace(0, nb_lakes, 11), 0)
+
+    
     for ind, polygon_index in enumerate(layer):
         if ind in processing :
             my_api.printInfo("[write_polygons] [reproject_shapefile] Processing %d %%" %( int(100 * (ind+1)/nb_lakes) ) )
@@ -689,9 +751,23 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
             # 4.2.2 - Compute the zone resulting of the intersection between polygon and swath
             intersection = geom.Intersection(swath_polygon)
-            if not intersection:
-                geom_buff = geom.Clone().Buffer(0)
-                intersection =  geom_buff.Intersection(swath_polygon)
+            
+            save_field = False
+            try:
+                id_lake = polygon_index.GetField("code")
+            except ValueError:
+                id_lake = polygon_index.GetField("id")
+            # Test area of intersect zones
+
+            if intersection is None or id_lake!=25 or intersection.GetArea() != geom.GetArea():
+                save_field = True
+                intersection=geom
+            
+# ~ =======
+            # ~ if not intersection:
+                # ~ geom_buff = geom.Clone().Buffer(0)
+                # ~ intersection =  geom_buff.Intersection(swath_polygon)
+# ~ >>>>>>> develop
             # 4.2.3 - Convert polygons coordinates
             add_ring = False
 
@@ -703,7 +779,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
                 if npoints == 0:
                     continue  # ignore polygons completely outside the swath
-
 
                 points = np.transpose(np.array(ring.GetPoints()))
 
@@ -728,38 +803,95 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 lon = lon * DEG2RAD
                 lat = lat * DEG2RAD
 
-                lac = None
 
                 if IN_attributes.height_model is None:
-                    lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
+                    lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
 
                 if IN_attributes.height_model == 'reference_height':
-                    lac = Reference_height_Lac(ind+1, polygon_index, layerDefn, IN_attributes)
+                    lac = Reference_height_Lac(ind+1, polygon_index, layerDefn, IN_attributes, id_lake)
 
                 if IN_attributes.height_model == 'gaussian':
                     if area > IN_attributes.height_model_min_area:
                         my_api.printInfo(str("Gaussian model applied for big water body of size %f ha" % area))
-                        lac = Gaussian_Lac(ind+1, IN_attributes, lat * RAD2DEG, lon * RAD2DEG, IN_cycle_number)
+                        lac = Gaussian_Lac(ind+1, IN_attributes, lat * RAD2DEG, lon * RAD2DEG, IN_cycle_number, id_lake)
                     else:
-                        lac = Constant_Lac(ind+1, IN_attributes, lat* RAD2DEG, IN_cycle_number)
+                        lac = Constant_Lac(ind+1, IN_attributes, lat* RAD2DEG, IN_cycle_number, id_lake)
 
                 if IN_attributes.height_model == 'polynomial':
                     if area > IN_attributes.height_model_min_area:
                         my_api.printInfo(str("Polynomial model applied for big water body of size %f ha" % area))
-                        lac = Polynomial_Lac(ind+1, IN_attributes, lat* RAD2DEG, lon* RAD2DEG, IN_cycle_number)
+                        lac = Polynomial_Lac(ind+1, IN_attributes, lat* RAD2DEG, lon* RAD2DEG, IN_cycle_number, id_lake)
                     else:
-                        lac = Constant_Lac(ind+1, IN_attributes, lat* RAD2DEG, IN_cycle_number)
+                        lac = Constant_Lac(ind+1, IN_attributes, lat* RAD2DEG, IN_cycle_number, id_lake)
 
                 if IN_attributes.height_model == "reference_file":
                     if IN_attributes.trueheight_file is not None:
-                        lac = Height_in_file_Lac(ind+1, IN_attributes)
+                        lac = Height_in_file_Lac(ind+1, IN_attributes, id_lake)
                     else:
-                        lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number)
+                        lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
 
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
+                try:
+                    lac.h_ref=float(polygon_index.GetField("ref_height"))
+                    if lac.h_ref==None:
+                        lac.h_ref=0
+                except:
+                    lac.h_ref=0
 
                 if IN_attributes.height_model == 'polynomial' and area > IN_attributes.height_model_min_area:
+                    # Create database to save all parameters 
+                    if save_field:
+                        # Read DB
+                        try:
+                            lake_polynomial_file=open('lake_polynomial_param.pkl', 'rb')
+                            polynomial_param_db=pickle.load(lake_polynomial_file)
+                            try:
+                                # Get saved parameters for this lake
+                                lac.X0 = polynomial_param_db[id_lake][0].copy()
+                                lac.Y0 = polynomial_param_db[id_lake][1].copy()
+                                lac.COEFF_X2 = polynomial_param_db[id_lake][2].copy()
+                                lac.COEFF_Y2 = polynomial_param_db[id_lake][3].copy()
+                                lac.COEFF_X = polynomial_param_db[id_lake][4].copy()
+                                lac.COEFF_Y = polynomial_param_db[id_lake][5].copy()
+                                lac.COEFF_XY = polynomial_param_db[id_lake][6].copy()
+                                lac.COEFF_CST = polynomial_param_db[id_lake][7].copy()
+                            except KeyError:
+                                # If lake seen for first time - no layover
+                                polynomial_param_db[id_lake] = [lac.X0, lac.Y0, lac.COEFF_X2, lac.COEFF_Y2, lac.COEFF_X, lac.COEFF_Y, lac.COEFF_XY, lac.COEFF_CST] 
+                            lake_polynomial_file.close() 
+                            lake_polynomial_file=open('lake_polynomial_param.pkl', 'wb')
+                            # Add azimuth layover of lake's current tile layover
+                            pickle.dump(polynomial_param_db, lake_polynomial_file, pickle.HIGHEST_PROTOCOL)
+                            lake_polynomial_file.close()
+                        # Create DB if not existent    
+                        except:
+                            lake_polynomial_file=open('lake_polynomial_param.pkl', 'wb')
+                            pickle.dump({id_lake:[lac.X0, lac.Y0, lac.COEFF_X2, lac.COEFF_Y2, lac.COEFF_X, lac.COEFF_Y, lac.COEFF_XY, lac.COEFF_CST]}, lake_polynomial_file, pickle.HIGHEST_PROTOCOL)
+                            lake_polynomial_file.close()
+                    # Reset h_mean of the lake
+                    lac.set_hmean(np.mean(lac.compute_h(lat*RAD2DEG, lon*RAD2DEG)))
                     az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.compute_h(lat* RAD2DEG, lon* RAD2DEG))
+
+                elif IN_attributes.height_model=='gaussian' and area > IN_attributes.height_model_min_area:
+                    # Create DB to save gaussian parameters
+                    try:
+                        lake_gaussian_file=open('lake_gaussian_param.pkl', 'rb')
+                        gaussian_param_db=pickle.load(lake_gaussian_file)
+                        try:
+                            lac.h_interp=gaussian_param_db[id_lake]
+                        except KeyError:
+                            gaussian_param_db[id_lake]=lac.h_interp
+                        lake_gaussian_file.close()
+                        lake_gaussian_file=open('lake_gaussian_param.pkl','wb')
+                        pickle.dump(gaussian_param_db, lake_gaussian_file, pickle.HIGHEST_PROTOCOL)
+                        lake_gaussian_file.close()
+                    except:
+                        lake_gaussian_file=open('lake_gaussian_param.pkl', 'wb')
+                        pickle.dump({id_lake:lac.h_interp}, lake_gaussian_file, pickle.HIGHEST_PROTOCOL)
+                        lake_gaussian_file.close()
+                    lac.set_hmean(np.mean(lac.compute_h(lat*RAD2DEG, lon*RAD2DEG)))
+                    az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
+
                 else:
                     az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
 
@@ -771,10 +903,14 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
                 for p in range(npoints):  # no fonction ring.SetPoints()
                     ring.SetPoint(p, az[p], r[p])
+                #ring.Intersection(swath_polygon)
                 ring.CloseRings()
+
                 add_ring = True
                 # Add the reprojected ring to the output geometry
                 geom_out.AddGeometry(ring)
+            
+            #geom_out=geom_out.Intersection(swath_polygon)
 
             # 4.2.4 - Add Output geometry
             if add_ring:
@@ -788,7 +924,10 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 layerDefn = layer.GetLayerDefn()
                 for i in range(layerDefn.GetFieldCount()):
                     if IN_attributes.height_model == 'polynomial' or IN_attributes.height_model == 'gaussian':
-                        feature_out.SetField(str("CODE"), polygon_index.GetField("code"))
+                        try:
+                            feature_out.SetField(str("CODE"), polygon_index.GetField("code"))
+                        except ValueError:
+                            feature_out.SetField(str("CODE"), polygon_index.GetField("id"))
                 if not height_from_shp:
                     IN_attributes.height_model_a_tab = None
 
@@ -811,7 +950,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
     IN_attributes.liste_lacs = liste_lac
 
-    return OUT_filename, IN_attributes
+    return OUT_filename, IN_attributes, swath_polygon
                 
 
 #######################################
@@ -937,7 +1076,7 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau=0.):
         indice = np.argmin(np.abs(gamma[i, :]))
         y[i] = beta[i, indice]
         ind[i] = indice - int(nb_points/2)
-    OUT_azcoord2 = OUT_azcoord + ind -0.5
+    OUT_azcoord2 = OUT_azcoord + ind #-0.5
     #~ # Compute range coordinate (across track)
     OUT_azcoord2[np.where(OUT_azcoord2 < 0)] = 0
     OUT_azcoord2[np.where(OUT_azcoord2 > len(alt)-1)] = len(alt)-1

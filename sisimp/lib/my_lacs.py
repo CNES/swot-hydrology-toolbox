@@ -12,12 +12,14 @@ from lib.my_variables import COEFF_X2, COEFF_Y2, COEFF_X, COEFF_Y, COEFF_XY, COE
 
 class Lac:
 
-    def __init__(self, num):
+    def __init__(self, num, id=None):
         
         self.num = num
+        self.id = id
         self.seed = int(str(time.time()).split('.')[1])
         self.hmean = None
         self.nb_pix = 0
+        self.h_ref=0
 
     def compute_pixels_in_given_lac(self, OUT_ind_lac_data):
         self.pixels = np.where(OUT_ind_lac_data == self.num)
@@ -34,8 +36,8 @@ class Lac:
         
 class Constant_Lac(Lac):
     
-    def __init__(self, num, IN_attributes, lat, IN_cycle_number):
-        Lac.__init__(self, num)
+    def __init__(self, num, IN_attributes, lat, IN_cycle_number, id=None):
+        Lac.__init__(self, num, id)
         self.height_model_a = IN_attributes.height_model_a
         self.lat_init = IN_attributes.lat_init
         self.cycle_number = IN_cycle_number
@@ -61,8 +63,8 @@ class Constant_Lac(Lac):
 class Reference_height_Lac(Lac):
     
 
-    def __init__(self, num, polygon_index, layer, IN_attributes):
-        Lac.__init__(self, num)
+    def __init__(self, num, polygon_index, layer, IN_attributes, id=None):
+        Lac.__init__(self, num, id)
         self.height_name = IN_attributes.height_name
         self.height = 0.
         for i in range(layer.GetFieldCount()):
@@ -76,8 +78,8 @@ class Reference_height_Lac(Lac):
         
 class Gaussian_Lac(Lac):
     
-    def __init__(self, num, IN_attributes, lat, lon, IN_cycle_number):
-        Lac.__init__(self, num)
+    def __init__(self, num, IN_attributes, lat, lon, IN_cycle_number, id=None):
+        Lac.__init__(self, num, id)
         self.height_model_a = IN_attributes.height_model_a
         self.lat_init = IN_attributes.lat_init
         self.cycle_number = IN_cycle_number
@@ -91,8 +93,8 @@ class Gaussian_Lac(Lac):
         
         self.height_model_stdv = IN_attributes.height_model_stdv
 
-        self.dlon =  10e-7
-        self.dlat =  10e-7
+        self.dlon =  10e-4
+        self.dlat =  10e-4
         
                 
         lonmin, lonmax, latmin, latmax = lon.min(), lon.max(), lat.min(), lat.max()
@@ -104,7 +106,7 @@ class Gaussian_Lac(Lac):
         print("gaussian max height",np.max(self.height))
         
         self.h_interp = scipy.interpolate.RectBivariateSpline(latmin + self.dlat*np.arange(taille_lat),lonmin + self.dlon*np.arange(taille_lon),  self.height)
-        
+
     def compute_h(self, lat, lon):
     
         if self.mode == 'az':
@@ -119,9 +121,9 @@ class Gaussian_Lac(Lac):
                 
 class Polynomial_Lac(Lac):
     
-    def __init__(self, num, IN_attributes, lat , lon, IN_cycle_number):
+    def __init__(self, num, IN_attributes, lat , lon, IN_cycle_number, id=None):
         
-        Lac.__init__(self, num)
+        Lac.__init__(self, num, id)
 
         self.height_model_a = IN_attributes.height_model_a
         self.lat_init = IN_attributes.lat_init
@@ -168,8 +170,8 @@ class Height_in_file_Lac(Lac):
     # Process true height model from Kevin Larnier
     # TDB : Add security for lat lon boundaries
     # TBD : Add specific model for 1D model (river)
-    def __init__(self, num, IN_attributes):
-        Lac.__init__(self, num)
+    def __init__(self, num, IN_attributes, id=None):
+        Lac.__init__(self, num, id)
         self.height_name = IN_attributes.height_name
         self.trueheight_file = IN_attributes.trueheight_file
             
