@@ -20,6 +20,7 @@ import sys
 import os
 import utm 
 import pyproj
+from scipy import ndimage
 from scipy.spatial import cKDTree
 import time
 
@@ -361,6 +362,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # ~ y = sign * np.sqrt((ri + Hi) * (ri - Hi) / (1. + Hi / GEN_APPROX_RAD_EARTH))
 
     elevation_tab = np.zeros(len(az))
+    water_frac = np.zeros(len(az))
 
     processing = np.round(np.linspace(0, len(IN_attributes.liste_lacs), 11), 0)
     for i, lac in enumerate(IN_attributes.liste_lacs):
@@ -380,7 +382,26 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
             elevation_tab[indice] += lac.h_ref
-
+            # TODO : Calcul water_frac for all pts
+            #for i, val in enumerate(indice):
+            #    if val:
+            #        ring = ogr.Geometry(ogr.wkbLinearRing)
+            #        ring.AddPoint( lon[i] + (IN_attributes.range_sampling / GEN_RAD_EARTH)*(180./np.pi)/np.cos(lat[i]*np.pi/180.), lat[i] + (IN_attributes.azimuth_spacing / GEN_RAD_EARTH)*(180./np.pi))
+            #        ring.AddPoint( lon[i] - (IN_attributes.range_sampling / GEN_RAD_EARTH)*(180./np.pi)/np.cos(lat[i]*np.pi/180.), lat[i] + (IN_attributes.azimuth_spacing / GEN_RAD_EARTH)*(180./np.pi))
+            #        ring.AddPoint( lon[i] + (IN_attributes.range_sampling / GEN_RAD_EARTH)*(180./np.pi)/np.cos(lat[i]*np.pi/180.), lat[i] - (IN_attributes.azimuth_spacing / GEN_RAD_EARTH)*(180./np.pi))
+            #        ring.AddPoint( lon[i] - (IN_attributes.range_sampling / GEN_RAD_EARTH)*(180./np.pi)/np.cos(lat[i]*np.pi/180.), lat[i] - (IN_attributes.azimuth_spacing / GEN_RAD_EARTH)*(180./np.pi))
+            #        ring.CloseRings()
+            #    
+            #        poly_point = ogr.Geometry(ogr.wkbPolygon)
+            #        poly_point.AddGeometry(ring)
+            #        poly_intersection = swath_polygon.Intersection(poly_point)
+            #        if poly_intersection==None:
+            #            water_frac[i]=1.0
+            #        else:
+            #            try:
+            #                water_frac[i] = (poly_point.GetArea() - (poly_point.GetArea() - poly_intersection.GetArea()))/poly_point.GetArea()
+            #            except ZeroDivisionError:
+            #                water_frac[i] = poly_point.GetArea()
 
     # 3 - Build cross-track distance array
     # Compute theorical cross-track distance for water pixels
@@ -394,18 +415,42 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     
     pixel_area = IN_attributes.azimuth_spacing * IN_attributes.range_sampling / np.sin(angles)  # Pixel area
     
-    # 4.1 - Compute noise over height
-    if IN_attributes.dark_water.lower() == "yes":
-        noise_seed = int(str(time.time()).split('.')[1])
-        delta_h = np.zeros(elevation_tab.shape)
-        phase_noise_std = np.zeros(elevation_tab.shape)
-        dh_dphi = np.zeros(elevation_tab.shape)
-        water_pixels = np.where(classification_tab == IN_attributes.water_flag)
-        dw_pixels = np.where(classification_tab == IN_attributes.darkwater_flag)
-        delta_h[water_pixels], phase_noise_std[water_pixels], dh_dphi[water_pixels] = math_fct.calc_delta_h(angles[water_pixels], IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
-        delta_h[dw_pixels], phase_noise_std[dw_pixels], dh_dphi[dw_pixels] = math_fct.calc_delta_h(angles[dw_pixels], IN_attributes.dw_detected_noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
-    else:
-        delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+    ## 4.1 - Compute noise over height
+    #if IN_attributes.dark_water.lower() == "yes":
+    #    noise_seed = int(str(time.time()).split('.')[1])
+    #    delta_h = np.zeros(elevation_tab.shape)
+    #    phase_noise_std = np.zeros(elevation_tab.shape)
+    #    dh_dphi = np.zeros(elevation_tab.shape)
+    #    water_pixels = np.where(classification_tab == IN_attributes.water_flag)
+    #    dw_pixels = np.where(classification_tab == IN_attributes.darkwater_flag)
+    #    delta_h[water_pixels], phase_noise_std[water_pixels], dh_dphi[water_pixels] = math_fct.calc_delta_h(angles[water_pixels], IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+    #    delta_h[dw_pixels], phase_noise_std[dw_pixels], dh_dphi[dw_pixels] = math_fct.calc_delta_h(angles[dw_pixels], IN_attributes.dw_detected_noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+    #else:
+    #    delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+
+    # 4.1 bis - Compute mean noise over points
+    noise_seed = int(str(time.time()).split('.')[1])
+
+    angles_pixels = np.zeros((len(IN_water_pixels), len(IN_water_pixels[0])))
+    r_pixels = np.arange(0, len(IN_water_pixels)-1)
+    ri_pixels = IN_attributes.near_range + r_pixels * IN_attributes.range_sampling
+    Hi_pixels = IN_attributes.alt[np.arange(0, len(IN_water_pixels[0])-1)]
+    for az_ind in range(len(IN_water_pixels[0])-1):
+        lon_pixels, lat_pixels = math_fct.lonlat_from_azy(np.ones(len(ri_pixels), dtype=np.int)*i, ri_pixels, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
+        elevation_az = lac.compute_h(lat_pixels, lon_pixels)
+        Hi_pixels = IN_attributes.alt[i]
+        angles_az = np.arccos((ri_pixels**2 + (GEN_APPROX_RAD_EARTH+Hi_pixels)**2 - (GEN_APPROX_RAD_EARTH+elevation_az)**2)/(2*ri_pixels*(GEN_APPROX_RAD_EARTH+Hi_pixels)))
+        angles_az[np.isnan(angles_az)]=0.
+        for r_ind in range(len(angles_az)-1):
+            angles_pixels[r_ind][az_ind]=angles_az[r_ind]
+
+    delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(IN_water_pixels, angles_pixels, angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+
+    conv_delta_h = ndimage.convolve(delta_h, np.array([[1/9, 1/9, 1/9], [1/9, 1/9, 1/9], [1/9, 1/9, 1/9]]))
+
+    ind=np.where(IN_water_pixels!=0)
+    delta_h = conv_delta_h[ind] # Keep only water points
+
 
     # 4.2 Add residual roll error
     try:
@@ -594,6 +639,10 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                     sensor_minus_y_x[sub_az[i]], sensor_minus_y_y[sub_az[i]], sensor_minus_y_z[sub_az[i]], x_w, y_w, z_w) 
                 interf_2d.append([interferogram[0], interferogram[1]])
 
+            #  Calcul water frac for each point 
+
+            
+            
             nadir_az_size = tile_nadir_lat_deg.size
 
             tile_coords = compute_tile_coords(IN_attributes, IN_swath, nadir_az_size, nb_pix_overlap_begin)
@@ -859,13 +908,13 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                                 # If lake seen for first time - no layover
                                 polynomial_param_db[id_lake] = [lac.X0, lac.Y0, lac.COEFF_X2, lac.COEFF_Y2, lac.COEFF_X, lac.COEFF_Y, lac.COEFF_XY, lac.COEFF_CST] 
                             lake_polynomial_file.close() 
-                            lake_polynomial_file=open('lake_polynomial_param.pkl', 'wb')
+                            lake_polynomial_file=open(os.path.join(IN_attributes.out_dir,'lake_polynomial_param.pkl'), 'wb')
                             # Add azimuth layover of lake's current tile layover
                             pickle.dump(polynomial_param_db, lake_polynomial_file, pickle.HIGHEST_PROTOCOL)
                             lake_polynomial_file.close()
                         # Create DB if not existent    
                         except:
-                            lake_polynomial_file=open('lake_polynomial_param.pkl', 'wb')
+                            lake_polynomial_file=open(os.path.join(IN_attributes.out_dir,'lake_polynomial_param.pkl'), 'wb')
                             pickle.dump({id_lake:[lac.X0, lac.Y0, lac.COEFF_X2, lac.COEFF_Y2, lac.COEFF_X, lac.COEFF_Y, lac.COEFF_XY, lac.COEFF_CST]}, lake_polynomial_file, pickle.HIGHEST_PROTOCOL)
                             lake_polynomial_file.close()
                     # Reset h_mean of the lake
@@ -875,18 +924,18 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 elif IN_attributes.height_model=='gaussian' and area > IN_attributes.height_model_min_area:
                     # Create DB to save gaussian parameters
                     try:
-                        lake_gaussian_file=open('lake_gaussian_param.pkl', 'rb')
+                        lake_gaussian_file=open(os.path.join(IN_attributes.out_dir,'lake_gaussian_param.pkl'), 'rb')
                         gaussian_param_db=pickle.load(lake_gaussian_file)
                         try:
                             lac.h_interp=gaussian_param_db[id_lake]
                         except KeyError:
                             gaussian_param_db[id_lake]=lac.h_interp
                         lake_gaussian_file.close()
-                        lake_gaussian_file=open('lake_gaussian_param.pkl','wb')
+                        lake_gaussian_file=open(os.path.join(IN_attributes.out_dir,'lake_gaussian_param.pkl'),'wb')
                         pickle.dump(gaussian_param_db, lake_gaussian_file, pickle.HIGHEST_PROTOCOL)
                         lake_gaussian_file.close()
                     except:
-                        lake_gaussian_file=open('lake_gaussian_param.pkl', 'wb')
+                        lake_gaussian_file=open(os.path.join(IN_attributes.out_dir,'lake_gaussian_param.pkl'), 'wb')
                         pickle.dump({id_lake:lac.h_interp}, lake_gaussian_file, pickle.HIGHEST_PROTOCOL)
                         lake_gaussian_file.close()
                     lac.set_hmean(np.mean(lac.compute_h(lat*RAD2DEG, lon*RAD2DEG)))

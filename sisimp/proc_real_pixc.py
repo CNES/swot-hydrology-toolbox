@@ -140,6 +140,7 @@ class l2_hr_pixc(object):
         
         self.crosstrack = IN_crosstrack
         self.nb_water_pix = IN_azimuth_index.size
+        self.water_frac = np.ones(self.nb_water_pix)
 
         # Modification to have sensor_s (sensor azimuth position for each pixel) to be compatible with HR simulator. It is a duplication of azimuth_index in the large scale simulator
         self.sensor_s = IN_azimuth_index
@@ -308,7 +309,7 @@ class l2_hr_pixc(object):
         data.add_variable('water_frac', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         dic={'long_name':'water fraction','units':'1','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Noisy estimate of the fraction of the pixel that is water'}
         data.add_variable_attributes('water_frac', dic, group=pixc)
-        fill_vector_param(np.ones(self.nb_water_pix), 'water_frac', self.nb_water_pix, data, group=pixc)       
+        fill_vector_param(self.water_frac, 'water_frac', self.nb_water_pix, data, group=pixc)       
         
         data.add_variable('water_frac_uncert', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         dic={'long_name':'water fraction uncertaincy','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Uncertaincy estimate of the water fraction estimate (width of noisy water frac estimate distribution)'}
@@ -445,7 +446,7 @@ class l2_hr_pixc(object):
         data.add_variable('eff_num_medium_looks', np.int32, 'points', my_var.FV_NETCDF["int32"], compress, group=pixc)
         dic={'long_name':'effective number of medium looks','units':'1','valid_min':'0','valid_max':'999999','coordinates':'longitude latitude','comment':'Effective number of independent looks taken in forming the medium interferogram (after adaptative averaging)'}
         data.add_variable_attributes('eff_num_medium_looks', dic, group=pixc)
-        fill_vector_param(np.full(self.nb_water_pix, 7), 'eff_num_medium_looks', self.nb_water_pix, data, group=pixc)
+        fill_vector_param(np.full(self.nb_water_pix, 36), 'eff_num_medium_looks', self.nb_water_pix, data, group=pixc)
 
         data.add_variable('sig0', np.float32, 'points', my_var.FV_NETCDF["float32"], compress, group=pixc)
         dic={'long_name':'sigma0','units':'1','valid_min':'-999999','valid_max':'999999','coordinates':'longitude latitude','comment':'Normalized radar cross section, or backscatter brightness'}
