@@ -355,11 +355,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     ri = IN_attributes.near_range + r * IN_attributes.range_sampling  # Radar-to-ground distance
     
     Hi = IN_attributes.alt[az]  # Altitude
-    
-    # ~ # 3 - Build cross-track distance array
-    # ~ # Compute theorical cross-track distance for water pixels
-    # ~ sign = [-1, 1][IN_swath.lower() == 'right']
-    # ~ y = sign * np.sqrt((ri + Hi) * (ri - Hi) / (1. + Hi / GEN_APPROX_RAD_EARTH))
 
     elevation_tab = np.zeros(len(az))
     water_frac = np.zeros(len(az))
@@ -412,6 +407,10 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     angles = np.arccos((ri**2 + (GEN_APPROX_RAD_EARTH+Hi)**2 - (GEN_APPROX_RAD_EARTH+elevation_tab)**2)/(2*ri*(GEN_APPROX_RAD_EARTH+Hi)))
     theta = np.arccos(((GEN_APPROX_RAD_EARTH+Hi)**2 + (GEN_APPROX_RAD_EARTH+elevation_tab)**2 - ri**2)/(2*(GEN_APPROX_RAD_EARTH+elevation_tab)*(GEN_APPROX_RAD_EARTH+Hi)))
     y = theta*GEN_APPROX_RAD_EARTH
+    
+    if IN_swath.upper()[0] == 'L':
+        y = -y
+    
     
     pixel_area = IN_attributes.azimuth_spacing * IN_attributes.range_sampling / np.sin(angles)  # Pixel area
     
