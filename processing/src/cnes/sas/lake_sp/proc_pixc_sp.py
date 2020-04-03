@@ -577,7 +577,7 @@ class PixCEdgeSwath(object):
                 tmp_pixel_area = pixc_edge_reader.get_var_value("pixel_area")
                 self.pixel_area = np.concatenate((self.pixel_area, tmp_pixel_area))
                 tmp_inundated_area = np.copy(tmp_pixel_area)
-                ind_ok = np.where(self.water_frac < my_var.FV_FLOAT)
+                ind_ok = np.where(tmp_water_frac < my_var.FV_FLOAT)
                 if len(ind_ok) > 0:
                     tmp_inundated_area[ind_ok] = tmp_pixel_area[ind_ok] * tmp_water_frac[ind_ok]
                 self.inundated_area = np.concatenate((self.inundated_area, tmp_inundated_area))
@@ -639,13 +639,14 @@ class PixCEdgeSwath(object):
                 # instead of giving infs/nans
                 tmp_height_std_pix = np.abs(tmp_phase_noise_std * tmp_dheight_dphase)
                 bad_num = 1.0e5
-                tmp_height_std_pix[self.height_std_pix<=0] = bad_num
-                tmp_height_std_pix[np.isinf(self.height_std_pix)] = bad_num
-                tmp_height_std_pix[np.isnan(self.height_std_pix)] = bad_num
+                tmp_height_std_pix[tmp_height_std_pix<=0] = bad_num
+                tmp_height_std_pix[np.isinf(tmp_height_std_pix)] = bad_num
+                tmp_height_std_pix[np.isnan(tmp_height_std_pix)] = bad_num
                 self.height_std_pix = np.concatenate((self.height_std_pix, tmp_height_std_pix))
             
                 # 6.4 - Compute height wrt the geoid and apply tide corrections
                 # Compute indices of PIXC for which corrections are all valid
+                
                 valid_geoid = np.where(tmp_geoid < my_var.FV_NETCDF[str(tmp_geoid.dtype)])[0]
                 valid_solid_earth_tide = np.where(tmp_solid_earth_tide < my_var.FV_NETCDF[str(tmp_solid_earth_tide.dtype)])[0]
                 valid_pole_tide = np.where(tmp_pole_tide < my_var.FV_NETCDF[str(tmp_pole_tide.dtype)])[0]
