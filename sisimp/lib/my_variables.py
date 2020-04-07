@@ -67,6 +67,9 @@ HEIGHT_MODEL_STDV = 0.1
 
 # Water flag
 WATER_FLAG = 4  # Water flag
+LAND_FLAG = 1
+LAND_WATER_FLAG = 2
+LAND_DETECTED_NOISE_FACTOR = 5.
 
 # Degrees / radians convertors
 RAD2DEG = 180. / pi

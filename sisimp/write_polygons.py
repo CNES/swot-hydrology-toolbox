@@ -94,6 +94,9 @@ class orbitAttributes:
 
         # 1.5 - Water flag
         self.water_flag = None
+        self.land_flag = None
+        self.land_water_flag = None
+        self.land_detected_noise_factor = None
     
         # 1.6 - Noise parameters
         self.geolocalisation_improvement = None  # No noise applied on geolocation
@@ -285,16 +288,29 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     ################################
     # Variables for PixC main file #
     ################################
+
+    # Add land-water and land pixels
+    struct=ndimage.generate_binary_structure(2,1)
+    land_water_pixels = ndimage.binary_dilation(IN_water_pixels, structure=struct).astype(IN_water_pixels.dtype)
+    land_pixels = ndimage.binary_dilation(IN_water_pixels, structure=struct, iterations=5).astype(IN_water_pixels.dtype)
+
+    IN_water_pixels[np.where(np.logical_and(land_water_pixels!=0, IN_water_pixels==0))] = 99 # water zone border
+    IN_water_pixels[np.where(np.logical_and(land_pixels!=0, land_water_pixels==0))] = 100 # land zone
     
     # Print number of water pixels
     size_of_tabs = np.count_nonzero(IN_water_pixels) 
     my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Nb water pixels: %d" %(size_of_tabs))
 
     # 1 - Get range and azimuth indices of all water pixels
-    ind = np.nonzero(IN_water_pixels)  # Get indices 1=lake and 2=river (remove 0=land)
+    ind = np.nonzero(IN_water_pixels)  # Get indices 1=lake and 2=river 99=land-water 100=land (remove 0=land)
     r, az = [ind[0], ind[1]]  # Range index
     #az = ind[1]  # Azimuth index
     river_flag = IN_water_pixels[ind]  # 1=lake and 2=river
+    land_ind = np.where(np.nonzero(IN_water_pixels)==100)
+    land_water_ind = np.where(np.nonzero(IN_water_pixels)==99)
+
+    # Generate land-water and land pixels around water zone
+
     # Dark Water
     
     # Check if dark water is simulated or not
@@ -334,14 +350,20 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 river_flag = IN_water_pixels[ind]
             # Build the classification array with water flag Dark_water flag
             classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag  # Classification as water
+            classification_tab[land_water_ind] = IN_attributes.land_water_flag
+            classification_tab[land_ind] = IN_attributes.land_flag
             # Locate DW pixels
             dark_water_loc = np.where(dw_mask == 1)
             # Update classification value for dark water pixels with DW flag
             classification_tab[dark_water_loc] = IN_attributes.darkwater_flag
         else:
             classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag
+            classification_tab[land_water_ind] = IN_attributes.land_water_flag
+            classification_tab[land_ind] = IN_attributes.land_flag
     else:
         classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag
+        classification_tab[land_water_ind] = IN_attributes.land_water_flag
+        classification_tab[land_ind] = IN_attributes.land_flag
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] No Dark Water will be simulated")
 
     if IN_attributes.height_model_a_tab is not None:
@@ -415,19 +437,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     
     pixel_area = IN_attributes.azimuth_spacing * IN_attributes.range_sampling / np.sin(angles)  # Pixel area
     
-    ## 4.1 - Compute noise over height
-    #if IN_attributes.dark_water.lower() == "yes":
-    #    noise_seed = int(str(time.time()).split('.')[1])
-    #    delta_h = np.zeros(elevation_tab.shape)
-    #    phase_noise_std = np.zeros(elevation_tab.shape)
-    #    dh_dphi = np.zeros(elevation_tab.shape)
-    #    water_pixels = np.where(classification_tab == IN_attributes.water_flag)
-    #    dw_pixels = np.where(classification_tab == IN_attributes.darkwater_flag)
-    #    delta_h[water_pixels], phase_noise_std[water_pixels], dh_dphi[water_pixels] = math_fct.calc_delta_h(angles[water_pixels], IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
-    #    delta_h[dw_pixels], phase_noise_std[dw_pixels], dh_dphi[dw_pixels] = math_fct.calc_delta_h(angles[dw_pixels], IN_attributes.dw_detected_noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
-    #else:
-    #    delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
-
     # 4.1 bis - Compute mean noise over points
     noise_seed = int(str(time.time()).split('.')[1])
 
@@ -446,10 +455,28 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
 
     delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(IN_water_pixels, angles_pixels, angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
 
+    # Apply convolution filter to 
     conv_delta_h = ndimage.convolve(delta_h, np.array([[1/9, 1/9, 1/9], [1/9, 1/9, 1/9], [1/9, 1/9, 1/9]]))
-
     ind=np.where(IN_water_pixels!=0)
     delta_h = conv_delta_h[ind] # Keep only water points
+    # Create land-water and land pixels
+
+    # Compute height for darkwater pixels
+    if IN_attributes.dark_water.lower() == "yes":
+        dw_pixels = np.where(classification_tab == IN_attributes.darkwater_flag)
+        delta_h_dw, phase_noise_std[dw_pixels], dh_dphi[dw_pixels] = math_fct.calc_delta_h(IN_water_pixels, angles_pixels, angles[dw_pixels], IN_attributes.dw_detected_noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+        conv_delta_h = ndimage.convolve(delta_h_dw, np.array([[1/9, 1/9, 1/9], [1/9, 1/9, 1/9], [1/9, 1/9, 1/9]]))
+
+        ind=np.where(IN_water_pixels!=0)
+        delta_h[dw_pixels] = conv_delta_h[ind][dw_pixels]
+    
+    # Compute height for land pixels
+    if len(land_ind[0]) != 0:
+        land_pixels = np.where(classification_tab == IN_attributes.land_flag)
+        delta_h_land, phase_noise_std[land_pixels], dh_dphi[land_pixels] = math_fct.calc_delta_h(IN_water_pixels, angles_pixels, angles[land_pixels], IN_attributes.land_detected_noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+        conv_delta_h = ndimage.convolve(delta_h_land, np.array([[1/9, 1/9, 1/9], [1/9, 1/9, 1/9], [1/9, 1/9, 1/9]]))
+        ind=np.where(IN_water_pixels!=0)
+        delta_h[land_pixels]=conv_delta_h[ind][land_pixels]
 
 
     # 4.2 Add residual roll error

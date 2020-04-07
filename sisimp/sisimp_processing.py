@@ -164,6 +164,9 @@ class Processing(object):
 
             # Water flag
             self.my_attributes.water_flag = read_parameter(parameters, "Water flag", my_var.WATER_FLAG, float)
+            self.my_attributes.land_flag = read_parameter(parameters, "Land flag", my_var.LAND_FLAG, float)
+            self.my_attributes.land_water_flag = read_parameter(parameters, "Land water flag", my_var.LAND_WATER_FLAG, float)
+            self.my_attributes.land_detected_noise_factor = read_parameter(parameters, "Land noise factor", my_var.LAND_DETECTED_NOISE_FACTOR, float)
 
             # Noise parameters
             self.my_attributes.height_bias_std = read_parameter(parameters, "Height bias std", my_var.HEIGHT_BIAS_STD, float)
