@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 """
-module write_polygons.py
+.. module write_polygons.py
 
-module author : Capgemini
+.. module author : Capgemini
 
 This file is part of the SWOT Hydrology Toolbox
  Copyright (C) 2018 Centre National d’Etudes Spatiales
  This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
-
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -21,7 +20,6 @@ import os
 import utm 
 import pyproj
 from scipy import ndimage
-from scipy.spatial import cKDTree
 import time
 
 import lib.dark_water_functions as dark_water
@@ -343,12 +341,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     else:
         classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] No Dark Water will be simulated")
-
-    if IN_attributes.height_model_a_tab is not None:
-        height_flag = IN_attributes.height_model_a_tab[ind]
-        
-    if IN_attributes.code is not None:
-        code_flag = IN_attributes.code[ind]
         
     # 2 - Compute radar variables for water pixels
 
@@ -357,7 +349,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     Hi = IN_attributes.alt[az]  # Altitude
 
     elevation_tab = np.zeros(len(az))
-    water_frac = np.zeros(len(az))
 
     processing = np.round(np.linspace(0, len(IN_attributes.liste_lacs), 11), 0)
     for i, lac in enumerate(IN_attributes.liste_lacs):
@@ -1074,7 +1065,6 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau=0.):
     # -----------
     # Preparation
     # -----------
-    nr = IN_attributes.nr_cross_track
     dr = IN_attributes.range_sampling
     alt = IN_attributes.alt
     r0 = IN_attributes.near_range
@@ -1168,22 +1158,15 @@ def intersect(input, output, indmax, IN_attributes, overwrite=False):
                                                  lyr.GetSpatialRef(), overwrite)
 
     defn = out_lyr.GetLayerDefn()
-    multi = ogr.Geometry(ogr.wkbMultiPolygon)
     out_lyr.CreateField(ogr.FieldDefn(str('IND_LAC'), ogr.OFTInteger64))
-
-    polygons = []
 
     for i, polygon_index_1 in enumerate(lyr):
 
         geom_1 = polygon_index_1.GetGeometryRef()
         geom_1 = geom_1.Buffer(0)
 
-        flag_intersect = 0
-
         if not geom_1.IsValid():
-
             geom_1 = geom_1.Buffer(0)
-
 
         lyr_bis.SetSpatialFilter(geom_1)
 
