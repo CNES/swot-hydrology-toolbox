@@ -1,0 +1,154 @@
+  <product>
+    <science uid="l2_hr_pixcvector">
+      <nodes>
+        <integer name="/azimuth_index" shape="points_shape" width="32" signed="true">
+          <annotation app="conformance" _FillValue="2147483647" long_name="rare interferogram azimuth index" units="1" valid_min="0" valid_max="999999" comment="Rare interferogram azimuth index."/>
+        </integer>
+        <integer name="/range_index" shape="points_shape" width="32" signed="true">
+          <annotation app="conformance" _FillValue="2147483647" long_name="rare interferogram range index" units="1" valid_min="0" valid_max="999999" comment="Rare interferogram range index."/>
+        </integer>
+        <real name="/latitude_vectorproc" shape="points_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="latitude" standard_name="improved geolocation latitude" units="degrees_north" valid_min="-90" valid_max="90" comment="Improved geodetic latitude of the pixel. Units are in degrees north of the equator."/>
+        </real>
+        <real name="/longitude_vectorproc" shape="points_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="longitude" standard_name="improved geolocation longitude" units="degrees_east" valid_min="-180" valid_max="180" comment="Improved geodetic longitude of the pixel. Positive=degrees east of the Prime Meridian. Negative=degrees west of the Prime Meridian."/>
+        </real>
+        <real name="/height_vectorproc" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="height above reference ellipsoid" units="m" valid_min="-999999" valid_max="999999" comment="Improved height of the pixel above the reference ellipsoid."/>
+        </real>
+        <integer name="/reach_id" shape="points_shape" width="64" signed="true">
+          <annotation app="conformance" _FillValue="9223372036854775807" long_name="identifier of the associated prior river reach" valid_min="0" valid_max="9223372036854775807" comment="Unique reach identifier from the prior river database. The format of the identifier is CBBBBBRRRT, where C=continent, B=basin, R=reach, T=type."/>
+        </integer>
+        <integer name="/node_id" shape="points_shape" width="64" signed="true">
+          <annotation app="conformance" _FillValue="9223372036854775807" long_name="identifier of the associated prior river node" valid_min="0" valid_max="9223372036854775807" comment="Unique node identifier from the prior river database. The format of the identifier is CBBBBBRRRNNNT, where C=continent, B=basin, R=reach, N=node, T=type of water body."/>
+        </integer>
+        <integer name="/ice_clim_f" shape="points_shape" width="8" signed="false">
+          <annotation app="conformance" _FillValue="255" long_name="climatological ice cover flag" source="UNC" flag_meanings="no_ice_cover partial_ice_cover full_ice_cover not_available" flag_values="0 1 2 255" valid_min="0" valid_max="255" comment="Climatological ice cover flag indicating whether the node is ice-covered on the day of the observation based on external climatological information (not the SWOT measurement).  Values of 0, 1, and 2 indicate that the node is not ice covered, partially ice covered, and fully ice covered, respectively. A value of 255 indicates that this flag is not available."/>
+        </integer>
+        <integer name="/ice_dyn_f" shape="points_shape" width="8" signed="false">
+          <annotation app="conformance" _FillValue="255" long_name="dynamical ice cover flag" source="UNC" flag_meanings="no_ice_cover partial_ice_cover full_ice_cover not_available" flag_values="0 1 2 255" valid_min="0" valid_max="255" comment="Dynamic ice cover flag indicating whether the surface is ice-covered on the day of the observation based on analysis of external satellite optical data.  Values of 0, 1, and 2 indicate that the node is not ice covered, partially ice covered, and fully ice covered, respectively. A value of 255 indicates that this flag is not available."/>
+        </integer>
+        <integer name="/pixc_index" shape="points_shape" width="32" signed="true">
+          <annotation app="conformance" _FillValue="2147483647" long_name="pixel cloud index" units="1" valid_min="0" valid_max="2147483647" comment="Index of the data in the pixel_cloud group of the L2_HR_PIXC file that is associated with the pixel. This index starts counting from zero."/>
+        </integer>
+        <integer name="/lake_flag" shape="points_shape" width="8" signed="false">
+          <annotation app="conformance" _FillValue="255" long_name="lake flag" flag_meanings="river lake river_under_tide canal no_hydrosheds dam" flag_values="0 1 2 3 4 5" valid_min="0" valid_max="5" comment="Flag indicating the reach from the PRD.  0= Reach was flagged as belonging to a river. 1= Reach was flagged as belonging to a lake. 2= Reach was flagged as a river under the influence of tides.  3= Reach was flagged as being under the influence of a canal.  4= Unable to connect reach with HydroSHEDS topology.  5= Reach was flagged as being under the influence of a dam.  A value of 1 can occur for pixels that are associated with a connected lake type (T=3) in the reach_id and node_id."/>
+        </integer>
+        <integer name="/segmentation_label" shape="points_shape" width="32" signed="true">
+          <annotation app="conformance" _FillValue="2147483647" long_name="segmentation label" units="1" valid_min="0" valid_max="2147483647" comment="A unique number of identifying which connected water segment the pixel was assigned to."/>
+        </integer>
+        <real name="/distance_to_node" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="distance to node" units="m" valid_min="0" valid_max="9999" comment="Distance from the non-improved pixel location to the PRD node that it is associated with."/>
+        </real>
+        <real name="/along_reach" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="along reach distance" units="m" valid_min="-999999" valid_max="999999" comment="Along-reach component of non-improved pixel location relative to PRD node location. Negative=nominally upstream of PRD node. Positive=nominally downstream of PRD node"/>
+        </real>
+        <real name="/cross_reach" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="across reach distance" units="m" valid_min="-999999" valid_max="999999" comment="Cross-reach component of non-improved pixel location relative to PRD node location. Negative= left side of centerline. Positive= right side of centerline."/>
+        </real>
+        <string name="/@Conventions" shape="Scalar" width="0">
+          <annotation description="NetCDF-4 conventions adopted in this product. This attribute should be set to CF-1.7 to indicate that the group is compliant with the Climate and Forecast NetCDF conventions."/>
+        </string>
+        <string name="/@title" shape="Scalar" width="0">
+          <annotation description="Level 2 KaRIn high rate pixel cloud vector river product."/>
+        </string>
+        <string name="/@institution" shape="Scalar" width="0">
+          <annotation description="Name of producing agency."/>
+        </string>
+        <string name="/@source" shape="Scalar" width="0">
+          <annotation description="The method of production of the original data. If it was model-generated, source should name the model and its version, as specifically as could be useful. If it is observational, source should characterize it (e.g., 'radiometer')."/>
+        </string>
+        <string name="/@history" shape="Scalar" width="0">
+          <annotation description="UTC time when file generated. Format is: 'YYYY-MM-DD hh:mm:ss : Creation'"/>
+        </string>
+        <string name="/@mission_name" shape="Scalar" width="0">
+          <annotation description="SWOT"/>
+        </string>
+        <string name="/@references" shape="Scalar" width="0">
+          <annotation description="Published or web-based references that describe the data or methods used to product it. Provides version number of software generating product."/>
+        </string>
+        <string name="/@reference_document" shape="Scalar" width="0">
+          <annotation description="Name and version of Product Description Document to use as reference for product."/>
+        </string>
+        <string name="/@contact" shape="Scalar" width="0">
+          <annotation description="Contact information for producer of product. (e.g., 'ops@jpl.nasa.gov')."/>
+        </string>
+        <integer name="/@cycle_number" shape="Scalar" width="16" signed="true">
+          <annotation description="Cycle number of the product granule."/>
+        </integer>
+        <integer name="/@pass_number" shape="Scalar" width="16" signed="true">
+          <annotation description="Pass number of the product granule."/>
+        </integer>
+        <integer name="/@tile_number" shape="Scalar" width="16" signed="true">
+          <annotation description="Tile number in the pass of the product granule."/>
+        </integer>
+        <string name="/@swath_side" shape="Scalar" width="0">
+          <annotation description="'L' or 'R' to indicate left and right swath,respectively."/>
+        </string>
+        <string name="/@tile_name" shape="Scalar" width="0">
+          <annotation description="Tile name using format PPP_TTTS, where PPP is a 3 digit pass number with leading zeros, TTT is a 3 digit tile number within the pass, and S is a character 'L' or 'R' for the left and right swath, respectively."/>
+        </string>
+        <real name="/@near_range" shape="Scalar" width="64">
+          <annotation description="The slant range (m) for the first image pixel."/>
+        </real>
+        <real name="/@nominal_slant_range_spacing" shape="Scalar" width="64">
+          <annotation description="The range spacing (m) corresponding to the 200 MHz sampling frequency"/>
+        </real>
+        <string name="/@start_time" shape="Scalar" width="0">
+          <annotation description="UTC time of first measurement. Format is: YYYY-MM-DD hh:mm:ss.ssssssZ"/>
+        </string>
+        <string name="/@stop_time" shape="Scalar" width="0">
+          <annotation description="UTC time of last measurement. Format is: YYYY-MM-DD hh:mm:ss.ssssssZ"/>
+        </string>
+        <string name="/@inner_first_latitude" shape="Scalar" width="0">
+          <annotation description="Nominal swath corner latitude (degrees_north) for the first range line and inner part of the swath"/>
+        </string>
+        <real name="/@inner_first_longitude" shape="Scalar" width="32">
+          <annotation description="Nominal swath corner longitude (degrees_east) for the first range line and inner part of the swath"/>
+        </real>
+        <real name="/@inner_last_latitude" shape="Scalar" width="32">
+          <annotation description="Nominal swath corner latitude (degrees_north)  for the last range line and inner part of the swath"/>
+        </real>
+        <real name="/@inner_last_longitude" shape="Scalar" width="32">
+          <annotation description="Nominal swath corner longitude (degrees_east) for the last range line and inner part of the swath"/>
+        </real>
+        <real name="/@outer_first_latitude" shape="Scalar" width="32">
+          <annotation description="Nominal swath corner latitude (degrees_north) for the first range line and outer part of the swath"/>
+        </real>
+        <real name="/@outer_first_longitude" shape="Scalar" width="32">
+          <annotation description="Nominal swath corner longitude (degrees_east) for the first range line and outer part of the swath"/>
+        </real>
+        <real name="/@outer_last_latitude" shape="Scalar" width="32">
+          <annotation description="Nominal swath corner latitude (degrees_north) for the last range line and outer part of the swath"/>
+        </real>
+        <real name="/@outer_last_longitude" shape="Scalar" width="32">
+          <annotation description="Nominal swath corner longitude (degrees_east) for the last range line and outer part of the swath"/>
+        </real>
+        <string name="/@xref_input_l2_hr_pixc_files" shape="Scalar" width="0">
+          <annotation description="List of water mask pixel cloud files used to generate data in product."/>
+        </string>
+        <string name="/@xref_static_river_db_file" shape="Scalar" width="0">
+          <annotation description="Name of static river a priori database file used to generate data in product."/>
+        </string>
+        <real name="/@ellipsoid_semi_major_axis" shape="Scalar" width="64">
+          <annotation description="Semi-major axis of reference ellipsoid in meters."/>
+        </real>
+        <real name="/@ellipsoid_flattening" shape="Scalar" width="64">
+          <annotation description="Flattening of reference ellipsoid"/>
+        </real>
+      </nodes>
+    </science>
+    <shape name="Scalar" order="irrelevant"/>    <shape name="nodes_shape" order="slowest...fastest">
+      <dimension extent="0" name="nodes"/>
+    </shape>
+    <shape name="reaches_shape" order="slowest...fastest">
+      <dimension extent="0" name="reaches"/>
+    </shape>
+    <shape name="reaches_reach_neighbors_shape" order="slowest...fastest">
+      <dimension extent="0" name="reaches"/>
+      <dimension extent="4" name="reach_neighbors"/>
+    </shape>
+    <shape name="points_shape" order="slowest...fastest">
+      <dimension extent="0" name="points"/>
+    </shape>
+  </product>
