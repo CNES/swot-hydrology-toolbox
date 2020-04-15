@@ -455,7 +455,7 @@ class MyNcWriter(object):
         # Add variable attributes
         if in_attributes is not None:
             for key, value in in_attributes.items():
-                if key != "dtype":
+                if key not in ["dtype", "shape"]:
                     self.add_variable_attribute(in_name, key, value, in_group=in_group)
         
     def add_variable_attribute(self, in_varname, in_attname, in_value, in_group=None):
