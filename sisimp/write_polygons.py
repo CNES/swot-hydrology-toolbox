@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 """
-module write_polygons.py
+.. module write_polygons.py
 
-module author : Capgemini
+.. module author : Capgemini
 
 This file is part of the SWOT Hydrology Toolbox
  Copyright (C) 2018 Centre National d’Etudes Spatiales
  This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
-
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -19,9 +18,9 @@ import numpy as np
 import sys
 import os
 import utm 
+import pickle
 import pyproj
 from scipy import ndimage
-from scipy.spatial import cKDTree
 import time
 
 import lib.dark_water_functions as dark_water
@@ -36,13 +35,14 @@ from lib.tropo_module import Tropo_module
 from inversion_algo import inversionCore
 
 import mathematical_function as math_fct
-import proc_real_pixc
-import proc_real_pixc_vec_river
 
-import pickle
+import proc_pixc
+import proc_pixcvecriver
+
 
 GEN_RAD_EARTH = 6378137.0
 GEN_RAD_EARTH_POLE = 6356752.31425
+
 
 class orbitAttributes:
     
@@ -365,12 +365,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         classification_tab[land_water_ind] = IN_attributes.land_water_flag
         classification_tab[land_ind] = IN_attributes.land_flag
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] No Dark Water will be simulated")
-
-    if IN_attributes.height_model_a_tab is not None:
-        height_flag = IN_attributes.height_model_a_tab[ind]
-        
-    if IN_attributes.code is not None:
-        code_flag = IN_attributes.code[ind]
         
     # 2 - Compute radar variables for water pixels
 
@@ -379,7 +373,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     Hi = IN_attributes.alt[az]  # Altitude
 
     elevation_tab = np.zeros(len(az))
-    water_frac = np.zeros(len(az))
 
     processing = np.round(np.linspace(0, len(IN_attributes.liste_lacs), 11), 0)
     for i, lac in enumerate(IN_attributes.liste_lacs):
@@ -657,7 +650,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             sensor_minus_y_y = [y - nv[1]*5 for y, nv in zip(tile_y, normal_vector)]
             sensor_minus_y_z = [z - nv[2]*5 for z, nv in zip(tile_z, normal_vector)]
 
-            # Calcul interferogram for all water pixel 
+            # Calcul interferogram for all water pixels
             interf_2d = []
             x_water, y_water, z_water = inversionCore.convert_llh2ecef(lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], GEN_RAD_EARTH, GEN_RAD_EARTH_POLE)
             for i, (x_w, y_w, z_w) in enumerate(zip(x_water, y_water, z_water), 0):
@@ -666,30 +659,26 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 interf_2d.append([interferogram[0], interferogram[1]])
 
             #  Calcul water frac for each point 
-
-            
-            
             nadir_az_size = tile_nadir_lat_deg.size
 
             tile_coords = compute_tile_coords(IN_attributes, IN_swath, nadir_az_size, nb_pix_overlap_begin)
             IN_attributes.tile_coords[left_or_right] = tile_coords
 
-
             # Init L2_HR_PIXC object
-            my_pixc = proc_real_pixc.l2_hr_pixc(sub_az, sub_r, classification_tab[az_indices], pixel_area[az_indices],
-                                                lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], phase_noise_std[az_indices],
-                                                dh_dphi[az_indices], dlon_dphi[az_indices], dlat_dphi[az_indices], y[az_indices],
-                                                tile_orbit_time, tile_nadir_lat_deg, tile_nadir_lon_deg, tile_nadir_alt, tile_nadir_heading,
-                                                tile_x, tile_y, tile_z, tile_vx, tile_vy, tile_vz,
-                                                IN_attributes.near_range, IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number,
-                                                IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az_size, IN_attributes.azimuth_spacing,
-                                                IN_attributes.range_sampling, IN_attributes.near_range, tile_coords, interf_2d)
+            my_pixc = proc_pixc.l2_hr_pixc(sub_az, sub_r, classification_tab[az_indices], pixel_area[az_indices],
+                                           lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], phase_noise_std[az_indices],
+                                           dh_dphi[az_indices], dlon_dphi[az_indices], dlat_dphi[az_indices], y[az_indices],
+                                           tile_orbit_time, tile_nadir_lat_deg, tile_nadir_lon_deg, tile_nadir_alt, tile_nadir_heading,
+                                           tile_x, tile_y, tile_z, tile_vx, tile_vy, tile_vz,
+                                           IN_attributes.near_range, IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number,
+                                           IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az_size, IN_attributes.azimuth_spacing,
+                                           IN_attributes.range_sampling, IN_attributes.near_range, tile_coords, interf_2d)
             
             # Update filenames with tile ref
             IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])
             
             # Write main file
-            my_pixc.write_pixc_file(IN_attributes.sisimp_filenames.pixc_file+".nc", compress=True)
+            my_pixc.write_pixc_file(IN_attributes.sisimp_filenames.pixc_file+".nc")
             
             # Write annotation file
             my_pixc.write_annotation_file(IN_attributes.sisimp_filenames.file_annot_file, IN_attributes.sisimp_filenames.pixc_file+".nc")
@@ -702,14 +691,16 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             # Write PIXCVec files if asked
             if IN_attributes.create_pixc_vec_river:
                 # Init PIXCVec product
-                my_pixc_vec = proc_real_pixc_vec_river.l2_hr_pixc_vec_river(sub_az, sub_r, IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az.size)
+                my_pixc_vec = proc_pixcvecriver.l2_hr_pixc_vec_river(sub_az, sub_r, 
+                                                                     IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, tile_orbit_time[0], tile_orbit_time[-1], 
+                                                                     IN_attributes.nb_pix_range, nadir_az.size, tile_coords)
                 # Set improved geoloc
                 lon_no_noisy, lat_no_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, h=elevation_tab)
                 my_pixc_vec.set_vectorproc(lat_no_noisy[az_indices], lon_no_noisy[az_indices], elevation_tab[az_indices])
                 # Compute river_flag
                 my_pixc_vec.set_river_lake_tag(river_flag[az_indices]-1)  # -1 to have 0=lake and 1=river
                 # Write PIXCVec file
-                my_pixc_vec.write_file(IN_attributes.sisimp_filenames.pixc_vec_river_file+".nc", compress=True)
+                my_pixc_vec.write_file(IN_attributes.sisimp_filenames.pixc_vec_river_file+".nc")
                 # Write as shapefile if asked
                 if IN_attributes.create_shapefile:
                     my_pixc_vec.write_file_asShp(IN_attributes.sisimp_filenames.pixc_vec_river_file+".shp")
@@ -1101,7 +1092,6 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau=0.):
     # -----------
     # Preparation
     # -----------
-    nr = IN_attributes.nr_cross_track
     dr = IN_attributes.range_sampling
     alt = IN_attributes.alt
     r0 = IN_attributes.near_range
@@ -1195,22 +1185,15 @@ def intersect(input, output, indmax, IN_attributes, overwrite=False):
                                                  lyr.GetSpatialRef(), overwrite)
 
     defn = out_lyr.GetLayerDefn()
-    multi = ogr.Geometry(ogr.wkbMultiPolygon)
     out_lyr.CreateField(ogr.FieldDefn(str('IND_LAC'), ogr.OFTInteger64))
-
-    polygons = []
 
     for i, polygon_index_1 in enumerate(lyr):
 
         geom_1 = polygon_index_1.GetGeometryRef()
         geom_1 = geom_1.Buffer(0)
 
-        flag_intersect = 0
-
         if not geom_1.IsValid():
-
             geom_1 = geom_1.Buffer(0)
-
 
         lyr_bis.SetSpatialFilter(geom_1)
 

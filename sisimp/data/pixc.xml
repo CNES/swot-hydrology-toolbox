@@ -1,0 +1,412 @@
+  <product>
+    <science uid="l2_hr_pixc">
+      <nodes>
+        <integer name="/pixel_cloud/azimuth_index" shape="points_shape" width="32" signed="true">
+          <annotation app="conformance" _FillValue="2147483647" long_name="rare interferogram azimuth index" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Rare interferogram azimuth index."/>
+        </integer>
+        <integer name="/pixel_cloud/range_index" shape="points_shape" width="32" signed="true">
+          <annotation app="conformance" _FillValue="2147483647" long_name="rare interferogram range index" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Rare interferogram range index."/>
+        </integer>
+        <real name="/pixel_cloud/interferogram" shape="points_complex_depth_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="rare interferogram" units="1" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Complex unflattened rare interferogram."/>
+        </real>
+        <real name="/pixel_cloud/power_plus_y" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="power for plus_y channel" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Power for the plus_y channel (arbitrary units that give sigma0 when noise subtracted and normalized by the X factor)."/>
+        </real>
+        <real name="/pixel_cloud/power_minus_y" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="power for minus_y channel" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Power for the minus_y channel (arbitrary units that give sigma0 when noise subtracted and normalized by the X factor)."/>
+        </real>
+        <real name="/pixel_cloud/coherent_power" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="coherent power combination of minus_y and plus_y channels" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Power computed by combining the plus_y and minus_y channels coherently by co-aligning the phases (arbitrary units that give sigma0 when noise subtracted and normalized by the X factor)."/>
+        </real>
+        <real name="/pixel_cloud/x_factor_plus_y" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="X factor for plus_y channel power" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="X factor for the plus_y channel power in linear units (arbitrary units to normalize noise-subtracted power to sigma0)."/>
+        </real>
+        <real name="/pixel_cloud/x_factor_minus_y" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="X factor for minus_y channel power" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="X factor for the minus_y channel power in linear units (arbitrary units to normalize noise-subtracted power to sigma0)."/>
+        </real>
+        <real name="/pixel_cloud/water_frac" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="water fraction" units="1" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Noisy estimate of the fraction of the pixel that is water."/>
+        </real>
+        <real name="/pixel_cloud/water_frac_uncert" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="water fraction uncertainty" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Uncertainty estimate of the water fraction estimate (width of noisy water frac estimate distribution)."/>
+        </real>
+        <integer name="/pixel_cloud/classification" shape="points_shape" width="8" signed="true">
+          <annotation app="conformance" _FillValue="127" long_name="classification" flag_meanings="land land_near_water water_near_land open_water land_near_dark_water dark_water_edge dark_water" flag_values="1 2 3 4 22 23 24" valid_min="1" valid_max="24" coordinates="longitude latitude" comment="Flags indicating water detection results."/>
+        </integer>
+        <real name="/pixel_cloud/false_detection_rate" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="false detection rate" units="1" valid_min="0" valid_max="1" coordinates="longitude latitude" comment="Probability of falsely detecting water when there is none."/>
+        </real>
+        <real name="/pixel_cloud/missed_detection_rate" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="missed detection rate" units="1" valid_min="0" valid_max="1" coordinates="longitude latitude" comment="Probability of falsely detecting no water when there is water."/>
+        </real>
+        <real name="/pixel_cloud/prior_water_prob" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="prior water probability" units="1" valid_min="0" valid_max="1" coordinates="longitude latitude" comment="Prior probability of water occurring."/>
+        </real>
+        <integer name="/pixel_cloud/bright_land_flag" shape="points_shape" width="8" signed="true">
+          <annotation app="conformance" _FillValue="127" long_name="bright land flag" standard_name="status_flag" flag_meanings="not_bright_land bright_land bright_land_or_water" flag_values="0 1 2" valid_min="0" valid_max="2" coordinates="longitude latitude" comment="Flag indicating areas that are not typically water but are expected to be bright (e.g., urban areas, ice).  Flag value 2 indicates cases where prior data indicate land, but where prior_water_prob indicates possible water."/>
+        </integer>
+        <real name="/pixel_cloud/layover_impact" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="layover impact" units="m" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Estimate of the height error caused by layover, which may not be reliable on a pixel by pixel basis, but may be useful to augment aggregated height uncertainties."/>
+        </real>
+        <real name="/pixel_cloud/eff_num_rare_looks" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="effective number of rare looks" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Effective number of independent looks taken to form the rare interferogram."/>
+        </real>
+        <real name="/pixel_cloud/latitude" shape="points_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="latitude (positive N, negative S)" standard_name="latitude" units="degrees_north" valid_min="-80" valid_max="80" comment="Geodetic latitude [-80,80] (degrees north of equator) of the pixel."/>
+        </real>
+        <real name="/pixel_cloud/longitude" shape="points_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="longitude (degrees East)" standard_name="longitude" units="degrees_east" valid_min="-180" valid_max="180" comment="Longitude [-180,180) (east of the Greenwich meridian) of the pixel."/>
+        </real>
+        <real name="/pixel_cloud/height" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="height above reference ellipsoid" units="m" valid_min="-1500" valid_max="15000" coordinates="longitude latitude" comment="Height of the pixel above the reference ellipsoid."/>
+        </real>
+        <real name="/pixel_cloud/cross_track" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="approximate cross-track location" units="m" valid_min="-75000" valid_max="75000" coordinates="longitude latitude" comment="Approximate cross-track location of the pixel."/>
+        </real>
+        <real name="/pixel_cloud/pixel_area" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="pixel area" units="m^2" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Pixel area."/>
+        </real>
+        <real name="/pixel_cloud/inc" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="incidence angle" units="degrees" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Incidence angle."/>
+        </real>
+        <real name="/pixel_cloud/phase_noise_std" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="phase noise standard deviation" units="radians" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Estimate of the phase noise standard deviation."/>
+        </real>
+        <real name="/pixel_cloud/dlatitude_dphase" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="sensitivity of latitude estimate to interferogram phase" units="degrees/radian" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Sensitivity of the latitude estimate to the interferogram phase."/>
+        </real>
+        <real name="/pixel_cloud/dlongitude_dphase" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="sensitivity of longitude estimate to interferogram phase" units="degrees/radian" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Sensitivity of the longitude estimate to the interferogram phase."/>
+        </real>
+        <real name="/pixel_cloud/dheight_dphase" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="sensitivity of height estimate to interferogram phase" units="m/radian" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Sensitivity of the height estimate to the interferogram phase."/>
+        </real>
+        <real name="/pixel_cloud/dheight_droll" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="sensitivity of height estimate to spacecraft roll" units="m/degrees" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Sensitivity of the height estimate to the spacecraft roll."/>
+        </real>
+        <real name="/pixel_cloud/dheight_dbaseline" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="sensitivity of height estimate to interferometric baseline" units="m/m" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Sensitivity of the height estimate to the interferometric baseline."/>
+        </real>
+        <real name="/pixel_cloud/dheight_drange" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="sensitivity of height estimate to range (delay)" units="m/m" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Sensitivity of the height estimate to the range (delay)."/>
+        </real>
+        <real name="/pixel_cloud/darea_dheight" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="sensitivity of pixel area to reference height" units="m^2/m" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Sensitivity of the pixel area to the reference height."/>
+        </real>
+        <real name="/pixel_cloud/illumination_time" shape="points_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="time of illumination of each pixel (UTC)" standard_name="time" calendar="gregorian" tai_utc_difference="[Value of TAI-UTC at time of first record]" leap_second="YYYY-MM-DD hh:mm:ss" units="seconds since 2000-01-01 00:00:00.000" comment="Time of measurement in seconds in the UTC time scale since 1 Jan 2000 00:00:00 UTC. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the attribute leap_second is set to the UTC time at which the leap second occurs."/>
+        </real>
+        <real name="/pixel_cloud/illumination_time_tai" shape="points_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="time of illumination of each pixel (TAI)" standard_name="time" calendar="gregorian" units="seconds since 2000-01-01 00:00:00.000" comment="Time of measurement in seconds in the TAI time scale since 1 Jan 2000 00:00:00 TAI. This time scale contains no leap seconds. The difference (in seconds) with time in UTC is given by the attribute [illumination_time:tai_utc_difference]."/>
+        </real>
+        <real name="/pixel_cloud/eff_num_medium_looks" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="effective number of medium looks" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Effective number of independent looks taken in forming the medium interferogram (after adaptive averaging)."/>
+        </real>
+        <real name="/pixel_cloud/sig0" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="sigma0" units="1" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Normalized radar cross section, or backscatter brightness."/>
+        </real>
+        <integer name="/pixel_cloud/phase_unwrapping_region" shape="points_shape" width="32" signed="true">
+          <annotation app="conformance" _FillValue="2147483647" long_name="phase unwrapping region index" units="1" valid_min="-1" valid_max="99999999" coordinates="longitude latitude" comment="Phase unwrapping region index."/>
+        </integer>
+        <real name="/pixel_cloud/instrument_range_cor" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="instrument range correction" units="m" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Term that incorporates all calibration corrections applied to range before geolocation."/>
+        </real>
+        <real name="/pixel_cloud/instrument_phase_cor" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="instrument phase correction" units="radians" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Term that incorporates all calibration corrections applied to phase before geolocation."/>
+        </real>
+        <real name="/pixel_cloud/instrument_baseline_cor" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="instrument baseline correction" units="m" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Term that incorporates all calibration corrections applied to baseline before geolocation."/>
+        </real>
+        <real name="/pixel_cloud/instrument_attitude_cor" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="instrument attitude correction" units="degrees" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Term that incorporates all calibration corrections applied to attitude before geolocation."/>
+        </real>
+        <real name="/pixel_cloud/model_dry_tropo_cor" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="dry troposphere vertical correction" source="European Centre for Medium-Range Weather Forecasts" institution="ECMWF" units="m" valid_min="-3" valid_max="-1.5" coordinates="longitude latitude" comment="Equivalent vertical correction due to dry troposphere delay. The reported pixel height, latitude and longitude are computed after adding negative media corrections to uncorrected range along slant-range paths, accounting for the differential delay between the two KaRIn antennas. The equivalent vertical correction is computed by applying obliquity factors to the slant-path correction. Adding the reported correction to the reported pixel height results in the uncorrected pixel height."/>
+        </real>
+        <real name="/pixel_cloud/model_wet_tropo_cor" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="wet troposphere vertical correction" source="European Centre for Medium-Range Weather Forecasts" institution="ECMWF" units="m" valid_min="-1" valid_max="0" coordinates="longitude latitude" comment="Equivalent vertical correction due to wet troposphere delay. The reported pixel height, latitude and longitude are computed after adding negative media corrections to uncorrected range along slant-range paths, accounting for the differential delay between the two KaRIn antennas. The equivalent vertical correction is computed by applying obliquity factors to the slant-path correction. Adding the reported correction to the reported pixel height results in the uncorrected pixel height."/>
+        </real>
+        <real name="/pixel_cloud/iono_cor_gim_ka" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="ionosphere vertical correction" source="Global Ionosphere Maps" institution="JPL" units="m" valid_min="-0.5" valid_max="0" coordinates="longitude latitude" comment="Equivalent vertical correction due to ionosphere delay. The reported pixel height, latitude and longitude are computed after adding negative media corrections to uncorrected range along slant-range paths, accounting for the differential delay between the two KaRIn antennas. The equivalent vertical correction is computed by applying obliquity factors to the slant-path correction. Adding the reported correction to the reported pixel height results in the uncorrected pixel height."/>
+        </real>
+        <real name="/pixel_cloud/height_cor_xover" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="height correction from KaRIn crossovers" units="m" valid_min="-10" valid_max="10" coordinates="longitude latitude" comment="Height correction from KaRIn crossover calibration. The correction is applied before geolocation but reported as an equivalent height correction."/>
+        </real>
+        <real name="/pixel_cloud/geoid" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="geoid height" standard_name="geoid_height_above_reference_ellipsoid" source="EGM2008 (Pavlis et al., 2012)" units="m" valid_min="-150" valid_max="150" coordinates="longitude latitude" comment="Geoid height above the reference ellipsoid with a correction to refer the value to the mean tide system, i.e. includes the permanent tide (zero frequency)."/>
+        </real>
+        <real name="/pixel_cloud/solid_earth_tide" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="solid Earth tide height" source="Cartwright and Taylor (1971) and Cartwright and Edden (1973)" units="m" valid_min="-1" valid_max="1" coordinates="longitude latitude" comment="Solid-Earth (body) tide height. The zero-frequency permanent tide component is not included."/>
+        </real>
+        <real name="/pixel_cloud/load_tide_sol1" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="geocentric load tide height from model 1" source="FES2014b (Carrere et al., 2016)" institution="LEGOS/CNES" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth's crust. This value is reported for reference but is not applied to the reported height."/>
+        </real>
+        <real name="/pixel_cloud/load_tide_sol2" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="geocentric load tide height from model 2" source="GOT4.10c (Ray, 2013)" institution="GSFC" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth's crust. This value is reported for reference but is not applied to the reported height."/>
+        </real>
+        <real name="/pixel_cloud/pole_tide" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="geocentric pole tide height" source="Wahr (1985) and Desai et al. (2015)" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric pole tide height. The total of the contribution from the solid-Earth (body) pole tide height and the load pole tide height (i.e., the effect of the ocean pole tide loading of the Earth's crust)."/>
+        </real>
+        <integer name="/pixel_cloud/ancillary_surface_classification_flag" shape="points_shape" width="8" signed="false">
+          <annotation app="conformance" _FillValue="255" long_name="surface classification" standard_name="status_flag" source="MODIS/GlobCover" institution="European Space Agency" flag_meanings="open_ocean land continental_water aquatic_vegetation continental_ice_snow floating_ice salted_basin" flag_values="0 1 2 3 4 5 6" valid_min="0" valid_max="6" coordinates="longitude latitude" comment="7-state surface type classification computed from a mask built with MODIS and GlobCover data."/>
+        </integer>
+        <integer name="/pixel_cloud/pixc_qual" shape="points_shape" width="8" signed="true">
+          <annotation app="conformance" _FillValue="127" standard_name="status_flag" flag_meanings="good bad" flag_values="0 1" valid_min="0" valid_max="1" coordinates="longitude latitude" comment="Quality flag for pixel cloud data"/>
+        </integer>
+        <string name="/pixel_cloud/@description" shape="Scalar" width="0">
+          <annotation description="cloud of geolocated interferogram pixels"/>
+        </string>
+        <integer name="/pixel_cloud/@interferogram_size_azimuth" shape="Scalar" width="32" signed="true">
+          <annotation description="number of azimuth rows of interferogram image"/>
+        </integer>
+        <integer name="/pixel_cloud/@interferogram_size_range" shape="Scalar" width="32" signed="true">
+          <annotation description="number of range-bin columns of interferogram image"/>
+        </integer>
+        <real name="/pixel_cloud/@looks_to_efflooks" shape="Scalar" width="64">
+          <annotation description="ratio of the number of real looks to the effective number of independent looks"/>
+        </real>
+        <real name="/tvp/time" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="time in UTC" standard_name="time" calendar="gregorian" tai_utc_difference="[Value of TAI-UTC at time of first record]" leap_second="YYYY-MM-DD hh:mm:ss" units="seconds since 2000-01-01 00:00:00.000" comment="Time of measurement in seconds in the UTC time scale since 1 Jan 2000 00:00:00 UTC. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the attribute leap_second is set to the UTC time at which the leap second occurs."/>
+        </real>
+        <real name="/tvp/time_tai" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="time in TAI" standard_name="time" calendar="gregorian" units="seconds since 2000-01-01 00:00:00.000" comment="Time of measurement in seconds in the TAI time scale since 1 Jan 2000 00:00:00 TAI. This time scale contains no leap seconds. The difference (in seconds) with time in UTC is given by the attribute [time:tai_utc_difference]."/>
+        </real>
+        <real name="/tvp/latitude" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="latitude (positive N, negative S) of the spacecraft" standard_name="latitude" units="degrees_north" valid_min="-80.0" valid_max="80.0" comment="Geodetic latitude of the KMSF origin with respect to the reference ellipsoid."/>
+        </real>
+        <real name="/tvp/longitude" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="longitude (degrees East) of the spacecraft" standard_name="longitude" units="degrees_east" valid_min="-180.0" valid_max="180.0" comment="Longitude of the KMSF origin, with positive values indicating longitudes east of the Greenwich meridian."/>
+        </real>
+        <real name="/tvp/altitude" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="altitude of the spacecraft" units="m" valid_min="0.0" valid_max="1000000.0" coordinates="longitude latitude" comment="Altitude above the reference ellipsoid of the KMSF origin."/>
+        </real>
+        <real name="/tvp/roll" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="roll of the spacecraft" units="degrees" valid_min="-180" valid_max="180" coordinates="longitude latitude" comment="KMSF attitude roll angle; positive values move the +y antenna down."/>
+        </real>
+        <real name="/tvp/pitch" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="pitch of the spacecraft" units="degrees" valid_min="-180" valid_max="180" coordinates="longitude latitude" comment="KMSF attitude pitch angle; positive values move the KMSF +x axis up."/>
+        </real>
+        <real name="/tvp/yaw" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="yaw of the spacecraft" units="degrees" valid_min="-180" valid_max="180" coordinates="longitude latitude" comment="KMSF attitude yaw angle relative to the nadir track. The yaw angle is a right-handed rotation about the nadir (downward) direction. A yaw value of 0 deg indicates that the KMSF +x axis is aligned with the horizontal component of the Earth-relative velocity vector. A yaw value of 180 deg indicates that the spacecraft is in a yaw-flipped state, with the KMSF -x axis aligned with the horizontal component of the Earth-relative velocity vector."/>
+        </real>
+        <real name="/tvp/velocity_heading" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="heading of the spacecraft Earth-relative velocity vector" units="degrees" valid_min="0" valid_max="360" coordinates="longitude latitude" comment="Angle with respect to true north of the horizontal component of the spacecraft Earth-relative velocity vector. A value of 90 deg indicates that the spacecraft velocity vector pointed due east. Values between 0 and 90 deg indicate that the velocity vector has a northward component, and values between 90 and 180 deg indicate that the velocity vector has a southward component."/>
+        </real>
+        <real name="/tvp/x" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="x coordinate of the spacecraft in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="x coordinate of the KMSF origin in the ECEF frame."/>
+        </real>
+        <real name="/tvp/y" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="y coordinate of the spacecraft in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="y coordinate of the KMSF origin in the ECEF frame."/>
+        </real>
+        <real name="/tvp/z" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="z coordinate of the spacecraft in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="z coordinate of the KMSF origin in the ECEF frame."/>
+        </real>
+        <real name="/tvp/vx" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="x component of the spacecraft velocity in the ECEF frame" units="m/s" valid_min="-10000.0" valid_max="10000.0" coordinates="longitude latitude" comment="KMSF velocity component in x direction in the ECEF frame."/>
+        </real>
+        <real name="/tvp/vy" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="y component of the spacecraft velocity in the ECEF frame" units="m/s" valid_min="-10000.0" valid_max="10000.0" coordinates="longitude latitude" comment="KMSF velocity component in y direction in the ECEF frame."/>
+        </real>
+        <real name="/tvp/vz" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="z component of the spacecraft velocity in the ECEF frame" units="m/s" valid_min="-10000.0" valid_max="10000.0" coordinates="longitude latitude" comment="KMSF velocity component in z direction in the ECEF frame."/>
+        </real>
+        <real name="/tvp/plus_y_antenna_x" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="x coordinate of plus_y antenna phase center in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="x coordinate of the plus_y antenna phase center in the ECEF frame."/>
+        </real>
+        <real name="/tvp/plus_y_antenna_y" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="y coordinate of plus_y antenna phase center in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="y coordinate of the plus_y antenna phase center in the ECEF frame."/>
+        </real>
+        <real name="/tvp/plus_y_antenna_z" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="z coordinate of plus_y antenna phase center in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="z coordinate of the plus_y antenna phase center in the ECEF frame."/>
+        </real>
+        <real name="/tvp/minus_y_antenna_x" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="x coordinate of the minus_y antenna phase center in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="x coordinate of the minus_y antenna phase center in the ECEF frame."/>
+        </real>
+        <real name="/tvp/minus_y_antenna_y" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="y coordinate of the minus_y antenna phase center in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="y coordinate of the minus_y antenna phase center in the ECEF frame."/>
+        </real>
+        <real name="/tvp/minus_y_antenna_z" shape="num_tvps_shape" width="64">
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="z coordinate of the minus_y antenna phase center in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="z coordinate of the minus_y antenna phase center in the ECEF frame."/>
+        </real>
+        <integer name="/tvp/record_counter" shape="num_tvps_shape" width="32" signed="true">
+          <annotation app="conformance" _FillValue="2147483647" long_name="record counter" units="1" valid_min="1" valid_max="999999999" coordinates="longitude latitude" comment="Index of the TVP record used to align data samples across granules."/>
+        </integer>
+        <integer name="/tvp/sc_event_flag" shape="num_tvps_shape" width="8" signed="true">
+          <annotation app="conformance" _FillValue="127" standard_name="status_flag" flag_meanings="nominal not_nominal" flag_values="0 1" valid_min="0" valid_max="1" coordinates="longitude latitude" comment="Spacecraft event flag"/>
+        </integer>
+        <integer name="/tvp/tvp_qual" shape="num_tvps_shape" width="8" signed="true">
+          <annotation app="conformance" _FillValue="127" standard_name="status_flag" flag_meanings="good bad" flag_values="0 1" valid_min="0" valid_max="1" coordinates="longitude latitude" comment="Quality flag for TVP data"/>
+        </integer>
+        <string name="/tvp/@description" shape="Scalar" width="0">
+          <annotation description="Time varying parameters group including spacecraft attitude, position, velocity, and antenna position information"/>
+        </string>
+        <real name="/noise/noise_plus_y" shape="num_lines_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="Noise estimate for the plus_y channel" units="1" valid_min="0.0" valid_max="1e+20" comment="Noise power for the plus_y channel expressed in linear units (arbitrary units that give noise-equivalent sigma0 when normalized by the X factor)."/>
+        </real>
+        <real name="/noise/noise_minus_y" shape="num_lines_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="Noise estimate for the minus_y channel" units="1" valid_min="0.0" valid_max="1e+20" comment="Noise power for the minus_y channel expressed in linear units (arbitrary units that give noise-equivalent sigma0 when normalized by the X factor)."/>
+        </real>
+        <string name="/noise/@description" shape="Scalar" width="0">
+          <annotation description="Measured noise power for each receive echo of the plus_y and minus_y SLC channels"/>
+        </string>
+        <string name="/@Conventions" shape="Scalar" width="0">
+          <annotation description="NetCDF-4 conventions adopted in this group. This attribute should be set to CF-1.7 to indicate that the group is compliant with the Climate and Forecast NetCDF conventions."/>
+        </string>
+        <string name="/@title" shape="Scalar" width="0">
+          <annotation description="Level 2 KaRIn High Rate Water Mask Pixel Clould Data Product"/>
+        </string>
+        <string name="/@institution" shape="Scalar" width="0">
+          <annotation description="Name of producing agency."/>
+        </string>
+        <string name="/@source" shape="Scalar" width="0">
+          <annotation description="The method of production of the original data. If it was model-generated, source should name the model and its version, as specifically as could be useful. If it is observational, source should characterize it (e.g., 'Ka-band radar interferometer')."/>
+        </string>
+        <string name="/@history" shape="Scalar" width="0">
+          <annotation description="UTC time when file generated. Format is: 'YYYY-MM-DD hh:mm:ss : Creation'"/>
+        </string>
+        <string name="/@platform" shape="Scalar" width="0">
+          <annotation description="SWOT"/>
+        </string>
+        <string name="/@references" shape="Scalar" width="0">
+          <annotation description="Published or web-based references that describe the data or methods used to product it. Provides version number of software generating product."/>
+        </string>
+        <string name="/@reference_document" shape="Scalar" width="0">
+          <annotation description="Name and version of Product Description Document to use as reference for product."/>
+        </string>
+        <string name="/@contact" shape="Scalar" width="0">
+          <annotation description="Contact information for producer of product. (e.g., 'ops@jpl.nasa.gov')."/>
+        </string>
+        <integer name="/@cycle_number" shape="Scalar" width="16" signed="true">
+          <annotation description="Cycle number of the product granule."/>
+        </integer>
+        <integer name="/@pass_number" shape="Scalar" width="16" signed="true">
+          <annotation description="Pass number of the product granule."/>
+        </integer>
+        <integer name="/@tile_number" shape="Scalar" width="16" signed="true">
+          <annotation description="Tile number in the pass of the product granule."/>
+        </integer>
+        <string name="/@swath_side" shape="Scalar" width="0">
+          <annotation description="'L' or 'R' to indicate left and right swath, respectively."/>
+        </string>
+        <string name="/@tile_name" shape="Scalar" width="0">
+          <annotation description="Tile name using format PPP_TTTS, where PPP is a 3 digit pass number with leading zeros, TTT is a 3 digit tile number within the pass, and S is a character 'L' or 'R' for the left and right swath, respectively."/>
+        </string>
+        <string name="/@time_coverage_start" shape="Scalar" width="0">
+          <annotation description="UTC time of first measurement. Format is: YYYY-MM-DD HH:MM:SS.SSSSSSZ"/>
+        </string>
+        <string name="/@time_coverage_end" shape="Scalar" width="0">
+          <annotation description="UTC time of last measurement. Format is: YYYY-MM-DD HH:MM:SS.SSSSSSZ"/>
+        </string>
+        <real name="/@geospatial_lon_min" shape="Scalar" width="64">
+          <annotation description="Westernmost longitude (deg) of granule bounding box"/>
+        </real>
+        <real name="/@geospatial_lon_max" shape="Scalar" width="64">
+          <annotation description="Easternmost longitude (deg) of granule bounding box"/>
+        </real>
+        <real name="/@geospatial_lat_min" shape="Scalar" width="64">
+          <annotation description="Southernmost latitude (deg) of granule bounding box"/>
+        </real>
+        <real name="/@geospatial_lat_max" shape="Scalar" width="64">
+          <annotation description="Northernmost latitude (deg) of granule bounding box"/>
+        </real>
+        <real name="/@inner_first_longitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner longitude for the first range line and inner part of the swath (degrees_east)"/>
+        </real>
+        <real name="/@inner_first_latitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner latitude for the first range line and inner part of the swath (degrees_north)"/>
+        </real>
+        <real name="/@inner_last_longitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner longitude for the last range line and inner part of the swath (degrees_east)"/>
+        </real>
+        <real name="/@inner_last_latitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner latitude for the last range line and inner part of the swath (degrees_north)"/>
+        </real>
+        <real name="/@outer_first_longitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner longitude for the first range line and outer part of the swath (degrees_east)"/>
+        </real>
+        <real name="/@outer_first_latitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner latitude for the first range line and outer part of the swath (degrees_north)"/>
+        </real>
+        <real name="/@outer_last_longitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner longitude for the last range line and outer part of the swath (degrees_east)"/>
+        </real>
+        <real name="/@outer_last_latitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner latitude for the last range line and outer part of the swath (degrees_north)"/>
+        </real>
+        <real name="/@wavelength" shape="Scalar" width="64">
+          <annotation description="Wavelength (m) of the transmitted signal, which is determined based on the transmitter center frequency of the transmit chirp."/>
+        </real>
+        <real name="/@near_range" shape="Scalar" width="64">
+          <annotation description="The slant range (m) for the first image pixel."/>
+        </real>
+        <real name="/@nominal_slant_range_spacing" shape="Scalar" width="64">
+          <annotation description="The range spacing (m) corresponding to the 200 MHz sampling frequency"/>
+        </real>
+        <string name="/@polarization" shape="Scalar" width="0">
+          <annotation description="Flag indicating whether the tile was observed with a horizontal (H) or vertical (V) radar signal polarization."/>
+        </string>
+        <string name="/@transmit_antenna" shape="Scalar" width="0">
+          <annotation description="Flag indicating which of the KaRIn antennas (plus_y or minus_y) is transmitting."/>
+        </string>
+        <real name="/@processing_beamwidth" shape="Scalar" width="64">
+          <annotation description="Beamwidth (deg) used to integrate the range compressed data in azimuth compression. The 3 dB nominal azimuth antenna pattern beamwidth is about 0.1 degrees. After on-board presum with a presum factor of 2.125, the effective beamwidth is reduced to about 0.05 degrees."/>
+        </real>
+        <real name="/@slc_along_track_resolution" shape="Scalar" width="64">
+          <annotation description="Along-track or azimuth resolution (m) corresponding to the processing beamwidth for the SLC data.  The resolution is approximately the width between half-power points of the main lobe of the image point target response assuming that targets do not decorrelate over the focusing aperture time (which is not the case for water because of the short coherence time)."/>
+        </real>
+        <real name="/@slc_range_resolution" shape="Scalar" width="64">
+          <annotation description="Range resolution (m) for the SLC data.  The resolution is approximately the half-power width of the range point target response."/>
+        </real>
+        <integer name="/@slc_first_line_index_in_tvp" shape="Scalar" width="32" signed="true">
+          <annotation description="The TVP index (from 0 [TBC]) corresponding to the first SLC image line in the overlapped tile."/>
+        </integer>
+        <integer name="/@slc_last_line_index_in_tvp" shape="Scalar" width="32" signed="true">
+          <annotation description="The TVP index (from 0 [TBC]) corresponding to the last SLC image line in the overlapped tile."/>
+        </integer>
+        <string name="/@xref_input_l1b_hr_slc_file" shape="Scalar" width="0">
+          <annotation description="Name of input Level 1B Single Look Complex (SLC) product file."/>
+        </string>
+        <string name="/@xref_input_static_karin_cal_file" shape="Scalar" width="0">
+          <annotation description="Name of input static KaRIn calibration file."/>
+        </string>
+        <string name="/@xref_input_ref_dem_file" shape="Scalar" width="0">
+          <annotation description="Name of input reference digital elevation model file."/>
+        </string>
+        <string name="/@xref_input_water_mask_file" shape="Scalar" width="0">
+          <annotation description="Name of input water mask file."/>
+        </string>
+        <string name="/@xref_input_static_geophys_files" shape="Scalar" width="0">
+          <annotation description="List of static geophysical parameter files"/>
+        </string>
+        <string name="/@xref_input_dynamic_geophys_files" shape="Scalar" width="0">
+          <annotation description="List of dynamic geophysical parameter files (TBR: to be split into specific input types)"/>
+        </string>
+        <string name="/@xref_input_int_lr_xover_cal_file" shape="Scalar" width="0">
+          <annotation description="Name of input crossover calibration file."/>
+        </string>
+        <string name="/@xref_l2_hr_pixc_config_parameters_file" shape="Scalar" width="0">
+          <annotation description="Name of input processor configuration parameters file."/>
+        </string>
+        <real name="/@ellipsoid_semi_major_axis" shape="Scalar" width="64">
+          <annotation description="Semi-major axis of reference ellipsoid in meters."/>
+        </real>
+        <real name="/@ellipsoid_flattening" shape="Scalar" width="64">
+          <annotation description="Flattening of reference ellipsoid"/>
+        </real>
+      </nodes>
+    </science>
+    <shape name="Scalar" order="irrelevant"/>    <shape name="points_shape" order="slowest...fastest">
+      <dimension extent="0" name="points"/>
+    </shape>
+    <shape name="points_complex_depth_shape" order="slowest...fastest">
+      <dimension extent="0" name="points"/>
+      <dimension extent="2" name="complex_depth"/>
+    </shape>
+    <shape name="num_tvps_shape" order="slowest...fastest">
+      <dimension extent="0" name="num_tvps"/>
+    </shape>
+    <shape name="num_lines_shape" order="slowest...fastest">
+      <dimension extent="0" name="num_lines"/>
+    </shape>
+  </product>
