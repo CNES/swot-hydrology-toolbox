@@ -288,8 +288,8 @@ class CommonPixcvec(NetCDFProduct):
         self.metadata["tile_number"] = -9999
         self.metadata["swath_side"] = ""
         self.metadata["tile_name"] = ""
-        self.metadata["start_time"] = ""
-        self.metadata["stop_time"] = ""
+        self.metadata["time_coverage_start"] = ""
+        self.metadata["time_coverage_end"] = ""
         self.metadata["inner_first_latitude"] = -9999.0
         self.metadata["inner_first_longitude"] = -9999.0
         self.metadata["inner_last_latitude"] = -9999.0
@@ -865,8 +865,8 @@ class LakeTileEdgeProduct(NetCDFProduct):
         self.metadata["tile_number"] = -9999
         self.metadata["swath_side"] = ""
         self.metadata["tile_name"] = ""
-        self.metadata["start_time"] = ""
-        self.metadata["stop_time"] = ""
+        self.metadata["time_coverage_start"] = ""
+        self.metadata["time_coverage_end"] = ""
         self.metadata["inner_first_latitude"] = -9999.0
         self.metadata["inner_first_longitude"] = -9999.0
         self.metadata["inner_last_latitude"] = -9999.0

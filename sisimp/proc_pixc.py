@@ -180,8 +180,12 @@ class l2_hr_pixc(object):
         tmp_metadata['tile_name'] = "%03d_%03d%s" % (np.int(self.pass_num), int(self.tile_ref[0:-1]), self.tile_ref[-1])
         tmp_metadata['near_range'] = np.min(self.near_range)  # TODO: improve
         tmp_metadata['nominal_slant_range_spacing'] = self.range_spacing
-        tmp_metadata['start_time'] = self.computeDate(self.nadir_time[0])
-        tmp_metadata['stop_time'] = self.computeDate(self.nadir_time[-1])
+        tmp_metadata['time_coverage_start'] = self.computeDate(self.nadir_time[0])
+        tmp_metadata['time_coverage_end'] = self.computeDate(self.nadir_time[-1])
+        tmp_metadata['geospatial_lon_min'] = min([self.inner_first[0], self.inner_last[0], self.outer_first[0], self.outer_last[0]])
+        tmp_metadata['geospatial_lon_max'] = max([self.inner_first[0], self.inner_last[0], self.outer_first[0], self.outer_last[0]])
+        tmp_metadata['geospatial_lat_min'] = min([self.inner_first[1], self.inner_last[1], self.outer_first[1], self.outer_last[1]])
+        tmp_metadata['geospatial_lat_max'] = max([self.inner_first[1], self.inner_last[1], self.outer_first[1], self.outer_last[1]])
         tmp_metadata["inner_first_longitude"] = self.inner_first[0]
         tmp_metadata["inner_first_latitude"] = self.inner_first[1]
         tmp_metadata["inner_last_longitude"] = self.inner_last[0]

@@ -111,8 +111,8 @@ class PixelCloudVec(object):
         self.pixcvec_metadata["tile_number"] = -9999
         self.pixcvec_metadata["swath_side"] = ""
         self.pixcvec_metadata["tile_name"] = ""
-        self.pixcvec_metadata["start_time"] = ""
-        self.pixcvec_metadata["stop_time"] = ""
+        self.pixcvec_metadata["time_coverage_start"] = ""
+        self.pixcvec_metadata["time_coverage_end"] = ""
         self.pixcvec_metadata["inner_first_latitude"] = -9999.0
         self.pixcvec_metadata["inner_first_longitude"] = -9999.0
         self.pixcvec_metadata["inner_last_latitude"] = -9999.0

@@ -368,7 +368,7 @@ class PixcProduct(NetCDFProduct):
         tmp_metadata['institution'] = 'CNES - Large scale simulator'
         tmp_metadata['source'] = 'Ka-band radar interferometer'
         tmp_metadata['history'] = "%sZ: Creation" % datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-        tmp_metadata['mission_name'] = "SWOT"
+        tmp_metadata['platform'] = "SWOT"
         tmp_metadata['references'] = 'Large scale simulator'
         tmp_metadata['reference_document'] = 'JPL D-56411 - Initial release - February 11, 2019'
         tmp_metadata['wavelength'] = 0.008385803020979

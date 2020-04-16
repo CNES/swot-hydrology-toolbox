@@ -1041,8 +1041,8 @@ class LakeSPShpProduct(ShapefileProduct):
         self.metadata["global_attributes"]["tile_number"] = -9999
         self.metadata["global_attributes"]["swath_side"] = ""
         self.metadata["global_attributes"]["tile_name"] = ""
-        self.metadata["global_attributes"]["start_time"] = ""
-        self.metadata["global_attributes"]["stop_time"] = ""
+        self.metadata["global_attributes"]["time_coverage_start"] = ""
+        self.metadata["global_attributes"]["time_coverage_end"] = ""
         self.metadata["global_attributes"]["inner_first_latitude"] = -9999.0
         self.metadata["global_attributes"]["inner_first_longitude"] = -9999.0
         self.metadata["global_attributes"]["inner_last_latitude"] = -9999.0
@@ -1100,8 +1100,8 @@ class LakeSPShpProduct(ShapefileProduct):
         # 2 - Metadata retrieved from L2_HR_PIXC product
         self.metadata["global_attributes"]["cycle_number"] = -9999
         self.metadata["global_attributes"]["pass_number"] = -9999
-        self.metadata["global_attributes"]["start_time"] = ""
-        self.metadata["global_attributes"]["stop_time"] = ""
+        self.metadata["global_attributes"]["time_coverage_start"] = ""
+        self.metadata["global_attributes"]["time_coverage_end"] = ""
         self.metadata["global_attributes"]["polygon"] = ""
         self.metadata["global_attributes"]["continent"] = "None"
         if in_laketile_metadata is not None:

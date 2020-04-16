@@ -201,8 +201,8 @@ class PixelCloud(object):
         self.pixc_metadata["tile_number"] = -9999
         self.pixc_metadata["swath_side"] = ""
         self.pixc_metadata["tile_name"] = ""
-        self.pixc_metadata["start_time"] = ""
-        self.pixc_metadata["stop_time"] = ""
+        self.pixc_metadata["time_coverage_start"] = ""
+        self.pixc_metadata["time_coverage_end"] = ""
         self.pixc_metadata["inner_first_latitude"] = -9999.0
         self.pixc_metadata["inner_first_longitude"] = -9999.0
         self.pixc_metadata["inner_last_latitude"] = -9999.0

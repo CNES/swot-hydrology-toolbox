@@ -132,8 +132,8 @@ class PixCEdge(object):
         else:
             logger.error("Continent for swath left and right are not the same")
         # 4.4 - Start and stop time
-        self.pixc_metadata["start_time"] = min(self.pixc_edge_l.pixc_metadata["start_time"], self.pixc_edge_r.pixc_metadata["start_time"])
-        self.pixc_metadata["stop_time"] = max(self.pixc_edge_l.pixc_metadata["stop_time"], self.pixc_edge_r.pixc_metadata["stop_time"])
+        self.pixc_metadata["time_coverage_start"] = min(self.pixc_edge_l.pixc_metadata["time_coverage_start"], self.pixc_edge_r.pixc_metadata["time_coverage_start"])
+        self.pixc_metadata["time_coverage_end"] = max(self.pixc_edge_l.pixc_metadata["time_coverage_end"], self.pixc_edge_r.pixc_metadata["time_coverage_end"])
         # 4.5 - Polygon of the swath
         self.pixc_metadata["polygon"] = str(self.tile_poly)
 
@@ -347,8 +347,8 @@ class PixCEdgeSwath(object):
         self.pixc_metadata = {}
         self.pixc_metadata["cycle_number"] = -9999
         self.pixc_metadata["pass_number"] = -9999
-        self.pixc_metadata["start_time"] = ""
-        self.pixc_metadata["stop_time"] = ""
+        self.pixc_metadata["time_coverage_start"] = ""
+        self.pixc_metadata["time_coverage_end"] = ""
         self.pixc_metadata["continent"] = self.continent
         self.pixc_metadata["ellipsoid_semi_major_axis"] = ""
         self.pixc_metadata["ellipsoid_flattening"] = ""
@@ -470,7 +470,7 @@ class PixCEdgeSwath(object):
         current_swath_side = str(pixc_edge_reader.get_att_value("swath_side"))
         if current_swath_side != self.swath_side:
             logger.error("Swath of tile %s do note match with PixCEdgeSwath %s" %(current_swath_side, self.swath_side))
-        current_date = int(pixc_edge_reader.get_att_value("start_time")[:8])
+        current_date = int(pixc_edge_reader.get_att_value("time_coverage_start")[:8])
         if not self.date:
             self.date = current_date
         # Stop the process if acquisition dates are not same day or next day
@@ -511,8 +511,8 @@ class PixCEdgeSwath(object):
                 # 3.1 - Values for metadata
                 self.pixc_metadata["cycle_number"] = self.cycle_num
                 self.pixc_metadata["pass_number"] = self.pass_num
-                self.pixc_metadata["start_time"] = str(pixc_edge_reader.get_att_value("start_time"))
-                self.pixc_metadata["stop_time"] = str(pixc_edge_reader.get_att_value("stop_time"))
+                self.pixc_metadata["time_coverage_start"] = str(pixc_edge_reader.get_att_value("time_coverage_start"))
+                self.pixc_metadata["time_coverage_end"] = str(pixc_edge_reader.get_att_value("time_coverage_end"))
                 self.pixc_metadata["continent"] = self.continent
                 self.pixc_metadata["ellipsoid_semi_major_axis"] = str(pixc_edge_reader.get_att_value("ellipsoid_semi_major_axis"))
                 self.pixc_metadata["ellipsoid_flattening"] = str(pixc_edge_reader.get_att_value("ellipsoid_flattening"))
@@ -632,8 +632,8 @@ class PixCEdgeSwath(object):
                 self.nadir_tvp_qual = np.concatenate((self.nadir_tvp_qual, pixc_edge_reader.get_var_value("nadir_tvp_qual")))
     
                 # 5.4 - Update metadata from PixC info
-                self.pixc_metadata["start_time"] = min(self.pixc_metadata["start_time"], str(pixc_edge_reader.get_att_value("start_time")))
-                self.pixc_metadata["stop_time"] = max(self.pixc_metadata["stop_time"], str(pixc_edge_reader.get_att_value("stop_time")))
+                self.pixc_metadata["time_coverage_start"] = min(self.pixc_metadata["time_coverage_start"], str(pixc_edge_reader.get_att_value("time_coverage_start")))
+                self.pixc_metadata["time_coverage_end"] = max(self.pixc_metadata["time_coverage_end"], str(pixc_edge_reader.get_att_value("time_coverage_end")))
                                 
                 # 5.5 - Set bad PIXC height std to high number to deweight 
                 # instead of giving infs/nans
