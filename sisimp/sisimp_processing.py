@@ -164,6 +164,7 @@ class Processing(object):
 
             # Water flag
             self.my_attributes.water_flag = read_parameter(parameters, "Water flag", my_var.WATER_FLAG, float)
+            self.my_attributes.water_land_flag = read_parameter(parameters, "Water land flag", my_var.WATER_LAND_FLAG, float)
             self.my_attributes.land_flag = read_parameter(parameters, "Land flag", my_var.LAND_FLAG, float)
             self.my_attributes.land_water_flag = read_parameter(parameters, "Land water flag", my_var.LAND_WATER_FLAG, float)
             self.my_attributes.land_detected_noise_factor = read_parameter(parameters, "Land noise factor", my_var.LAND_DETECTED_NOISE_FACTOR, float)
@@ -267,6 +268,8 @@ class Processing(object):
             self.my_attributes.noise_height[:, 1] = self.my_attributes.noise_multiplier_factor * self.my_attributes.noise_height[:, 1]
             self.my_attributes.dw_detected_noise_height = np.loadtxt(os.path.expandvars(parameters.getValue("Noise file path")), skiprows=1)
             self.my_attributes.dw_detected_noise_height[:, 1] = self.my_attributes.dw_detected_noise_factor * self.my_attributes.noise_height[:, 1]
+            self.my_attributes.land_detected_noise_height = np.loadtxt(os.path.expandvars(parameters.getValue("Noise file path")), skiprows=1)
+            self.my_attributes.land_detected_noise_height[:, 1] = self.my_attributes.land_detected_noise_factor * self.my_attributes.noise_height[:, 1]
         except IOError:
             my_api.exitWithError("Noise file not found")
 

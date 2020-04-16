@@ -21,6 +21,8 @@ import utm
 import pickle
 import pyproj
 from scipy import ndimage
+from scipy.spatial import cKDTree
+from sklearn.neighbors import KDTree
 import time
 
 import lib.dark_water_functions as dark_water
@@ -94,8 +96,10 @@ class orbitAttributes:
 
         # 1.5 - Water flag
         self.water_flag = None
+        self.water_land_flag = None
         self.land_flag = None
         self.land_water_flag = None
+        self.land_detected_noise_height = None
         self.land_detected_noise_factor = None
     
         # 1.6 - Noise parameters
@@ -290,12 +294,24 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     ################################
 
     # Add land-water and land pixels
+    # Create pixels near to the land
     struct=ndimage.generate_binary_structure(2,1)
+    water_land_pixels = ndimage.binary_erosion(IN_water_pixels).astype(IN_water_pixels.dtype)
     land_water_pixels = ndimage.binary_dilation(IN_water_pixels, structure=struct).astype(IN_water_pixels.dtype)
     land_pixels = ndimage.binary_dilation(IN_water_pixels, structure=struct, iterations=5).astype(IN_water_pixels.dtype)
+   
+    # Keep river_flag informartion
+    river_flag_mat = IN_water_pixels
+    print(len(np.where(river_flag_mat==2)[0]))
+    for i in range(5):
+        river_flag_mat = ndimage.grey_dilation(river_flag_mat, footprint=struct).astype(river_flag_mat.dtype)
+    print(len(np.where(river_flag_mat==2)[0]))
 
-    IN_water_pixels[np.where(np.logical_and(land_water_pixels!=0, IN_water_pixels==0))] = 99 # water zone border
-    IN_water_pixels[np.where(np.logical_and(land_pixels!=0, land_water_pixels==0))] = 100 # land zone
+    # Put flag on land, land_water, water_land and water pixels
+    IN_water_pixels[np.nonzero(IN_water_pixels)] = IN_attributes.water_flag
+    IN_water_pixels[np.where(np.logical_and(IN_water_pixels!=0, water_land_pixels==0))] = IN_attributes.water_land_flag
+    IN_water_pixels[np.where(np.logical_and(land_water_pixels!=0, IN_water_pixels==0))] = IN_attributes.land_water_flag 
+    IN_water_pixels[np.where(np.logical_and(land_pixels!=0, land_water_pixels==0))] = IN_attributes.land_flag 
     
     # Print number of water pixels
     size_of_tabs = np.count_nonzero(IN_water_pixels) 
@@ -305,11 +321,9 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     ind = np.nonzero(IN_water_pixels)  # Get indices 1=lake and 2=river 99=land-water 100=land (remove 0=land)
     r, az = [ind[0], ind[1]]  # Range index
     #az = ind[1]  # Azimuth index
-    river_flag = IN_water_pixels[ind]  # 1=lake and 2=river
-    land_ind = np.where(np.nonzero(IN_water_pixels)==100)
-    land_water_ind = np.where(np.nonzero(IN_water_pixels)==99)
-
-    # Generate land-water and land pixels around water zone
+    river_flag = river_flag_mat[ind]  # 1=lake and 2=river
+    classification_tab = IN_water_pixels[ind]
+    land_ind = np.where(classification_tab==IN_attributes.land_flag)[0]
 
     # Dark Water
     
@@ -338,8 +352,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Nb detected dark water pixels : %d" % np.where(dw_mask == 1)[0].size)
                 my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Nb non detected dark water pixels : %d" % np.where(dw_mask == 2)[0].size)
                 # Update river_flag and IN_water_pixels with the deleted water pixels
-                river_flag[np.where(dw_mask == 2)] = 0
-                IN_water_pixels[ind] = river_flag
+                classification_tab[np.where(dw_mask == 2)] = 0
+                IN_water_pixels[ind] = classification_tab
                 # Delete the corresponding pixels in the dw mask to update indices values
                 dw_mask = np.delete(dw_mask, np.where(dw_mask == 2))
                 # Update size of tabs etc... because water pixels were deleted
@@ -347,23 +361,17 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Nb water pixels: %d" % size_of_tabs)
                 ind = np.nonzero(IN_water_pixels)
                 r, az = [ind[0], ind[1]]
-                river_flag = IN_water_pixels[ind]
-            # Build the classification array with water flag Dark_water flag
-            classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag  # Classification as water
-            classification_tab[land_water_ind] = IN_attributes.land_water_flag
-            classification_tab[land_ind] = IN_attributes.land_flag
+                classification_tab = IN_water_pixels[ind]
+                river_flag = river_flag_mat[ind]
+                land_ind = np.where(classification_tab==IN_attributes.land_flag)[0]
+            ## Build the classification array with water flag Dark_water flag
             # Locate DW pixels
             dark_water_loc = np.where(dw_mask == 1)
             # Update classification value for dark water pixels with DW flag
             classification_tab[dark_water_loc] = IN_attributes.darkwater_flag
         else:
-            classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag
-            classification_tab[land_water_ind] = IN_attributes.land_water_flag
-            classification_tab[land_ind] = IN_attributes.land_flag
+            my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] No Dark Water will be simulated")
     else:
-        classification_tab = np.ones(size_of_tabs) * IN_attributes.water_flag
-        classification_tab[land_water_ind] = IN_attributes.land_water_flag
-        classification_tab[land_ind] = IN_attributes.land_flag
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] No Dark Water will be simulated")
         
     # 2 - Compute radar variables for water pixels
@@ -388,30 +396,13 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             titi = merge(lac.pixels[0], lac.pixels[1])
             toto = merge(r, az)
             indice = np.isin(toto,titi)
-            
+            tree = KDTree(np.column_stack((lac.pixels[0], lac.pixels[1])))
+            indice_water = np.array([r[np.where(tree.query(np.column_stack((r, az)))[0] < 5*np.sqrt(2))[0]],\
+                            az[np.where(tree.query(np.column_stack((r, az)))[0] < 5*np.sqrt(2))[0]]])
+
             lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
-            elevation_tab[indice] += lac.h_ref
-            # TODO : Calcul water_frac for all pts
-            #for i, val in enumerate(indice):
-            #    if val:
-            #        ring = ogr.Geometry(ogr.wkbLinearRing)
-            #        ring.AddPoint( lon[i] + (IN_attributes.range_sampling / GEN_RAD_EARTH)*(180./np.pi)/np.cos(lat[i]*np.pi/180.), lat[i] + (IN_attributes.azimuth_spacing / GEN_RAD_EARTH)*(180./np.pi))
-            #        ring.AddPoint( lon[i] - (IN_attributes.range_sampling / GEN_RAD_EARTH)*(180./np.pi)/np.cos(lat[i]*np.pi/180.), lat[i] + (IN_attributes.azimuth_spacing / GEN_RAD_EARTH)*(180./np.pi))
-            #        ring.AddPoint( lon[i] + (IN_attributes.range_sampling / GEN_RAD_EARTH)*(180./np.pi)/np.cos(lat[i]*np.pi/180.), lat[i] - (IN_attributes.azimuth_spacing / GEN_RAD_EARTH)*(180./np.pi))
-            #        ring.AddPoint( lon[i] - (IN_attributes.range_sampling / GEN_RAD_EARTH)*(180./np.pi)/np.cos(lat[i]*np.pi/180.), lat[i] - (IN_attributes.azimuth_spacing / GEN_RAD_EARTH)*(180./np.pi))
-            #        ring.CloseRings()
-            #    
-            #        poly_point = ogr.Geometry(ogr.wkbPolygon)
-            #        poly_point.AddGeometry(ring)
-            #        poly_intersection = swath_polygon.Intersection(poly_point)
-            #        if poly_intersection==None:
-            #            water_frac[i]=1.0
-            #        else:
-            #            try:
-            #                water_frac[i] = (poly_point.GetArea() - (poly_point.GetArea() - poly_intersection.GetArea()))/poly_point.GetArea()
-            #            except ZeroDivisionError:
-            #                water_frac[i] = poly_point.GetArea()
+            elevation_tab[indice_water] += lac.h_ref
 
     # 3 - Build cross-track distance array
     # Compute theorical cross-track distance for water pixels
@@ -428,6 +419,13 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     
     
     pixel_area = IN_attributes.azimuth_spacing * IN_attributes.range_sampling / np.sin(angles)  # Pixel area
+    # pixel_area calcul
+    ind_lw = np.where(classification_tab==2)
+    ind_wl = np.where(classification_tab==3)
+    ind_l = np.where(classification_tab==1)
+    pixel_area[ind_lw]= (0.4 * np.random.random_sample((len(pixel_area[ind_lw]))) + 0.1) * pixel_area[ind_lw]
+    pixel_area[ind_wl]= (0.4 * np.random.random_sample((len(pixel_area[ind_wl]))) + 0.5) * pixel_area[ind_wl]
+    pixel_area[ind_l]=0
     
     # 4.1 bis - Compute mean noise over points
     noise_seed = int(str(time.time()).split('.')[1])
@@ -463,12 +461,12 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         delta_h[dw_pixels] = conv_delta_h[ind][dw_pixels]
     
     # Compute height for land pixels
-    if len(land_ind[0]) != 0:
-        land_pixels = np.where(classification_tab == IN_attributes.land_flag)
-        delta_h_land, phase_noise_std[land_pixels], dh_dphi[land_pixels] = math_fct.calc_delta_h(IN_water_pixels, angles_pixels, angles[land_pixels], IN_attributes.land_detected_noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+    if len(land_ind) != 0:
+        #land_pixels = np.where(classification_tab == IN_attributes.land_flag)
+        delta_h_land, phase_noise_std[land_ind], dh_dphi[land_ind] = math_fct.calc_delta_h(IN_water_pixels, angles_pixels, angles[land_ind], IN_attributes.land_detected_noise_height, IN_attributes.land_detected_noise_factor, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
         conv_delta_h = ndimage.convolve(delta_h_land, np.array([[1/9, 1/9, 1/9], [1/9, 1/9, 1/9], [1/9, 1/9, 1/9]]))
         ind=np.where(IN_water_pixels!=0)
-        delta_h[land_pixels]=conv_delta_h[ind][land_pixels]
+        delta_h[land_ind]=conv_delta_h[ind][land_ind]
 
 
     # 4.2 Add residual roll error
