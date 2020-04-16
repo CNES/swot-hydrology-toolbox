@@ -16,7 +16,7 @@ from collections import OrderedDict
 from datetime import datetime
 from lxml import etree as ET
 import numpy as np
-
+import os
 import lib.my_api as my_api
 
 import cnes.common.lib.my_netcdf_file as my_nc
@@ -359,7 +359,7 @@ class PixcProduct(NetCDFProduct):
         """
         
         # 1 - Init CommonPixc
-        super().__init__("data/pixc.xml")
+        super().__init__(os.path.expandvars("$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/pixc.xml"))
                 
         # 2 - Update general metadata specific to PIXC file
         tmp_metadata = {}
@@ -404,7 +404,7 @@ class PixcVecRiverProduct(NetCDFProduct):
         """
         
         # 1 - Init NetCDF_product
-        super().__init__("data/pixcvecriver.xml")
+        super().__init__(os.path.expandvars("$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/pixcvecriver.xml"))
                 
         # 2 - Update general metadata specific to PIXC file
         tmp_metadata = {}
