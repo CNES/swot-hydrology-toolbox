@@ -6,24 +6,24 @@ This file is part of the SWOT Hydrology Toolbox
 
 '''
 import argparse
-import glob
-import os
+import ast
 import datetime
+import glob
+import logging
+import os
 
 import tools.my_filenames as my_names
 import tools.my_rdf as my_rdf
 
 import cnes.modules.geoloc.lib.pixc_to_shp
 
-import os
-import ast
-import argparse
-
-import logging
-
 import RDF as RDF
 import SWOTRiver.Estimate as Estimate
 from SWOTRiver.products.pixcvec import L2PIXCVector
+
+
+#######################################
+
 
 def write_annotation_file(ann_file,
                           pixc_file,
@@ -41,6 +41,7 @@ def write_annotation_file(ann_file,
 
 
 #######################################
+
 
 def l2pixc_to_rivertile(pixc_file, out_riverobs_file, out_pixc_vector_file, rdf_file, shpbasedir=None, log_level="info", gdem_file=None):
     LOGGER = logging.getLogger('swot_pixc2rivertile')
@@ -61,37 +62,62 @@ def l2pixc_to_rivertile(pixc_file, out_riverobs_file, out_pixc_vector_file, rdf_
         import fake_pixc_from_gdem
         import tempfile
         pixc_file = tempfile.mktemp()
+        LOGGER.info("0 - Produce fake PIXC from GDEM")
+        LOGGER.info("fake_pixc_from_gdem.fake_pixc_from_gdem(%s, %s, %s)" % (gdem_file, pixc_file, pixc_file))
         fake_pixc_from_gdem.fake_pixc_from_gdem(gdem_file, pixc_file, pixc_file)
+        LOGGER.info()
 
+    LOGGER.info("1 - [RiverObs] Init class for running RiverObs on a SWOT L2 PixelCloud data product")
+    LOGGER.info("> Estimate.L2PixcToRiverTile(%s, %s)" % (pixc_file, out_pixc_vector_file))
     l2pixc_to_rivertile = Estimate.L2PixcToRiverTile(pixc_file, out_pixc_vector_file)
+    LOGGER.info("- end -")
 
+    LOGGER.info("2 - [RiverObs] Copies config object into self's storage from main")
+    LOGGER.info("> Estimate.L2PixcToRiverTile.load_config(config)")
     l2pixc_to_rivertile.load_config(config)
+    LOGGER.info("- end -")
 
     # generate empty output file on errors
+    LOGGER.info("3 - Run RiverObs")
     try:
+        LOGGER.info("3.1 - [RiverObs] Estimate.L2PixcToRiverTile.do_river_processing()")
         l2pixc_to_rivertile.do_river_processing()
+        LOGGER.info("3.2 - [RiverObs] Estimate.L2PixcToRiverTile.match_pixc_idx()")
         l2pixc_to_rivertile.match_pixc_idx()
+        LOGGER.info("3.3 - [RiverObs] Estimate.L2PixcToRiverTile.do_improved_geolocation()")
         l2pixc_to_rivertile.do_improved_geolocation()
+        LOGGER.info("3.4 - [RiverObs] Estimate.L2PixcToRiverTile.flag_lakes_pixc()")
         l2pixc_to_rivertile.flag_lakes_pixc()
 
     except Exception as exception:
         LOGGER.error(
             'Unable to continue river processing: {}'.format(exception))
+    LOGGER.info("- end -")
 
+    LOGGER.info("4 - [RiverObs] build_products()")
     l2pixc_to_rivertile.build_products()
+    LOGGER.info("- end -")
 
     # rewrite index file to make it look like an SDS one
+    LOGGER.info("5 - [RiverObs] Generate PIXCVecRiver file")
+    LOGGER.info("> L2PIXCVector.from_ncfile(%s).to_ncfile(%s)" % (l2pixc_to_rivertile.index_file, l2pixc_to_rivertile.index_file))
     L2PIXCVector.from_ncfile(l2pixc_to_rivertile.index_file
                              ).to_ncfile(l2pixc_to_rivertile.index_file)
+    LOGGER.info("- end -")
 
+    LOGGER.info("6 - [RiverObs] Generate output files")
+    LOGGER.info("> Estimate.L2PixcToRiverTile.rivertile_product.to_ncfile(%s)" % out_riverobs_file)
     l2pixc_to_rivertile.rivertile_product.to_ncfile(out_riverobs_file)
     if shpbasedir is not None:
         if not os.path.isdir(shpbasedir):
             os.mkdir(shpbasedir)
+        LOGGER.info("> Estimate.L2PixcToRiverTile.rivertile_product.nodes.write_shapes(%s)" % os.path.join(shpbasedir, 'nodes.shp'))
         l2pixc_to_rivertile.rivertile_product.nodes.write_shapes(
             os.path.join(shpbasedir, 'nodes.shp'))
+        LOGGER.info("> Estimate.L2PixcToRiverTile.rivertile_product.reaches.write_shapes(%s)" % os.path.join(shpbasedir, 'reaches.shp'))
         l2pixc_to_rivertile.rivertile_product.reaches.write_shapes(
             os.path.join(shpbasedir, 'reaches.shp'))
+    LOGGER.info("- end -")
 
     if gdem_file is not None:
         os.remove(pixc_file)
@@ -120,13 +146,15 @@ def main():
     format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     if args["writelog"]:
         logFile = os.path.join(args['output_dir'], "RiverTile_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".log")
-        print("> Log file = {}".format(logFile))
+        line_to_write = "> Log file = {}".format(logFile)
         logging.basicConfig(filename=logFile, level=level, format=format)
     else:
-        print("> No log file ; print info on screen")
+        line_to_write = "> No log file; print info on screen"
         logging.basicConfig(level=level, format=format)
 
     logging.info("===== l2pixc_to_rivertile = BEGIN =====")
+    logging.info("")
+    logging.info(line_to_write)
     logging.info("")
 
     # Load rdf files
@@ -169,7 +197,6 @@ def main():
         output_riverobs = os.path.join(river_dir, river_filenames.rivertile_file)
         output_pixcvec = os.path.join(pixcvec_dir, river_filenames.pixc_vec_river_file)
         river_ann_file = os.path.join(args['output_dir'], river_filenames.annot_file)
-
 
         logging.info("== Run RiverObs ==")
         try :
