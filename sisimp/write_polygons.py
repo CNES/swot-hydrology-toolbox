@@ -302,10 +302,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
    
     # Keep river_flag informartion
     river_flag_mat = IN_water_pixels
-    print(len(np.where(river_flag_mat==2)[0]))
     for i in range(5):
         river_flag_mat = ndimage.grey_dilation(river_flag_mat, footprint=struct).astype(river_flag_mat.dtype)
-    print(len(np.where(river_flag_mat==2)[0]))
 
     # Put flag on land, land_water, water_land and water pixels
     IN_water_pixels[np.nonzero(IN_water_pixels)] = IN_attributes.water_flag
@@ -404,6 +402,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
             elevation_tab[indice_water] += lac.h_ref
 
+            
     # 3 - Build cross-track distance array
     # Compute theorical cross-track distance for water pixels
     # ~ sign = [-1, 1][IN_swath.lower() == 'right']
@@ -463,10 +462,13 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # Compute height for land pixels
     if len(land_ind) != 0:
         #land_pixels = np.where(classification_tab == IN_attributes.land_flag)
-        delta_h_land, phase_noise_std[land_ind], dh_dphi[land_ind] = math_fct.calc_delta_h(IN_water_pixels, angles_pixels, angles[land_ind], IN_attributes.land_detected_noise_height, IN_attributes.land_detected_noise_factor, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
+        delta_h_land, phase_noise_std[land_ind], dh_dphi[land_ind] = math_fct.calc_delta_h(IN_water_pixels, angles_pixels, angles[land_ind], IN_attributes.land_detected_noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
         conv_delta_h = ndimage.convolve(delta_h_land, np.array([[1/9, 1/9, 1/9], [1/9, 1/9, 1/9], [1/9, 1/9, 1/9]]))
         ind=np.where(IN_water_pixels!=0)
         delta_h[land_ind]=conv_delta_h[ind][land_ind]
+        
+    # Reduction of the phase noise std due to adaptive multilooking
+    phase_noise_std = phase_noise_std/3.
 
 
     # 4.2 Add residual roll error
@@ -897,7 +899,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
                 try:
-                    lac.h_ref=float(polygon_index.GetField("ref_height"))
+                    lac.h_ref=float(polygon_index.GetField(str(IN_attributes.height_name)))
                     if lac.h_ref==None:
                         lac.h_ref=0
                 except:
