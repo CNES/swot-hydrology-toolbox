@@ -35,6 +35,11 @@ Dark water detected noise factor = 4
 Scale factor non detected dw = 0.5
 Dark water correlation length = 50
 
+Land water flag = 2
+Land flag = 1
+Land noise factor = 10.
+
+
 !Dark water seed = 12345678
 
 !### Error parameters
@@ -67,8 +72,8 @@ Constant height model period (days) = 365.25
 !Height 2d model stdv = 1.        !stdv for gaussian model (ie Height model = gaussian)
 
 !### Option 2 - Height is given from a specific attribute in the shapefile of water bodies
-!Height model = reference_height
-!Height shp attribute name = ref_height     !Name of the attribute (default=HEIGHT)
+Height model = reference_height
+Height shp attribute name = ref_height     !Name of the attribute (default=HEIGHT)
 
 !### Option 3 - Height is given in a NetCDF file
 !Height model = reference_file

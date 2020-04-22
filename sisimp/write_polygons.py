@@ -399,10 +399,12 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                             az[np.where(tree.query(np.column_stack((r, az)))[0] < 5*np.sqrt(2))[0]]])
 
             lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
+        
+            indice_water_f = np.isin(toto, merge(indice_water[0],indice_water[1]))
+     
+            elevation_tab[indice_water_f] += lac.h_ref
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
-            elevation_tab[indice_water] += lac.h_ref
 
-            
     # 3 - Build cross-track distance array
     # Compute theorical cross-track distance for water pixels
     # ~ sign = [-1, 1][IN_swath.lower() == 'right']
@@ -583,6 +585,11 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         
         if az_indices.size != 0:  # Write water pixels at this latitude
             
+                        
+            #Filtering of bad pixels (dirty trick)
+            az_indices = az_indices[np.where(lon_noisy[az_indices] !=0.)]
+            az_indices = az_indices[np.where(lat_noisy[az_indices] !=0.)]
+            
             sub_az, sub_r = [az[az_indices], r[az_indices]]
             
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min r ind = %d - Max r ind = %d" % (np.min(sub_r), np.max(sub_r)))
@@ -665,6 +672,10 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             IN_attributes.tile_coords[left_or_right] = tile_coords
 
             # Init L2_HR_PIXC object
+            
+
+            
+            
             my_pixc = proc_pixc.l2_hr_pixc(sub_az, sub_r, classification_tab[az_indices], pixel_area[az_indices],
                                            lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], phase_noise_std[az_indices],
                                            dh_dphi[az_indices], dlon_dphi[az_indices], dlat_dphi[az_indices], y[az_indices],
@@ -1271,7 +1282,8 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
     if IN_attributes.height_model == 'polynomial':
         near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
     if IN_attributes.height_model == 'reference_file':
-        near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+        # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+        near_range = np.min(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
     if IN_attributes.height_model == None:
         hmean = IN_attributes.height_model_a + IN_attributes.height_model_a * \
         np.sin(2*np.pi * (np.mean(IN_attributes.orbit_time) + cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period
