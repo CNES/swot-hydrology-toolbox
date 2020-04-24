@@ -11,7 +11,7 @@
 # ======================================================
 """
 .. module:: lake_db.py
-    :synopsis: Deal with operationnal prior lake database; consider shapefile and sqlite formats
+    :synopsis: Deal with Prior Lake Database (PLD); consider shapefile and SQLite formats
      Created on 2018/08/27
 
 .. moduleauthor:: Claire POTTIER - CNES DSO/SI/TR
@@ -31,12 +31,14 @@ from scipy.spatial import KDTree
 import sqlite3
 
 import cnes.common.service_config_file as service_config_file
-import cnes.common.lib.my_variables as my_var
+
 import cnes.common.lib.my_tools as my_tools
+import cnes.common.lib.my_variables as my_var
+
 
 class LakeDb(object):
     """
-        This class deals with lakedb.
+    This class is the parent class managing Prior Lake Database
     """
 
     def __init__(self):
@@ -44,101 +46,195 @@ class LakeDb(object):
         Constructor: set the general values
 
         Variables of the object:
-        - lake_db_id / String: Fieldname of lake id in lakedb
-        - basin_db_id / String: Fieldname of basin id in basindb
-        - lake_layer / osgeo.ogr.Layer: lake_layer of a priori lake database
-        - lake_ds / osgeo.ogr.DataSource: datasource of a priori lake database
-        - influence_lake_layer / osgeo.ogr.Layer: lake_influence_layer of a priori lake database
-        - influence_lake_ds / osgeo.ogr.DataSource: datasource of influence of  a priori lake database
-        - basin_layer / osgeo.ogr.Layer: basin_layer of a priori lake database
-        - basin_ds / osgeo.ogr.DataSource: datasource of basin of a priori lake database
+        - db_format / str: database format (=None if no DB used; ="shp" for shapefile format; ="sqlite" for SQLite format)
+        - lakedb_id_name / str: fieldname of identifier (=primary key) of lake table
+        - lakedb_id_type / str: type of identifier (=primary key) in lake table
+        - basindb_id_name / str: fieldname of identifier (=primary key) in basin table
+        - pld_names / str: fieldname of lake names in lake DB
+        - pld_grand / str: fieldname of GRanD identifier in lake DB
+        - pld_max_wse / str: fieldname of maximum water surface elevation for lakes in DB
+        - pld_max_area / str: fieldname of maximum area for lakes in DB
+        - pld_ref_date / str: fieldname of reference date for storage change in DB
+        - pld_ref_ds / str: fieldname of reference storage change in DB
+        - pld_storage / str: fieldname of storage in DB
+        - lake_layer / osgeo.ogr.Layer: layer of lake table in PLD
+        - lake_ds / osgeo.ogr.DataSource: associated DataSource
+        - influence_lake_flag / boolean: flag indicating if the influence lake geometries are used or not
+        - influence_lake_layer / osgeo.ogr.Layer: layer of lake influence area table in PLD
+        - influence_lake_ds / osgeo.ogr.DataSource: associated DataSource
+        - basin_flag / boolean: flag indicating if the basin geometries are used or not
+        - basin_layer / osgeo.ogr.Layer: layer of basin table in PLD
+        - basin_ds / osgeo.ogr.DataSource: associated DataSource
         """
+        
+        # Type of DB
+        self.db_format = None
 
-        self.lake_db_id = ""
-        self.basin_db_id = ""
+        # Fieldnames
+        self.lakedb_id_name = my_var.PLD_FIELD_LAKE_ID  # Fieldname for lake identifier
+        self.lakedb_id_type = ""  # Type of lake identifier
+        self.basindb_id_name = my_var.PLD_FIELD_BASIN_ID  # Fieldname for basin identifier
+        self.pld_names = my_var.PLD_FIELD_LAKE_NAMES
+        self.pld_grand = my_var.PLD_FIELD_LAKE_GRAND_ID
+        self.pld_max_wse = my_var.PLD_FIELD_LAKE_MAX_WSE
+        self.pld_max_area = my_var.PLD_FIELD_LAKE_MAX_AREA
+        self.pld_ref_date = my_var.PLD_FIELD_LAKE_REF_DATE
+        self.pld_ref_ds = my_var.PLD_FIELD_LAKE_REF_DS
+        self.pld_storage = my_var.PLD_FIELD_LAKE_STORAGE
+        self.set_list_pld_infos()
 
+        # Lake table layer and DataSource
         self.lake_layer = None
         self.lake_ds = None
 
+        # Influence area table layer and DataSource
+        self.influence_lake_flag = False  # Use of influence lake geometries (default = False)
         self.influence_lake_layer = None
         self.influence_lake_ds = None
 
+        # Basin table layer and dataSource
+        self.basin_flag = False  # Use of basin geometries (default = False)
         self.basin_layer = None
         self.basin_ds = None
 
     # ----------------------------------------
     
+    def set_list_pld_infos(self):
+        """
+        Group lake DB available attribute names in a list
+        """
+        
+        self.pld_infos = []
+        
+        if self.pld_names is not None:
+            self.pld_infos.append(self.pld_names)
+        
+        if self.pld_grand is not None:
+            self.pld_infos.append(self.pld_grand)
+        
+        if self.pld_max_wse is not None:
+            self.pld_infos.append(self.pld_max_wse)
+        
+        if self.pld_max_area is not None:
+            self.pld_infos.append(self.pld_max_area)
+        
+        if self.pld_ref_date is not None:
+            self.pld_infos.append(self.pld_ref_date)
+        
+        if self.pld_ref_ds is not None:
+            self.pld_infos.append(self.pld_ref_ds)
+        
+        if self.pld_storage is not None:
+            self.pld_infos.append(self.pld_storage)
+
+    # ----------------------------------------
+    
+    def init_fields_name_and_type(self, test_fields=True):
+        """
+        Init type of lake identifier and enentually test existence of needed fieldnames
+        
+        :param test_fields: flag to test existence of needed fieldnames
+        :type: boolean
+        """
+        
+        # 1 - Retrieve list of available fieldnames and their type
+        dict_field_type = my_tools.get_layer_fields_name_and_type(self.lake_layer)
+        
+        # 2 - Set type of lake identifier
+        self.lakedb_id_type = dict_field_type[self.lakedb_id_name]
+        
+        # 3 - Test existence of fieldnames and set to None if they don't exist
+        if test_fields:
+            self.pld_names = my_tools.test_key(dict_field_type, self.pld_names)
+            self.pld_grand = my_tools.test_key(dict_field_type, self.pld_grand)
+            self.pld_max_wse = my_tools.test_key(dict_field_type, self.pld_max_wse)
+            self.pld_max_area = my_tools.test_key(dict_field_type, self.pld_max_area)
+            self.pld_ref_date = my_tools.test_key(dict_field_type, self.pld_ref_date)
+            self.pld_ref_ds = my_tools.test_key(dict_field_type, self.pld_ref_ds)
+            self.pld_storage = my_tools.test_key(dict_field_type, self.pld_storage)
+            self.set_list_pld_infos()
+
+    # ----------------------------------------
+    
     def get_prior_values(self, in_id):
         """
-        Getter of name, GRanD identifier, reference height and area given the lake identifier
+        Getter of prior infos given the lake identifier
         
-        :return: out_name: prior name
-        :rtype: string
-        :return: out_grand: GRanD identifier
-        :rtype: string
-        :return: out_ref_height: reference height
-        :rtype: float
-        :return: out_ref_area: reference area
-        :rtype: float
+        :param out_name: name of the prior lake
+        :type out_name: string
+        :param out_grand: GRanD identifier 
+        :type out_grand: int
+        :param out_max_wse: PLD lake maximum water surface elevation
+        :type out_max_wse: float
+        :param out_max_area: PLD lake maximum area
+        :type out_max_area: float
+        :param out_ref_date: reference date for storage change computation
+        :type out_ref_date: string
+        :param out_ref_ds: reference storage change for storage change computation
+        :type out_ref_ds: float
+        :param out_storage: PLD lake maximum storage value
+        :type out_storage: float
         """
+        
+        # 0 - Init output variables
+        out_name = None
+        out_grand = None
+        out_max_wse = None
+        out_max_area = None
+        out_ref_date = None
+        out_ref_ds = None
+        out_storage = None
 
-        if self.lake_layer:
-            # Select feature given its id
-            self.lake_layer.SetAttributeFilter("%s = '%s'" % (self.lake_db_id, in_id))
-            prior_lake_feat = self.lake_layer.GetNextFeature()
+        if self.lake_layer: # In case a PLD is used
+            
+            # Init dictionary of available PLD infos
+            dict_pld_info = {}
+            for item in self.pld_infos:
+                dict_pld_info[item] = None
+            
+            # 1 - Select feature given its identifier
+            if self.lakedb_id_type == "String":
+                self.lake_layer.SetAttributeFilter("%s like '%s'" % (self.lakedb_id_name, str(in_id)))
+            else :
+                self.lake_layer.SetAttributeFilter("%s = %s" % (self.lakedb_id_name, str(in_id)))
+            pld_lake_feat = self.lake_layer.GetNextFeature()
+            
+            # 2 - Retrieve information when exists
+            for item in self.pld_infos:
+                dict_pld_info[item] = pld_lake_feat.GetField(item)
 
-            # Get name
-            try:
-                out_name = prior_lake_feat.GetField(str("name"))
-            except:
-                out_name = None
-
-            # Get GRanD identifier : Dam ID from Global Reservoir and Dam (GranD) database
-            try:
-                out_grand = prior_lake_feat.GetField(str("grand_id"))
-            except:
-                out_grand = None
-
-            # Get reference height
-            try:
-                out_ref_height = prior_lake_feat.GetField(str("ref_height"))
-            except:
-                out_ref_height = None
-
-            # Get reference area
-            try:
-                out_ref_area = prior_lake_feat.GetField(str("ref_area"))
-            except:
-                out_ref_area = None
-
-            # Release filter
+            # 3 - Release filter
             self.lake_layer.SetAttributeFilter(None)
+            
+            # 4 - Format output
+            out_name = my_tools.get_value(dict_pld_info, self.pld_names)
+            out_grand = my_tools.get_value(dict_pld_info, self.pld_grand)
+            out_max_wse = my_tools.get_value(dict_pld_info, self.pld_max_wse)
+            out_max_area = my_tools.get_value(dict_pld_info, self.pld_max_area)
+            out_ref_date = my_tools.get_value(dict_pld_info, self.pld_ref_date)
+            out_ref_ds = my_tools.get_value(dict_pld_info, self.pld_ref_ds)
+            out_storage = my_tools.get_value(dict_pld_info, self.pld_storage)
 
-        else :
-            out_name = None
-            out_grand = None
-            out_ref_height = None
-            out_ref_area = None
-
-        # Output
-        return out_name, out_grand, out_ref_height, out_ref_area
+        return out_name, out_grand, out_max_wse, out_max_area, out_ref_date, out_ref_ds, out_storage
 
     # ----------------------------------------
     
     def link_to_db(self, in_poly, in_lon, in_lat):
         """
-        Links polygon in_poly to a priori database, i.e. returns, when available, 
-        the list of the ID(s) of the a priori lake(s) intersecting the input polygon,
+        Links polygon in_poly to PLD, i.e. returns, when available, 
+        the list of the ID(s) of the PLD lake(s) intersecting the input polygon,
+        the list of the fraction of observed lake covered by each PLD lake,
         and the reference ID array (corresponding one-to-one with the L2_HR_PIXC) 
-        by giving the ID of the closest priori lake
+        by giving the ID of the closest PLD lake
         
-        If in_poly corresponds to no a priori lake: return None, None
+        If in_poly corresponds to no PLD lake: return None, None, None
         
-        If in_poly corresponds to 1 a priori lake: return prior_id, [prior_id * size_in_lon]
+        If in_poly corresponds to 1 PLD lake: return prior_id, fraction, [prior_id * size_in_lon]
         
-        If in_poly corresponds to 2 or more a priori lakes:
-            -out_prior_id contains all prior ID sorted by intersection areas
-            -out_pixc_vec_tag returns the prior ID of the closest priori lake for each pixels cloud point
+        If in_poly corresponds to 2 or more PLD lakes:
+            - out_list_prior_id contains all PLD ID (=lake_id) sorted by overlap fraction
+            - out_list_pld_overlap contrains the list of fractions of observed feature covered by each PLD
+            - out_pixcvec_lakeid returns the prior ID of the closest PLD lake for each PIXC
         
         :param in_poly: polygon delineating a water body
         :type in_poly: OGRPolygon
@@ -147,138 +243,176 @@ class LakeDb(object):
         :param in_lat: improved latitude of PixC related to in_poly
         :type in_lat: 1D array of float
 
-        :return: out_prior_id_list = list of lake identifiers from the a priori database that intersect in_poly
+        :return: out_list_prior_id = list of lake identifiers from the a priori database that intersect in_poly, ordered by overlaping area decreasing
         :rtype: list of string
-        :return: out_pixc_vec_tag = lake identifiers from the a priori database for each point of the PixC corresponding one-to-one with (in_lon, in_lat)
+        :return: out_list_pld_overlap = list of fractions of observed feature covered by each PLD lake identified in out_prior_id_list, ordered by fraction decreasing
+        :rtype: list of string
+        :return: out_pixcvec_lakeid = lake identifiers from the a priori database for each point of the PixC corresponding one-to-one with (in_lon, in_lat)
         :rtype: list of string
         """
         logger = logging.getLogger(self.__class__.__name__)
-        out_prior_id_list = []
-        out_pixc_vec_tag = np.empty(in_lon.shape, dtype=object)
-        out_pixc_vec_tag[:] = ""
+        
+        # Init output variables
+        out_list_prior_id = []
+        out_list_pld_overlap = []
+        out_pixcvec_lakeid = np.empty(in_lon.shape, dtype=object)
+        out_pixcvec_lakeid[:] = ""
 
-        if self.lake_layer:
-            # 1 - Spatial filter of the lake DB over the area covered by the studied polygon
+        if self.lake_layer:  # Processing only if a PLD is used
+            
+            # 1 - Spatial filter of the PLD over the area covered by the studied polygon
             self.lake_layer.SetSpatialFilter(in_poly)
 
-            # 2 - Processing according to the number of a priori lakes intersecting polygon
+            # 2 - Processing according to the number of PLD lakes intersecting polygon
             nb_lakes = self.lake_layer.GetFeatureCount()
-            logger.debug("Current lake matched with %d lakes from a priori lake database" % (nb_lakes))
+            logger.debug("Current observed lake matched with %d lakes from Prior Lake Database" % (nb_lakes))
 
-            if nb_lakes == 1:  # Easy match: polygon matches only one a priori lake
+            if nb_lakes == 1:  # Easy match: polygon matches only one PLD lake
 
-                cur_lake_bd = self.lake_layer.GetNextFeature()
-                cur_id = cur_lake_bd.GetField(self.lake_db_id)
+                # 2.1 - Retrieve PLD lake info
+                cur_lake_bd = self.lake_layer.GetNextFeature()  # PLD lake feature
+                cur_id = str(int(cur_lake_bd.GetField(self.lakedb_id_name)))  # PLD lake identifier
+                logger.debug("Associated PLD identifier = %s" % (cur_id))
+                
+                if cur_id:  # Test but should not occur...
+                    
+                    # 2.2 - Save PLD identifier
+                    out_list_prior_id.append(cur_id)
+                
+                    # 2.3 - Compute associated fraction of observed lake covered by PLD lake
+                    area_obs = my_tools.get_area(in_poly)
+                    geom_inter = in_poly.Intersection(cur_lake_bd.GetGeometryRef())
+                    if geom_inter is not None:
+                        area_inter = my_tools.get_area(geom_inter)
+                        frac_inter = str(round(area_inter/area_obs*100.))
+                        out_list_pld_overlap.append(frac_inter)
+                
+                    # 2.4 - Set lake_id attributes in PIXCVec product
+                    out_pixcvec_lakeid[:] = cur_id
+                    
+                else:
+                    logger.error("Something wrong happened in PLD: no identifier for this PLD lake!", exc_info=True)
+                    raise
+                    
+            else:  # Many matches: polygon matches 2 or more PLD lakes
 
-                logger.debug("A priori lakedb_id is : %s" % (cur_id))
-                # Test but should not occur...
-                if cur_id :
-                    # Compute PIXCVec_tag
-                    out_pixc_vec_tag[:] = str(cur_id)
-                    out_prior_id_list.append(str(cur_id))
-            else:  # Many matches: polygon matches 2 or more a priori lakes
-
-                # 2.1 - Init
-                prior_id = []  # Set of prior id
-                area_intersection = []  # List of area intersection between IN poly and each polygon of prior database
+                # Init variables
+                tmp_list_prior_id = []  # List of PLD identifiers
+                tmp_list_pld_overlap = []  # List of fractions of observed lake covered by PLD lakes
                 prior_geoms = []
 
-                # 2.2 - List area of intersections with a priori geometries and id of these geometries
                 for cur_lake_bd in self.lake_layer:
-                    # Get the a priori identifier
-                    cur_id = cur_lake_bd.GetField(self.lake_db_id)
+                    
+                    # 2.1 - Retrieve PLD lake identifier
+                    cur_id = str(int(cur_lake_bd.GetField(self.lakedb_id_name)))
+                    logger.debug("Associated PLD identifier = %s" % (cur_id))
 
-                    # Test but should not occur...
-                    if cur_id :
-                        # Get geometry
-                        cur_geom = cur_lake_bd.GetGeometryRef().Clone()
-                        # Compute exact area of intersection
-                        intersection = in_poly.Intersection(cur_geom)
-                        if intersection is not None:
-                            area_intersection.append(intersection.GetArea())  # Add the intersection area
-                            prior_id.append(str(cur_id))  # Add prior ID to set_prior_id
+                    if cur_id:  # Test but should not occur...
+                    
+                        # 2.2 - Save PLD identifier
+                        tmp_list_prior_id.append(cur_id)
+                        
+                        # 2.3 - Compute associated fraction of observed lake covered by PLD lake
+                        area_obs = my_tools.get_area(in_poly)
+                        cur_geom = cur_lake_bd.GetGeometryRef().Clone()  # PLD lake geometry
+                        geom_inter = in_poly.Intersection(cur_geom)
+                        if geom_inter is not None:
+                            area_inter = my_tools.get_area(geom_inter)
+                            frac_inter = str(round(area_inter/area_obs*100.))
+                            tmp_list_pld_overlap.append(frac_inter)
                             prior_geoms.append(cur_geom)
-
-                # 2.3 - Put output in good format
-                if len(prior_id) > 0:
-                    # Computation time : compute_pixc_vec_tag_with_influence_area_map * 2,5 = compute_closest_polygon_with_kdtree
-                    if self.influence_lake_layer:
-                        out_pixc_vec_tag = self.compute_pixc_vec_tag_with_influence_area_map(in_lon, in_lat, prior_geoms,
-                                                                                             prior_id)
+                            
                     else:
-                        out_pixc_vec_tag = compute_closest_polygon_with_kdtree(in_lon, in_lat, prior_geoms, prior_id)
+                        logger.error("Something wrong happened in PLD: no identifier for this PLD lake!", exc_info=True)
+                        raise
+
+                # Compute PIXCVec_tag and format output lists
+                if len(tmp_list_prior_id) > 0:
+                    
+                    # 2.4 - Compute PIXCVec_tag
+                    # Computation time: compute_pixcvec_lakeid_with_influence_area_map * 2,5 = compute_closest_polygon_with_kdtree
+                    if self.influence_lake_layer:
+                        logger.debug("Compute pixel cloud lake_id with influence area map")
+                        out_pixcvec_lakeid = self.compute_pixcvec_lakeid_with_influence_area_map(in_lon, in_lat, 
+                                                                                                 prior_geoms, tmp_list_prior_id)
+                    else:
+                        logger.debug("Compute pixel cloud lake_id with kdtree")
+                        out_pixcvec_lakeid = compute_closest_polygon_with_kdtree(in_lon, in_lat, 
+                                                                                 prior_geoms, tmp_list_prior_id)
 
                     # ATTENTION : Different results !!
-                    # print(self.compute_pixc_vec_tag_with_influence_area_map(in_lon, in_lat) == compute_closest_polygon_with_kdtree(in_lon, in_lat, prior_geoms, prior_id))
-                    # compute_pixc_vec_tag_with_influence_area_map is more precise.
+                    # print(self.compute_pixcvec_lakeid_with_influence_area_map(in_lon, in_lat) == compute_closest_polygon_with_kdtree(in_lon, in_lat, prior_geoms, prior_id))
+                    # compute_pixcvec_lakeid_with_influence_area_map is more precise.
                     # compute_closest_polygon_with_kdtree less precise because computes the distance between pixels and polygon coordinates and not polygon edges.
 
-                    # Sort out_prior_id by decreasing area intersection
-                    sorted_idx = sorted(range(len(area_intersection)), key=lambda k: area_intersection[k], reverse=True)
-                    out_prior_id_list = [prior_id[idx] for idx in sorted_idx]
+                    # 2.5 - Sort output prior ID and overlap fractions lists by decreasing area intersection
+                    sorted_idx = sorted(range(len(tmp_list_pld_overlap)), key=lambda k: tmp_list_pld_overlap[k], reverse=True)
+                    out_list_prior_id = [tmp_list_prior_id[idx] for idx in sorted_idx]
+                    out_list_pld_overlap = [tmp_list_pld_overlap[idx] for idx in sorted_idx]
 
-                    # Print number of pixels and lake_db_id
-                    unique, counts = np.unique(out_pixc_vec_tag, return_counts=True)
-                    for i, unique_val in enumerate(unique):
-                        logger.debug("%d pixels of current lake belong to a priori lake id %s " % (counts[i], unique_val))
+                    # Print number of pixels and lake_id
+                    unique, counts = np.unique(out_pixcvec_lakeid, return_counts=True)
+                    for ind, unique_val in enumerate(unique):
+                        logger.debug("%d pixels of current lake belong to lake_id %s " % (counts[ind], unique_val))
 
             self.lake_layer.SetSpatialFilter(None)  # Delete spatial filter
 
-        return out_prior_id_list, out_pixc_vec_tag
+        return out_list_prior_id, out_list_pld_overlap, out_pixcvec_lakeid
 
-    def get_point_prior_id(self, p_lon, p_lat, prior_geom_coords, prior_id_list):
+    def compute_pixcvec_lakeid_with_influence_area_map(self, in_lon, in_lat, prior_geom_coords, list_prior_id):
         """
-        Compute lakedb_id of pixel of coordinate (p_lon, p_lat)
+        Compute lake_id for each PIXC of associated observed lake in the case of more than one match with PLD.
 
-        :param p_lon: pixels longitude
-        :type p_lon: float
-        :param p_lat: pixels latitude
-        :type p_lat: float
-        :param prior_geom_coords: List of coordinates of polygons of prior lake database selected
-        :type prior_geom_coords: 2D array of float
-        :param prior_id_list: List of prior ID from lake DB
-        :type prior_id_list: 1D array of str
-        :return: lakedb_id
-        :type in_poly: string
+        :param in_lon: longitudes of pixels
+        :type in_lon: 1D-array of float
+        :param in_lat: latitudes of pixels
+        :type in_lat: 1D-array of float
+        :param prior_geom_coords: coordinates of polygons of overlapping PLD lakes
+        :type prior_geom_coords: list of OGRPolygon
+        :param list_prior_id: prior ID of overlapping PLD lakes
+        :type list_prior_id: list of str
+        
+        :return: out_lakedb_id_pixcvec = list of lake_id associated to each PIXC constituting observed lake
+        :rtype: list of str
         """
+        
+        # 0. Init output variable
+        out_lakedb_id_pixcvec = np.zeros(in_lat.size, dtype=object)
+        out_lakedb_id_pixcvec[:] = ""
+
+        # 1. Filter Influence Area following attributs
         logger = logging.getLogger(self.__class__.__name__)
 
-        point = ogr.Geometry(ogr.wkbPoint)
-        point.AddPoint(p_lon, p_lat)
+        request = "%s = '%s'" %(self.lakedb_id_name, list_prior_id[0])
+        for lakedb_id in list_prior_id[1:]:
+            request += " or %s = '%s'" %(self.lakedb_id_name, lakedb_id)
+        self.influence_lake_layer.SetAttributeFilter(request)
+        logger.debug("Filter %d influence Area with request %s" % (self.influence_lake_layer.GetFeatureCount(), request))
 
-        self.influence_lake_layer.SetSpatialFilter(point)
+        # 2. Create memory layer to store pixcvec points
+        lyr, ds = my_tools.load_pixels_to_mem_layer(in_lon, in_lat)
 
-        if self.influence_lake_layer.GetFeatureCount() == 1:
-            feat = self.influence_lake_layer.GetNextFeature()
-            lakedb_id = str(int(feat.GetField(self.lake_db_id)))
-        else:
-            logger.debug(
-                "Wrong lakedb_id from influence area map database for pixel of coordinates %f %f" % (p_lon, p_lat))
-            lakedb_id = ""
+        # 3. Filter point of pixcvec with influence area
+        for infl_area_feat in self.influence_lake_layer:
+            lyr.SetSpatialFilter(infl_area_feat.GetGeometryRef())
+            for feat_point in lyr:
+                out_lakedb_id_pixcvec[feat_point.GetFID()] = infl_area_feat.GetField(self.lakedb_id_name)
+            lyr.SetSpatialFilter(None)
+        self.influence_lake_layer.SetAttributeFilter(None)
+        ds.Destroy()
 
-        if lakedb_id not in prior_id_list:
-            lakedb_id = compute_closest_polygon_with_kdtree([p_lon], [p_lat], prior_geom_coords, prior_id_list)[0]
+        # 4. Compute lakedb_id for pixels located out of the influence area
+        unassigned_pixels = np.where(out_lakedb_id_pixcvec == "")
+        nb_pt_ass_kd = unassigned_pixels[0].size
+        nb_pt_ass_infl = out_lakedb_id_pixcvec.size - nb_pt_ass_kd
 
-        return lakedb_id
+        if nb_pt_ass_infl > 0 :
+            logger.debug("%d pixels assigned using influence map" %(nb_pt_ass_infl))
+        if nb_pt_ass_kd > 0 :
+            out_lakedb_id_pixcvec[unassigned_pixels] = compute_closest_polygon_with_kdtree(in_lon[unassigned_pixels], in_lat[unassigned_pixels], prior_geom_coords, list_prior_id)
+            logger.debug("%d pixels assigned using kd tree" %(nb_pt_ass_kd))
 
-    def compute_pixc_vec_tag_with_influence_area_map(self, in_lon, in_lat, prior_geom_coords, prior_id_list):
-        """
-        Compute lakedb_id for every pixel of concerned lake in the case of more than one match with a priori database.
-
-        :param in_lon: array of longitudes
-        :type in_lon: numpy array of floats
-        :param in_lat: array of latitude
-        :type in_lat: numpy array of floats
-        :param prior_geom_coords: List of coordinates of polygons of prior lake database selected
-        :type prior_geom_coords: 2D array of float
-        :param prior_id_array: List of prior ID from lake DB
-        :type prior_id_array: 1D array of str
-        :return: list of lakedb_id
-        :type p_lon: list of string
-        """
-        prior_id_list = [self.get_point_prior_id(p_lon, p_lat, prior_geom_coords, prior_id_list) for p_lon, p_lat in
-                         zip(in_lon, in_lat)]
-        return prior_id_list
+        return out_lakedb_id_pixcvec
 
     def link_poly_to_basin(self, in_poly):
         """
@@ -287,38 +421,44 @@ class LakeDb(object):
         :param in_poly: polygon to link to a basin
         :type in_poly: ogr.Polygon
 
-        :return: list of basis(s) associated to polygon
+        :return: out_basin_list = list of basin(s) associated to the input polygon
         :rtype: list of string
         """
-        continent_list = []
-        if self.basin_layer :
+        logger = logging.getLogger(self.__class__.__name__)
+        
+        # Init output
+        out_basin_list = []
+        
+        if self.basin_layer:
+            
             # 1 - Compute intersection
             self.basin_layer.SetSpatialFilter(in_poly)
 
             # 2 - Get continent name
-
             if self.basin_layer.GetFeatureCount() == 0:
-                continent_list.append("000")
+                out_basin_list.append("000")  # Ocean
+                
             elif self.basin_layer.GetFeatureCount() == 1:
                 feat = self.basin_layer.GetNextFeature()
-                basin_id = str(feat.GetField(self.basin_db_id))
-                continent_list.append(basin_id)
+                basin_id = str(feat.GetField(self.basindb_id_name))
+                out_basin_list.append(basin_id)
+                
             else :
-                continent_list = []
                 area_intersection = []
                 for feat in self.basin_layer:
-                    print(self.basin_db_id)
-                    basin_id = str(feat.GetField(self.basin_db_id))
+                    basin_id = str(feat.GetField(self.basindb_id_name))
                     inter = feat.GetGeometryRef().Intersection(in_poly)
                     area_intersection.append(inter.GetArea())
-                    continent_list.append(basin_id)
-                # Sort out_prior_id by decreasing area intersection
+                    out_basin_list.append(basin_id)
+                # Sort out_basin_list by area intersection decreasing 
                 sorted_idx = sorted(range(len(area_intersection)), key=lambda k: area_intersection[k], reverse=True)
-                continent_list = [continent_list[idx] for idx in sorted_idx]
+                out_basin_list = [out_basin_list[idx] for idx in sorted_idx]
+                
         else :
-            continent_list.append("010") # If no input continent is given, code is 010 => no continent used
+            out_basin_list.append("010")  # If no input continent is given, code is 010 => no continent used
 
-        return continent_list
+        logger.info(out_basin_list)
+        return out_basin_list
 
     def link_poly_to_continent(self, in_poly):
         """
@@ -327,102 +467,107 @@ class LakeDb(object):
         :param in_poly: polygon to link to a continent
         :type in_poly: ogr.Polygon
 
-        :return: list of continent(s) associated to polygon
+        :return: out_continent_list = list of continent(s) associated to the input polygon
         :rtype: list of string
         """
+        logger = logging.getLogger(self.__class__.__name__)
+        
+        # Init output
+        out_continent_list = set()
+        
+        # Compute list of basins related to the input polygon
+        basin_list = self.link_poly_to_basin(in_poly)
 
-        basins_list = self.link_poly_to_basin(in_poly)
+        # Compute list of continents
+        for basin_id in basin_list:
+            continent = compute_continent_from_basin_id(basin_id)
+            if continent:
+                out_continent_list.add(continent)
 
-        # Get continent name
-        out_continent = set()
-        for basin_id in basins_list:
-            if compute_continent_from_basin_id(basin_id):
-                out_continent.add(compute_continent_from_basin_id(basin_id))
-
-        return ';'.join(out_continent)
+        logger.info(';'.join(out_continent_list))
+        return ';'.join(out_continent_list)
 
     def close_db(self):
+        """
+        Close database
+        """
         pass
-
+    
+    
 #######################################
+
 
 class LakeDbShp(LakeDb):
     """
-        class LakeDbShp
+    This class heritates from the main class to manage PLD in shapefile format
     """
 
-    def __init__(self, in_lake_db_filename, in_poly=None):
+    def __init__(self, in_lakedb_filename, in_poly=None):
         """
         Constructor
 
-        :param in_lake_db_filename: full path of the prior lake database
-        :type in_lake_db_filename: string
+        :param in_lakedb_filename: full path of PLD
+        :type in_lakedb_filename: string
         :param in_poly: polygon to spatially select lakes from DB
         :type in_poly: ogr.Polygon
-
-        Variables of the object:
-            - lakedb_id / String: Fieldname of lake id in lakedb
-            - lake_layer / osgeo.ogr.Layer: lake_layer of a priori lake database
-            - lake_ds / osgeo.ogr.DataSource: datasource of a priori lake database
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("Lake DB = %s", in_lake_db_filename)
+        logger.info("Lake DB in SHAPEFILE format = %s", in_lakedb_filename)
 
-        # 1 - Init LakeDb
+        # 1 - Init LakeDb object
         super().__init__()
-
-        # 2 - Get config file
-        cfg = service_config_file.get_instance()
-        # Get lakedb_id parameter
-        self.lake_db_id = cfg.get("DATABASES", "LAKE_DB_ID")
+        
+        # 2 - Set DB type
+        self.db_format = "shp"
 
         # 3 - Open database
-        self.lake_ds, self.lake_layer = self.open_shp(in_lake_db_filename, in_poly)  # Open Lake database
+        self.open_db(in_lakedb_filename, in_poly)
 
-    # ----------------------------------------
+        # 4 - Init fields name and type
+        self.init_fields_name_and_type()
 
-    def open_shp(self, in_file_path, in_poly=None):
+# ----------------------------------------
+
+    def open_db(self, in_lakedb_filename, in_poly=None):
         """
-        Open database, optionnally spatially select polygons and copy lake_layer to memory
+        Open PLD, optionnally spatially select polygons, and copy lake_layer to memory
 
-        :param in_file_path in_poly: full path to DB
-        :type in_file_path in_poly: string
+        :param in_lakedb_filename: full path of PLD
+        :type in_lakedb_filename: string
         :param in_poly: polygon to spatially select lakes from DB
         :type in_poly: ogr.Polygon
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("Start")
+        logger.info("- start -")
 
         # 1 - Open shapefile in read-only access
         shp_driver = ogr.GetDriverByName(str('ESRI Shapefile'))  # Shapefile driver
-        shp_data_source = shp_driver.Open(in_file_path, 0)
+        shp_data_source = shp_driver.Open(in_lakedb_filename, 0)
 
         # 2 - Get the lake_layer
         layer = shp_data_source.GetLayer()
-        logger.info("%d features stored in database %s" % (layer.GetFeatureCount(), layer.GetName()))
+        logger.info("%d lakes stored in PLD %s" % (layer.GetFeatureCount(), layer.GetName()))
 
-        # 3 - Select some lakes among BD using in_poly
+        # 3 - Select subset among PLD lakes using in_poly
         if in_poly is not None:
             layer.SetSpatialFilter(in_poly)
-            logger.info("%d features after focus over studied area", layer.GetFeatureCount())
+            logger.info("%d lakes after focus over studied area", layer.GetFeatureCount())
 
-        # 4 - Create an output datasource in memory
+        # 4 - Create an output DataSource in memory
         mem_driver = ogr.GetDriverByName('MEMORY')  # Memory driver
-        data_source = mem_driver.CreateDataSource('memData')
+        self.lake_ds = mem_driver.CreateDataSource('memData')
 
-        # 5 - Open the memory datasource with write access
+        # 5 - Open the memory DataSource with write access
         mem_driver.Open('memData', 1)
 
         # 6 - Copy the lake_layer to memory
-        data_source.CopyLayer(layer, 'lake_db')
+        self.lake_ds.CopyLayer(layer, 'lake_db')
 
         # 7 - Get memory lake_layer
-        layer = data_source.GetLayer()
+        self.lake_layer = self.lake_ds.GetLayer()
 
         # 8 - Close shapefile
         shp_data_source.Destroy()
-        logger.info("Stop")
-        return data_source, layer
 
     # ----------------------------------------
 
@@ -436,133 +581,146 @@ class LakeDbShp(LakeDb):
 
 
 #######################################
+        
 
 class LakeDbSqlite(LakeDb):
     """
-        class LakeDbSqlite
+    This class heritates from the main class to manage PLD in SQLite format
     """
 
-    def __init__(self, in_lake_db_filename, in_poly=None):
+    def __init__(self, in_lakedb_filename, in_poly=None):
         """
         Constructor
 
-        :param in_lake_db_filename: full path of the prior lake database
-        :type in_lake_db_filename: string
+        :param in_lakedb_filename: full path of PLD
+        :type in_lakedb_filename: string
         :param in_poly: polygon to spatially select lakes from DB
         :type in_poly: ogr.Polygon
-
-        Variables of the object:
-            - lake_db_id / String: Fieldname of lake id in lakedb
-            - lake_layer / osgeo.ogr.Layer: lake_layer of a priori lake database
-            - lake_ds / osgeo.ogr.DataSource: datasource of a priori lake database
-            - influence_lake_layer / osgeo.ogr.Layer: lake_influence_layer of a priori lake database
-            - influence_lake_ds / osgeo.ogr.DataSource: datasource of influence of  a priori lake database
-            - influence_map_flag / Bool: flag that determine if LakeDb uses influence map
-            - basin_layer / osgeo.ogr.Layer: basin_layer of a priori lake database
-            - basin_ds / osgeo.ogr.DataSource: datasource of basin of a priori lake database
-            - basin_flag / Bool: flag that determine if LakeDb uses basin
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("Lake DB = %s", in_lake_db_filename)
+        logger.info("Lake DB in SQLITE format = %s", in_lakedb_filename)
 
-        # 1. Get tables and fields names
-        lakedb_table_name = my_var.lakedb_table_name
-        lake_infl_table_name = my_var.lake_infl_table_name
-        basin_table_name = my_var.basin_table_name
-        self.lake_db_id = my_var.lake_db_id
-        self.basin_db_id = my_var.basin_db_id
+        # 1 - Init LakeDb object
+        super().__init__()
+        
+        # 2 - Set DB type
+        self.db_format = "sqlite"
 
-        # 2 - Open database
-        self.lake_ds, self.lake_layer = self.open_db(in_lake_db_filename, lakedb_table_name, self.lake_db_id, in_poly)
-        self.influence_lake_ds, self.influence_lake_layer = self.open_db(in_lake_db_filename, lake_infl_table_name, self.lake_db_id,
-                                                                         in_poly)
-        self.basin_ds, self.basin_layer = self.open_db(in_lake_db_filename, basin_table_name, self.basin_db_id, in_poly)
+        # 3 - Open database
+        # 3.1 - Table lake
+        self.lake_ds, self.lake_layer = self.open_db(in_lakedb_filename,
+                                                     my_var.PLD_TABLE_LAKE,
+                                                     [self.lakedb_id_name, self.pld_names, self.pld_grand, self.pld_max_wse, self.pld_max_area, self.pld_ref_date, self.pld_ref_ds, self.pld_storage],
+                                                     ['text', 'text', 'int9', 'float', 'float', 'text', 'float', 'float'],
+                                                     in_poly=in_poly)
+        # 3.2 - Table influence area
+        self.influence_lake_flag = True  # Set flag indicating influence area table is used
+        self.influence_lake_ds, self.influence_lake_layer = self.open_db(in_lakedb_filename, 
+                                                                         my_var.PLD_TABLE_LAKE_INFL, 
+                                                                         [self.lakedb_id_name],
+                                                                         ['text'],
+                                                                         in_poly=in_poly)
+        # 3.3 - Table basin
+        self.basin_flag = True  # Set flag indicating basin table is used
+        self.basin_ds, self.basin_layer = self.open_db(in_lakedb_filename, 
+                                                       my_var.PLD_TABLE_BASIN, 
+                                                       [self.basindb_id_name],
+                                                       ['text'],
+                                                       in_poly=in_poly)
 
-        # 3 - Set db flags
-        self.influence_map_flag = True
-        self.basin_flag = True
+        # 4 - Init fields name and type
+        self.init_fields_name_and_type(test_fields=False)
 
     # ----------------------------------------
 
-    def open_db(self, in_lake_db_filename, table_name, field_name, in_poly=None):
+    def open_db(self, in_lakedb_filename, in_table_name, in_field_name_list, in_field_type_list=None, in_poly=None):
         """
         Open database, optionnally spatially select polygons and copy layer to memory
 
+        :param in_lakedb_filename: full path of PLD
+        :type in_lakedb_filename: str
+        :param in_table_name: name of table to load from DB
+        :type in_table_name: str
+        :param in_field_name_list: list of fieldnames to load from table, first element is the identifier
+        :type in_field_name_list: list of str
+        :param in_field_type_list: list of type of each in_field_name_list, except the identifier (=None if no attribute in addition to identifier)
+        :type in_field_type_list: list of str
         :param in_poly: polygon to spatially select lakes from DB
         :type in_poly: ogr.Polygon
-        :param table_name: table_name to load from file
-        :type table_name: String
-        :param field_name: field_name to load from table
-        :type field_name: String
-        :param in_poly: polygon to spatially select lakes from DB
-        :type in_poly: ogr.Polygon
+        
+        :return: out_data_source = DataSource of the specified table
+        :rtype: osgeo.ogr.DataSource
+        :return: out_layer = layer associated to the specified table
+        :rtype: osgeo.ogr.Layer
         """
         logger = logging.getLogger(self.__class__.__name__)
+        logger.debug("Loading fields %s of table %s from file %s" %(" ".join(in_field_name_list), in_table_name, in_lakedb_filename))
         cfg = service_config_file.get_instance()
         
-        # Transform 3D geometry into 2D geometry (necessary for spatialite query)
-        in_poly.FlattenTo2D()
-
-        # Open the SQLite database and define the connector
-        self.db_conn = sqlite3.connect(in_lake_db_filename, timeout=10)
-
-        # Load spatialite extension
-        self.db_conn.enable_load_extension(True)
-        self.db_conn.execute('SELECT load_extension("mod_spatialite")')
-
-        # Define the cursor
-        self.db_cur = self.db_conn.cursor()
-
-        if cfg.get('LOGGING', 'logFileLevel') == 'DEBUG':
-            (lakes_nb,) = self.db_cur.execute('SELECT count(*) from lake').fetchone()
-            logger.debug(" %d features stored in table %s of database" % (lakes_nb, table_name))
-
-        # Create an output datasource in memory
+        # 0 - Init output in memory
         mem_driver = ogr.GetDriverByName('MEMORY')  # Memory driver
-
-        # Open the memory datasource with write access
-        ds = mem_driver.CreateDataSource('memData')
-
-        # Set spatial projection
+        # 0.1 - Open the memory DataSource with write access
+        out_data_source = mem_driver.CreateDataSource('memData')
+        # 0.2 - Set spatial projection
         srs = ogr.osr.SpatialReference()
         srs.ImportFromEPSG(4326)
+        # 0.3 - Create memory layer
+        out_layer = out_data_source.CreateLayer(str('layer'), srs=srs, geom_type=ogr.wkbPolygon)
+        # 0.4 - Create needed fields
+        for ind, field_type in enumerate(in_field_type_list):
+            out_layer.CreateField(ogr.FieldDefn(in_field_name_list[ind], my_var.FORMAT_OGR[field_type]))
+        # Retrieve layer definition
+        lyr_defn = out_layer.GetLayerDefn()
 
-        # Creating memory layer
-        lyr = ds.CreateLayer(str('layer'), srs=srs, geom_type=ogr.wkbPolygon)
-        lyr.CreateField(ogr.FieldDefn(field_name, ogr.OFTString))
+        # 1 - Open the SQLite database
+        # 1.1 - Define the connector
+        db_connector = sqlite3.connect(in_lakedb_filename, timeout=10)
+        # 1.2 - Load spatialite extension
+        db_connector.enable_load_extension(True)
+        db_connector.execute('SELECT load_extension("mod_spatialite")')
+        # 1.3 - Define the cursor
+        db_cursor = db_connector.cursor()
+        # Print info
+        if cfg.get('LOGGING', 'logFileLevel') == 'DEBUG':
+            (lakes_nb,) = db_cursor.execute('SELECT count(*) from %s' %(in_table_name)).fetchone()
+            logger.debug("%d features stored in table <%s>" % (lakes_nb, in_table_name))
 
-        # Define the layer
-        lyr_defn = lyr.GetLayerDefn()
-
+        # 2 - Select subset among PLD lakes using in_poly
         if in_poly is not None:
+            in_poly.FlattenTo2D()  # Transform 3D geometry into 2D geometry (necessary for spatialite query)
             cmd = "SELECT %s, AsText(geometry) FROM %s WHERE MBRIntersects(GeomFromText('%s'), %s.geometry);" % (
-                field_name, table_name, in_poly.ExportToWkt(), table_name)
-            self.db_cur.execute(cmd)
+                ",".join(in_field_name_list), in_table_name, in_poly.ExportToWkt(), in_table_name)
+            db_cursor.execute(cmd)
         else:
-            cmd = "SELECT %s, AsText(geometry) FROM %s ;" % (field_name, table_name)
-            self.db_cur.execute(cmd)
+            cmd = "SELECT %s, AsText(geometry) FROM %s ;" % (",".join(in_field_name_list), in_table_name)
+            db_cursor.execute(cmd)
 
-        for row in self.db_cur:
-            # Create empty feature/entity
-            out_feat = ogr.Feature(lyr_defn)
+        # 3 - Copy selected features to output memory layer
+        for db_feature in db_cursor:
+            
+            # 3.1 - Create empty feature
+            tmp_feat = ogr.Feature(lyr_defn)
 
-            # Fill feature with ID and geometry from SQLite request
-            out_feat.SetField(field_name, str(row[0]))
-            multi_poly = ogr.CreateGeometryFromWkt(row[1])
-            out_feat.SetGeometry(multi_poly)
+            # 3.2 - Fill feature with attributes and geometry from SQLite request
+            poly = ogr.CreateGeometryFromWkt(db_feature[-1])
+            for ind, fieldname in enumerate(in_field_name_list):
+                tmp_feat.SetField(fieldname, str(db_feature[ind]))
+            tmp_feat.SetGeometry(poly)
 
-            lyr.CreateFeature(out_feat)
+            # 3.3 - Add feature to output layer
+            out_layer.CreateFeature(tmp_feat)
 
-            out_feat.Destroy()
+            # 3.4 - Close temporary feature
+            tmp_feat.Destroy()
 
-        lyr.ResetReading()
-        # Get memory lake_layer
-        logger.info("%d features after focus over studied area" % lyr.GetFeatureCount())
+        # 4 - Reset reading pointer
+        out_layer.ResetReading()
 
-        # Close spatialite database
-        self.db_conn.close()
+        # 5 - Close spatialite database
+        db_connector.close()
 
-        return ds, lyr
+        logger.info("%d features after focus over studied area" % out_layer.GetFeatureCount())
+        return out_data_source, out_layer
 
     # ----------------------------------------
 
@@ -571,12 +729,19 @@ class LakeDbSqlite(LakeDb):
         Close database
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- close database -")
+        
+        # Close lake table
+        logger.info("- close lake table -")
         self.lake_ds.Destroy()
-        if self.influence_map_flag:
-            self.influence_lake_ds.Destroy()
-        if self.basin_flag:
-            self.basin_ds.Destroy()
+        
+        # Close influence area table
+        logger.info("- close influence area table -")
+        self.influence_lake_ds.Destroy()
+        
+        # Close basin table
+        logger.info("- close basin table -")
+        self.basin_ds.Destroy()
+        
 
 #######################################
 

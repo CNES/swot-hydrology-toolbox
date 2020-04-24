@@ -20,7 +20,8 @@
    This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 """
 
-import sys
+import datetime
+import os, sys
 import logging
 import logging.handlers
 import cnes.common.service_config_file as service_config_file
@@ -97,7 +98,13 @@ class ServiceLogger(logging.getLoggerClass()):
             self.file_handler.setFormatter(self.log_formatter)
             self.file_handler.setLevel(cfg.get('LOGGING', 'logFileLevel'))
             # create the error log file
-            self.file_handler_error = logging.FileHandler(cfg.get('PATHS', 'Output directory') + '/error.log', mode='w')
+            #self.file_handler_error = logging.FileHandler(cfg.get('PATHS', 'Output directory') + '/error.log', mode='w')
+            if "LogFile" in cfg.get('LOGGING', 'logFile'):
+                log_error_file = cfg.get('LOGGING', 'logFile').replace("LogFile", "LogError")
+            else:
+                log_error_filename = "LogError_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".log"
+                log_error_file = os.path.join(cfg.get('PATHS', 'Output directory'), log_error_filename)
+            self.file_handler_error = logging.FileHandler(log_error_file, mode='w')
             self.file_handler_error.setFormatter(self.log_formatter)
             self.file_handler_error.setLevel("ERROR")
 

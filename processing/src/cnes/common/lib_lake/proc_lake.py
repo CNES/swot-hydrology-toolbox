@@ -16,11 +16,6 @@
 
 .. moduleauthor: Claire POTTIER (CNES DSO/SI/TR) and Cécile CAZALS (CS)
 
-.. todo:: revoir la date
-.. todo:: revoir le lien de màj du PIXC_VEC tag si plrs lacs associés à l'objet ou si aucun lac (on prend l'identifiant de la tuile ?)
-.. todo:: revoir le calcul des erreurs
-.. todo:: améliorer le calcul de la hauteur moyenne
-
 ..
    This file is part of the SWOT Hydrology Toolbox
    Copyright (C) 2018 Centre National d’Etudes Spatiales
@@ -29,8 +24,11 @@
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import numpy as np
 import logging
+import numpy as np
+
+import cnes.common.service_config_file as service_config_file
+import cnes.common.service_error as service_error
 
 from cnes.modules.geoloc.scripts.biglake_model import BigLakeModel
 
@@ -41,13 +39,11 @@ import cnes.common.lib_lake.locnes_products_shapefile as shp_file
 import cnes.common.lib_lake.proc_pixc_vec as proc_pixc_vec
 import cnes.common.lib_lake.storage_change as storage_change
 
-import cnes.common.service_config_file as service_config_file
-import cnes.common.service_error as service_error
-
 
 class LakeProduct(object):
     """
-        class LakeProduct
+    class LakeProduct
+    Manage LakeTile and LakeSP products
     """
     def __init__(self, in_product_type, in_obj_pixc, in_obj_pixc_vec, in_obj_lake_db, in_layer_name):
         """
@@ -76,7 +72,7 @@ class LakeProduct(object):
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("- start -")
         
-        # Init variables
+        # 1 - Init variables
         # Product type
         if (in_product_type != "TILE") and (in_product_type != "SP"):
             message = "ERROR = product type is %s ; should be SP or TILE" % in_product_type
@@ -90,14 +86,14 @@ class LakeProduct(object):
         # Lake database object
         self.obj_lake_db = in_obj_lake_db
         
-        # Initialize lake product layer
+        # 2 - Initialize lake product memory layer
         self.shp_mem_layer = shp_file.LakeSPShpProduct(self.type, in_layer_name)
         
-        # Other variables
-        self.uniq_prior_id = set()  # List of uniq prior identifiers linked to observed objects
+        # 3 - Other variables
+        self.uniq_prior_id = set()  # List of uniq prior identifiers linked to all observed objects
 
+        # 4 - ONLY FOR LakeTile: find continent associated to tile
         if self.type == "TILE":
-            # Find tile associated continent
             continent = self.obj_lake_db.link_poly_to_continent(self.obj_pixc.tile_poly)
             self.obj_pixc.pixc_metadata["continent"] = continent
             self.obj_pixc_vec.pixcvec_metadata["continent"] = continent
@@ -116,7 +112,7 @@ class LakeProduct(object):
         :type in_list_labels: 1D-array of int
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("Minimum size for lakes = %0.1f ha" % self.cfg.getfloat('CONFIG_PARAMS', 'MIN_SIZE'))
+        logger.info("Minimum size for lakes = %0.1f km2" % self.cfg.getfloat('CONFIG_PARAMS', 'MIN_SIZE'))
         if self.cfg.getboolean('CONFIG_PARAMS', 'IMP_GEOLOC'):
             logger.info("Improve geoloc = YES")
         else:
@@ -146,7 +142,8 @@ class LakeProduct(object):
         biglake_grid_res = self.cfg.getint("CONFIG_PARAMS", "BIGLAKE_GRID_RES")
         min_size = self.cfg.getfloat('CONFIG_PARAMS', 'MIN_SIZE')
         nb_digits = self.cfg.getint('ID', 'NB_DIGITS')
-
+        
+        # Compute all attributes except those related to PLD (ie p_ attributes and storage change)
         for i, label in enumerate(in_list_labels):  # Loop on inside tile objects
 
             # 1 - Get pixels indices for associated to current label
@@ -160,19 +157,16 @@ class LakeProduct(object):
             classif = self.sort_pixels_wrt_classif_flags(pix_index)
 
             # 3 - Compute object size = detected area
-            obj_size = np.sum(self.obj_pixc.pixel_area[pix_index[select_water_dark_pixels(classif, in_flag_water=True, in_flag_dark=True)]])
+            obj_size = np.sum(self.obj_pixc.pixel_area[pix_index[select_water_dark_pixels(classif, in_flag_water=True, in_flag_dark=True)]])  # In m2
+            obj_size /= 10**6  # Conversion in km2
             
             logger.info("")
-            logger.info("===== compute_product %d over %d / label = %d / nb pixels = %d / size = %.2f m2 =====" \
+            logger.info("===== compute_product %d over %d / label = %d / nb pixels = %d / size = %.2f km2 =====" \
                         % (i, len(in_list_labels), label, obj_nb_pix, obj_size))
                         
-            # 4 - Compute mean height ONLY over water pixels except if there is only dark water
-            # TODO: to improve later
-            if classif["water"] is None:
-                mean_height = my_tools.compute_mean_2sigma(self.obj_pixc.height[pix_index[classif["dark"]]], in_nan=my_var.FV_FLOAT)
-            else:
-                mean_height = my_tools.compute_mean_2sigma(self.obj_pixc.height[pix_index[classif["water"]]], in_nan=my_var.FV_FLOAT)
-            # == END-TODO ==
+            # 4 - Compute mean height using both water and dark water pixel (weighting using uncertainties)
+            # Use of external method common with RiverObs to compute mean/std
+            mean_height = self.obj_pixc.compute_height(pix_index)
             
             # 5 - Compute improved geolocation if wanted
             if self.cfg.getboolean('CONFIG_PARAMS', 'IMP_GEOLOC'):
@@ -184,7 +178,7 @@ class LakeProduct(object):
                     biglakemodel = BigLakeModel(biglake_model)
                     height_model = biglakemodel.height_model
 
-                    logger.info("Using {} biglake model for improved geolocation (lake size {} ha)".format(height_model, obj_size))
+                    logger.info("Using {} biglake model for improved geolocation (lake size {} km2)".format(height_model, obj_size))
 
                     if height_model == 'grid':
                         height_model = biglakemodel.fit_biglake_model(self.obj_pixc,
@@ -201,11 +195,14 @@ class LakeProduct(object):
                         height_model = np.full(self.obj_pixc.height[pix_index].shape, mean_height)
 
                 else:
-                    logger.debug("Using lake average height {} m for improved geolocation (lake size {} m2)".format(mean_height, obj_size))
+                    logger.debug("Using lake average height {} m for improved geolocation (lake size {} km2)".format(mean_height, obj_size))
                     height_model = np.full(self.obj_pixc.height[pix_index].shape, mean_height)
 
                 # 5b - Compute imp geolocation 
-                imp_lon, imp_lat, imp_height = proc_pixc_vec.compute_imp_geoloc(self.type, self.obj_pixc, pix_index, height_model)
+                imp_lon, imp_lat, imp_height, p_final = proc_pixc_vec.compute_imp_geoloc(self.type, self.obj_pixc, pix_index, height_model)
+                
+                # 5c - Compute flattened interferogram in order to compute coherence during uncertainties estimation
+                self.obj_pixc.compute_interferogram_flattened(pix_index, p_final)
 
             else:
                 imp_lon = self.obj_pixc.longitude[pix_index]
@@ -237,7 +234,7 @@ class LakeProduct(object):
                 # 7.2 - Process on non NaN points 
                 feature_geom = None
                 if nb_nan == 0:
-                    feature_geom, attributes = self.compute_product(lakeobs_num, pix_index, classif, obj_size, mean_height, imp_lon, imp_lat)
+                    feature_geom, attributes = self.compute_product(lakeobs_num, pix_index, classif, imp_lon, imp_lat)
                 else:
                     if nb_nan == obj_nb_pix:
                         logger.warning("!!! All the pixels have NaN for improved geolocation => object not computed")
@@ -246,7 +243,7 @@ class LakeProduct(object):
                         not_nan_index = np.where(np.isfinite(imp_lon))[0]
                         not_nan_classif = self.sort_pixels_wrt_classif_flags(pix_index[not_nan_index])
                         feature_geom, attributes = self.compute_product(lakeobs_num, pix_index[not_nan_index], not_nan_classif,
-                                                                        obj_size, mean_height, imp_lon[not_nan_index], imp_lat[not_nan_index])
+                                                                        imp_lon[not_nan_index], imp_lat[not_nan_index])
                 logger.debug("obs_id: " + str(attributes["obs_id"]))
                 try:
                     logger.debug("lake_id: " + str(attributes["lake_id"]))
@@ -261,7 +258,7 @@ class LakeProduct(object):
                 cpt_obj += 1
 
             else:
-                logger.info("> Object %d too small (%d pixels = %.2f m2)" % (label, obj_nb_pix, obj_size))
+                logger.info("> Object %d too small (%d pixels = %.2f km2)" % (label, obj_nb_pix, obj_size))
                 cpt_too_small += 1  # Increase counter of too small objects
 
         logger.info("> %d objects not processed because too small" % cpt_too_small)
@@ -272,30 +269,27 @@ class LakeProduct(object):
             logger.info("NO object linked to a priori lake => NO storage change computed")
             
         else:
-            logger.info("%d prior lakes linked to observed lake" % nb_prior)
+            logger.info("%d prior lakes linked to observed lakes" % nb_prior)
             
             for p_id in self.uniq_prior_id:
-                logger.info("Deal with prior lake %s" % p_id)
+                logger.info("> Deal with prior lake %s" % p_id)
                 
-                # 10.1 - Get priori info
-                lake_name, grand_id, ref_height, ref_area = self.obj_lake_db.get_prior_values(p_id)
+                # 10.1 - Get prior infos
+                p_name, p_grand, p_max_wse, p_max_area, p_ref_date, p_ref_ds, p_storage = self.obj_lake_db.get_prior_values(p_id)  
                 
-                # 10.2 - Get observed lakes linked to this a priori lake
-                logger.debug("> Get observed lakes linked to this a priori lake")
+                # 10.2 - Set p_ attributes from PLD infos to all observed lakes having this PLD lake as main overlap
+                self.shp_mem_layer.layer.SetAttributeFilter("lake_id LIKE '{}%'".format(p_id))
+                logger.debug(". {} observed lake(s) are stongly connected to this PLD lake".format(self.shp_mem_layer.layer.GetFeatureCount()))
+                self.set_prior_info(p_name, p_grand, p_max_wse, p_max_area, p_ref_date, p_ref_ds, p_storage)
+                self.shp_mem_layer.layer.SetAttributeFilter(None)  # Reinit layer attribute filter           
+                
+                # 10.3 - Compute storage change for all observed lakes overlapping this PLD lake
+                logger.debug(". Compute storage change")
                 self.shp_mem_layer.layer.SetAttributeFilter("lake_id LIKE '%{}%'".format(p_id))
+                self.set_storage_change(p_max_wse, p_max_area, p_ref_ds) 
+                self.shp_mem_layer.layer.SetAttributeFilter(None)  # Reinit layer attribute filter
                 
-                # 10.3 - Set lake name and GRand identifier from prior database
-                logger.debug("> Set prior info")
-                self.set_prior_info(lake_name, grand_id)
-                
-                # 10.4 - Compute storage change
-                logger.debug("> Compute storage change")
-                self.set_storage_change(ref_height, ref_area) 
-                
-                # 10.5 - Reinit layer attribute filter
-                self.shp_mem_layer.layer.SetAttributeFilter(None)
-
-    def compute_product(self, in_lakeobs_num, in_indices, in_classif_dict, in_size, in_mean_height, in_imp_lon, in_imp_lat):
+    def compute_product(self, in_lakeobs_num, in_indices, in_classif_dict, in_imp_lon, in_imp_lat):
         """
         Computes lake product from a subset of pixel cloud, i.e. pixels for which self.obj_pixc.labels=in_label
 
@@ -305,10 +299,6 @@ class LakeProduct(object):
         :type in_indices: 1D-array of int
         :param in_classif_dict: dictionary of indices of pixels of in_indices corresponding to categories "water" and "dark"
         :type in_classif_dict: dict (output of self.sort_pixels_wrt_classif_flags)
-        :param in_size: size of input object
-        :type in_size: float
-        :param in_mean_height: mean height over the object
-        :type in_mean_height: float
         :param in_imp_lon: improved longitudes vector for pixels of the object
         :type in_imp_lon: 1D-array of float
         :param in_imp_lat: improved latitudes vector for pixels of the object
@@ -319,6 +309,8 @@ class LakeProduct(object):
         :return: out_attributes = lake attributes
         :rtype: dict
         """
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.debug("Deal with object number = {}".format(in_lakeobs_num))
             
         # 1 - Compute geometry
         # 1.1 - Compute the lake boundaries
@@ -343,10 +335,11 @@ class LakeProduct(object):
             centroid_ct_dist = -centroid_ct_dist
             
         # 2 - Link to lake a priori database
-        list_prior, pixc_vec_tag = self.obj_lake_db.link_to_db(out_geom, in_imp_lon, in_imp_lat)
-        # Save in self
-        for prior_id in list_prior:
-            self.uniq_prior_id.add(prior_id)
+        list_prior, list_fraction, pixc_vec_tag = self.obj_lake_db.link_to_db(out_geom, in_imp_lon, in_imp_lat)
+        # Save IDs of intersecting PLD lake 
+        if list_prior:
+            for tmp_lake_id in list_prior:
+                self.uniq_prior_id.add(tmp_lake_id)
         
         # 3 - Compute lake attributes
         
@@ -355,7 +348,7 @@ class LakeProduct(object):
         # 3.1 - Identifiers
 
         # Compute 3 digits of basin identifier (CBB)
-        if list_prior :
+        if list_prior:
             lake_basin_id = list_prior[0][0:3]
         else:
             lake_basin_id = str(self.obj_lake_db.link_poly_to_basin(out_geom)[0]).rjust(3, str('0'))
@@ -372,6 +365,12 @@ class LakeProduct(object):
             out_attributes["lake_id"] = ';'.join(list_prior)
         else:
             out_attributes["lake_id"] = "no_data"
+            
+        # 3.1.3 - Compute overlap
+        if list_fraction:
+            out_attributes["overlap"] = ';'.join(list_fraction)
+        else:
+            out_attributes["overlap"] = "no_data"
 
         # Update PIXCVec lake_id and obs_id for current lake product
         if self.type == "SP":  # Indices of obj_pixc_vec change depending on product type
@@ -379,8 +378,8 @@ class LakeProduct(object):
         else:
             tmp_index = self.obj_pixc.selected_index[in_indices]
         for i, ind in enumerate(tmp_index):
-            self.obj_pixc_vec.lakeobs_id[ind] = out_attributes["obs_id"]  
-            self.obj_pixc_vec.lakedb_id[ind] = pixc_vec_tag[i]
+            self.obj_pixc_vec.obs_id[ind] = out_attributes["obs_id"]  
+            self.obj_pixc_vec.lake_id[ind] = pixc_vec_tag[i]
 
         # 3.2 - Mean datetime of observation
         out_attributes["time"] = centroid_time  # UTC time
@@ -389,47 +388,22 @@ class LakeProduct(object):
         
         # 3.3 - Measured hydrology parameters
         
-        if in_classif_dict["water"] is None:
-            selected_indices = in_indices
-        else:
-            selected_indices = in_indices[in_classif_dict["water"]]  # Indices of water pixels
-                
-        # Retrieve selected pixels height
-        selected_height = self.obj_pixc.height[selected_indices]
+        # Area and uncertainty
+        area_total, area_total_unc, area_detct, area_detct_unc = self.obj_pixc.compute_area_with_uncertainties(in_indices, method='composite')
+        out_attributes["area_total"] = value_or_fillvalue(area_total / 10**6)
+        out_attributes["area_tot_u"] = value_or_fillvalue(area_total_unc / 10**6)
+        out_attributes["area_detct"] = value_or_fillvalue(area_detct / 10**6)
+        out_attributes["area_det_u"] = value_or_fillvalue(area_detct_unc / 10**6)
         
-        # Retrieve selected pixels corrections
-        selected_geoid_hght = self.obj_pixc.geoid[selected_indices]  # Geoid model height
-        selected_solid_tide = self.obj_pixc.solid_earth_tide[selected_indices]  # Earth tide
-        selected_pole_tide = self.obj_pixc.pole_tide[selected_indices]  # Pole tide
-        selected_load_tide1 = self.obj_pixc.load_tide_sol1[selected_indices]  # Load tide 1
-        
-        # Mean water surface elevation over the lake and uncertainty
-        selected_wse = selected_height - selected_geoid_hght - selected_solid_tide - selected_pole_tide - selected_load_tide1
-        out_attributes["wse"] = my_tools.compute_mean_2sigma(selected_wse, in_nan=my_var.FV_FLOAT)
-        out_attributes["wse_u"] = my_var.FV_REAL
-        out_attributes["wse_r_u"] = my_var.FV_REAL
-        
-        # Water surface elevation standard deviation (only for big lakes)
-        if in_size >= self.cfg.getfloat("CONFIG_PARAMS", "BIGLAKE_MIN_SIZE"):
-            out_attributes["wse_std"] = my_tools.compute_std(selected_wse, in_nan=my_var.FV_FLOAT)
-        
-        # Total water area and uncertainty
-        out_attributes["area_total"] = in_size
-        # Uncertainty
-        polygon_area = my_tools.get_area(out_geom.Clone(), poly_centroid)
-        tmp_area_u = in_size - polygon_area
-        out_attributes["area_tot_u"] = my_var.FV_REAL
-        if tmp_area_u <= 1e12:  # If larger than field width ; **** to be modified later ****
-            out_attributes["area_tot_u"] = tmp_area_u
-            
-        # Area of detected water pixels and uncertainty
-        tmp_area_water = my_tools.compute_sum(self.obj_pixc.pixel_area[selected_indices])
-        out_attributes["area_detct"] = tmp_area_water
-        # Uncertainty
-        out_attributes["area_det_u"] = my_var.FV_REAL
+        # Water surface elevation and uncertainty
+        mean_height, height_std, height_unc = self.obj_pixc.compute_height_with_uncertainties(in_indices)
+        out_attributes["wse"] = value_or_fillvalue(mean_height)
+        out_attributes["wse_u"] = my_var.FV_SHP["float"]
+        out_attributes["wse_r_u"] = value_or_fillvalue(height_unc)
+        out_attributes["wse_std"] = value_or_fillvalue(height_std)
         
         # Metric of layover effect = layover area
-        out_attributes["layovr_val"] = my_var.FV_REAL
+        out_attributes["layovr_val"] = my_var.FV_SHP["float"]
         
         # Average distance from polygon centroid to the satellite ground track
         out_attributes["xtrk_dist"] = centroid_ct_dist
@@ -443,11 +417,11 @@ class LakeProduct(object):
         if in_classif_dict["dark"] is None:
             out_attributes["dark_frac"] = 0
         else:
-            out_attributes["dark_frac"] = my_tools.compute_sum(self.obj_pixc.pixel_area[in_indices[in_classif_dict["dark"]]]) / in_size
+            out_attributes["dark_frac"] = (area_total - area_detct) / area_total * 100.0
             
         # Ice cover flags
-        out_attributes["ice_clim_f"] = 255
-        out_attributes["ice_dyn_f"] = 255
+        out_attributes["ice_clim_f"] = my_var.FV_UBYTE
+        out_attributes["ice_dyn_f"] = my_var.FV_UBYTE
         
         # Partial flag: =1 if the lake is partially covered by the swath, 0 otherwise
         range_index = self.obj_pixc.range_index[in_indices]
@@ -465,14 +439,14 @@ class LakeProduct(object):
             
         # 3.6 - Geophysical references
         # Geoid model height
-        out_attributes["geoid_hght"] = my_tools.compute_mean_2sigma(selected_geoid_hght, in_nan=my_var.FV_FLOAT)
+        out_attributes["geoid_hght"] = my_tools.compute_mean_2sigma(self.obj_pixc.geoid[in_indices], in_nan=my_var.FV_FLOAT)
         # Earth tide
-        out_attributes["solid_tide"] = my_tools.compute_mean_2sigma(selected_solid_tide, in_nan=my_var.FV_FLOAT)
+        out_attributes["solid_tide"] = my_tools.compute_mean_2sigma(self.obj_pixc.solid_earth_tide[in_indices], in_nan=my_var.FV_FLOAT)
         # Pole tide
-        out_attributes["pole_tide"] = my_tools.compute_mean_2sigma(selected_pole_tide, in_nan=my_var.FV_FLOAT)
+        out_attributes["pole_tide"] = my_tools.compute_mean_2sigma(self.obj_pixc.pole_tide[in_indices], in_nan=my_var.FV_FLOAT)
         # Load tide
-        out_attributes["load_tide1"] = my_tools.compute_mean_2sigma(selected_load_tide1, in_nan=my_var.FV_FLOAT)
-        out_attributes["load_tide2"] = my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_sol2[selected_indices], in_nan=my_var.FV_FLOAT)
+        out_attributes["load_tide1"] = my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_sol1[in_indices], in_nan=my_var.FV_FLOAT)
+        out_attributes["load_tide2"] = my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_sol2[in_indices], in_nan=my_var.FV_FLOAT)
         
         # 2.7 - Geophysical range corrections
         # Dry tropo corr
@@ -484,58 +458,91 @@ class LakeProduct(object):
         
         # 2.8 - Instrument corrections
         # KaRIn correction from crossover cal processing evaluated for lake
-        out_attributes["xovr_cal_c"] = my_tools.compute_mean_2sigma(self.obj_pixc.xover_height_cor[in_indices], in_nan=my_var.FV_FLOAT)
+        out_attributes["xovr_cal_c"] = my_tools.compute_mean_2sigma(self.obj_pixc.height_cor_xover[in_indices], in_nan=my_var.FV_FLOAT)
         
         return out_geom, out_attributes
 
     # ----------------------------------------
     
-    def set_prior_info(self, in_name, in_grand):
+    def set_prior_info(self, in_name, in_grand, in_max_wse, in_max_area, in_ref_date, in_ref_ds, in_storage):
         """
-        Set name and grand_id attributes to prior values for all objects linked to current prior lake
+        Set p_ attributes to prior values for all objects linked to current PLD lake
         
         :param in_name: name of the prior lake
         :type in_name: string
         :param in_grand: GRanD identifier 
         :type in_grand: int
+        :param in_max_wse: PLD lake maximum water surface elevation
+        :type in_max_wse: float
+        :param in_max_area: PLD lake maximum area
+        :type in_max_area: float
+        :param in_ref_date: reference date for storage change computation
+        :type in_ref_date: string
+        :param in_ref_ds: reference storage change for storage change computation
+        :type in_ref_ds: float
+        :param in_storage: PLD lake maximum storage value
+        :type in_storage: float
         """
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.debug("- start -")
         
         for obs_lake in self.shp_mem_layer.layer:
             
-            # 1 - Update prior name
+            # 1 - Set PLD name
             if in_name is not None:
-                obs_name = obs_lake.GetField(str("p_name"))
-                if obs_name == my_var.FV_STRING_SHP:
-                    obs_lake.SetField(str("p_name"), in_name)
-                else:
-                    obs_lake.SetField(str("p_name"), "%s;%s" % (obs_name, in_name))
+                obs_lake.SetField(str("p_name"), in_name)
             else:
                 obs_lake.SetField(str("p_name"), my_var.FV_STRING_SHP)
                     
-            # 2 - Update GRanD identifier
+            # 2 - Set GRanD identifier
             if in_grand is not None:
-                obs_grand = obs_lake.GetField(str("grand_id"))
-                if obs_grand == my_var.FV_STRING_SHP:
-                    obs_lake.SetField(str("grand_id"), in_grand)
-                else:
-                    obs_lake.SetField(str("grand_id"), "%s;%d" % (obs_grand, in_grand))
+                obs_lake.SetField(str("p_grand_id"), in_grand)
             else:
-                obs_lake.SetField(str("grand_id"), my_var.FV_STRING_SHP)
+                obs_lake.SetField(str("p_grand_id"), my_var.FV_INT9_SHP)
+
+            # 3 - Set max water surface elevation
+            if in_max_wse is not None:
+                obs_lake.SetField(str("p_max_wse"), in_max_wse)
+            else:
+                obs_lake.SetField(str("p_max_wse"), my_var.FV_REAL)
+
+            # 4 - Set max area
+            if in_max_area is not None:
+                obs_lake.SetField(str("p_max_area"), in_max_area)
+            else:
+                obs_lake.SetField(str("p_max_area"), my_var.FV_REAL)
+
+            # 5 - Set reference date
+            if in_ref_date is not None:
+                obs_lake.SetField(str("p_ref_date"), in_ref_date)
+            else:
+                obs_lake.SetField(str("p_ref_date"), my_var.FV_STRING_SHP)
+
+            # 6 - Set refence storage change
+            if in_ref_ds is not None:
+                obs_lake.SetField(str("p_ref_ds"), in_ref_ds)
+            else:
+                obs_lake.SetField(str("p_ref_ds"), my_var.FV_REAL)
                     
-            # 3 - Update maximum water storage value
-            obs_lake.SetField(str("p_storage"), my_var.FV_REAL)
+            # 5 - Update maximum water storage value
+            if in_storage is not None:
+                obs_lake.SetField(str("p_storage"), in_storage)
+            else:
+                obs_lake.SetField(str("p_storage"), my_var.FV_REAL)
         
-            # 4 - Rewrite feature with updated attributes
+            # 6 - Rewrite feature with updated attributes
             self.shp_mem_layer.layer.SetFeature(obs_lake)
-    
-    def set_storage_change(self, in_ref_height, in_ref_area):
+
+    def set_storage_change(self, in_max_wse, in_max_area, in_ref_ds):
         """
         Set storage change value for all objects linked to current prior lake
         
-        :param in_ref_height: reference height
-        :type in_ref_height: float
-        :param in_ref_area: reference area
-        :type in_ref_area: float
+        :param in_max_height: maximum water surface elevation
+        :type in_max_height: float
+        :param in_max_area: maximum area
+        :type in_max_area: float
+        :param in_ref_ds: reference storage change
+        :type in_ref_ds: float
 
         Envisionned cases:
             - 1 prior lake <=> 1 observed lake
@@ -559,30 +566,26 @@ class LakeProduct(object):
                 pass
 
             else:  # Case 1 prior lake <=> 1 observed lake
-                
-                # Set reference values
-                if in_ref_height is not None:
-                    obs_lake.SetField(str("p_wse"), in_ref_height)
-                else:
-                    obs_lake.SetField(str("p_wse"), my_var.FV_REAL)
-                if in_ref_area is not None:
-                    obs_lake.SetField(str("p_area"), in_ref_area)
-                else:
-                    obs_lake.SetField(str("p_area"), my_var.FV_REAL)
 
                 # Compute linear storage change
-                stoc_val, stoc_u = storage_change.stocc_linear(obs_height, obs_area, in_ref_height, in_ref_area)
+                stoc_val, stoc_u = storage_change.stocc_linear(obs_height, obs_area, in_max_wse, in_max_area)
                 # Fill associated field
                 if stoc_val is not None:
-                    obs_lake.SetField(str("delta_s_L"), stoc_val)
+                    if in_ref_ds is not None:
+                        obs_lake.SetField(str("delta_s_L"), stoc_val - in_ref_ds)
+                    else:
+                        obs_lake.SetField(str("delta_s_L"), stoc_val)
                 if stoc_u is not None:
                     obs_lake.SetField(str("ds_L_u"), stoc_u)
 
                 # Compute quadratic storage change
-                stoc_val, stoc_u = storage_change.stocc_quadratic(obs_height, obs_area, in_ref_height, in_ref_area)
+                stoc_val, stoc_u = storage_change.stocc_quadratic(obs_height, obs_area, in_max_wse, in_max_area)
                 # Fill associated field
                 if stoc_val is not None:
-                    obs_lake.SetField(str("delta_s_Q"), stoc_val)
+                    if in_ref_ds is not None:
+                        obs_lake.SetField(str("delta_s_Q"), stoc_val - in_ref_ds)
+                    else:
+                        obs_lake.SetField(str("delta_s_Q"), stoc_val)
                 if stoc_u is not None:
                     obs_lake.SetField(str("ds_Q_u"), stoc_u)
 
@@ -699,5 +702,25 @@ def select_water_dark_pixels(in_classif_dict, in_flag_water=False, in_flag_dark=
             out_ind = in_classif_dict["dark"]
         else:
             out_ind = np.concatenate((out_ind, in_classif_dict["dark"]))
+            
     return out_ind
+    
 
+def value_or_fillvalue(in_value):
+    """
+    Test if in_value is finite or not; if not, return the associated _FillValue
+    
+    :param in_value: value to test
+    :type in_value: float
+    
+    :return: out_value = in_value or _FillValue if finite
+    :rtype: out_value = float
+    """
+    
+    out_value = in_value
+    
+    if isinstance(out_value, float):
+        if not np.isfinite(out_value):
+            out_value = my_var.FV_REAL
+            
+    return out_value

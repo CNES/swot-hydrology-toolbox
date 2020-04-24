@@ -40,7 +40,8 @@ RIVER_TILE_SUFFIX = ".nc"
 RIVER_TILE_NODES_SUFFIX = "_nodes"
 RIVER_TILE_REACHES_SUFFIX = "_reaches"
 
-PATTERN_FILE_ANNOT = "river-annotation_%03d_%03d_%s.rdf"  # RiverTile annotation filename with %03d=cycle number %03d=pass number %s=tile ref
+PATTERN_FILE_RIVER_ANNOT = "river-annotation_%03d_%03d_%s.rdf"  # RiverTile annotation filename with %03d=cycle number %03d=pass number %s=tile ref
+PATTERN_FILE_LAKE_ANNOT = "lake-annotation_%03d_%03d_%s.rdf"  # LakeTile annotation filename with %03d=cycle number %03d=pass number %s=tile ref
 
 LAKE_TILE_PREFIX = "SWOT_L2_HR_LakeTile_"
 LAKE_TILE_PATTERN = LAKE_TILE_PREFIX + "%03d_%03d_%s_%s_%s_%s_%02d%s"  # LakeTile filename with %03d=cycle number %03d=pass number %s=tile ref %s=swath %s=begin date %s=end date %s=CRID %s=counter %s=suffix
@@ -175,7 +176,7 @@ class riverTileFilenames(object):
         self.computeRiverTileNodesFilename()
         self.computeRiverTileReachesFilename()
         self.computePixcVecRiverFilename()
-        self.computeAnnotFileFilename()
+        self.computeRiverAnnotFileFilename()
             
     def set_vars_from_filename(self, IN_pixc_filename):
         """
@@ -262,8 +263,144 @@ class riverTileFilenames(object):
         """
         self.pixc_vec_river_file = PIXCVEC_RIVER_PATTERN % (self.cycle_num, self.pass_num, self.tile_ref, self.start_date, self.stop_date, RIVER_TILE_CRID, 1)
         
-    def computeAnnotFileFilename(self):
+    def computeRiverAnnotFileFilename(self):
         """
         Compute file annotation full path
         """
-        self.annot_file = PATTERN_FILE_ANNOT % (self.cycle_num, self.pass_num, self.tile_ref)
+        self.annot_file = PATTERN_FILE_RIVER_ANNOT % (self.cycle_num, self.pass_num, self.tile_ref)
+
+
+class lakeTileFilenames(object):
+    def __init__(self, IN_pixc_file=None):
+        """
+        Constructor of basenames of the output files of l2pixc_to_rivertile.py
+
+        :param IN_pixc_file: PIXC filename
+        :IN_pixc_file: string
+        """
+
+        # Init tile variables
+        self.cycle_num = None
+        self.pass_num = None
+        self.tile_ref = None
+        self.start_date = None
+        self.stop_date = None
+
+        # Init filenames
+        if IN_pixc_file is not None:
+            self.updateWithPixcFilename(IN_pixc_file)
+        else:
+            self.laketile_shp_file = None
+            self.laketile_pixcvec_file = None
+            self.laketile_edge_file = None
+            self.lake_annot_file = None
+
+    # ----------------------------------
+
+    def updateWithPixcFilename(self, IN_pixc_file):
+        """
+        Update output filenames from PIXC filename
+
+        :param IN_pixc_file: PIXC filename
+        :IN_pixc_file: string
+        """
+
+        # Set self attributes
+        self.set_vars_from_filename(IN_pixc_file)
+
+        # Set filenames
+        self.computeLakeTileShpFilename()
+        self.computeLakeTileEdgeFilename()
+        self.computeLakeTilePixcvecFilename()
+        self.computeLakeAnnotFileFilename()
+
+    def set_vars_from_filename(self, IN_pixc_filename):
+        """
+        Update self variables from PIXC filename
+
+        :param IN_pixc_file: PIXC filename
+        :IN_pixc_file: string
+        """
+
+        print()
+
+        # 1 - Retrieve info from PIXC filename
+        tmp_dict = getInfoFromFilename(IN_pixc_filename, "PIXC")
+
+        # 2 - Set self variables
+        # 2.1 - Cycle number
+        cycle_num = tmp_dict["cycle"]
+        if cycle_num is None:
+            self.cycle_num = 999
+            print("WARNING: cycle number has not been found in PIXC filename %s -> set to default value = %03d",
+                  os.path.basename(self.pixc_file), self.cycle_num)
+        else:
+            self.cycle_num = int(cycle_num)
+            print("Cycle number = %03d" % self.cycle_num)
+        # 2.2 - Pass number
+        pass_num = int(tmp_dict["pass"])
+        if pass_num is None:
+            self.pass_num = 999
+            print("WARNING: pass number has not been found in PIXC filename %s -> set to default value = %03d",
+                  os.path.basename(self.pixc_file), self.pass_num)
+        else:
+            self.pass_num = int(pass_num)
+            print("Pass number = %03d" % self.pass_num)
+        # 2.3 - Tile ref
+        self.tile_ref = tmp_dict["tile_ref"]
+        if self.tile_ref is None:
+            self.tile_ref = "ttts"
+            print("WARNING: tile ref has not been found in PIXC filename %s -> set to default value = %s",
+                  os.path.basename(self.pixc_file), self.tile_ref)
+        else:
+            print("Tile ref = %s" % self.tile_ref)
+        # 2.4 - Start date
+        self.start_date = tmp_dict["start_date"]
+        if self.start_date is None:
+            self.start_date = "yyyyMMddThhmmss"
+            print("WARNING: start date has not been found in PIXC filename %s -> set to default value = %s",
+                  os.path.basename(self.pixc_file), self.start_date)
+        else:
+            print("Start date = %s" % self.start_date)
+        # 2.5 - Stop date
+        self.stop_date = tmp_dict["stop_date"]
+        if self.stop_date is None:
+            self.stop_date = "yyyyMMddThhmmss"
+            print("WARNING: stop date has not been found in PIXC filename %s -> set to default value = %s",
+                  os.path.basename(self.pixc_file), self.stop_date)
+        else:
+            print("Stop date = %s" % self.stop_date)
+
+        print()
+
+    # ----------------------------------
+
+    def computeLakeTileShpFilename(self):
+        """
+        Compute LakeTile NetCDF basename
+        """
+        self.laketile_shp_file = LAKE_TILE_PATTERN % (
+        self.cycle_num, self.pass_num, self.tile_ref, self.start_date, self.stop_date, RIVER_TILE_CRID, 1,
+        LAKE_TILE_SHP_SUFFIX)
+
+    def computeLakeTileEdgeFilename(self):
+        """
+        Compute LakeTile NetCDF basename
+        """
+        self.laketile_edge_file = LAKE_TILE_PATTERN % (
+        self.cycle_num, self.pass_num, self.tile_ref, self.start_date, self.stop_date, RIVER_TILE_CRID, 1,
+        LAKE_TILE_EDGE_SUFFIX)
+
+    def computeLakeTilePixcvecFilename(self):
+        """
+        Compute LakeTile NetCDF basename
+        """
+        self.laketile_pixcvec_file = LAKE_TILE_PATTERN % (
+        self.cycle_num, self.pass_num, self.tile_ref, self.start_date, self.stop_date, RIVER_TILE_CRID, 1,
+        LAKE_TILE_PIXCVEC_SUFFIX)
+
+    def computeLakeAnnotFileFilename(self):
+        """
+        Compute file annotation full path
+        """
+        self.lake_annot_file = PATTERN_FILE_LAKE_ANNOT % (self.cycle_num, self.pass_num, self.tile_ref)

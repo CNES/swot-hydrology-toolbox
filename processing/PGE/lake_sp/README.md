@@ -100,13 +100,13 @@ Output directory = <output_directory>
 
 [DATABASES]
 # OPTIION 1 : SQLITE lake database containing  : lake_table, lake_influence_table, basin_table
-LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20190624_EU/EU_lakedb.sqlite
+LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20200309_PLD/PLD_EU.sqlite
 
 # OPTION 2 : SHP lake database
 # Prior lake database
-# LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20190624_EU/EU_lakedb.shp
+# LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20200309_PLD/PLD_EU.shp
 # Lake identifier attribute name in the prior lake database and influence_lake_db
-# LAKE_DB_ID = lakedb_id
+# LAKE_DB_ID = lake_id
 
 [TILES_INFOS]
 # Format = int; if empty, deal with all LakeTile files in LakeTile directory

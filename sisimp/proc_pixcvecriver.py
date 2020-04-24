@@ -1,8 +1,9 @@
 # -*- coding: utf8 -*-
 """
-.. module proc_real_pixc_vec_river.py
-    :synopsis: Deal with data file complementary to pixel cloud files (L2_HR_PIXCVecRiver)
+.. module proc_pixcvecriver.py
+    :synopsis: Deal with L2_HR_PIXCVecRiver files (data file complementary to L2_HR_PIXC pixel cloud files)
     Created on 08/29/2017
+    Totally modified on 04/15/2020 to use JPL XML description files
     
 .. module author: Claire POTTIER - CNES DSO/SI/TR
 
@@ -10,50 +11,24 @@ This file is part of the SWOT Hydrology Toolbox
  Copyright (C) 2018 Centre National d’Etudes Spatiales
  This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 
-
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
 import os
 from osgeo import ogr, osr
 
 import lib.my_api as my_api
-import lib.my_netcdf_file as my_nc
-import lib.my_variables as my_var
 
-
-def fill_vector_param(IN_variable, IN_variable_name, IN_ref_size, IN_data_param):
-    """
-    Fill variable data field
-    
-    :param IN_variable: input data
-    :type IN_variable: array
-    :param IN_variable_name: name for the variable in the NetCDF file
-    :type IN_variable_name: string
-    :param IN_ref_size: number of elements associated to the variable in the NetCDF file
-    :type IN_ref_size: int
-    :param IN_data_param: pointer to the NetCDF writer (=NcWrite(OUT_file))
-    :type IN_data_param: -
-    """
-    
-    if IN_variable is not None:
-        xsize = len(IN_variable)
-        if xsize != IN_ref_size:
-            exc = '[proc_real_pixc_vec_river/fill_vector_param] ERROR = There is a problem with the size of ' + IN_variable_name
-            exit(exc)
-        else:
-            IN_data_param.fill_variable(IN_variable_name, IN_variable)
-            
-            
-#################################################
+import product_netcdf as my_nc
 
 
 class l2_hr_pixc_vec_river(object):
 
     def __init__(self, IN_azimuth_index, IN_range_index,
-                 IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_nb_pix_range, IN_nb_pix_azimuth):
+                 IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_start_time, IN_stop_time, 
+                 IN_nb_pix_range, IN_nb_pix_azimuth, IN_tile_coords):
         """
         Constructor of the pixel cloud vector attribute product
 
@@ -98,87 +73,83 @@ class l2_hr_pixc_vec_river(object):
         self.cycle_num = IN_cycle_num
         self.pass_num = IN_pass_num
         self.tile_ref = IN_tile_ref
+        self.start_time = IN_start_time
+        self.stop_time = IN_stop_time
         self.nb_pix_range = IN_nb_pix_range
         self.nb_pix_azimuth = IN_nb_pix_azimuth
+
+        (inner_first, inner_last, outer_first, outer_last) = IN_tile_coords
+        self.inner_first = inner_first
+        self.inner_last = inner_last
+        self.outer_first = outer_first
+        self.outer_last = outer_last
         
         self.nb_pix_river = 0  # Number of PixC associated to river
         self.pixc_river_idx = None  # Indices of pixels in the L2_HR_PIXC product associated to a river
 
-    def write_file(self, IN_output_file, compress=False):
+    #----------------------------------
+
+    def write_file(self, IN_output_file):
         """
         Write the pixel cloud vector attribute for river product (L2_HR_PIXCVecRiver product)
         NB: if there is no river pixels, write an empty file (with points = 0)
 
         :param IN_output_file: output full path
         :type IN_output_file: string
-        :param compress: parameter the define to compress or not the file
-        :type compress: boolean
         """ 
-        my_api.printInfo("[l2_hr_pixc_vec_river] [write_file] == write_file : %s ==" % IN_output_file)
+        my_api.printInfo("[l2_hr_pixc_vec_river] == write_file : %s ==" % IN_output_file)
     
-        # 1 - Open NetCDF file in writing mode
-        data = my_nc.myNcWriter(IN_output_file)
+        # 1 - Init a PixcVecRiverProduct object
+        nc_writer = my_nc.PixcVecRiverProduct()
         
         # 2 - Get river pixels indices
         self.pixc_river_idx = np.where(self.river_tag != "")[0]  # Indices of river pixels in the L2_HR_PIXC product
         self.nb_pix_river = len(self.pixc_river_idx)  # Number of river pixels
         
-        # 3 - Write global attributes even if empty
-        data.add_global_attribute('Conventions', 'CF-1.7')
-        data.add_global_attribute('title', 'Level 2 KaRIn high rate pixel cloud vector attribute river product')
-        data.add_global_attribute('institution', 'CNES - Large scale simulator')
-        data.add_global_attribute('source', 'Ka-band radar interferometer')
-        data.add_global_attribute('history', "%sZ: Creation" % datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
-        data.add_global_attribute('mission_name', "SWOT")
-        data.add_global_attribute('references', 'Large scale simulator')
-        data.add_global_attribute('reference_document', 'JPL D-56415')
-        data.add_global_attribute('contact', 'None')
-        data.add_global_attribute('cycle_number', self.cycle_num)
-        data.add_global_attribute('pass_number', np.int(self.pass_num))
-        data.add_global_attribute('tile_number', int(self.tile_ref[0:-1]))
-        data.add_global_attribute('swath_side', self.tile_ref[-1])
-        data.add_global_attribute('tile_name', "%03d_%03d%s" % (np.int(self.pass_num), int(self.tile_ref[0:-1]), self.tile_ref[-1]))
-        data.add_global_attribute('interferogram_size_range', self.nb_pix_range)    
-        data.add_global_attribute('interferogram_size_azimuth', self.nb_pix_azimuth)   
+        # 3 - Update global attributes
+        tmp_metadata = {}
+        tmp_metadata['cycle_number'] = self.cycle_num
+        tmp_metadata['pass_number'] = np.int(self.pass_num)
+        tmp_metadata['tile_number'] = int(self.tile_ref[0:-1])
+        tmp_metadata['swath_side'] = self.tile_ref[-1]
+        tmp_metadata['tile_name'] = "%03d_%03d%s" % (np.int(self.pass_num), int(self.tile_ref[0:-1]), self.tile_ref[-1])
+        tmp_metadata['interferogram_size_range'] = self.nb_pix_range 
+        tmp_metadata['interferogram_size_azimuth'] = self.nb_pix_azimuth
+        tmp_metadata['start_time'] = self.computeDate(self.start_time)
+        tmp_metadata['stop_time'] = self.computeDate(self.stop_time)
+        tmp_metadata["inner_first_longitude"] = self.inner_first[0]
+        tmp_metadata["inner_first_latitude"] = self.inner_first[1]
+        tmp_metadata["inner_last_longitude"] = self.inner_last[0]
+        tmp_metadata["inner_last_latitude"] = self.inner_last[1]
+        tmp_metadata["outer_first_longitude"] = self.outer_first[0]
+        tmp_metadata["outer_first_latitude"] = self.outer_first[1]
+        tmp_metadata["outer_last_longitude"] = self.outer_last[0]
+        tmp_metadata["outer_last_latitude"] = self.outer_last[1]
+        nc_writer.set_metadata_val(tmp_metadata)
         
-        # 4 - Write file depending on the number of river pixels
-        if self.nb_pix_river == 0:
-            
-            my_api.printInfo("[l2_hr_pixc_vec_river] [write_file] NO river pixels => empty PIXCVecRiver file generated")
-            data.add_dimension('points', 0)
-            
-        else:
-
-            data.add_dimension('points', self.nb_pix_river)
-    
-            data.add_variable('pixc_index', np.int32, 'points', my_var.FV_NETCDF["int32"], compress)
-            fill_vector_param(self.pixc_river_idx, 'pixc_index', self.nb_pix_river, data)
-            data.add_variable('azimuth_index', np.int32, 'points', my_var.FV_NETCDF["int32"], compress)
-            fill_vector_param(self.azimuth_index[self.pixc_river_idx], 'azimuth_index', self.nb_pix_river, data)
-            data.add_variable('range_index', np.int32, 'points', my_var.FV_NETCDF["int32"], compress)
-            fill_vector_param(self.range_index[self.pixc_river_idx], 'range_index', self.nb_pix_river, data)
+        # 4 - Update dimension
+        nc_writer.set_dim_val("points", self.nb_pix_river)
         
-            data.add_variable('latitude_vectorproc', np.float64, 'points', my_var.FV_NETCDF["float64"], compress)
-            data.add_variable_attribute('latitude_vectorproc', 'units', 'degrees_north')
-            fill_vector_param(self.latitude_vectorproc[self.pixc_river_idx], 'latitude_vectorproc', self.nb_pix_river, data)
-            data.add_variable('longitude_vectorproc', np.float64, 'points', my_var.FV_NETCDF["float64"], compress)
-            data.add_variable_attribute('longitude_vectorproc', 'units', 'degrees_east')
-            fill_vector_param(self.longitude_vectorproc[self.pixc_river_idx], 'longitude_vectorproc', self.nb_pix_river, data)
-            data.add_variable('wse_vectorproc', np.float32, 'points', np.float(my_var.FV_NETCDF["float32"]), compress)
-            data.add_variable_attribute('wse_vectorproc', 'units', 'm')
-            fill_vector_param(self.height_vectorproc[self.pixc_river_idx], 'wse_vectorproc', self.nb_pix_river, data)
+        # 5 - Create dictionary with value of variables
+        pixcvecriver_vars_val = {}
+        pixcvecriver_vars_val['azimuth_index'] = self.azimuth_index[self.pixc_river_idx]
+        pixcvecriver_vars_val['range_index'] = self.range_index[self.pixc_river_idx]
+        #--------------------
+        pixcvecriver_vars_val['latitude_vectorproc'] = self.latitude_vectorproc[self.pixc_river_idx]
+        pixcvecriver_vars_val['longitude_vectorproc'] = self.longitude_vectorproc[self.pixc_river_idx]
+        pixcvecriver_vars_val['height_vectorproc'] = self.height_vectorproc[self.pixc_river_idx]
+        #--------------------
+        pixcvecriver_vars_val['reach_id'] = self.river_tag[self.pixc_river_idx]
+        pixcvecriver_vars_val['node_id'] = self.river_tag[self.pixc_river_idx]
+        #--------------------
+        pixcvecriver_vars_val['ice_clim_f'] = np.zeros(self.nb_pix_river)
+        pixcvecriver_vars_val['ice_dyn_f'] = np.zeros(self.nb_pix_river)
+        #--------------------
+        pixcvecriver_vars_val['pixc_index'] = self.pixc_river_idx
+        pixcvecriver_vars_val['lake_flag'] = np.zeros(self.nb_pix_river)
         
-            data.add_variable('node_id', str, 'points', "", compress)
-            fill_vector_param(self.river_tag[self.pixc_river_idx], 'node_id', self.nb_pix_river, data)
-            data.add_variable('lake_flag', np.int8, 'points', my_var.FV_NETCDF["int8"], compress)
-            fill_vector_param(np.zeros(self.nb_pix_river), 'lake_flag', self.nb_pix_river, data)
-            data.add_variable('climato_ice_flag', np.int8, 'points', my_var.FV_NETCDF["int8"], compress)
-            fill_vector_param(np.zeros(self.nb_pix_river), 'climato_ice_flag', self.nb_pix_river, data)
-            data.add_variable('dynamic_ice_flag', np.int8, 'points', my_var.FV_NETCDF["int8"], compress)
-            fill_vector_param(np.zeros(self.nb_pix_river), 'dynamic_ice_flag', self.nb_pix_river, data)
-        
-        # 4 - Close output file
-        data.close()
+        # 6 - Write the PIXC product
+        nc_writer.write_product(IN_output_file, in_vars_value=pixcvecriver_vars_val)
 
     def write_file_asShp(self, IN_output_file):
         """
@@ -281,3 +252,72 @@ class l2_hr_pixc_vec_river(object):
         
         # Set tag of river pixels to a specific prefix
         self.river_tag[TMP_river_idx] = "1_"
+    
+    #----------------------------------
+        
+    def computeDate(self, IN_sec_from_start):
+        """
+        Compute date
+        
+        :param IN_sec_from_start: number of seconds from mission start time
+        :type IN_sec_from_start: int
+        
+        :return: date in UTC
+        :rtype: string YYYYMMDDThhmmss
+        """
+        
+        # Computation
+        tmp_time_split = self.mission_start_time.split("-")
+        date_in_sec = datetime(int(tmp_time_split[0]), int(tmp_time_split[1]), int(tmp_time_split[2])) + timedelta(seconds=IN_sec_from_start)
+        
+        # Format
+        return datetime.strftime(date_in_sec, '%Y%m%dT%H%M%S')
+        
+    def computeTime_UTC(self, IN_sec_from_start):
+        """
+        Compute time in seconds from 01/01/2000 00:00:00
+        
+        :param IN_sec_from_start: number of seconds from mission start time
+        :type IN_sec_from_start: int
+        
+        :return: time in seconds in UTC time scale
+        :rtype: float
+        """
+        
+        # Convert mission start time to datetime
+        tmp_time_split = self.mission_start_time.split("-")
+        mission_start_time = datetime(int(tmp_time_split[0]), int(tmp_time_split[1]), int(tmp_time_split[2]))
+        
+        # Convert reference to datetime
+        ref_time = datetime(2000,1,1)
+        
+        # Compute difference
+        diff = mission_start_time - ref_time
+        
+        # Return number of seconds of difference
+        return IN_sec_from_start + diff.total_seconds()
+        
+    def computeTime_TAI(self, IN_sec_from_start):
+        """
+        Compute time in seconds from 01/01/2000 00:00:32
+        
+        :param IN_sec_from_start: number of seconds from mission start time
+        :type IN_sec_from_start: int
+        
+        :return: time in seconds in TAI time scale
+        :rtype: float
+        """
+        
+        # Convert mission start time to datetime
+        tmp_time_split = self.mission_start_time.split("-")
+        mission_start_time = datetime(int(tmp_time_split[0]), int(tmp_time_split[1]), int(tmp_time_split[2]))
+        
+        # Convert reference to datetime
+        ref_time = datetime(2000,1,1,0,0,32)
+        
+        # Compute difference
+        diff = mission_start_time - ref_time
+        
+        # Return number of seconds of difference
+        return IN_sec_from_start + diff.total_seconds()
+

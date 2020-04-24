@@ -88,7 +88,6 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
         nb_pix_overlap_end = len(my_attributes.orbit_time) - 1 - max(nadir_az)
         add_nadir = np.arange(max(nadir_az)+1, max(nadir_az)+1+ nb_pix_overlap_end)
         nadir_az = np.concatenate((nadir_az, add_nadir))
-
     my_api.printInfo("[my_tiling] [crop_orbit] nadir az contains %d pixels " % nadir_az.size)
     my_api.printInfo("[my_tiling] [crop_orbit] Tile contains %d and %d of overlaping azimuth pixel in the begining and the end of the tile" %(nb_pix_overlap_begin, nb_pix_overlap_end))
 
@@ -110,7 +109,7 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
 
     my_new_attributes.lon  = (my_attributes.lon[nadir_az])
     my_new_attributes.lon_init = (my_attributes.lon[nadir_az])
-
+    
     my_new_attributes.lat = (my_attributes.lat[nadir_az])
     my_new_attributes.lat_init = (my_new_attributes.lat_init[nadir_az])
 

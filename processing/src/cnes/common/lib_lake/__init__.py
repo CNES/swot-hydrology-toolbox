@@ -24,13 +24,6 @@ locnes_filenames
    :private-members:
    :special-members:
    
-locnes_variables
-===================
-.. automodule:: cnes.common.lib_lake.locnes_variables
-   :members:
-   :private-members:
-   :special-members:
-
 proc_lake
 ===================
 .. automodule:: cnes.common.lib_lake.proc_lake

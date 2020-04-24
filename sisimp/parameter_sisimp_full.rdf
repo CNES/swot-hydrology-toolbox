@@ -41,6 +41,10 @@ Dark water correlation length = 500
 
 !Dark water seed = 12345678
 
+Land water flag = 2
+Land flag = 1
+Land noise factor = 10.
+
 !### Tropo model
 Tropo model  = map
 Tropo error stdv = 0.03

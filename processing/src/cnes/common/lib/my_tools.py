@@ -29,7 +29,7 @@ import logging
 import math
 import numpy as np
 import os
-from osgeo import osr
+from osgeo import osr, ogr
 import pyproj
 from scipy.ndimage.measurements import label
 from shapely.ops import transform
@@ -44,7 +44,7 @@ else:
 from scipy.spatial import distance
 
 import cnes.common.service_error as service_error
-import cnes.common.service_config_file as service_config_file
+
 import cnes.common.lib.my_variables as my_var
 
 
@@ -101,6 +101,45 @@ def test_dir(in_dir):
     else:
         message = "ERROR = %s doesn't exist" % in_dir
         raise service_error.ProcessingError(message, logger)
+
+
+#######################################
+
+
+def test_key(in_dict, in_key):
+    """
+    Test existence of in_key as a key of input dictionary in_dict
+    
+    :param in_dict: input dictionary
+    :type in_dict: dict
+    :param in_key: key to test presence in dictionary
+    :type in_key: str
+    
+    :return: output_value = in_key if it's is a key of input dictionary in_dict; = None if not
+    :rtype: str
+    """
+    output_value = in_key
+    if in_key not in in_dict.keys():
+        output_value = None
+    return output_value
+
+
+def get_value(in_dict, in_key):
+    """
+    Return value of in_key if in_key is a key of input dictionary in_dict; else return None
+    
+    :param in_dict: input dictionary
+    :type in_dict: dict
+    :param in_key: key to get value of
+    :type in_key: str
+    
+    :return: output_value = value related to in_key if it's is a key of input dictionary in_dict; = None if not
+    :rtype: str
+    """
+    output_value = None
+    if (in_key is not None) and (in_key in in_dict.keys()):
+        output_value = in_dict[in_key]
+    return output_value
 
 
 #######################################
@@ -189,6 +228,7 @@ def swot_timeformat(in_datetime, in_format=0):
     :param in_datetime: time value to write as a string
     :type in_datetime: datetime.datetime
     :param in_format: string format option 0 (default)="YYYY-MM-DD hh:mm:ss.ssssssZ" 1="YYYY-MM-DD hh:mm:ss"
+                                            2="YYYY-MM-DDThh:mm:ss.ssssssZ" 3="YYYY-MM-DDThh:mm:ss"
     :type in_format: int
 
     :return: out_datetime: time value written as a string
@@ -199,6 +239,10 @@ def swot_timeformat(in_datetime, in_format=0):
 
     if in_format == 1:
         out_datetime = in_datetime.strftime("%Y-%m-%d %H:%M:%S")
+    elif in_format == 2:
+        out_datetime = "%sZ" % in_datetime.strftime("%Y-%m-%dT%H:%M:%S.%f")
+    elif in_format == 3:
+        out_datetime = in_datetime.strftime("%Y-%m-%dT%H:%M:%S")
     else:
         out_datetime = "%sZ" % in_datetime.strftime("%Y-%m-%d %H:%M:%S.%f")
 
@@ -251,7 +295,7 @@ def convert_utc_to_str(in_utc_time):
     :return: UTC time from 01/01/2000 00:00:00 as a string
     :rtype: string
     """
-    return swot_timeformat(datetime.datetime(2000, 1, 1) + datetime.timedelta(seconds=in_utc_time), in_format=1)
+    return swot_timeformat(datetime.datetime(2000, 1, 1) + datetime.timedelta(seconds=in_utc_time), in_format=3)
 
 
 #######################################
@@ -419,7 +463,6 @@ def relabel_lake_using_segmentation_heigth(in_x, in_y, in_height, in_std_height_
     :rtype: 1D vector of int
     """
     # Get instance of service config file
-    cfg = service_config_file.get_instance()
     logger = logging.getLogger("my_tools")
     logger.debug("- start -")
 
@@ -672,20 +715,16 @@ def compute_az(in_lon, in_lat, in_v_nadir_lon, in_v_nadir_lat):
     :type: int
     """
 
-    # 1 - Init variables
-    nb_nadir = in_v_nadir_lon.size
-    list_scalar = np.zeros(nb_nadir)
-
-    # 2 - Stack data
+    # 1 - Stack data
     in_coords = np.vstack((np.array(in_lon), np.array(in_lat)))
     nadir_coords = np.vstack((np.array(in_v_nadir_lon), np.array(in_v_nadir_lat)))
 
-    # 3 - Compute distances between point (in_lon, in_lat) and vector (in_v_nadir_lon, in_v_nadir_lat)
+    # 2 - Compute distances between point (in_lon, in_lat) and vector (in_v_nadir_lon, in_v_nadir_lat)
     distances = (distance.cdist(in_coords.transpose(), nadir_coords.transpose())).transpose()
     # get indice of minimum distance
     out_idx_min = np.argmin(distances)
 
-    # 4 - Return corresponding azimuth index
+    # 3 - Return corresponding azimuth index
     return out_idx_min
 
 
@@ -767,29 +806,37 @@ def get_utm_coords(in_lon, in_lat):
     return (X,Y, )
 
 
-def get_area(in_polygon, in_centroid):
+def get_area(in_polygon, centroid=None):
     """
     This function projects in_polygon from geographic coordinate into centroid corresponding UTM zone.
     Once projected, the area of the polygon is computed and returned
 
     :param in_polygon: polygon
     :type in_polygon: OGR geometry
-    :param in_centroid: centroid of in_polygon
-    :type in_centroid: tuple of coordinates
+    :param centroid: centroid of in_polygon (optional)
+    :type centroid: tuple of coordinates
 
     :return: area of in_polygon
     :rtype: float
     """
+    
+    # 0 - Copy polygon
+    tmp_poly = in_polygon.Clone()
 
-    # 0 - Computation of EPSG code corresponding UTM zone
+    # 1 - Computation of EPSG code corresponding UTM zone
     epsg_code = "32"  # Initialization
-
-    centroid_lon = in_centroid[0]
-    centroid_lat = in_centroid[1]
+    # Retrieve centroid coordinates
+    if centroid is None:
+        poly_centroid = tmp_poly.Centroid().GetPoint(0)
+        centroid_lon = poly_centroid[0]
+        centroid_lat = poly_centroid[1]
+    else:
+        centroid_lon = centroid[0]
+        centroid_lat = centroid[1]
 
     epsg_code = get_utm_epsg_code(centroid_lon, centroid_lat)
 
-    # 1 - Projection of in_polygon into UTM
+    # 1 - Projection of tmp_poly into UTM
     src_source = osr.SpatialReference()
     src_source.ImportFromEPSG(4326)
 
@@ -798,10 +845,10 @@ def get_area(in_polygon, in_centroid):
 
     transform = osr.CoordinateTransformation(src_source, src_target)
 
-    in_polygon.Transform(transform)
+    tmp_poly.Transform(transform)
 
     # 2 - Compute and return area
-    return in_polygon.GetArea()
+    return tmp_poly.GetArea()
 
 
 #######################################
@@ -819,7 +866,6 @@ def get_utm_coords_from_lonlat(in_long, in_lat, utm_epsg_code=None):
     :return: X coordinates, Y coordintes, UTM_epsg_code
     :rtype: tuple of (1D-array of float, 1D-array of float, int)
     """
-    logger = logging.getLogger("my_tools")
 
     if utm_epsg_code == None :
         lat_mean = np.mean(in_lat)
@@ -827,7 +873,6 @@ def get_utm_coords_from_lonlat(in_long, in_lat, utm_epsg_code=None):
         utm_epsg_code = get_utm_epsg_code(lon_mean, lat_mean)
 
     latlon_proj = pyproj.Proj(init="epsg:4326")
-    logger.debug("Convert coordinates into epsg code : %s" % (utm_epsg_code))
     utm_proj = pyproj.Proj(init='epsg:' + utm_epsg_code)
 
     X, Y = pyproj.transform(latlon_proj, utm_proj, in_long, in_lat)
@@ -854,3 +899,78 @@ def get_lon_lat_polygon_from_utm(in_utm_poly, in_utm_epsg_code):
     lonlat_poly = transform(projection_wm_func, in_utm_poly)
 
     return lonlat_poly
+
+
+#######################################
+
+
+def load_pixels_to_mem_layer(in_lon, in_lat):
+    """
+    Write pixels given their longitude and latitude coordinates to a memory layer
+    
+    :param in_lon: longitudes of pixels
+    :type in_lon: 1D-array of float
+    :param in_lat: latitudes of pixels
+    :type in_lat: 1D-array of float
+    
+    :return out_data_source: data source of output layer
+    :rtype out_data_source: OGRdata_source
+    :return out_layer: output layer
+    :rtype out_layer: OGRlayer
+    """
+    
+    # 1 - Create memory layer
+    mem_driver = ogr.GetDriverByName('MEMORY')  # Memory driver
+    # Open the memory datasource with write access
+    out_data_source = mem_driver.CreateDataSource('memData')
+    # Set spatial projection
+    srs = ogr.osr.SpatialReference()
+    srs.ImportFromEPSG(4326)
+    # Create output layer
+    out_layer = out_data_source.CreateLayer(str('point'), srs=srs, geom_type=ogr.wkbPoint)
+
+    # 2 - Add pixels to layer
+    for (lon, lat) in zip(in_lon, in_lat):
+        
+        # 2.1 - Convert current (lon,lat) to point geometry
+        p = ogr.Geometry(ogr.wkbPoint)
+        p.AddPoint(lon, lat)
+        
+        # 2.2 - Init point geometry wrt layer definition and set it to point
+        point = ogr.Feature(out_layer.GetLayerDefn())
+        point.SetGeometry(p)
+        
+        # 2.3 - Add point to layer
+        out_layer.CreateFeature(point)
+
+    # 3 - Return layer and data source
+    return out_layer, out_data_source
+
+
+def get_layer_fields_name_and_type(in_layer):
+    """
+    Return name and type of each field of a layer
+    
+    :param in_layer: layer
+    :type in_layer: OGRlayer
+    
+    :return: out_list_field_type = list of type of each field
+    :rtype: dict
+    """
+    
+    # 0 - Init output variable = list of field type
+    out_list_type = {}  # Init list of fields
+    
+    # 1 - Retrieve layer definition
+    layer_defn = in_layer.GetLayerDefn()
+    
+    # 2 - Store field type for each field name
+    for att in range(layer_defn.GetFieldCount()) :
+        # 2.1 - Get attribute name
+        field_name = layer_defn.GetFieldDefn(att).GetName()
+        # 2.2 - Get attribute type
+        field_type = layer_defn.GetFieldDefn(att).GetFieldTypeName(layer_defn.GetFieldDefn(att).GetType())
+        # 2.3 - Save in dictionary 
+        out_list_type[field_name] = field_type
+        
+    return out_list_type

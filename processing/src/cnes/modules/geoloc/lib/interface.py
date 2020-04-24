@@ -69,7 +69,7 @@ class PixelCloud(object):
             self.illumination_time = np.array(data_dict["illumination_time"])
             self.azimuth_index = np.array(data_dict["azimuth_index"])
             self.range_index = np.array(data_dict["range_index"])
-            self.num_rare_looks = np.array(data_dict["num_rare_looks"])
+            self.eff_num_rare_looks = np.array(data_dict["eff_num_rare_looks"])
             self.wavelength = pixc_reader.get_att_value("wavelength")
             self.near_range = pixc_reader.get_att_value("near_range")
             self.range_spacing = pixc_reader.get_att_value("nominal_slant_range_spacing")
@@ -291,15 +291,15 @@ class RiverTile(object):
         self = cls()
         # 1 - Initiate logging service
         logger = logging.getLogger(self.__class__.__name__)
+        
         try:
             # 2 - Initialization of the RiverTile variables
-            self.reach_indx = node_outputs['reach_indx']
-            self.node_indx = node_outputs['node_indx']
+            self.reach_id = node_outputs['reach_indx']
+            self.node_id = node_outputs['node_indx']
             self.s = node_outputs['s']
             self.h_n_ave = node_outputs['h_n_ave']
             self.h_n_ave_fit = copy.deepcopy(node_outputs['h_n_ave'])
-            self.fit_height = node_outputs['fit_height']
-            # self.fit_height = []
+            self.fit_height = node_outputs['fit_height']+node_outputs['geoid_hght']+node_outputs['load_tide1']+node_outputs['solid_tide']+node_outputs['pole_tide']
 
         except Exception as exc:
             message = str(exc.__class__) + str(exc)
@@ -319,8 +319,8 @@ class RiverTile(object):
         nodes = riverfile.groups["nodes"].variables
         try:
             # 2 - Initialization of the RiverTile variables
-            self.reach_indx = np.array(nodes["reach_indx"])
-            self.node_indx = np.array(nodes["node_indx"])
+            self.reach_id = np.array(nodes["reach_id"])
+            self.node_id = np.array(nodes["node_id"])
             self.s = np.array(nodes["s"])
             self.h_n_ave = np.array(nodes["h_n_ave"])
             self.h_n_ave_fit = copy.deepcopy(np.array(nodes["h_n_ave"]))
@@ -341,13 +341,13 @@ class RiverTile(object):
             try:
                 # 2 - Initialization of the RiverTile variables
                 n = len(source)
-                self.reach_indx = np.zeros(n)
-                self.node_indx = np.zeros(n)
+                self.reach_id = np.zeros(n)
+                self.node_id = np.zeros(n)
                 self.s = np.zeros(n)
                 self.h_n_ave = np.zeros(n)
                 for i, f in enumerate(source):
-                    self.reach_indx[i] = f['properties']['reach_indx']
-                    self.node_indx[i] = f['properties']['node_indx']
+                    self.reach_id[i] = f['properties']['reach_id']
+                    self.node_id[i] = f['properties']['node_id']
                     self.s[i] = f['properties']['s']
                     self.h_n_ave[i] = f['properties']['h_n_ave']
 
@@ -379,7 +379,7 @@ class PixcvecRiver(object):
            - longitude / 1D-array of float: longitude of water pixels
            - latitude / 1D-array of float: latitude of water pixels
            - height / 1D-array of float: height of water pixels
-           - node_index / 1D-array of float: tag associated to river node database
+           - node_id / 1D-array of float: tag associated to river node database
            - range_idx / 1D-array of int: range indices of water pixels
            - river tag / 1D-array of str: tag associated to river database
            - along_reach / 1D-array of float: along reach water for each pixel
@@ -407,8 +407,8 @@ class PixcvecRiver(object):
             self.longitude = np.array(pixc_main.variables["longitude_vectorproc"])
             self.latitude = np.array(pixc_main.variables["latitude_vectorproc"])
             self.height = np.array(pixc_main.variables["height_vectorproc"])
-            self.node_index = np.array(pixc_main.variables["node_index"])
-            self.reach_index = np.array(pixc_main.variables["reach_index"])
+            self.node_id = np.array(pixc_main.variables["node_id"])
+            self.reach_id = np.array(pixc_main.variables["reach_id"])
             self.along_reach = np.array(pixc_main.variables["along_reach"])
             self.cross_reach = np.array(pixc_main.variables["cross_reach"])
             self.distance_to_node = np.array(pixc_main.variables["distance_to_node"])
@@ -428,7 +428,6 @@ class PixcvecRiver(object):
             message = str(exc.__class__) + str(exc)
             logger.debug(message)
             raise
-
 
 
     def set_variable(self, varname, array):

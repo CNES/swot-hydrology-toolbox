@@ -122,12 +122,12 @@ class PixCVecSwath(object):
 
         self.node_id = np.empty(self.obj_pixc_edge_sp.nb_pixels, dtype=object)
         self.node_id[:] = ""
-        self.lakedb_id = np.empty(self.obj_pixc_edge_sp.nb_pixels, dtype=object)
-        self.lakedb_id[:] = ""
-        self.lakeobs_id = np.empty(self.obj_pixc_edge_sp.nb_pixels, dtype=object)
-        self.lakeobs_id[:] = ""
-        self.flag_ice_climato = np.zeros(self.obj_pixc_edge_sp.nb_pixels, dtype=np.uint8)
-        self.flag_ice_dyn = np.zeros(self.obj_pixc_edge_sp.nb_pixels, dtype=np.uint8)
+        self.lake_id = np.empty(self.obj_pixc_edge_sp.nb_pixels, dtype=object)
+        self.lake_id[:] = ""
+        self.obs_id = np.empty(self.obj_pixc_edge_sp.nb_pixels, dtype=object)
+        self.obs_id[:] = ""
+        self.ice_clim_f = np.zeros(self.obj_pixc_edge_sp.nb_pixels, dtype=np.uint8)
+        self.ice_dyn_f = np.zeros(self.obj_pixc_edge_sp.nb_pixels, dtype=np.uint8)
 
         # Init a list of tiles ref processed in thios class
         self.tile_number_list = []
@@ -175,7 +175,9 @@ class PixCVecSwath(object):
             pixc_vec_file = self.pixc_vec_file_list[tile_idx]
 
             # 2 - Init proc_pixc_vec.PixelCloudVec object
-            obj_pixc_vec = proc_pixc_vec.PixelCloudVec("SP", lake_tile_pixcvec_file)
+            obj_pixc_vec = proc_pixc_vec.PixelCloudVec("SP")
+            obj_pixc_vec.set_from_pixcvec_file(lake_tile_pixcvec_file)
+
             # obj_pixc_vec.setContinent(self.continent)
 
             # 3 - Get corresponding obj_pixc_edge_sp tile_idx
@@ -196,9 +198,13 @@ class PixCVecSwath(object):
                     obj_pixc_vec.latitude_vectorproc[pixc_tile_idx] = self.latitude_vectorproc[pixc_sp_idx]
                     obj_pixc_vec.height_vectorproc[pixc_tile_idx] = self.height_vectorproc[pixc_sp_idx]
 
-                # 4.4 - Update tag
-                obj_pixc_vec.lakedb_id[pixc_tile_idx] = self.lakedb_id[pixc_sp_idx]
-                obj_pixc_vec.lakeobs_id[pixc_tile_idx] = self.lakeobs_id[pixc_sp_idx]
+                # 4.4 - Update identifiers
+                obj_pixc_vec.lake_id[pixc_tile_idx] = self.lake_id[pixc_sp_idx]
+                obj_pixc_vec.obs_id[pixc_tile_idx] = self.obs_id[pixc_sp_idx]
+                
+                # 4.5 - Update ice flags
+                obj_pixc_vec.ice_clim_f[pixc_tile_idx] = self.ice_clim_f[pixc_sp_idx]
+                obj_pixc_vec.ice_dyn_f[pixc_tile_idx] = self.ice_dyn_f[pixc_sp_idx]
 
             else :
                 logger.debug("Updating 0 pixels of pixc vec")

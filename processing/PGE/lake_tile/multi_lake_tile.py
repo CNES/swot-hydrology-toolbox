@@ -108,6 +108,7 @@ class MultiLakeTile(object):
 
         # 2.1 - Compute file prefix regarding cycle / pass / tile conditions
         pixc_prefix = locnes_filenames.PIXC_PREFIX
+        pixc_suffix = locnes_filenames.PIXC_SUFFIX
         pixcvec_river_prefix = locnes_filenames.PIXCVEC_RIVER_PREFIX
         cond_prefix = pixc_prefix  # Deal with all PixC files in self.pixc_dir 
 
@@ -133,7 +134,7 @@ class MultiLakeTile(object):
         for cur_item in tmp_list:
 
             # Test if file meets the condition
-            if cur_item.startswith(cond_prefix):  # Test if it's a wanted PIXC file
+            if cur_item.startswith(cond_prefix) and cur_item.endswith(pixc_suffix):  # Test if it's a wanted PIXC file
 
                 # Associated PIXCVecRiver file name
                 cur_pixc_vec_river = cur_item.replace(pixc_prefix, pixcvec_river_prefix)
@@ -158,11 +159,12 @@ class MultiLakeTile(object):
         print("")
 
         timer_proc = my_timer.Timer()
-        timer_proc.start()
 
         if self.nb_input != 0:
 
             for indf in range(self.nb_input):  # Deal with all selected files
+                
+                timer_proc.start()  # Init timer
 
                 print("****************************************************************************************************************")
                 print("***** Dealing with tile %d / %d = %s *****" % (indf+1, self.nb_input, self.list_pixc[indf]))
@@ -182,7 +184,7 @@ class MultiLakeTile(object):
                 my_lake_tile.stop()
 
                 print("")
-                print(timer.stop())
+                print(timer_proc.stop())  # Print tile process duration
                 print("")
                 print("")
 
@@ -282,7 +284,6 @@ class MultiLakeTile(object):
         writer_command_file.write("#######################################\n")
         writer_command_file.close()  # Close command file
         return out_cmd_file
-    
 
 #######################################
 

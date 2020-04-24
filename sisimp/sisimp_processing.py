@@ -118,7 +118,7 @@ class Processing(object):
 
                 try:
                     self.my_attributes.cycle_number = int(parameters.getValue("Cycle number"))
-                    my_api.printInfo("[sisimp_processing] Orbit number : %d" % self.my_attributes.orbit_number)
+                    my_api.printInfo("[sisimp_processing] Cycle number : %d" % self.my_attributes.cycle_number)
                 except:
                     my_api.printInfo("[sisimp_processing] Multiple orbit = no => Cycle number should be set. Set to default value : 1")
                     self.my_attributes.cycle_number = 1
@@ -140,6 +140,7 @@ class Processing(object):
             self.my_attributes.range_sampling = read_parameter(parameters, "Range sampling", my_var.RANGE_SAMPLING, float)
             self.my_attributes.nb_pix_range = read_parameter(parameters, "Number of pixels in range", my_var.NB_PIX_RANGE, int)
             self.my_attributes.orbit_jitter = read_parameter(parameters, "Orbit jitter", my_var.ORBIT_JITTER, float)
+            self.my_attributes.baseline = read_parameter(parameters, "Baseline", my_var.BASELINE, float)
 
             # Height model parameter
             self.my_attributes.height_model = read_parameter(parameters, "Height model", my_var.HEIGHT_MODEL, str)
@@ -163,6 +164,10 @@ class Processing(object):
 
             # Water flag
             self.my_attributes.water_flag = read_parameter(parameters, "Water flag", my_var.WATER_FLAG, float)
+            self.my_attributes.water_land_flag = read_parameter(parameters, "Water land flag", my_var.WATER_LAND_FLAG, float)
+            self.my_attributes.land_flag = read_parameter(parameters, "Land flag", my_var.LAND_FLAG, float)
+            self.my_attributes.land_water_flag = read_parameter(parameters, "Land water flag", my_var.LAND_WATER_FLAG, float)
+            self.my_attributes.land_detected_noise_factor = read_parameter(parameters, "Land noise factor", my_var.LAND_DETECTED_NOISE_FACTOR, float)
 
             # Noise parameters
             self.my_attributes.height_bias_std = read_parameter(parameters, "Height bias std", my_var.HEIGHT_BIAS_STD, float)
@@ -263,6 +268,8 @@ class Processing(object):
             self.my_attributes.noise_height[:, 1] = self.my_attributes.noise_multiplier_factor * self.my_attributes.noise_height[:, 1]
             self.my_attributes.dw_detected_noise_height = np.loadtxt(os.path.expandvars(parameters.getValue("Noise file path")), skiprows=1)
             self.my_attributes.dw_detected_noise_height[:, 1] = self.my_attributes.dw_detected_noise_factor * self.my_attributes.noise_height[:, 1]
+            self.my_attributes.land_detected_noise_height = np.loadtxt(os.path.expandvars(parameters.getValue("Noise file path")), skiprows=1)
+            self.my_attributes.land_detected_noise_height[:, 1] = self.my_attributes.land_detected_noise_factor * self.my_attributes.noise_height[:, 1]
         except IOError:
             my_api.exitWithError("Noise file not found")
 
@@ -357,17 +364,13 @@ class Processing(object):
             my_api.printInfo("[sisimp_processing] >>> CYCLE %03d and ORBIT %03d <<<" % (elem[0], elem[1]))
             my_api.printInfo("########################################################")
             my_api.printInfo("")
-
             # 1 - Read orbit file
             self.my_attributes = sisimp_fct.read_orbit(elem[2], elem[0], self.my_attributes)
             my_api.printInfo("")
-            
             # 2 - Init SISIMP filenames object
             self.my_attributes.sisimp_filenames = my_names.sisimpFilenames(self.my_attributes.out_dir, self.my_attributes.mission_start_time, self.my_attributes.cycle_duration, elem[0], elem[1])
             
-            
             ## loop over tile
-            
             
             tile_values, tile_list = tiling.get_tiles_from_orbit(self.my_attributes, elem[1])
             
@@ -384,9 +387,7 @@ class Processing(object):
                     my_api.printInfo("========================================================")
                     my_api.printInfo("[sisimp_processing] Processing tile %d " %(tile_number))
                     my_api.printInfo("========================================================")
-
                     self.my_new_attributes = tiling.crop_orbit(self.my_attributes, tile_values, tile_number, tropo.tropo_map_rg_az)
-
                     # 3 - Process right swath
                     self.my_new_attributes = sisimp_fct.make_pixel_cloud("Right", elem[0], elem[1], self.my_new_attributes)
                     my_api.printInfo("")

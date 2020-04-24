@@ -89,8 +89,8 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
     # !!! Do not forget that indices 0 and -1 correspond to fake values, just used for extrapolations
     # Variable name ended with _init will be use to linear_exptrap
     
-    OUT_attributes.lon = OUT_attributes.lon_init = lon 
-    OUT_attributes.lat = OUT_attributes.lat_init = lat
+    OUT_attributes.lon = OUT_attributes.lon_init = OUT_attributes.lon_orbit = lon 
+    OUT_attributes.lat = OUT_attributes.lat_init = OUT_attributes.lat_orbit = lat
     OUT_attributes.alt = alt 
     OUT_attributes.heading = OUT_attributes.heading_init = heading
  
@@ -157,7 +157,7 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
     fshp = IN_attributes.shapefile_path + ".shp"
     driver = ogr.GetDriverByName(str("ESRI Shapefile"))
 
-    fshp_reproj, IN_attributes = write_poly.reproject_shapefile(fshp, swath, driver, IN_attributes, IN_cycle_number)
+    fshp_reproj, IN_attributes, swath_polygon = write_poly.reproject_shapefile(fshp, swath, driver, IN_attributes, IN_cycle_number)
 
     if fshp_reproj is None:  # No water body crossing the swath => stop process
         my_api.printInfo("[sisimp_function] [make_pixel_cloud] No output data file to write")
@@ -179,7 +179,7 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
     if nb_water_pixels == 0:
         my_api.printInfo("[sisimp_function] [make_pixel_cloud] Nb water pixels = 0 -> No output data file to write")
     else:
-        write_poly.write_water_pixels_realPixC(water_pixels, swath, IN_cycle_number, IN_orbit_number, IN_attributes)
+        write_poly.write_water_pixels_realPixC(water_pixels, swath, IN_cycle_number, IN_orbit_number, IN_attributes, swath_polygon)
 
     return IN_attributes
                 
@@ -230,5 +230,7 @@ def write_swath_polygons(IN_attributes):
         feature.SetField(str("Swath"), str(swath))
         feature.SetGeometry(geom)
         layer.CreateFeature(feature)
-
+    nb_feature = layer.GetFeatureCount()
     dataSource.Destroy()
+    if nb_feature == 0:
+        shpDriver.DeleteDataSource(IN_attributes.sisimp_filenames.footprint_file)
