@@ -589,6 +589,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             #Filtering of bad pixels (dirty trick)
             az_indices = az_indices[np.where(lon_noisy[az_indices] !=0.)]
             az_indices = az_indices[np.where(lat_noisy[az_indices] !=0.)]
+            az_indices = az_indices[np.where(np.abs(y[az_indices]) > 8000.)]
+            az_indices = az_indices[np.where(np.abs(y[az_indices]) < 80000.)]
             
             sub_az, sub_r = [az[az_indices], r[az_indices]]
             
@@ -1263,6 +1265,7 @@ def intersect(input, output, indmax, IN_attributes, overwrite=False):
 
 def compute_near_range(IN_attributes, layer, cycle_number=0):
     hmean=0.
+    h_min=0.
     if IN_attributes.height_model == 'reference_height':
         count, height_tot = 0, 0
         fields_count = layer.GetLayerDefn().GetFieldCount()
@@ -1270,11 +1273,17 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
             for i in range(fields_count):
                 if layer.GetLayerDefn().GetFieldDefn(i).GetName() == IN_attributes.height_name:
                     if polygon_index.GetField(str(IN_attributes.height_name)) is not None :
-                        height_tot += np.float(polygon_index.GetField(str(IN_attributes.height_name)))
+                        h_tmp = np.float(polygon_index.GetField(str(IN_attributes.height_name)))
+                        height_tot += h_tmp
                         count +=1
+                        if h_min > h_tmp:
+                            h_min = h_tmp
         if count != 0:
             hmean = height_tot/count
             near_range = np.mean(np.sqrt((IN_attributes.alt - hmean + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+        # ~ if count != 0:
+            # ~ near_range = np.mean(np.sqrt((IN_attributes.alt - h_min + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+
         else:
             near_range = 0
     if IN_attributes.height_model == 'gaussian':
@@ -1282,8 +1291,8 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
     if IN_attributes.height_model == 'polynomial':
         near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
     if IN_attributes.height_model == 'reference_file':
-        # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-        near_range = np.min(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+        near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+        
     if IN_attributes.height_model == None:
         hmean = IN_attributes.height_model_a + IN_attributes.height_model_a * \
         np.sin(2*np.pi * (np.mean(IN_attributes.orbit_time) + cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period
