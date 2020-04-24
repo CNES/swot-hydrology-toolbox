@@ -30,11 +30,12 @@ Note that both algorithms and products are still under development and will be u
 * Potentially other modules in the future (for ex. floodplain DEM generation)
 
 ## Associated RiverObs version
-commit f7ccd778924877f94da2f5a0dd57967713c1f510
-Author: Brent A Williams <bawillia@onde.jpl.nasa.gov>
-Date:   Tue May 21 16:33:13 2019 -0700
 
-    added more functionality to plot_reach_stats
+commit 0ef8251af9f0383380766c217301b8b9092a8a91
+Author: Alex Fore <Alexander.Fore@jpl.nasa.gov>
+Date:   Tue Apr 14 10:01:56 2020 -0700
+
+    resort by cl_id
 
 
 ## Caveats
@@ -56,8 +57,24 @@ These are not publicly available, but SWOT science team members can contact the 
 ```
 
 Products formats and algorithms:
-* The product formats are not yet in their final version, but are regularly updated to reflect the current working definitions, and will evolve into the official product formats as and when these are defined. Some data fields are at this stage void (various flags, uncertainty indicators…).
+* The product formats are not now in their official version, but can still evolve if the official product formats is changed. Some data fields are at this stage void (various flags, uncertainty indicators…).
 * The processing algorithms will also continue to evolve, as today's prototypes are progessively refined into operational software. 
+
+Last modifications:
+In large scale simulator:
+* Uncertainties on geolocated heights added
+* Multilook adaptive averaging implemented
+* Land pixels around water bodies added (label 1 and 2 on classification field)
+* Near-range computaton improved
+* Some fields corrected-completed
+
+In processing chain
+* Lake processing improvements
+* Lake Single pass processing added (cf leman and france_pekel new dataset to test it, can't be pushed on github, but can't be share through CNES cluster if needed)
+```bash
+% python ../../scripts/laketile_to_lakesp.py output/lakesp rdf/multi_lake_sp_command.cfg output/lake/lake-annotation_*
+```
+
 
 ## Installation procedure
 
