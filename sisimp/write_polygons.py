@@ -702,7 +702,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 my_pixc.write_tvp_asShp(IN_attributes.sisimp_filenames.pixc_file+"_tvp.shp")
                 
             # Write PIXCVec files if asked
-            IN_attributes.create_pixc_vec_river = False
+            # IN_attributes.create_pixc_vec_river = False
             if IN_attributes.create_pixc_vec_river:
                 # Init PIXCVec product
                 my_pixc_vec = proc_pixcvecriver.l2_hr_pixc_vec_river(sub_az, sub_r, 
