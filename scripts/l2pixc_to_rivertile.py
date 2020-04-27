@@ -238,7 +238,6 @@ def main():
                             "range_index",
                             "pixc_index",
                             "height_vectorproc",
-                            "lake_flag",
                             "node_id",
                             "reach_id"]
             cnes.modules.geoloc.lib.pixc_to_shp.pixc_to_shp(

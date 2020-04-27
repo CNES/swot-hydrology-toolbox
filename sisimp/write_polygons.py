@@ -833,21 +833,14 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
             intersection = geom.Intersection(swath_polygon)
             
             save_field = False
-            try:
-                id_lake = polygon_index.GetField("code")
-            except ValueError:
-                id_lake = polygon_index.GetField("id")
+
+            id_lake = polygon_index.GetFID()
             # Test area of intersect zones
 
-            if intersection is None or id_lake!=25 or intersection.GetArea() != geom.GetArea():
+            if intersection is None or intersection.GetArea() != geom.GetArea():
                 save_field = True
                 intersection=geom
-            
-# ~ =======
-            # ~ if not intersection:
-                # ~ geom_buff = geom.Clone().Buffer(0)
-                # ~ intersection =  geom_buff.Intersection(swath_polygon)
-# ~ >>>>>>> develop
+
             # 4.2.3 - Convert polygons coordinates
             add_ring = False
 
