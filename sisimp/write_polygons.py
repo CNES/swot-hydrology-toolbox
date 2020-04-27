@@ -989,7 +989,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
             if add_ring:
 
                 # Add the output reprojected polygon to the output feature
-                print(str(geom_out)[:30])
                 feature_out.SetGeometry(geom_out)
                 # Set the RIV_FLAG field
                 feature_out.SetField(str("RIV_FLAG"), riv_flag)
