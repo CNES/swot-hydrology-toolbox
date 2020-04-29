@@ -1,4 +1,4 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 '''
 .. module my_rdf_file.py
     :synopsis: Deals with RDF parameter files (reader)

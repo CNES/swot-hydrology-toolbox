@@ -1,4 +1,4 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 '''
 .. module my_tools.py
     :synopsis: library with generic functions

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding : utf8 -*-
+# -*- coding : utf-8 -*-
 """
 .. module sisimp_processing.py
     :synopsis: Main steps of SWOT large scale simulator

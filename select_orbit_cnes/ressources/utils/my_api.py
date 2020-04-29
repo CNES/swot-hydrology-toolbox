@@ -1,4 +1,4 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 """
 .. module:: my_api.py
     :synopsis: Use appropriate functions as the run environment is stand-alone or SAM  

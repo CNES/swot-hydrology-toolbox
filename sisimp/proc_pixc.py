@@ -1,4 +1,4 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 """
 .. module proc_pixc.py
     :synopsis: Deal with L2_HR_PIXC (pixel cloud) files

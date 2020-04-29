@@ -1,4 +1,4 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 """
 .. module my_variables.py
     :synopsis: Gather global variables used in SISIMP

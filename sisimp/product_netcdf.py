@@ -1,4 +1,4 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 """
 .. module product_netcdf.py
     :synopsis: Deal with NetCDF products

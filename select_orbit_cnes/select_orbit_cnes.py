@@ -1,4 +1,4 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 """
 .. module select_orbit_cnes.py
     :synopsis:Basic main to run in simulations

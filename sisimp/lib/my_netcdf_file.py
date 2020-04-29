@@ -1,4 +1,4 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 '''
 .. module my_netcdf_file.py
     :synopsis: Deals with NetCDF files (reader and writer)

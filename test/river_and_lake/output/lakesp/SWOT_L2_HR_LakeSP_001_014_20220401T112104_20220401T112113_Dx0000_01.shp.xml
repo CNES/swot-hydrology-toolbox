@@ -1,0 +1,516 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<swot_product>
+  <global_attributes>
+    <conventions>Esri conventions as given in "ESRI Shapefile Technical Description, an ESRI White Paper, July 1998" http://www.esri.com/library/whitepapers/pdfs/shapefile.pdf</conventions>
+    <title>Level 2 KaRIn high rate lake single pass vector product</title>
+    <short_name>SWOT_L2_HR_LakeSP</short_name>
+    <institution>CNES</institution>
+    <source>Ka-band radar interferometer</source>
+    <history>2020-04-29 08:38:30Z: Creation</history>
+    <mission_name>SWOT</mission_name>
+    <references></references>
+    <reference_document>SWOT-TN-CDM-0673-CNES</reference_document>
+    <contact>claire.pottier@cnes.fr</contact>
+    <cycle_number>1</cycle_number>
+    <pass_number>14</pass_number>
+    <time_coverage_start></time_coverage_start>
+    <time_coverage_end>20220401T112113</time_coverage_end>
+    <polygon>POLYGON ((2.21606990847052 45.6321326889738 0,1.57723931130801 45.5091438566393 0,1.77042041392904 45.0171864830468 0,2.40425666313851 45.1386743800065 0,2.21606990847052 45.6321326889738 0))</polygon>
+    <continent></continent>
+    <xref_input_l2_hr_pixc_file>/work/ALT/swot/swotdev/desrochesd/swot-hydrology-toolbox/test/river_and_lake/output/simu/SWOT_L2_HR_PIXC_001_014_075R_20220401T112104_20220401T112113_Dx0000_01.nc</xref_input_l2_hr_pixc_file>
+    <xref_input_l2_hr_lake_tile_files></xref_input_l2_hr_lake_tile_files>
+    <xref_static_lake_db_file>/work/ALT/swot/swotpub/BD/BD_lakes/20181002_EU/apriori_db_lakes_EU.shp</xref_static_lake_db_file>
+    <xref_l2_hr_lake_sp_param_file>/work/ALT/swot/swotdev/desrochesd/swot-hydrology-toolbox/test/river_and_lake/rdf/parameter_laketile_config.cfg</xref_l2_hr_lake_sp_param_file>
+  </global_attributes>
+  <attributes>
+    <obs_id>
+      <type>text</type>
+      <long_name>identifier of the observed lake</long_name>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Unique lake identifier within the product. The format of the identifier is CBBTTTSNNNNNN, where C=continent code, B=basin code, TTT=tile number within the pass, S=swath side, N=lake counter within the tile.</comment>
+    </obs_id>
+    <lake_id>
+      <type>text</type>
+      <fill_value>no_data</fill_value>
+      <long_name>lake ID(s) from prior database</long_name>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>List of identifiers of prior lakes that intersect the observed lake. The format of the identifier is CBBNNNNNNT, where C=continent code, B=basin code, N=lake counter within the basin, T=type. The different lake identifiers are separated by semicolons.</comment>
+    </lake_id>
+    <overlap>
+      <type>text</type>
+      <fill_value>no_data</fill_value>
+      <long_name>fraction of observed lake covered by each prior lake</long_name>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>List of fractions of observed lake area covered by each prior lake identified in lake_id attribute. The different fractions are separated by semicolons and refer one-to-one to the identifiers listed in the lake_id attribute.</comment>
+    </overlap>
+    <time>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>17</width>
+      <precision>3</precision>
+      <long_name>time (UTC)</long_name>
+      <standard_name>time</standard_name>
+      <calendar>gregorian</calendar>
+      <tai_utc_difference>[value of TAI-UTC at time of first record]</tai_utc_difference>
+      <leap_second>YYYY-MM-DD hh:mm:ss</leap_second>
+      <units>seconds since 2000-01-01 00:00:00.000</units>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Time of measurement in seconds in the UTC time scale since 1 Jan 2000 00:00:00 UTC. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the attribute leap_second is set to the UTC time at which the leap second occurs.</comment>
+    </time>
+    <time_tai>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>17</width>
+      <precision>3</precision>
+      <long_name>time (TAI)</long_name>
+      <standard_name>time</standard_name>
+      <calendar>gregorian</calendar>
+      <units>seconds since 2000-01-01 00:00:00.000</units>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Time of measurement in seconds in the TAI time scale since 1 Jan 2000 00:00:00 TAI. This time scale contains no leap seconds. The difference (in seconds) with time in UTC is given by the attribute [time:tai_utc_difference].</comment>
+    </time_tai>
+    <time_str>
+      <type>text</type>
+      <fill_value>no_data</fill_value>
+      <long_name>UTC time</long_name>
+      <standard_name>time</standard_name>
+      <calendar>gregorian</calendar>
+      <tai_utc_difference>[value of TAI-UTC at time of first record]</tai_utc_difference>
+      <leap_second>YYYY-MM-DD hh:mm:ss</leap_second>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Time string giving UTC time. The format is YYYY-MM-DDThh:mm:ssZ, where the Z suffix indicates UTC time.</comment>
+    </time_str>
+    <wse>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>16</width>
+      <precision>3</precision>
+      <long_name>lake-averaged water surface elevation with respect to the geoid</long_name>
+      <units>m</units>
+      <valid_min>-1000</valid_min>
+      <valid_max>100000</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Lake-averaged water surface elevation, relative to the provided model of the geoid (geoid_hght), with corrections for media delays (wet and dry troposphere, and ionosphere), crossover correction, and tidal effects (solid_tide, load_tide1, and pole_tide) applied.</comment>
+    </wse>
+    <wse_u>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>16</width>
+      <precision>3</precision>
+      <long_name>total uncertainty in lake water surface elevation</long_name>
+      <units>m</units>
+      <valid_min>0</valid_min>
+      <valid_max>100</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Total one-sigma uncertainty (random and systematic) in the lake WSE, including uncertainties of corrections and references.</comment>
+    </wse_u>
+    <wse_r_u>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>16</width>
+      <precision>3</precision>
+      <long_name>random-only uncertainty in the height water surface elevation</long_name>
+      <units>m</units>
+      <valid_min>0</valid_min>
+      <valid_max>100</valid_max>
+      <tag_basic_expert>Expert</tag_basic_expert>
+      <comment>Random-only component in the lake water surface elevation, including uncertainties of corrections and references, and variation about the fit.</comment>
+    </wse_r_u>
+    <wse_std>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>16</width>
+      <precision>3</precision>
+      <long_name>standard deviation of pixels wse</long_name>
+      <units>m</units>
+      <valid_min>-1000</valid_min>
+      <valid_max>100000</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Standard deviation of the water surface elevation of all the pixels composing the lake. Note that this value is therefore with respect to the provided model of the geoid (geoid_hght attribute) whereas the height of pixels is given with respect to the ellipsoid. This parameter is computed only for large lakes (&gt; 5000ha).</comment>
+    </wse_std>
+    <area_total>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>13</width>
+      <precision>6</precision>
+      <long_name>total water area with estimate of dark water</long_name>
+      <units>km^2</units>
+      <valid_min>0</valid_min>
+      <valid_max>200000</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Total estimated area, including dark water that was not detected as water in the SWOT observation but identified through the use of a prior water likelihood map.</comment>
+    </area_total>
+    <area_tot_u>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>13</width>
+      <precision>6</precision>
+      <long_name>uncertainty in total water area</long_name>
+      <units>km^2</units>
+      <valid_min>0</valid_min>
+      <valid_max>200000</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Total uncertainty (random and systematic) in the total water area.</comment>
+    </area_tot_u>
+    <area_detct>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>13</width>
+      <precision>6</precision>
+      <long_name>area of detected water pixels</long_name>
+      <units>km^2</units>
+      <valid_min>0</valid_min>
+      <valid_max>200000</valid_max>
+      <tag_basic_expert>Expert</tag_basic_expert>
+      <comment>Aggregation of used detected pixels area.</comment>
+    </area_detct>
+    <area_det_u>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>13</width>
+      <precision>6</precision>
+      <long_name>uncertainty in area of detected water</long_name>
+      <units>km^2</units>
+      <valid_min>0</valid_min>
+      <valid_max>200000</valid_max>
+      <tag_basic_expert>Expert</tag_basic_expert>
+      <comment>Total uncertainty (random and systematic) in the area of detected water pixels.</comment>
+    </area_det_u>
+    <layovr_val>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>16</width>
+      <precision>2</precision>
+      <long_name>metric of layover effect</long_name>
+      <units>TBD</units>
+      <valid_min>TBD</valid_min>
+      <valid_max>TBD</valid_max>
+      <tag_basic_expert>Expert</tag_basic_expert>
+      <comment>Value indicating an estimate of the height error due to layover.</comment>
+    </layovr_val>
+    <xtrk_dist>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>17</width>
+      <precision>3</precision>
+      <long_name>distance of lake polygon centroid to the satellite ground track</long_name>
+      <units>m</units>
+      <valid_min>-75000</valid_min>
+      <valid_max>75000</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Distance of centroid of polygon delineating lake boundary to the satellite ground track. A negative value indicates the left side of the swath, relative to the spacecraft velocity vector. A positive value indicates the right side of the swath.</comment>
+    </xtrk_dist>
+    <delta_s_l>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>13</width>
+      <precision>7</precision>
+      <long_name>storage change computed by linear method</long_name>
+      <units>km^3</units>
+      <valid_min>-1000</valid_min>
+      <valid_max>1000</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Storage change with regards to the reference area and height from PLD</comment>
+    </delta_s_l>
+    <ds_l_u>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>13</width>
+      <precision>7</precision>
+      <long_name>uncertainty in storage change computed by linear method</long_name>
+      <units>km^3</units>
+      <valid_min>-1000</valid_min>
+      <valid_max>1000</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Uncertainty in storage change computed by linear method.</comment>
+    </ds_l_u>
+    <delta_s_q>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>13</width>
+      <precision>7</precision>
+      <long_name>storage change computed by quadratic method</long_name>
+      <units>km^3</units>
+      <valid_min>-1000</valid_min>
+      <valid_max>1000</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Storage change with regards to the reference area and height from PLD</comment>
+    </delta_s_q>
+    <ds_q_u>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>13</width>
+      <precision>7</precision>
+      <long_name>uncertainty in storage change computed by quadratic method</long_name>
+      <units>km^3</units>
+      <valid_min>-1000</valid_min>
+      <valid_max>1000</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Uncertainty in storage change computed by quadratic method.</comment>
+    </ds_q_u>
+    <quality_f>
+      <type>int4</type>
+      <fill_value>-999</fill_value>
+      <long_name>summary quality indicator for lake measurement</long_name>
+      <flag_meanings>good bad</flag_meanings>
+      <flag_values>0 1</flag_values>
+      <valid_min>0</valid_min>
+      <valid_max>1</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Summary quality flag for the lake measurement. Values of 0 and 1 indicate nominal and off-nominal measurements.</comment>
+    </quality_f>
+    <dark_frac>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>20</width>
+      <precision>6</precision>
+      <long_name>fractional area of dark water</long_name>
+      <units>1</units>
+      <valid_min>0</valid_min>
+      <valid_max>1</valid_max>
+      <tag_basic_expert>Expert</tag_basic_expert>
+      <comment>Fraction of lake area_total covered by dark water. The value is between 0 and 1.</comment>
+    </dark_frac>
+    <ice_clim_f>
+      <type>int4</type>
+      <fill_value>-999</fill_value>
+      <long_name>climatological ice cover flag</long_name>
+      <source>UNC</source>
+      <flag_meanings>no_ice_cover partial_ice_cover full_ice_cover</flag_meanings>
+      <flag_values>0 1 2</flag_values>
+      <valid_min>0</valid_min>
+      <valid_max>2</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Climatological ice cover flag indicating whether the lake is ice-covered on the day of the observation based on external climatological information (not the SWOT measurement). Values of 0, 1, and 2 indicate that the lake is likely not ice covered, likely partially ice covered, and likely fully ice covered, respectively.</comment>
+    </ice_clim_f>
+    <ice_dyn_f>
+      <type>int4</type>
+      <fill_value>-999</fill_value>
+      <long_name>dynamical ice cover flag</long_name>
+      <source>UNC</source>
+      <flag_meanings>no_ice_cover partial_ice_cover full_ice_cover</flag_meanings>
+      <flag_values>0 1 2</flag_values>
+      <valid_min>0</valid_min>
+      <valid_max>2</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Dynamic ice cover flag indicating whether the lake is ice-covered on the day of the observation based on analysis of external optical satellite data. Values of 0, 1, and 2 indicate that the lake is not ice covered, partially ice covered, and fully ice covered, respectively.</comment>
+    </ice_dyn_f>
+    <partial_f>
+      <type>int4</type>
+      <fill_value>-999</fill_value>
+      <long_name>partially covered lake flag</long_name>
+      <flag_meanings>covered partially_covered</flag_meanings>
+      <flag_values>0 1</flag_values>
+      <valid_min>0</valid_min>
+      <valid_max>1</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Flag that indicates only partial lake coverage.  0= Indicates that the observed lake is entirely covered by the swath. 1= Indicates that the observed lake is partially covered by the swath.</comment>
+    </partial_f>
+    <xovr_cal_q>
+      <type>int4</type>
+      <fill_value>-999</fill_value>
+      <long_name>quality of the cross-over calibrations</long_name>
+      <flag_meanings>TBD</flag_meanings>
+      <flag_masks>TBD</flag_masks>
+      <flag_values>TBD</flag_values>
+      <valid_min>0</valid_min>
+      <valid_max>TBD</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Quality of the cross-over calibration.</comment>
+    </xovr_cal_q>
+    <geoid_hght>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>17</width>
+      <precision>3</precision>
+      <long_name>geoid height</long_name>
+      <standard_name>geoid_height_above_reference_ellipsoid</standard_name>
+      <source>EGM2008</source>
+      <institution>GSFC</institution>
+      <units>m</units>
+      <valid_min>-150</valid_min>
+      <valid_max>150</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Lake-averaged geoid model height above the reference ellipsoid. The value is computed from the EGM2008 geoid model with a correction to refer the value to the mean tide system (i.e., includes the zero-frequency permanent tide).</comment>
+    </geoid_hght>
+    <solid_tide>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>17</width>
+      <precision>3</precision>
+      <long_name>solid Earth tide height</long_name>
+      <source>Cartwright and Taylor (1971) and Cartwright and Edden (1973 )</source>
+      <units>m</units>
+      <valid_min>-1</valid_min>
+      <valid_max>1</valid_max>
+      <tag_basic_expert>Expert</tag_basic_expert>
+      <comment>Solid-Earth (Body) tide height, averaged over the lake. The zero-frequency permanent tide component is not included.</comment>
+    </solid_tide>
+    <pole_tide>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>17</width>
+      <precision>3</precision>
+      <long_name>height of pole tide</long_name>
+      <units>m</units>
+      <source>Wahr (1985) and Desai et al. (2015)</source>
+      <valid_min>0</valid_min>
+      <valid_max>0</valid_max>
+      <tag_basic_expert>Expert</tag_basic_expert>
+      <comment>Geocentric pole tide height. The sum total of the contribution from the solid-Earth (body) pole tide height and the load pole tide height (i.e., the effect of the ocean pole tide loading of the Earth’s crust)..</comment>
+    </pole_tide>
+    <load_tide1>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>17</width>
+      <precision>3</precision>
+      <long_name>geocentric load tide height</long_name>
+      <source>FES2014b (Carrere et al., 2016)</source>
+      <institution>LEGOS/CNES</institution>
+      <units>m</units>
+      <valid_min>0</valid_min>
+      <valid_max>0</valid_max>
+      <tag_basic_expert>Expert</tag_basic_expert>
+      <comment>Geocentric load tide height. The effect of the ocean tide loading of the Earth’s crust. This value is used to compute wse.</comment>
+    </load_tide1>
+    <load_tide2>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>17</width>
+      <precision>3</precision>
+      <long_name>geocentric load tide height</long_name>
+      <source>GOT4.10c (Ray, 2013)</source>
+      <institution>GSFC</institution>
+      <units>m</units>
+      <valid_min>0</valid_min>
+      <valid_max>0</valid_max>
+      <tag_basic_expert>Expert</tag_basic_expert>
+      <comment>Geocentric load tide height. The effect of the ocean tide loading of the Earth’s crust.</comment>
+    </load_tide2>
+    <dry_trop_c>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>17</width>
+      <precision>3</precision>
+      <long_name>dry tropospheric vertical correction to WSE</long_name>
+      <source>European Centre for Medium-Range Weather Forecasting</source>
+      <institution>ECMWF</institution>
+      <units>m</units>
+      <valid_min>-3</valid_min>
+      <valid_max>-1</valid_max>
+      <tag_basic_expert>Expert</tag_basic_expert>
+      <comment>Equivalent vertical correction due to dry troposphere delay. Adding the reported correction to the reported lake WSE results in the uncorrected lake WSE.</comment>
+    </dry_trop_c>
+    <wet_trop_c>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>17</width>
+      <precision>3</precision>
+      <long_name>wet tropospheric vertical correction to WSE</long_name>
+      <source>European Centre for Medium-Range Weather Forecasting</source>
+      <institution>ECMWF</institution>
+      <units>m</units>
+      <valid_min>-1</valid_min>
+      <valid_max>0</valid_max>
+      <tag_basic_expert>Expert</tag_basic_expert>
+      <comment>Equivalent vertical correction due to wet troposphere delay. Adding the reported correction to the reported lake WSE results in the uncorrected lake WSE.</comment>
+    </wet_trop_c>
+    <iono_c>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>17</width>
+      <precision>3</precision>
+      <long_name>ionospheric vertical correction to WSE</long_name>
+      <source>Global Ionosphere Maps</source>
+      <institution>JPL</institution>
+      <units>m</units>
+      <valid_min>0</valid_min>
+      <valid_max>0</valid_max>
+      <tag_basic_expert>Expert</tag_basic_expert>
+      <comment>Equivalent vertical correction due to ionosphere delay. Adding the reported correction to the reported lake WSE results in the uncorrected lake WSE.</comment>
+    </iono_c>
+    <xovr_cal_c>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>17</width>
+      <precision>3</precision>
+      <long_name>crossover calibration height correction</long_name>
+      <units>m</units>
+      <valid_min>-10</valid_min>
+      <valid_max>10</valid_max>
+      <tag_basic_expert>Expert</tag_basic_expert>
+      <comment>Equivalent height correction estimated from KaRIn crossover calibration. The correction is applied during processing before geolocation in terms of roll, baseline dilation, etc., but reported as an equivalent height correction. The correction term should be subtracted from the reported WSE to obtain the uncorrected WSE.</comment>
+    </xovr_cal_c>
+    <p_name>
+      <type>text</type>
+      <fill_value>no_data</fill_value>
+      <long_name>name(s) of the lake</long_name>
+      <comment>Name(s) of the lake, retrieved from Open Street Map, IGN Carthage, GLWD and vMap0 databases. The different names are separated by semicolons.</comment>
+    </p_name>
+    <p_grand_id>
+      <type>int9</type>
+      <fill_value>-99999999</fill_value>
+      <long_name>reservoir Id from GRanD database</long_name>
+      <source>https://doi.org/10.1890/100125</source>
+      <valid_min>0</valid_min>
+      <valid_max>10000</valid_max>
+      <tag_basic_expert>Expert</tag_basic_expert>
+      <comment>Reservoir ID from the Global Reservoir and Dam (GRanD) database. 0=The lake is not a registered reservoir.</comment>
+    </p_grand_id>
+    <p_max_wse>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>16</width>
+      <precision>2</precision>
+      <long_name>maximum water surface elevation</long_name>
+      <units>m</units>
+      <valid_min>-1000</valid_min>
+      <valid_max>100000</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Maximum water surface elevation (except flooding events) from the prior lake database, used to compute storage change.</comment>
+    </p_max_wse>
+    <p_max_area>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>13</width>
+      <precision>6</precision>
+      <long_name>maximum water surface area</long_name>
+      <units>km^2</units>
+      <valid_min>0</valid_min>
+      <valid_max>500000</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Maximum water surface area  (except flooding events)from the prior lake database, used to compute storage change.</comment>
+    </p_max_area>
+    <p_ref_date>
+      <type>text</type>
+      <fill_value>no_data</fill_value>
+      <long_name>reference date for the storage change attributes</long_name>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Reference date from the prior lake database for the storage change attributes, corresponding to the date of the first valid measurement. The format is YYYY-MM-DD .</comment>
+    </p_ref_date>
+    <p_ref_ds>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>13</width>
+      <precision>7</precision>
+      <long_name>Reference storage change</long_name>
+      <units>km^3</units>
+      <valid_min>-1000</valid_min>
+      <valid_max>1000</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Reference storage change from the prior lake database used to translate the storage change values initially computed with respect to the p_max_wse and p_max_area of the PLD lake, to the storage change relative to p_ref_date.</comment>
+    </p_ref_ds>
+    <p_storage>
+      <type>float</type>
+      <fill_value>-999999999999</fill_value>
+      <width>13</width>
+      <precision>7</precision>
+      <long_name>maximum water storage</long_name>
+      <units>km^3</units>
+      <valid_min>0</valid_min>
+      <valid_max>30000</valid_max>
+      <tag_basic_expert>Basic</tag_basic_expert>
+      <comment>Maximum water storage value from the prior lake database, computed between the minimum (or ground when a bathymetry is available) and maximum observed levels of the lake.</comment>
+    </p_storage>
+  </attributes>
+</swot_product>

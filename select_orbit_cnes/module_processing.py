@@ -1,4 +1,4 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 """
 .. module_processing.py
     :synopsis: Basic processing class to run in simulations

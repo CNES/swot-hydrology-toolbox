@@ -1,4 +1,4 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 '''
 .. module my_timer.py
     :synopsis: Gestion du temps d'execution d'un code
