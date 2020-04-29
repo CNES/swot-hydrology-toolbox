@@ -23,6 +23,12 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
     if tmp_orbit_number < 1:
         tmp_orbit_number += 584
     tile_db_orbit = tile_db[np.where(tile_db[:, 0] == tmp_orbit_number)[0], :]
+    
+    # Shift the lon/lat coordinates to compute center for each tile
+    tile_db_orbit_center = np.copy(tile_db_orbit)
+    for i in range(len(tile_db_orbit_center[:, 2])-1):
+        tile_db_orbit_center[i, 2] = 0.5*(tile_db_orbit[i,2]+tile_db_orbit[i+1,2])
+        tile_db_orbit_center[i, 3] = 0.5*(tile_db_orbit[i,3]+tile_db_orbit[i+1,3])
     # Compute the indices of nadir_lat_min and nadir_lat_max
     
     nadir_lat_argmin = int(np.argmin(my_attributes.lat*RAD2DEG))
@@ -35,14 +41,17 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
     nadir_lon_deg_max = my_attributes.lon[nadir_lat_argmax]*RAD2DEG
     
     # Construct the kd-tree for quick nearest-neighbor lookup        
-    tree = cKDTree(tile_db_orbit[:, 2:4])
+    tree = cKDTree(tile_db_orbit_center[:, 2:4])
     
     # Retrieve index of tile_db_orbit the nearest of nadir_min_lat
     ind_min = tree.query([nadir_lat_deg_min, nadir_lon_deg_min])
     # Retrieve index of tile_db_orbit the nearest of nadir_max_lat
     ind_max = tree.query([nadir_lat_deg_max, nadir_lon_deg_max])
-    tile_db_orbit_cropped = tile_db_orbit[max(0, min(ind_max[1], ind_min[1])-1):min(len(tile_db_orbit), max(ind_max[1], ind_min[1])+2), :]
+    tile_db_orbit_cropped = tile_db_orbit_center[max(0, min(ind_max[1], ind_min[1])-1):min(len(tile_db_orbit_center), max(ind_max[1], ind_min[1])+2), :]
     vect_lat_lon_db_cropped = np.zeros([max(0, tile_db_orbit_cropped.shape[0]-1), 2])
+    
+    print(tile_db_orbit_cropped)
+    exit()
     
     for i in range(max(0, tile_db_orbit_cropped.shape[0]-1)):
         vect_lat_lon_db_cropped[i,0] = tile_db_orbit_cropped[i+1, 2]-tile_db_orbit_cropped[i, 2]
