@@ -50,8 +50,6 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
     tile_db_orbit_cropped = tile_db_orbit_center[max(0, min(ind_max[1], ind_min[1])-1):min(len(tile_db_orbit_center), max(ind_max[1], ind_min[1])+2), :]
     vect_lat_lon_db_cropped = np.zeros([max(0, tile_db_orbit_cropped.shape[0]-1), 2])
     
-    print(tile_db_orbit_cropped)
-    exit()
     
     for i in range(max(0, tile_db_orbit_cropped.shape[0]-1)):
         vect_lat_lon_db_cropped[i,0] = tile_db_orbit_cropped[i+1, 2]-tile_db_orbit_cropped[i, 2]
