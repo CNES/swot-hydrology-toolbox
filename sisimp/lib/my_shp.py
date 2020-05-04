@@ -13,25 +13,13 @@ def open_shp(path_file, in_poly=None):
 
     # 3 - Select some lakes among BD using in_poly
     id_lake=[]
-    code_data=False
     if in_poly is not None:
         layer.SetSpatialFilter(in_poly)
-
         for feature in layer:
-            try:
-                if feature.GetField("code") not in id_lake:
-                    id_lake.append(feature.GetField("code"))
-                    code_data=True
-            except ValueError:
-                if feature.GetField("id") not in id_lake:
-                    id_lake.append(feature.GetField("id"))
+            id_lake.append(str(feature.GetFID()))
 
-        if len(id_lake) == 1:
-            id_lake.append(id_lake[0])
-        if code_data:
-            layer_multi_lake.SetAttributeFilter("code IN {}".format(tuple(id_lake)))
-        else:
-            layer_multi_lake.SetAttributeFilter("id IN {}".format(tuple(id_lake)))
+    if len(id_lake) > 0:
+        layer_multi_lake.SetAttributeFilter("FID IN (%s)" % (",".join(id_lake)))
 
     # 4 - Create an output datasource in memory
     mem_driver = ogr.GetDriverByName('MEMORY')  # Memory driver
