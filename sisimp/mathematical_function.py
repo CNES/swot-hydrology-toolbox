@@ -167,7 +167,14 @@ def lonlat_from_azy(IN_az, IN_ri, IN_attributes, IN_swath, h=0, IN_unit="rad"):
     else:
         sign = 1.
 
-    mu = sign*np.arccos((IN_ri**2-((GEN_APPROX_RAD_EARTH+h)**2+(GEN_APPROX_RAD_EARTH+IN_Alt)**2))/(-2*(GEN_APPROX_RAD_EARTH + h)*(GEN_APPROX_RAD_EARTH+IN_Alt)))
+
+    cosmu = (IN_ri**2-((GEN_APPROX_RAD_EARTH+h)**2+(GEN_APPROX_RAD_EARTH+IN_Alt)**2))/(-2*(GEN_APPROX_RAD_EARTH + h)*(GEN_APPROX_RAD_EARTH+IN_Alt))
+    
+    cosmu[np.where(cosmu >1)] = 1.
+    cosmu[np.where(cosmu <-1)] = -1.
+    
+    mu = sign*np.arccos(cosmu)
+
 
     Cx = (np.cos(mu)*sintheta_0*cosphi_0 + np.sin(mu)*(sinpsi_0*costheta_0*cosphi_0-cospsi_0*sinphi_0))
     Cy = (np.cos(mu)*sintheta_0*sinphi_0 + np.sin(mu)*(sinpsi_0*costheta_0*sinphi_0+cospsi_0*cosphi_0))

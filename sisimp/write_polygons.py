@@ -421,12 +421,13 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     
     pixel_area = IN_attributes.azimuth_spacing * IN_attributes.range_sampling / np.sin(angles)  # Pixel area
     # pixel_area calcul
-    ind_lw = np.where(classification_tab==2)
-    ind_wl = np.where(classification_tab==3)
-    ind_l = np.where(classification_tab==1)
-    pixel_area[ind_lw]= (0.4 * np.random.random_sample((len(pixel_area[ind_lw]))) + 0.1) * pixel_area[ind_lw]
-    pixel_area[ind_wl]= (0.4 * np.random.random_sample((len(pixel_area[ind_wl]))) + 0.5) * pixel_area[ind_wl]
-    pixel_area[ind_l]=0
+    # ~ # Don't understand this part ??
+    # ~ ind_lw = np.where(classification_tab==2)
+    # ~ ind_wl = np.where(classification_tab==3)
+    # ~ ind_l = np.where(classification_tab==1)
+    # ~ pixel_area[ind_lw]= (0.4 * np.random.random_sample((len(pixel_area[ind_lw]))) + 0.1) * pixel_area[ind_lw]
+    # ~ pixel_area[ind_wl]= (0.4 * np.random.random_sample((len(pixel_area[ind_wl]))) + 0.5) * pixel_area[ind_wl]
+    # ~ pixel_area[ind_l]=0
     
     # 4.1 bis - Compute mean noise over points
     noise_seed = int(str(time.time()).split('.')[1])
