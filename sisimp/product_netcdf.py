@@ -186,7 +186,17 @@ class NetCDFProduct(object):
                     annotation = element[0]
                     for key, value in annotation.items():
                         if key not in ["app", "_FillValue"]:
-                            self.list_groups[cur_group].variables[cur_variable][key] = value
+                            try:
+                                if key == "units":
+                                    tmp_value = int(value)
+                                else:
+                                    if element.tag == "real":
+                                        tmp_value = float(value)
+                                    else:
+                                        tmp_value = int(value)
+                            except:
+                                tmp_value = value
+                            self.list_groups[cur_group].variables[cur_variable][key] = tmp_value
         
     #----------------------------------------
         
