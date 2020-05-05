@@ -123,7 +123,12 @@ class NetCDFProduct(object):
                     my_api.exitWithError("[ERROR] Metadata %s is repeated in the XML %s" % (tmp_metadata, in_xml_file))
                 else:
                     # Add global metadata element to the list
-                    self.metadata[tmp_metadata] = ""  
+                    # Init with description in XML if it exists
+                    for element_niv2 in element:
+                        try:
+                            self.metadata[tmp_metadata] = element_niv2.get("description")
+                        except:
+                            self.metadata[tmp_metadata] = ""  
             
             # 3.2 - The item is a variable
             elif cur_item.startswith("/"):
@@ -152,7 +157,13 @@ class NetCDFProduct(object):
                     if cur_metadata in self.list_groups[cur_group].metadata:
                         my_api.exitWithError("[ERROR] Group metadata %s/%s is repeated in the XML %s" % (cur_group, cur_metadata, in_xml_file))
                     else:
-                        self.list_groups[cur_group].metadata[cur_metadata] = ""
+                        # Add metadata element to the list
+                        # Init with description in XML if it exists
+                        for element_niv2 in element:
+                            try:
+                                self.list_groups[cur_group].metadata[cur_metadata] = element_niv2.get("description")
+                            except:
+                                self.list_groups[cur_group].metadata[cur_metadata] = ""
                         
                 # The name corresponds to a variable in the group
                 else:            
@@ -363,31 +374,38 @@ class PixcProduct(NetCDFProduct):
                 
         # 2 - Update general metadata specific to PIXC file
         tmp_metadata = {}
-        tmp_metadata['conventions'] = 'CF-1.7'
-        tmp_metadata['title'] = 'Level 2 KaRIn High Rate Water Mask Pixel Clould Data Product'
-        tmp_metadata['institution'] = 'CNES - Large scale simulator'
-        tmp_metadata['source'] = 'Ka-band radar interferometer'
+        tmp_metadata['Conventions'] = 'CF-1.7'
+        tmp_metadata['institution'] = 'CNES'
+        tmp_metadata['source'] = 'Large scale simulator'
         tmp_metadata['history'] = "%s : Creation" % datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-        tmp_metadata['platform'] = "SWOT"
-        tmp_metadata['references'] = 'Large scale simulator'
+        tmp_metadata['references'] = 'https://github.com/CNES/swot-hydrology-toolbox'
         tmp_metadata['reference_document'] = 'JPL D-56411 - Initial release - February 11, 2019'
+        tmp_metadata['contact'] = 'damien.desroches[at]cnes.fr ; claire.pottier[at]cnes.fr'
         tmp_metadata['wavelength'] = 0.008385803020979
+        tmp_metadata['polarization'] = ""
+        tmp_metadata['transmit_antenna'] = ""
+        tmp_metadata['processing_beamwidth'] = ""
+        tmp_metadata['slc_along_track_resolution'] = ""
+        tmp_metadata['slc_range_resolution'] = ""
+        tmp_metadata['slc_first_line_index_in_tvp'] = ""
+        tmp_metadata['slc_last_line_index_in_tvp'] = ""
+        tmp_metadata['xref_input_l1b_hr_slc_file'] = "N/A"
+        tmp_metadata['xref_input_static_karin_cal_file'] = "N/A"
+        tmp_metadata['xref_input_ref_dem_file'] = "N/A"
+        tmp_metadata['xref_input_water_mask_file'] = ""
+        tmp_metadata['xref_input_static_geophys_files'] = "N/A"
+        tmp_metadata['xref_input_dynamic_geophys_files'] = "N/A"
+        tmp_metadata['xref_input_int_lr_xover_cal_file'] = "N/A"
+        tmp_metadata['xref_l2_hr_pixc_config_parameters_file'] = ""
+        tmp_metadata['ellipsoid_semi_major_axis'] = ""
+        tmp_metadata['ellipsoid_flattening'] = ""
         self.set_metadata_val(tmp_metadata)
         
         # 3 - Update group metadata
         # 3.1 - pixel_cloud group
-        pixel_cloud_metadata = {}
-        pixel_cloud_metadata['description'] = 'cloud of geolocated interferogram pixels'      
+        pixel_cloud_metadata = {}      
         pixel_cloud_metadata['looks_to_efflooks'] = 1.75
         self.set_metadata_val(pixel_cloud_metadata, group="pixel_cloud")
-        # 3.2 - tvp group
-        tvp_metadata = {}
-        tvp_metadata['description'] = 'Time varying parameters group including spacecraft attitude, position, velocity, and antenna position information'
-        self.set_metadata_val(tvp_metadata, group="tvp")
-        # 3.3 - noise group
-        noise_metadata = {}
-        noise_metadata['description'] = 'Measured noise power for each recieve echo of the plus_y and minus_y SLC channels'
-        self.set_metadata_val(noise_metadata, group="noise")
 
 
 #######################################
@@ -409,13 +427,18 @@ class PixcVecRiverProduct(NetCDFProduct):
         # 2 - Update general metadata specific to PIXC file
         tmp_metadata = {}
         tmp_metadata['Conventions'] = 'CF-1.7'
-        tmp_metadata['title'] = 'Level 2 KaRIn high rate pixel cloud vector river product'
-        tmp_metadata['institution'] = 'CNES - Large scale simulator'
-        tmp_metadata['source'] = 'Ka-band radar interferometer'
+        tmp_metadata['institution'] = 'CNES'
+        tmp_metadata['source'] = 'Large scale simulator'
         tmp_metadata['history'] = "%s : Creation" % datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-        tmp_metadata['mission_name'] = "SWOT"
-        tmp_metadata['references'] = 'Large scale simulator'
+        tmp_metadata['references'] = 'https://github.com/CNES/swot-hydrology-toolbox'
         tmp_metadata['reference_document'] = 'JPL D-56415 - Initial release - February 02, 2020'
+        tmp_metadata['contact'] = 'damien.desroches[at]cnes.fr ; claire.pottier[at]cnes.fr'
+        tmp_metadata['near_range'] = ""
+        tmp_metadata['nominal_slant_range_spacing'] = ""
+        tmp_metadata['xref_input_l2_hr_pixc_files'] = "N/A"
+        tmp_metadata['xref_static_river_db_file'] = "N/A"
+        tmp_metadata['ellipsoid_semi_major_axis'] = ""
+        tmp_metadata['ellipsoid_flattening'] = ""
         self.set_metadata_val(tmp_metadata)
 
 
