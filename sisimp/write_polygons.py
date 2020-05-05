@@ -436,7 +436,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     r_pixels = np.arange(0, len(IN_water_pixels)-1)
     ri_pixels = IN_attributes.near_range + r_pixels * IN_attributes.range_sampling
     Hi_pixels = IN_attributes.alt[np.arange(0, len(IN_water_pixels[0])-1)]
-    print(len(IN_water_pixels[0]), len(Hi_pixels), len(ri_pixels))
+    
     for az_ind in range(len(IN_water_pixels[0])-1):
         lon_pixels, lat_pixels = math_fct.lonlat_from_azy(np.ones(len(ri_pixels), dtype=np.int)*az_ind, ri_pixels, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
         elevation_az = lac.compute_h(lat_pixels, lon_pixels)

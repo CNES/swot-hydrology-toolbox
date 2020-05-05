@@ -470,7 +470,7 @@ class PixCEdgeSwath(object):
         current_swath_side = str(pixc_edge_reader.get_att_value("swath_side"))
         if current_swath_side != self.swath_side:
             logger.error("Swath of tile %s do note match with PixCEdgeSwath %s" %(current_swath_side, self.swath_side))
-        current_date = int(pixc_edge_reader.get_att_value("time_coverage_start")[:8])
+        current_date = int(pixc_edge_reader.get_att_value("time_coverage_start")[:8].replace("-", ""))
         if not self.date:
             self.date = current_date
         # Stop the process if acquisition dates are not same day or next day
