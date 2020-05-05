@@ -525,8 +525,8 @@ class l2_hr_pixc(object):
         :param IN_sec_from_start: number of seconds from mission start time
         :type IN_sec_from_start: int
         
-        :return: date in UTC
-        :rtype: string YYYYMMDDThhmmss
+        :return: out_date_time = date in UTC
+        :rtype: out_date_time = string YYYY-MM-DD HH:MM:SS.SSSSSSZ
         """
         
         # Computation
@@ -534,7 +534,8 @@ class l2_hr_pixc(object):
         date_in_sec = datetime(int(tmp_time_split[0]), int(tmp_time_split[1]), int(tmp_time_split[2])) + timedelta(seconds=IN_sec_from_start)
         
         # Format
-        return datetime.strftime(date_in_sec, '%Y%m%dT%H%M%S')
+        out_date_time = "%sZ" % datetime.strftime(date_in_sec, '%Y-%m-%d %H:%M:%S.%f')
+        return out_date_time
         
     def computeTime_UTC(self, IN_sec_from_start):
         """

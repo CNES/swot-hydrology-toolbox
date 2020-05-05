@@ -367,7 +367,7 @@ class PixcProduct(NetCDFProduct):
         tmp_metadata['title'] = 'Level 2 KaRIn High Rate Water Mask Pixel Clould Data Product'
         tmp_metadata['institution'] = 'CNES - Large scale simulator'
         tmp_metadata['source'] = 'Ka-band radar interferometer'
-        tmp_metadata['history'] = "%sZ: Creation" % datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        tmp_metadata['history'] = "%s : Creation" % datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         tmp_metadata['platform'] = "SWOT"
         tmp_metadata['references'] = 'Large scale simulator'
         tmp_metadata['reference_document'] = 'JPL D-56411 - Initial release - February 11, 2019'
@@ -412,7 +412,7 @@ class PixcVecRiverProduct(NetCDFProduct):
         tmp_metadata['title'] = 'Level 2 KaRIn high rate pixel cloud vector river product'
         tmp_metadata['institution'] = 'CNES - Large scale simulator'
         tmp_metadata['source'] = 'Ka-band radar interferometer'
-        tmp_metadata['history'] = "%sZ: Creation" % datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        tmp_metadata['history'] = "%s : Creation" % datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         tmp_metadata['mission_name'] = "SWOT"
         tmp_metadata['references'] = 'Large scale simulator'
         tmp_metadata['reference_document'] = 'JPL D-56415 - Initial release - February 02, 2020'
