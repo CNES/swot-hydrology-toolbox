@@ -108,8 +108,8 @@ class l2_hr_pixc_vec_river(object):
         
         # 3 - Update global attributes
         tmp_metadata = {}
-        tmp_metadata['cycle_number'] = self.cycle_num
-        tmp_metadata['pass_number'] = np.int(self.pass_num)
+        tmp_metadata['cycle_number'] = int(self.cycle_num)
+        tmp_metadata['pass_number'] = int(self.pass_num)
         tmp_metadata['tile_number'] = int(self.tile_ref[0:-1])
         tmp_metadata['swath_side'] = self.tile_ref[-1]
         tmp_metadata['tile_name'] = "%03d_%03d%s" % (np.int(self.pass_num), int(self.tile_ref[0:-1]), self.tile_ref[-1])

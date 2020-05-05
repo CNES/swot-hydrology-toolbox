@@ -177,26 +177,20 @@ class NetCDFProduct(object):
                     if var_shape not in self.list_groups[cur_group].list_shapes:
                         self.list_groups[cur_group].list_shapes.append(var_shape)
                     # Type
-                    flag_signed = False
-                    if element.get("signed"):
-                        flag_signed = True
-                    var_type = find_dtype(element.tag, int(element.get("width")), flag_signed)
+                    flag_unsigned = False
+                    if element.get("signed") == "false":
+                        flag_unsigned = True
+                    var_type = find_dtype(element.tag, int(element.get("width")), in_flag_unsigned=flag_unsigned)
                     self.list_groups[cur_group].variables[cur_variable]["dtype"] = var_type
                     # Other
                     annotation = element[0]
                     for key, value in annotation.items():
-                        if key not in ["app", "_FillValue"]:
-                            try:
-                                if key == "units":
-                                    tmp_value = int(value)
-                                else:
-                                    if element.tag == "real":
-                                        tmp_value = float(value)
-                                    else:
-                                        tmp_value = int(value)
-                            except:
-                                tmp_value = value
-                            self.list_groups[cur_group].variables[cur_variable][key] = tmp_value
+                        if key in ["valid_min", "valid_max"]:
+                            self.list_groups[cur_group].variables[cur_variable][key] = convert_str_to_dtype(value, element.tag, int(element.get("width")), in_flag_unsigned=flag_unsigned)
+                        elif key == "flag_values":
+                            self.list_groups[cur_group].variables[cur_variable][key] = np.array(value.split(" ")).astype(var_type)
+                        elif key not in ["app", "_FillValue"]:
+                            self.list_groups[cur_group].variables[cur_variable][key] = value
         
     #----------------------------------------
         
@@ -399,13 +393,13 @@ class PixcProduct(NetCDFProduct):
         tmp_metadata['slc_range_resolution'] = ""
         tmp_metadata['slc_first_line_index_in_tvp'] = ""
         tmp_metadata['slc_last_line_index_in_tvp'] = ""
-        tmp_metadata['xref_input_l1b_hr_slc_file'] = "N/A"
-        tmp_metadata['xref_input_static_karin_cal_file'] = "N/A"
-        tmp_metadata['xref_input_ref_dem_file'] = "N/A"
+        tmp_metadata['xref_input_l1b_hr_slc_file'] = "None"
+        tmp_metadata['xref_input_static_karin_cal_file'] = "None"
+        tmp_metadata['xref_input_ref_dem_file'] = "None"
         tmp_metadata['xref_input_water_mask_file'] = ""
-        tmp_metadata['xref_input_static_geophys_files'] = "N/A"
-        tmp_metadata['xref_input_dynamic_geophys_files'] = "N/A"
-        tmp_metadata['xref_input_int_lr_xover_cal_file'] = "N/A"
+        tmp_metadata['xref_input_static_geophys_files'] = "None"
+        tmp_metadata['xref_input_dynamic_geophys_files'] = "None"
+        tmp_metadata['xref_input_int_lr_xover_cal_file'] = "None"
         tmp_metadata['xref_l2_hr_pixc_config_parameters_file'] = ""
         tmp_metadata['ellipsoid_semi_major_axis'] = ""
         tmp_metadata['ellipsoid_flattening'] = ""
@@ -445,8 +439,8 @@ class PixcVecRiverProduct(NetCDFProduct):
         tmp_metadata['contact'] = 'damien.desroches[at]cnes.fr ; claire.pottier[at]cnes.fr'
         tmp_metadata['near_range'] = ""
         tmp_metadata['nominal_slant_range_spacing'] = ""
-        tmp_metadata['xref_input_l2_hr_pixc_files'] = "N/A"
-        tmp_metadata['xref_static_river_db_file'] = "N/A"
+        tmp_metadata['xref_input_l2_hr_pixc_files'] = "None"
+        tmp_metadata['xref_static_river_db_file'] = "None"
         tmp_metadata['ellipsoid_semi_major_axis'] = ""
         tmp_metadata['ellipsoid_flattening'] = ""
         self.set_metadata_val(tmp_metadata)
@@ -459,7 +453,7 @@ def find_dtype(in_name, in_width, in_flag_unsigned=False):
     """
     Find the Numpy type given the type name, width and signed/unsigned information
     
-    :param in_name: name of the variable
+    :param in_name: name of the type
     :type in_name: string
     :param in_width: width of the type
     :type in_width: integer
@@ -496,3 +490,58 @@ def find_dtype(in_name, in_width, in_flag_unsigned=False):
         out_numpy_type = "u4"
 
     return out_numpy_type
+
+                     
+def convert_str_to_dtype(in_str_number, in_name, in_width, in_flag_unsigned=False):
+    """
+    Find the Numpy type given the type name, width and signed/unsigned information
+    
+    :param in_str_number: number in string to convert
+    :type in_str_number: string
+    :param in_name: name of the type
+    :type in_name: string
+    :param in_width: width of the type
+    :type in_width: integer
+    :param in_flag_unsigned: flag indicating if the type is unsigned or signed(=default)
+    :type in_flag_unsigned: boolean
+    
+    :return: out_number = number 
+    :rtype: out_number = Numpy.dtype defined in input
+    """
+    
+    # 0 - Init the output value
+    out_number = in_str_number
+    
+    # 1 - Compute the conversion to the wanted type, given its name, width and signed/unsigned flag
+    if in_name == "integer":
+        
+        if in_flag_unsigned:
+            if in_width == 8:
+                out_number = np.uint8(in_str_number)
+            elif in_width == 16:
+                out_number = np.uint16(in_str_number)
+            elif in_width == 64:
+                out_number = np.uint64(in_str_number)
+            else:
+                out_number = np.uint32(in_str_number)
+                
+        else:
+            if in_width == 8:
+                out_number = np.int8(in_str_number)
+            elif in_width == 16:
+                out_number = np.int16(in_str_number)
+            elif in_width == 64:
+                out_number = np.int64(in_str_number)
+            else:
+                out_number = np.int32(in_str_number)
+                
+    elif in_name == "real":
+            if in_width == 64:
+                out_number = np.float64(in_str_number)
+            else:
+                out_number = np.float32(in_str_number)
+        
+    else:
+        my_api.exitWithError("[ERROR] Type %s unknown" % in_name)
+
+    return out_number
