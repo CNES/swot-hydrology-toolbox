@@ -424,7 +424,12 @@ class Processing(object):
                 sisimp_fct.write_swath_polygons(self.my_attributes)
                 my_api.printInfo("")
                 my_api.printInfo("")                
-                
+        # Delete pickle file if exist
+        try:
+            os.remove(self.my_attributes.out_dir + "/*.pkl")
+        except:
+            pass
+
     def run_postprocessing(self):
         """
         Run post-processing
