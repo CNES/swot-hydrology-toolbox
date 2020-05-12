@@ -1024,7 +1024,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
     dataout.Destroy()
 
-    safe_flag_layover = True
+    safe_flag_layover = False
     if (safe_flag_layover) and (IN_attributes.height_model == 'reference_height'):
         liste_lac = intersect(OUT_filename, OUT_filename, indmax, IN_attributes) + liste_lac
 
@@ -1215,79 +1215,95 @@ def intersect(input, output, indmax, IN_attributes, overwrite=False):
     
     for i, polygon_index_1 in enumerate(lyr):
         
-        geom_1 = polygon_index_1.GetGeometryRef()
-        geom_1 = geom_1.Buffer(0)
-
-        if not geom_1.IsValid():
+        try:
+            
+            geom_1 = polygon_index_1.GetGeometryRef()
             geom_1 = geom_1.Buffer(0)
 
-        lyr_bis.SetSpatialFilter(geom_1)
+            if not geom_1.IsValid():
+                geom_1 = geom_1.Buffer(0)
 
-        for polygon_index_2 in lyr_bis:
+            lyr_bis.SetSpatialFilter(geom_1)
 
-            # If not same feature
-            if (polygon_index_2.GetFID() != polygon_index_1.GetFID()) :#& (polygon_index_1.GetField(str("IND_LAC")) not in out_list) & (polygon_index_2.GetField(str("IND_LAC")) not in out_list):
-                
-                geom_2 = polygon_index_2.GetGeometryRef()
-                geom_2 = geom_2.Buffer(0)
+            for polygon_index_2 in lyr_bis:
 
-                if geom_1.Intersects(geom_2):
-                    intersection = geom_1.Intersection(geom_2)
-                    diff1 = geom_1.Difference(intersection)
-                    diff2 = geom_2.Difference(intersection)
-
-                    h1 = polygon_index_1.GetField(str("HEIGHT"))
-                    h2 = polygon_index_2.GetField(str("HEIGHT"))
-                    h = (h1 + h2) / 2
-
+                # If not same feature
+                if (polygon_index_2.GetFID() != polygon_index_1.GetFID()) :#& (polygon_index_1.GetField(str("IND_LAC")) not in out_list) & (polygon_index_2.GetField(str("IND_LAC")) not in out_list):
                     
-                    if intersection.GetGeometryName() == 'POLYGON' or intersection.GetGeometryName() == 'MULTIPOLYGON':
+                    geom_2 = polygon_index_2.GetGeometryRef()
+                    geom_2 = geom_2.Buffer(0)
+
+                    if geom_1.Intersects(geom_2):
+                        intersection = geom_1.Intersection(geom_2)
+
+                        if intersection.GetGeometryName() == 'POLYGON' or intersection.GetGeometryName() == 'MULTIPOLYGON':
+                            diff1 = geom_1.Difference(intersection)
+                            diff2 = geom_2.Difference(intersection)
+
+                            h1 = polygon_index_1.GetField(str("HEIGHT"))
+                            h2 = polygon_index_2.GetField(str("HEIGHT"))
+                            h = (h1 + h2) / 2
+
+                            out_feat = ogr.Feature(defn)
+                            out_feat.SetGeometry(intersection)
+                            out_feat.SetField(str("IND_LAC"), indmax + 1)
+                            out_feat.SetField(str("HEIGHT"), h)
+
+                            out_lyr.CreateFeature(out_feat)
+                            lac = Reference_height_Lac(indmax + 1, intersection, defn, IN_attributes)
+                            lac.height = h
+                            lac.set_hmean(np.mean(lac.compute_h()))
+                            liste_lac.append(lac)
+                            indmax += 1
+                            
+                            geom_1 = diff1
+                            
+                        elif intersection.GetGeometryName() == 'GEOMETRYCOLLECTION':
+                            for i in intersection:
+                                if i.GetGeometryName() == 'POLYGON' or i.GetGeometryName() == 'MULTIPOLYGON':
+                                    
+                                    # ~ print(intersection.GetGeometryName(), i.GetGeometryName())
+                                    diff1 = geom_1.Difference(i)
+                                    diff2 = geom_2.Difference(i)
+
+                                    h1 = polygon_index_1.GetField(str("HEIGHT"))
+                                    h2 = polygon_index_2.GetField(str("HEIGHT"))
+                                    h = (h1 + h2) / 2
+                            
+                                    out_feat = ogr.Feature(defn)
+                                    out_feat.SetGeometry(i)
+                                    out_feat.SetField(str("IND_LAC"), indmax + 1)
+                                    out_feat.SetField(str("HEIGHT"), h)
+                                    out_lyr.CreateFeature(out_feat)
+                                    lac = Reference_height_Lac(indmax + 1, i, defn, IN_attributes)
+                                    lac.height = h
+                                    lac.set_hmean(np.mean(lac.compute_h()))
+                                    liste_lac.append(lac)
+                                    indmax += 1
+                                    
+                                    geom_1 = diff1
+                 
                         
+            
+
+            if geom_1.GetGeometryName() == 'POLYGON' or geom_1.GetGeometryName() == 'MULTIPOLYGON':
+                out_feat = ogr.Feature(defn)
+                out_feat.SetGeometry(geom_1)
+                out_feat.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
+                out_feat.SetField(str("HEIGHT"), polygon_index_1.GetField(str("HEIGHT")))
+                out_lyr.CreateFeature(out_feat)
+            elif geom_1.GetGeometryName() == 'GEOMETRYCOLLECTION':
+                for i in geom_1:
+                    if i.GetGeometryName() == 'POLYGON' or i.GetGeometryName() == 'MULTIPOLYGON':
                         out_feat = ogr.Feature(defn)
-                        out_feat.SetGeometry(intersection)
-                        out_feat.SetField(str("IND_LAC"), indmax + 1)
-                        out_feat.SetField(str("HEIGHT"), h)
-
-                        out_lyr.CreateFeature(out_feat)
-                        lac = Reference_height_Lac(indmax + 1, intersection, defn, IN_attributes)
-                        lac.height = h
-                        lac.set_hmean(np.mean(lac.compute_h()))
-                        liste_lac.append(lac)
-                        indmax += 1
-                        
-                    elif intersection.GetGeometryName() == 'GEOMETRYCOLLECTION':
-                        for i in intersection:
-                            if i.GetGeometryName() == 'POLYGON' or i.GetGeometryName() == 'MULTIPOLYGON':
-                                out_feat = ogr.Feature(defn)
-                                out_feat.SetGeometry(i)
-                                out_feat.SetField(str("IND_LAC"), indmax + 1)
-                                out_feat.SetField(str("HEIGHT"), h)
-                                out_lyr.CreateFeature(out_feat)
-                                lac = Reference_height_Lac(indmax + 1, i, defn, IN_attributes)
-                                lac.height = h
-                                lac.set_hmean(np.mean(lac.compute_h()))
-                                liste_lac.append(lac)
-                                indmax += 1
-                   
-                    geom_1 = diff1
-        
-
-        if geom_1.GetGeometryName() == 'POLYGON' or geom_1.GetGeometryName() == 'MULTIPOLYGON':
-            out_feat = ogr.Feature(defn)
-            out_feat.SetGeometry(geom_1)
-            out_feat.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
-            out_feat.SetField(str("HEIGHT"), polygon_index_1.GetField(str("HEIGHT")))
-            out_lyr.CreateFeature(out_feat)
-        elif geom_1.GetGeometryName() == 'GEOMETRYCOLLECTION':
-            for i in geom_1:
-                if i.GetGeometryName() == 'POLYGON' or i.GetGeometryName() == 'MULTIPOLYGON':
-                    out_feat = ogr.Feature(defn)
-                    out_feat.SetGeometry(i)
-                    out_feat.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
-                    out_feat.SetField(str("HEIGHT"), polygon_index_1.GetField(str("HEIGHT")))
-                    out_lyr.CreateFeature(out_feat)    
+                        out_feat.SetGeometry(i)
+                        out_feat.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
+                        out_feat.SetField(str("HEIGHT"), polygon_index_1.GetField(str("HEIGHT")))
+                        out_lyr.CreateFeature(out_feat)    
                 
-    # ~ exit()
+        except:
+            continue
+            
     out_ds.Destroy()
     ds.Destroy()
     ds_bis.Destroy()
