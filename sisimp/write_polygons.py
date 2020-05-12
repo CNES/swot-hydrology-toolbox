@@ -230,8 +230,12 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
         gdal.RasterizeLayer(ds, [2], layer, None, options=["ATTRIBUTE=HEIGHT"])
         # Get height pixels in lon-lat
         OUT_height_data = ds.GetRasterBand(2).ReadAsArray()
+
+# ~ for index, weight in noiselayers[selected]:
+    # ~ source.SetAttributeFilter('VAL={}'.format(weight))
+    # ~ gdal.RasterizeLayer(target, [1], source, burn_values=[weight])
+
     
-       
     if IN_attributes.height_model == "gaussian" or IN_attributes.height_model == "polynomial":
         ds.GetRasterBand(3).WriteArray(cover_code)
         # Burn with height value pixels in the associated polygon
@@ -263,6 +267,7 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
         else :
             for lake in IN_attributes.liste_lacs:
                 lake.compute_pixels_in_given_lac(OUT_ind_lac_data)
+
 
     return OUT_burn_data, OUT_height_data, OUT_code_data, OUT_ind_lac_data, IN_attributes
                 
@@ -402,7 +407,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         
             indice_water_f = np.isin(toto, merge(indice_water[0],indice_water[1]))
      
-            elevation_tab[indice_water_f] += lac.h_ref
+            elevation_tab[indice_water_f] = lac.h_ref
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
 
     # 3 - Build cross-track distance array
@@ -1190,14 +1195,26 @@ def intersect(input, output, indmax, IN_attributes, overwrite=False):
 
     liste_lac = []
 
-    out_ds, out_lyr = my_shp.overwrite_shapefile(output, ds.GetDriver().GetName(), lyr.GetGeomType(),
-                                                 lyr.GetSpatialRef(), overwrite)
 
+    # ~ out_ds, out_lyr = my_shp.overwrite_shapefile(output, ds.GetDriver().GetName(), lyr.GetGeomType(),
+                                                 # ~ lyr.GetSpatialRef(), overwrite)
+                                                 
+                                                 
+    drv = ogr.GetDriverByName(str("ESRI Shapefile"))
+
+    ds_name = output
+    
+    out_ds = drv.CreateDataSource(ds_name)
+    lyr_name = os.path.splitext(os.path.basename(ds_name))[0]
+    out_lyr = out_ds.CreateLayer(lyr_name, None, geom_type=ogr.wkbPolygon)
     defn = out_lyr.GetLayerDefn()
     out_lyr.CreateField(ogr.FieldDefn(str('IND_LAC'), ogr.OFTInteger64))
-
+    out_lyr.CreateField(ogr.FieldDefn(str('HEIGHT'), ogr.OFTReal))
+    
+    out_list = []
+    
     for i, polygon_index_1 in enumerate(lyr):
-
+        
         geom_1 = polygon_index_1.GetGeometryRef()
         geom_1 = geom_1.Buffer(0)
 
@@ -1208,50 +1225,69 @@ def intersect(input, output, indmax, IN_attributes, overwrite=False):
 
         for polygon_index_2 in lyr_bis:
 
-            # If same feature
-            if polygon_index_2.GetFID() == polygon_index_1.GetFID():
-                continue
+            # If not same feature
+            if (polygon_index_2.GetFID() != polygon_index_1.GetFID()) :#& (polygon_index_1.GetField(str("IND_LAC")) not in out_list) & (polygon_index_2.GetField(str("IND_LAC")) not in out_list):
+                
+                geom_2 = polygon_index_2.GetGeometryRef()
+                geom_2 = geom_2.Buffer(0)
 
-            geom_2 = polygon_index_2.GetGeometryRef()
-            geom_2 = geom_2.Buffer(0)
+                if geom_1.Intersects(geom_2):
+                    intersection = geom_1.Intersection(geom_2)
+                    diff1 = geom_1.Difference(intersection)
+                    diff2 = geom_2.Difference(intersection)
 
-            if geom_1.Intersects(geom_2):
-                intersection = geom_1.Intersection(geom_2)
-                diff1 = geom_1.Difference(intersection)
-                diff2 = geom_2.Difference(intersection)
+                    h1 = polygon_index_1.GetField(str("HEIGHT"))
+                    h2 = polygon_index_2.GetField(str("HEIGHT"))
+                    h = (h1 + h2) / 2
 
-                h1 = polygon_index_1.GetField(str("HEIGHT"))
-                h2 = polygon_index_2.GetField(str("HEIGHT"))
-                h = (h1 + h2) / 2
+                    
+                    if intersection.GetGeometryName() == 'POLYGON' or intersection.GetGeometryName() == 'MULTIPOLYGON':
+                        
+                        out_feat = ogr.Feature(defn)
+                        out_feat.SetGeometry(intersection)
+                        out_feat.SetField(str("IND_LAC"), indmax + 1)
+                        out_feat.SetField(str("HEIGHT"), h)
 
-                out_feat = ogr.Feature(defn)
+                        out_lyr.CreateFeature(out_feat)
+                        lac = Reference_height_Lac(indmax + 1, intersection, defn, IN_attributes)
+                        lac.height = h
+                        lac.set_hmean(np.mean(lac.compute_h()))
+                        liste_lac.append(lac)
+                        indmax += 1
+                        
+                    elif intersection.GetGeometryName() == 'GEOMETRYCOLLECTION':
+                        for i in intersection:
+                            if i.GetGeometryName() == 'POLYGON' or i.GetGeometryName() == 'MULTIPOLYGON':
+                                out_feat = ogr.Feature(defn)
+                                out_feat.SetGeometry(i)
+                                out_feat.SetField(str("IND_LAC"), indmax + 1)
+                                out_feat.SetField(str("HEIGHT"), h)
+                                out_lyr.CreateFeature(out_feat)
+                                lac = Reference_height_Lac(indmax + 1, i, defn, IN_attributes)
+                                lac.height = h
+                                lac.set_hmean(np.mean(lac.compute_h()))
+                                liste_lac.append(lac)
+                                indmax += 1
+                   
+                    geom_1 = diff1
+        
 
-                out_feat.SetGeometry(intersection)
-                out_feat.SetField(str("IND_LAC"), indmax + 1)
-                out_lyr.CreateFeature(out_feat)
-
-                out_feat1 = ogr.Feature(defn)
-                out_feat1.SetGeometry(diff1)
-                out_feat1.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
-                out_lyr.CreateFeature(out_feat1)
-                out_feat2 = ogr.Feature(defn)
-                out_feat2.SetGeometry(diff2)
-                out_feat2.SetField(str("IND_LAC"), polygon_index_2.GetField(str("IND_LAC")))
-                out_lyr.CreateFeature(out_feat2)
-
-                lac = Reference_height_Lac(indmax + 1, intersection, defn, IN_attributes)
-                lac.height = h
-                lac.set_hmean(np.mean(lac.compute_h()))
-                liste_lac.append(lac)
-                indmax += 1
-
-            else:
-
-                out_feat = ogr.Feature(defn)
-                out_feat.SetGeometry(polygon_index_1.GetGeometryRef())
-                out_feat.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
-                out_lyr.CreateFeature(out_feat)
-
+        if geom_1.GetGeometryName() == 'POLYGON' or geom_1.GetGeometryName() == 'MULTIPOLYGON':
+            out_feat = ogr.Feature(defn)
+            out_feat.SetGeometry(geom_1)
+            out_feat.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
+            out_feat.SetField(str("HEIGHT"), polygon_index_1.GetField(str("HEIGHT")))
+            out_lyr.CreateFeature(out_feat)
+        elif geom_1.GetGeometryName() == 'GEOMETRYCOLLECTION':
+            for i in geom_1:
+                if i.GetGeometryName() == 'POLYGON' or i.GetGeometryName() == 'MULTIPOLYGON':
+                    out_feat = ogr.Feature(defn)
+                    out_feat.SetGeometry(i)
+                    out_feat.SetField(str("IND_LAC"), polygon_index_1.GetField(str("IND_LAC")))
+                    out_feat.SetField(str("HEIGHT"), polygon_index_1.GetField(str("HEIGHT")))
+                    out_lyr.CreateFeature(out_feat)    
+                
+    # ~ exit()
     out_ds.Destroy()
     ds.Destroy()
     ds_bis.Destroy()

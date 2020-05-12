@@ -22,7 +22,7 @@ from osgeo import ogr, osr
 import lib.my_api as my_api
 
 import product_netcdf as my_nc
-
+from lib.my_variables import GEN_APPROX_RAD_EARTH
 
 class l2_hr_pixc(object):
 
@@ -194,7 +194,19 @@ class l2_hr_pixc(object):
         tmp_metadata["outer_first_latitude"] = self.outer_first[1]
         tmp_metadata["outer_last_longitude"] = self.outer_last[0]
         tmp_metadata["outer_last_latitude"] = self.outer_last[1]
+        
+        tmp_metadata["polarization"] = "V-pol"
+        tmp_metadata["transmit_antenna"] = "plus-y"
+        tmp_metadata["processing_beamwidth"] = 0.000873
+        tmp_metadata["slc_along_track_resolution"] = 21.875000/4
+        tmp_metadata["slc_first_line_index_in_tvp"] = 0
+        tmp_metadata["slc_last_line_index_in_tvp"] = len(self.nadir_time)
+        
+        tmp_metadata["ellipsoid_semi_major_axis"] = GEN_APPROX_RAD_EARTH
+        tmp_metadata["ellipsoid_flattening"] = 0.
+        
         nc_writer.set_metadata_val(tmp_metadata)
+
 
         # =======================
         # == Group pixel_cloud ==
