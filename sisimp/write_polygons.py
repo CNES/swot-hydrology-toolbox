@@ -698,8 +698,9 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                                            lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], phase_noise_std[az_indices],
                                            dh_dphi[az_indices], dlon_dphi[az_indices], dlat_dphi[az_indices], y[az_indices],
                                            tile_orbit_time, tile_nadir_lat_deg, tile_nadir_lon_deg, tile_nadir_alt, tile_nadir_heading,
-                                           tile_x, tile_y, tile_z, tile_vx, tile_vy, tile_vz,
-                                           IN_attributes.near_range, IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number,
+                                           tile_x, tile_y, tile_z, tile_vx, tile_vy, tile_vz, IN_attributes.near_range, 
+                                           IN_attributes.shapefile_path, IN_attributes.param_file,
+                                           IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number,
                                            IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az_size, IN_attributes.azimuth_spacing,
                                            IN_attributes.range_sampling, IN_attributes.near_range, tile_coords, interf_2d, water_frac)
             

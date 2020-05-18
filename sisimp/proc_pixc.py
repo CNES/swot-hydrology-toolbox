@@ -29,6 +29,7 @@ class l2_hr_pixc(object):
     def __init__(self, IN_azimuth_index, IN_range_index, IN_classification, IN_pixel_area, IN_latitude, IN_longitude, IN_height, IN_phase_noise_std,
                  IN_dh_dphi, IN_dlon_dphi, IN_dlat_dphi, IN_crosstrack,
                  IN_nadir_time, IN_nadir_latitude, IN_nadir_longitude, IN_nadir_altitude, IN_nadir_heading, IN_nadir_x, IN_nadir_y, IN_nadir_z, IN_nadir_vx, IN_nadir_vy, IN_nadir_vz, IN_nadir_near_range,
+                 IN_shapefile_path, IN_param_file, 
                  IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_nb_pix_range, IN_nb_pix_azimuth, IN_azimuth_spacing, IN_range_spacing, IN_near_range, IN_tile_coords, IN_interferogram, IN_water_frac):
         """
         Constructor of the pixel cloud product
@@ -140,6 +141,8 @@ class l2_hr_pixc(object):
         self.nadir_near_range = IN_nadir_near_range
         self.nb_nadir_pix = IN_nadir_time.size
 
+        self.shapefile_path = IN_shapefile_path
+        self.param_file = IN_param_file
         self.mission_start_time = IN_mission_start_time
         self.cycle_duration = IN_cycle_duration
         self.cycle_num = IN_cycle_num
@@ -173,9 +176,9 @@ class l2_hr_pixc(object):
         
         # 2 - Update global attributes
         tmp_metadata = {}
-        tmp_metadata['cycle_number'] = int(self.cycle_num)
-        tmp_metadata['pass_number'] = int(self.pass_num)
-        tmp_metadata['tile_number'] = int(self.tile_ref[0:-1])
+        tmp_metadata['cycle_number'] = np.short(self.cycle_num)
+        tmp_metadata['pass_number'] = np.short(self.pass_num)
+        tmp_metadata['tile_number'] = np.short(self.tile_ref[0:-1])
         tmp_metadata['swath_side'] = self.tile_ref[-1]
         tmp_metadata['tile_name'] = "%03d_%03d%s" % (np.int(self.pass_num), int(self.tile_ref[0:-1]), self.tile_ref[-1])
         tmp_metadata['near_range'] = np.min(self.near_range)  # TODO: improve
@@ -196,11 +199,14 @@ class l2_hr_pixc(object):
         tmp_metadata["outer_last_latitude"] = self.outer_last[1]
         
         tmp_metadata["polarization"] = "V"
-        tmp_metadata["transmit_antenna"] = "plus-y"
+        tmp_metadata["transmit_antenna"] = "plus_y"
         tmp_metadata["processing_beamwidth"] = 0.000873
         tmp_metadata["slc_along_track_resolution"] = 21.875000/4
         tmp_metadata["slc_first_line_index_in_tvp"] = 0
         tmp_metadata["slc_last_line_index_in_tvp"] = len(self.nadir_time)
+        
+        tmp_metadata["xref_input_water_mask_file"] = self.shapefile_path+".shp"
+        tmp_metadata["xref_l2_hr_pixc_config_parameters_file"] = self.param_file
         
         tmp_metadata["ellipsoid_semi_major_axis"] = GEN_APPROX_RAD_EARTH
         tmp_metadata["ellipsoid_flattening"] = 0.
