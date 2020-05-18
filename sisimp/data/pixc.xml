@@ -212,13 +212,13 @@
           <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="z component of the spacecraft velocity in the ECEF frame" units="m/s" valid_min="-10000.0" valid_max="10000.0" coordinates="longitude latitude" comment="KMSF velocity component in z direction in the ECEF frame."/>
         </real>
         <real name="/tvp/plus_y_antenna_x" shape="num_tvps_shape" width="64">
-          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="x coordinate of plus_y antenna phase center in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="x coordinate of the plus_y antenna phase center in the ECEF frame."/>
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="x coordinate of the plus_y antenna phase center in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="x coordinate of the plus_y antenna phase center in the ECEF frame."/>
         </real>
         <real name="/tvp/plus_y_antenna_y" shape="num_tvps_shape" width="64">
-          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="y coordinate of plus_y antenna phase center in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="y coordinate of the plus_y antenna phase center in the ECEF frame."/>
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="y coordinate of the plus_y antenna phase center in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="y coordinate of the plus_y antenna phase center in the ECEF frame."/>
         </real>
         <real name="/tvp/plus_y_antenna_z" shape="num_tvps_shape" width="64">
-          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="z coordinate of plus_y antenna phase center in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="z coordinate of the plus_y antenna phase center in the ECEF frame."/>
+          <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="z coordinate of the plus_y antenna phase center in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="z coordinate of the plus_y antenna phase center in the ECEF frame."/>
         </real>
         <real name="/tvp/minus_y_antenna_x" shape="num_tvps_shape" width="64">
           <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="x coordinate of the minus_y antenna phase center in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="x coordinate of the minus_y antenna phase center in the ECEF frame."/>
@@ -293,10 +293,10 @@
           <annotation description="Tile name using format PPP_TTTS, where PPP is a 3 digit pass number with leading zeros, TTT is a 3 digit tile number within the pass, and S is a character 'L' or 'R' for the left and right swath, respectively."/>
         </string>
         <string name="/@time_coverage_start" shape="Scalar" width="0">
-          <annotation description="UTC time of first measurement. Format is: YYYY-MM-DD HH:MM:SS.SSSSSSZ"/>
+          <annotation description="UTC time of first measurement. Format is: YYYY-MM-DD hh:mm:ss.ssssssZ"/>
         </string>
         <string name="/@time_coverage_end" shape="Scalar" width="0">
-          <annotation description="UTC time of last measurement. Format is: YYYY-MM-DD HH:MM:SS.SSSSSSZ"/>
+          <annotation description="UTC time of last measurement. Format is: YYYY-MM-DD hh:mm:ss.ssssssZ"/>
         </string>
         <real name="/@geospatial_lon_min" shape="Scalar" width="64">
           <annotation description="Westernmost longitude (deg) of granule bounding box"/>

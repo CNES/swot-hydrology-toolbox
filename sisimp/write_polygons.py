@@ -345,7 +345,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             indice_az = np.array(ind[1]-azmin)
             # Randomly classify or erase dark water regions
             # Randomly erase DW regions in DW mask
-            dw_mask = dark_water.dark_water_non_detected_simulation(dw_mask, 1, azmin, azmax+1, 1, rmin, rmax+1, IN_attributes.dw_detected_percent, IN_attributes.dw_seed, scale_factor=IN_attributes.scale_factor_non_detected_dw)
+            if IN_attributes.dw_detected_percent < 100.:
+                dw_mask = dark_water.dark_water_non_detected_simulation(dw_mask, 1, azmin, azmax+1, 1, rmin, rmax+1, IN_attributes.dw_detected_percent, IN_attributes.dw_seed, scale_factor=IN_attributes.scale_factor_non_detected_dw)
             # Reshape dark_water to water extent
             dw_mask = dw_mask[indice_az, indice_r]
 
@@ -433,6 +434,14 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # ~ pixel_area[ind_lw]= (0.4 * np.random.random_sample((len(pixel_area[ind_lw]))) + 0.1) * pixel_area[ind_lw]
     # ~ pixel_area[ind_wl]= (0.4 * np.random.random_sample((len(pixel_area[ind_wl]))) + 0.5) * pixel_area[ind_wl]
     # ~ pixel_area[ind_l]=0
+    
+    # Compute water frac (1 for water, 0 for land, 0.5 for edge)
+    water_frac = np.copy(classification_tab)
+    water_frac[np.where(water_frac == 1)] = 0
+    water_frac[np.where(water_frac == 2)] = 0.5
+    water_frac[np.where(water_frac == 3)] = 0.5
+    water_frac[np.where(water_frac == 4)] = 1.
+    water_frac[np.where(water_frac == 24)] = 1.
     
     # 4.1 bis - Compute mean noise over points
     noise_seed = int(str(time.time()).split('.')[1])
@@ -692,7 +701,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                                            tile_x, tile_y, tile_z, tile_vx, tile_vy, tile_vz,
                                            IN_attributes.near_range, IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number,
                                            IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az_size, IN_attributes.azimuth_spacing,
-                                           IN_attributes.range_sampling, IN_attributes.near_range, tile_coords, interf_2d)
+                                           IN_attributes.range_sampling, IN_attributes.near_range, tile_coords, interf_2d, water_frac)
             
             # Update filenames with tile ref
             IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])
