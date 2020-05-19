@@ -390,7 +390,7 @@ class PixcProduct(NetCDFProduct):
         tmp_metadata['transmit_antenna'] = ""
         tmp_metadata['processing_beamwidth'] = ""
         tmp_metadata['slc_along_track_resolution'] = ""
-        tmp_metadata['slc_range_resolution'] = ""
+        tmp_metadata['slc_range_resolution'] = "None"
         tmp_metadata['slc_first_line_index_in_tvp'] = ""
         tmp_metadata['slc_last_line_index_in_tvp'] = ""
         tmp_metadata['xref_input_l1b_hr_slc_file'] = "None"

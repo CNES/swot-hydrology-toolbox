@@ -80,6 +80,7 @@ class Processing(object):
             
             # Get the parameters
             parameters = my_rdf.myRdfReader(IN_paramFile)
+            self.my_attributes.param_file = IN_paramFile
 
             # Directory of orbit files (computed by select_orbit_cnes)
             run_directory_for_orbits = os.path.expandvars(parameters.getValue("Run directory for orbits"))
