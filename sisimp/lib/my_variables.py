@@ -31,6 +31,11 @@ GEOLOCATION_IMPROVEMENT = 'no'
 NOISE_MULTIPLIER_FACTOR = 0.5  # Noise multiplier factor 1/sqrt(Nl) where Nl=4(nb_multilook)
 HEIGHT_BIAS_STD = 0.1  # Height bias std (m)
 
+NOISE_FILE_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt"
+NOISE_FILE_PATH_FOR_LAND = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2_land.txt"
+NOISE_FILE_PATH_FOR_DW = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2_land.txt"
+TILE_DATABSE_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip"
+
 # Orbit parameters
 ORBIT_JITTER = 1000  # Orbit jitter (m)
 MULTIPLE_ORBIT = 'yes'

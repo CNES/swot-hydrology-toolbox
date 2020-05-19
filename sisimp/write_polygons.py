@@ -353,8 +353,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             # Update IN_water_pixels with the deleted water pixels
             # Check if dw pixels are deleted = dw_mask pixels set to 2
             if np.where(dw_mask == 2)[0].size > 0:
-                my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Nb detected dark water pixels : %d" % np.where(dw_mask == 1)[0].size)
-                my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Nb non detected dark water pixels : %d" % np.where(dw_mask == 2)[0].size)
                 # Update river_flag and IN_water_pixels with the deleted water pixels
                 classification_tab[np.where(dw_mask == 2)] = 0
                 IN_water_pixels[ind] = classification_tab
@@ -373,6 +371,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             dark_water_loc = np.where(dw_mask == 1)
             # Update classification value for dark water pixels with DW flag
             classification_tab[dark_water_loc] = IN_attributes.darkwater_flag
+            my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Nb detected dark water pixels : %d" % np.where(dw_mask == 1)[0].size)
+            my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Nb non detected dark water pixels : %d" % np.where(dw_mask == 2)[0].size)
         else:
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] No Dark Water will be simulated")
     else:

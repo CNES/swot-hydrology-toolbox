@@ -159,7 +159,7 @@ class Processing(object):
             self.my_attributes.dw_seed = read_parameter(parameters, "Dark water seed", None, float)
             self.my_attributes.scale_factor_non_detected_dw = read_parameter(parameters, "Scale factor non detected dw", my_var.SCALE_FACTOR_NON_DETECTED_DW, float)
             self.my_attributes.dw_detected_percent = read_parameter(parameters, "Dark water detected percentage", my_var.DW_DETECTED_PERCENT, float)
-            self.my_attributes.dw_detected_noise_factor = read_parameter(parameters, "Dark water detected noise factor", my_var.DW_DETECTED_NOISE_FACTOR, float)
+            # ~ self.my_attributes.dw_detected_noise_factor = read_parameter(parameters, "Dark water detected noise factor", my_var.DW_DETECTED_NOISE_FACTOR, float)
             self.my_attributes.dw_correlation_length = read_parameter(parameters, "Dark water correlation length", my_var.DW_CORRELATION_LENGTH, int)
 
             # Water flag
@@ -167,7 +167,7 @@ class Processing(object):
             self.my_attributes.water_land_flag = read_parameter(parameters, "Water land flag", my_var.WATER_LAND_FLAG, float)
             self.my_attributes.land_flag = read_parameter(parameters, "Land flag", my_var.LAND_FLAG, float)
             self.my_attributes.land_water_flag = read_parameter(parameters, "Land water flag", my_var.LAND_WATER_FLAG, float)
-            self.my_attributes.land_detected_noise_factor = read_parameter(parameters, "Land noise factor", my_var.LAND_DETECTED_NOISE_FACTOR, float)
+            # ~ self.my_attributes.land_detected_noise_factor = read_parameter(parameters, "Land noise factor", my_var.LAND_DETECTED_NOISE_FACTOR, float)
 
             # Noise parameters
             self.my_attributes.height_bias_std = read_parameter(parameters, "Height bias std", my_var.HEIGHT_BIAS_STD, float)
@@ -264,18 +264,20 @@ class Processing(object):
 
         # Load the noise tab
         try:
-            self.my_attributes.noise_height = np.loadtxt(os.path.expandvars(parameters.getValue("Noise file path")), skiprows=1)
+            self.my_attributes.noise_height = np.loadtxt(os.path.expandvars(read_parameter(parameters, "Noise file path", my_var.NOISE_FILE_PATH, str)), skiprows=1)
             self.my_attributes.noise_height[:, 1] = self.my_attributes.noise_multiplier_factor * self.my_attributes.noise_height[:, 1]
-            self.my_attributes.dw_detected_noise_height = np.loadtxt(os.path.expandvars(parameters.getValue("Noise file path")), skiprows=1)
-            self.my_attributes.dw_detected_noise_height[:, 1] = self.my_attributes.dw_detected_noise_factor * self.my_attributes.noise_height[:, 1]
-            self.my_attributes.land_detected_noise_height = np.loadtxt(os.path.expandvars(parameters.getValue("Noise file path")), skiprows=1)
-            self.my_attributes.land_detected_noise_height[:, 1] = self.my_attributes.land_detected_noise_factor * self.my_attributes.noise_height[:, 1]
+            
+            self.my_attributes.dw_detected_noise_height = np.loadtxt(os.path.expandvars(read_parameter(parameters, "Noise file path for dark water", my_var.NOISE_FILE_PATH_FOR_DW, str)), skiprows=1)
+            self.my_attributes.dw_detected_noise_height[:, 1] = self.my_attributes.noise_multiplier_factor * self.my_attributes.dw_detected_noise_height[:, 1]
+            
+            self.my_attributes.land_detected_noise_height = np.loadtxt(os.path.expandvars(read_parameter(parameters, "Noise file path for land", my_var.NOISE_FILE_PATH_FOR_LAND, str)), skiprows=1)
+            self.my_attributes.land_detected_noise_height[:, 1] = self.my_attributes.noise_multiplier_factor * self.my_attributes.land_detected_noise_height[:, 1]
         except IOError:
             my_api.exitWithError("Noise file not found")
 
         # Load the tile database file
         try:
-            archive = zipfile.ZipFile(os.path.expandvars(parameters.getValue("Tile database path")), "r")
+            archive = zipfile.ZipFile(os.path.expandvars(read_parameter(parameters, "Tile database path", my_var.TILE_DATABSE_PATH, str)), "r")
             imgfile = archive.open("tiles_full.txt")
             self.my_attributes.tile_database = np.loadtxt(imgfile, skiprows=1)
         except IOError:

@@ -44,41 +44,38 @@ def calc_delta_h(IN_water_pixels, IN_angles_water, IN_angles, IN_noise_height, I
     
     np.random.seed(seed)
 
+    ## Conversion temporaire du fichier erreur de hauteur en fichier erreur de phase
+    IN_noise_height[:,1] = IN_noise_height[:,1]*2*np.pi/(sensor_wavelength*near_range*np.sin(IN_noise_height[:,0]*DEG2RAD)/baseline)
+    ## Conversion temporaire du fichier erreur de hauteur en fichier erreur de phase
+
+
+
     if (IN_angles.size != 0) and (np.max(IN_angles*RAD2DEG) > np.max(IN_noise_height[:, 0])):
         my_api.printInfo("One or more incidence angles are greater than the max value defined in the noise file ! Values higher than {0} degrees will be set to      the maximum value defined in the file.".format(np.max(IN_noise_height[:, 0])))
 
-    stdv = 0
-    #OUT_noisy_h = 0
     OUT_noisy_h = np.zeros((len(IN_water_pixels), len(IN_water_pixels[0])))
-    if (IN_noise_height[:, 1] < 1.e-5).any() and not IN_height_bias_std < 1.e-5:  # Case noise file as one or more zeros
-        #OUT_noisy_h = np.random.normal(0, IN_height_bias_std)
-        OUT_noisy_h = np.random.normal(0, IN_height_bias_std, (len(IN_water_pixels), len(IN_water_pixels[0])))
-        stdv = np.zeros(len(IN_angles))
-
-    elif not (IN_noise_height[:, 1] < 1.e-5).any() and IN_height_bias_std < 1.e-5:  # Case height bias equals zero
-        stdv = np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1])
-        stdv[np.isnan(stdv)]= 0.
-        #OUT_noisy_h = np.random.normal(0, stdv)
-        stdv_water = np.interp(IN_angles_water*RAD2DEG, IN_noise_height[:,0], IN_noise_height[:,1])
-        stdv_water[np.isnan(stdv_water)]=0.
-        OUT_noisy_h = np.random.normal(0, stdv_water, (len(IN_water_pixels), len(IN_water_pixels[0])))
-
-    elif (IN_noise_height[:, 1] < 1.e-5).any() and IN_height_bias_std < 1.e-5:  # Case both are equals to zero
-        #OUT_noisy_h = 0.
-        stdv = np.zeros(len(IN_angles))
-
-    else:  # Case none are equals to zero
-        stdv = np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1])
-        stdv[np.isnan(stdv)]= 0.
-        stdv_water = np.interp(IN_angles_water*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1])
-        stdv_water[np.isnan(stdv_water)]= 0.
-        OUT_noisy_h = np.random.normal(0, IN_height_bias_std, (len(IN_water_pixels), len(IN_water_pixels[0]))) + np.random.normal(0, max(stdv), (len(IN_water_pixels), len(IN_water_pixels[0])))
-        
-    h_amb = sensor_wavelength*near_range*np.sin(IN_angles)/baseline
+   
     
-    phase_noise_std = stdv*2*np.pi/h_amb
+    if (IN_noise_height[:, 1] < 1.e-5).any() :  # Case noise file as one or more zeros
+        OUT_noisy_h[:,:] = np.random.normal(0, IN_height_bias_std)
+        stdv = np.zeros(len(IN_angles))
 
-    return OUT_noisy_h, phase_noise_std, h_amb/2/np.pi
+    else:
+        stdv = np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1])
+        stdv[np.isnan(stdv)]= 0.
+        stdv_2d = np.interp(IN_angles_water*RAD2DEG, IN_noise_height[:,0], IN_noise_height[:,1])
+        stdv_2d[np.isnan(stdv_2d)]=0.
+        OUT_noisy_phi = np.random.normal(0, stdv_2d, (len(IN_water_pixels), len(IN_water_pixels[0])))
+
+        
+    h_amb = sensor_wavelength*near_range*np.sin(IN_angles_water)/baseline
+    OUT_noisy_h = np.angle(np.exp(1j*OUT_noisy_phi)) * h_amb/(2*np.pi)
+    phase_noise_std = stdv
+    
+    if IN_height_bias_std != 0.:
+        OUT_noisy_h += np.random.normal(0, IN_height_bias_std) 
+    
+    return OUT_noisy_h, phase_noise_std, sensor_wavelength*near_range*np.sin(IN_angles)/baseline/2/np.pi
 
 def calc_delta_jitter(IN_orbit_heading, IN_lat, IN_orbit_jitter):
     """
