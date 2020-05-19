@@ -3,10 +3,13 @@ Shapefile path = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/data/river_and_lake
 Output directory = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/simu
 
 !### Noise and error files 
-Noise file path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt
-roll_repository_name = /work/ALT/swot/swototar/XOVERCAL/lr_int_xcrosscal_tds/karin 
 
+roll_repository_name = /work/ALT/swot/swototar/XOVERCAL/lr_int_xcrosscal_tds/karin 
+Noise file path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt
+Noise file path for land= $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2_land.txt
+Noise file path for dark water= $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2_land.txt
 Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip
+
 
 !### Orbit parameters: 
 !3 options =
