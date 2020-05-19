@@ -112,13 +112,12 @@ class orbitAttributes:
     
         # 2 - Attributes for computation configuration
         self.create_shapefile = None
-        self.create_pixc_vec_river = None
+        self.create_dummy_pixc_vec_river = None
     
         # 3 - Working variables init
         self.sisimp_filenames = None  # Filenames specific to SISIMP
         self.noise_height = None  # Noise tab
         self.orbit_list = []  # List of triplets (cycle number, pass number, orbit file) to process
-        self.compute_pixc_vec_river = None  # Flag for PIXCVecRiver file computation
         self.near_range = None
         self.tile_coords = {}  # Dictionnary for storing tile coordinates for swath R and L
 
@@ -158,7 +157,7 @@ class orbitAttributes:
 #######################################
         
 
-def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
+def compute_pixels_in_water(IN_fshp_reproj, IN_attributes):
     """
     Compute the position of the radar pixels that are inside a water body
 
@@ -171,8 +170,6 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
 
     :param IN_fshp_reproj: full path of the shapefile with polygons in radar projection
     :type IN_fshp_reproj: string
-    :param IN_pixc_vec_only: if set, deal only with polygons with field RIV_FLAG != 0
-    :type IN_pixc_vec_only: boolean
     :param IN_attributes:
     :type IN_attributes:
 
@@ -181,22 +178,16 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
     :rettun OUT_height_data : the height pixels that are inside a water body
     :rtype OUT_height_data : 2D-array of int (height of each water body pixel)
     """
-    if IN_pixc_vec_only:
-        my_api.printInfo("[write_polygons] [compute_pixels_in_water] == compute_pixels_in_water / river polygons only ==")
-    else:
-        my_api.printInfo("[write_polygons] [compute_pixels_in_water] == compute_pixels_in_water / all polygons ==")
+    my_api.printInfo("[write_polygons] [compute_pixels_in_water] == compute_pixels_in_water / all polygons ==")
 
     # 1 - Read the reprojected shapefile
     layer, da_shapefile = my_shp.open_shp(IN_fshp_reproj)
-
-    if IN_pixc_vec_only:
-        layer.SetAttributeFilter(str("RIV_FLAG != '0'"))
-        my_api.printInfo("[write_polygons] [compute_pixels_in_water] compute_pixels_in_water / river pixels only - %d features to deal with" % layer.GetFeatureCount())
 
     # Create a GDAL raster in memory
     nx = len(IN_attributes.lon)
     ny = IN_attributes.nb_pix_range
     
+    cover = np.zeros((ny, nx), dtype='float64')
     cover = np.zeros((ny, nx), dtype='float64')
     cover_height = np.zeros((ny, nx), dtype='float64')
     cover_code = np.zeros((ny, nx), dtype='float64')
@@ -250,23 +241,23 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_pixc_vec_only, IN_attributes):
     # Close the raster
     ds = None
 
-    if not IN_pixc_vec_only:
-        my_api.printInfo("[write_polygons] [compute_pixels_in_water] Compute lakes labels")
 
-        nb_lakes = len(IN_attributes.liste_lacs)
+    my_api.printInfo("[write_polygons] [compute_pixels_in_water] Compute lakes labels")
 
-        if nb_lakes > 100 : # Quick way to compute labels for a large amount of lakes
-            labels_coords = my_tools.coords_from_labels(OUT_ind_lac_data)
+    nb_lakes = len(IN_attributes.liste_lacs)
 
-            for i, lake in enumerate(IN_attributes.liste_lacs):
-                if lake.num in labels_coords:
-                    lake.set_pixels_coods(np.array(labels_coords[lake.num]).transpose())
-                else :
-                    # lakes without pixels
-                    lake.set_pixels_coods([[], []])
-        else :
-            for lake in IN_attributes.liste_lacs:
-                lake.compute_pixels_in_given_lac(OUT_ind_lac_data)
+    if nb_lakes > 100 : # Quick way to compute labels for a large amount of lakes
+        labels_coords = my_tools.coords_from_labels(OUT_ind_lac_data)
+
+        for i, lake in enumerate(IN_attributes.liste_lacs):
+            if lake.num in labels_coords:
+                lake.set_pixels_coods(np.array(labels_coords[lake.num]).transpose())
+            else :
+                # lakes without pixels
+                lake.set_pixels_coods([[], []])
+    else :
+        for lake in IN_attributes.liste_lacs:
+            lake.compute_pixels_in_given_lac(OUT_ind_lac_data)
 
 
     return OUT_burn_data, OUT_height_data, OUT_code_data, OUT_ind_lac_data, IN_attributes
@@ -304,11 +295,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     water_land_pixels = ndimage.binary_erosion(IN_water_pixels).astype(IN_water_pixels.dtype)
     land_water_pixels = ndimage.binary_dilation(IN_water_pixels, structure=struct).astype(IN_water_pixels.dtype)
     land_pixels = ndimage.binary_dilation(IN_water_pixels, structure=struct, iterations=5).astype(IN_water_pixels.dtype)
-   
-    # Keep river_flag informartion
-    river_flag_mat = IN_water_pixels
-    for i in range(5):
-        river_flag_mat = ndimage.grey_dilation(river_flag_mat, footprint=struct).astype(river_flag_mat.dtype)
 
     # Put flag on land, land_water, water_land and water pixels
     IN_water_pixels[np.nonzero(IN_water_pixels)] = IN_attributes.water_flag
@@ -324,7 +310,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     ind = np.nonzero(IN_water_pixels)  # Get indices 1=lake and 2=river 99=land-water 100=land (remove 0=land)
     r, az = [ind[0], ind[1]]  # Range index
     #az = ind[1]  # Azimuth index
-    river_flag = river_flag_mat[ind]  # 1=lake and 2=river
     classification_tab = IN_water_pixels[ind]
     land_ind = np.where(classification_tab==IN_attributes.land_flag)[0]
 
@@ -366,7 +351,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 ind = np.nonzero(IN_water_pixels)
                 r, az = [ind[0], ind[1]]
                 classification_tab = IN_water_pixels[ind]
-                river_flag = river_flag_mat[ind]
                 land_ind = np.where(classification_tab==IN_attributes.land_flag)[0]
             ## Build the classification array with water flag Dark_water flag
             # Locate DW pixels
@@ -719,22 +703,18 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 my_pixc.write_tvp_asShp(IN_attributes.sisimp_filenames.pixc_file+"_tvp.shp")
                 
             # Write PIXCVec files if asked
-            # IN_attributes.create_pixc_vec_river = False
-            if IN_attributes.create_pixc_vec_river:
-                # Init PIXCVec product
-                my_pixc_vec = proc_pixcvecriver.l2_hr_pixc_vec_river(sub_az, sub_r, 
-                                                                     IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number, IN_orbit_number, tile_ref, tile_orbit_time[0], tile_orbit_time[-1], 
-                                                                     IN_attributes.nb_pix_range, nadir_az.size, tile_coords)
-                # Set improved geoloc
-                lon_no_noisy, lat_no_noisy = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, h=elevation_tab)
-                my_pixc_vec.set_vectorproc(lat_no_noisy[az_indices], lon_no_noisy[az_indices], elevation_tab[az_indices])
-                # Compute river_flag
-                my_pixc_vec.set_river_lake_tag(river_flag[az_indices]-1)  # -1 to have 0=lake and 1=river
-                # Write PIXCVec file
-                my_pixc_vec.write_file(IN_attributes.sisimp_filenames.pixc_vec_river_file+".nc")
-                # Write as shapefile if asked
-                if IN_attributes.create_shapefile:
-                    my_pixc_vec.write_file_asShp(IN_attributes.sisimp_filenames.pixc_vec_river_file+".shp")
+            if IN_attributes.create_dummy_pixc_vec_river:
+                empty_array = np.array([])
+                my_pixc_vec = proc_pixcvecriver.l2_hr_pixc_vec_river(empty_array, empty_array,
+                                                                     IN_attributes.mission_start_time,
+                                                                     IN_attributes.cycle_duration, IN_cycle_number,
+                                                                     IN_orbit_number, tile_ref, tile_orbit_time[0],
+                                                                     tile_orbit_time[-1],
+                                                                     IN_attributes.nb_pix_range, nadir_az.size,
+                                                                     tile_coords)
+                my_pixc_vec.set_vectorproc( empty_array, empty_array, empty_array)
+                my_pixc_vec.set_river_lake_tag(empty_array)
+                my_pixc_vec.write_file(IN_attributes.sisimp_filenames.pixc_vec_river_file + ".nc")
             
     else:  
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] No output data file to write")
@@ -809,8 +789,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     if dataout is None:
         my_api.printError("[write_polygons] [reproject_shapefile] Could not create file")
     layerout = dataout.CreateLayer(str(os.path.splitext(os.path.split(OUT_filename)[1])[0]), None, geom_type=ogr.wkbPolygon)
-    # Create necessary output fields 
-    layerout.CreateField(ogr.FieldDefn(str('RIV_FLAG'), ogr.OFTInteger))
+    # Create necessary output fields
     layerout.CreateField(ogr.FieldDefn(str('HEIGHT'), ogr.OFTReal))
     layerout.CreateField(ogr.FieldDefn(str('CODE'), ogr.OFTInteger64))
     layerout.CreateField(ogr.FieldDefn(str('IND_LAC'), ogr.OFTInteger64))
@@ -835,12 +814,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
         geom = polygon_index.GetGeometryRef()
         
         if geom is not None:  # Test geom.IsValid() not necessary
-
-            # 4.1 - Fill RIV_FLAG flag
-            if IN_attributes.compute_pixc_vec_river:
-                riv_flag = polygon_index.GetField(str("RIV_FLAG"))
-            else:
-                riv_flag = 0
 
             # 4.2 - Create the output polygon in radar projection
             # 4.2.1 - Init output geometry
@@ -1007,8 +980,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
                 # Add the output reprojected polygon to the output feature
                 feature_out.SetGeometry(geom_out)
-                # Set the RIV_FLAG field
-                feature_out.SetField(str("RIV_FLAG"), riv_flag)
                 # Set the HEIGHT field
                 height_from_shp = False
                 layerDefn = layer.GetLayerDefn()
