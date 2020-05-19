@@ -206,6 +206,7 @@ def main():
     parser.add_argument('output_dir', help="output directory", type=str)
     parser.add_argument('parameter_laketile', help="parameter file", type=str)
     parser.add_argument("-gdem", action='store_true', dest='gdem', default=None, help='if true, compute tile with pixc_gdem')
+    parser.add_argument("-trueassign", action='store_true', dest='trueassign', default=None, help='if true, compute tile with pixc_trueassign')
     parser.add_argument(
         '-swotCNES', action='store_true', dest='swotCNES', default=None, help='only for CNES developer users, switch to swotCNES processing env')
             
@@ -249,6 +250,9 @@ def main():
         if args['gdem']:
             pixc_path = abspath(ann_cfg["gdem pixc file"])
             pixcvec_path = abspath(ann_cfg['pixcvec file from gdem'])
+        elif args['trueassign']:
+            pixc_path = abspath(ann_cfg["pixc true assign file"])
+            pixcvec_path = abspath(ann_cfg['pixcvec true assign file'])
         else :
             pixc_path    = abspath(ann_cfg['pixc file'])
             pixcvec_path = abspath(ann_cfg['pixcvec file'])
