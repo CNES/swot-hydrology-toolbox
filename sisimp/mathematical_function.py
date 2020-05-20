@@ -45,7 +45,7 @@ def calc_delta_h(IN_water_pixels, IN_angles_water, IN_angles, IN_noise_height, I
     np.random.seed(seed)
 
     ## Conversion temporaire du fichier erreur de hauteur en fichier erreur de phase
-    IN_noise_height[:,1] = IN_noise_height[:,1]*2*np.pi/(sensor_wavelength*near_range*np.sin(IN_noise_height[:,0]*DEG2RAD)/baseline)
+    IN_noise_phase = IN_noise_height[:,1]*2*np.pi/(sensor_wavelength*near_range*np.sin(IN_noise_height[:,0]*DEG2RAD)/baseline)
     ## Conversion temporaire du fichier erreur de hauteur en fichier erreur de phase
 
 
@@ -61,9 +61,9 @@ def calc_delta_h(IN_water_pixels, IN_angles_water, IN_angles, IN_noise_height, I
         stdv = np.zeros(len(IN_angles))
 
     else:
-        stdv = np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_height[:, 1])
+        stdv = np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_phase)
         stdv[np.isnan(stdv)]= 0.
-        stdv_2d = np.interp(IN_angles_water*RAD2DEG, IN_noise_height[:,0], IN_noise_height[:,1])
+        stdv_2d = np.interp(IN_angles_water*RAD2DEG, IN_noise_height[:,0], IN_noise_phase)
         stdv_2d[np.isnan(stdv_2d)]=0.
         OUT_noisy_phi = np.random.normal(0, stdv_2d, (len(IN_water_pixels), len(IN_water_pixels[0])))
 
