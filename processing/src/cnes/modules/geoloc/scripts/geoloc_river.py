@@ -164,7 +164,7 @@ class GeolocRiver(object):
                 else:
                     new_height = self.rivertile.h_n_ave_fit[rivertile_index]
                     # avoid wrong data
-                    if new_height >= MIN_HEIGHT_VALUE:
+                    if new_height >= MIN_NEW_HEIGHTS_VALUE:
                         self.new_height[point_index] = new_height
 
         if unfound_keys > 0:
@@ -198,7 +198,7 @@ class GeolocRiver(object):
             h2 = self.rivertile.h_n_ave_fit[rivertile_index]
 
         # Linear interpolation of height
-        if h1 >= MIN_HEIGHT_VALUE and h2 >= MIN_HEIGHT_VALUE:
+        if h1 >= MIN_NEW_HEIGHTS_VALUE and h2 >= MIN_NEW_HEIGHTS_VALUE:
             self.new_height[point_index] = h1 + (h2 - h1) / (d1 + d2) * d1
 
 
@@ -267,10 +267,12 @@ class GeolocRiver(object):
             nadir_vy_vect[i] = nadir_vy[ind_sensor]
             nadir_vz_vect[i] = nadir_vz[ind_sensor]
             
-        # filter bad new_heights values
-        np.where(self.new_height > MAX_NEW_HEIGHTS_VALUE, h_noisy, self.new_height)     
-        np.where(self.new_height < MIN_NEW_HEIGHTS_VALUE, h_noisy, self.new_height) 
-                    
+        # ~ # filter bad new_heights values
+        
+        self.new_height = np.where(self.new_height > MAX_NEW_HEIGHTS_VALUE, h_noisy, self.new_height)     
+        self.new_height = np.where(self.new_height < MIN_NEW_HEIGHTS_VALUE, h_noisy, self.new_height) 
+
+                            
         # improve height with vectorised pixel
         p_final, p_final_llh, h_mu, (iter_grad, nfev_minimize_scalar) = geoloc.pointcloud_height_geoloc_vect(np.transpose(np.array([x, y, z])),
                                                                                                              h_noisy,
@@ -310,7 +312,6 @@ def geoloc_river(pixc, pixcvec, sensor, rivertile, fit_heights_per_reach, interp
       :returns latitude corrected, longitude corrected, height corrected
       :rtype numpy array, numpy array numpy array
     """
-    print(np.amax(rivertile['fit_height']))
     
     geolocriver = GeolocRiver(pixc, pixcvec, sensor, rivertile)
     # Do the improved river geolocation
