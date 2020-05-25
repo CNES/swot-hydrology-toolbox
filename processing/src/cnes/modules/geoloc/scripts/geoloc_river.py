@@ -37,8 +37,8 @@ import cnes.common.service_error as service_error
 import logging
 
 # used to filter out fill value and clearly wrong heights, dead sea is about -410 (for now)
-MIN_HEIGHT_VALUE = -800
-
+MIN_NEW_HEIGHTS_VALUE = -2000
+MAX_NEW_HEIGHTS_VALUE = 10000
 
 class GeolocRiver(object):
     """
@@ -108,7 +108,7 @@ class GeolocRiver(object):
             y = np.array([self.rivertile.h_n_ave[self.node_reach_dict[(reach_id, node_id)]] for node_id in x])
 
             # filter bad data in y (nan, -inf, fill values)
-            good = (y >= MIN_HEIGHT_VALUE)
+            good = (y >= MIN_NEW_HEIGHTS_VALUE)
             x = np.array(x)[good]
             y = np.array(y)[good]
 
@@ -266,7 +266,12 @@ class GeolocRiver(object):
             nadir_vx_vect[i] = nadir_vx[ind_sensor]
             nadir_vy_vect[i] = nadir_vy[ind_sensor]
             nadir_vz_vect[i] = nadir_vz[ind_sensor]
-        # improuve height with vectorised pixel
+            
+        # filter bad new_heights values
+        np.where(self.new_height > MAX_NEW_HEIGHTS_VALUE, h_noisy, self.new_height)     
+        np.where(self.new_height < MIN_NEW_HEIGHTS_VALUE, h_noisy, self.new_height) 
+                    
+        # improve height with vectorised pixel
         p_final, p_final_llh, h_mu, (iter_grad, nfev_minimize_scalar) = geoloc.pointcloud_height_geoloc_vect(np.transpose(np.array([x, y, z])),
                                                                                                              h_noisy,
                                                                                                              np.transpose(np.array(
@@ -305,6 +310,8 @@ def geoloc_river(pixc, pixcvec, sensor, rivertile, fit_heights_per_reach, interp
       :returns latitude corrected, longitude corrected, height corrected
       :rtype numpy array, numpy array numpy array
     """
+    print(np.amax(rivertile['fit_height']))
+    
     geolocriver = GeolocRiver(pixc, pixcvec, sensor, rivertile)
     # Do the improved river geolocation
     # 1 - Initiate logging service
@@ -323,6 +330,7 @@ def geoloc_river(pixc, pixcvec, sensor, rivertile, fit_heights_per_reach, interp
     if fit_heights_per_reach == 'fitted_height_from_riverobs':
         # Use fitted height from riverobs
         geolocriver.rivertile.h_n_ave_fit = geolocriver.rivertile.fit_height
+
 
     geolocriver.estimate_pixvec_height_for_geoloc(interpolate_pixc_between_nodes)
     geolocriver.apply_improved_geoloc(method=method)
