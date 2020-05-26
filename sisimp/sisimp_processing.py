@@ -343,16 +343,11 @@ class Processing(object):
 
         # Create dummy L2_HR_PIXCVecRiver product, associated to pixel cloud  
         try:
-            self.my_attributes.create_pixc_vec_river = parameters.getValue("Create dummy pixc vec river file").lower()
-            self.my_attributes.create_pixc_vec_river = self.my_attributes.create_pixc_vec_river in ['oui', 'yes', 'yep']
+            self.my_attributes.create_dummy_pixc_vec_river = parameters.getValue("Create dummy pixc vec river file").lower()
+            self.my_attributes.create_dummy_pixc_vec_river = self.my_attributes.create_dummy_pixc_vec_river in ['oui', 'yes', 'yep']
         except Exception:
-            self.my_attributes.create_pixc_vec_river = False
+            self.my_attributes.create_dummy_pixc_vec_river = False
             my_api.printInfo("[sisimp_processing] No Create dummy pixc vec river file parameter set, no L2_HR_PIXCVecRiver file will be created")
-
-        # self.my_attributes.compute_pixc_vec_river to True only if self.my_attributes.create_pixc_vec_river is True and RIV_FLAG field is here
-        self.my_attributes.compute_pixc_vec_river = False
-        if self.my_attributes.create_pixc_vec_river and (wb_layer.FindFieldIndex(str("RIV_FLAG"), True) != -1):
-            self.my_attributes.compute_pixc_vec_river = True
 
     def run_processing(self):
         """Main process, computations are done here"""

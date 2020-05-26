@@ -6,7 +6,6 @@ This module simulates pixel cloud with realistic errors from a shapefile of wate
 
 ### Shapefile of water mask
 This is a polygon shapefile. Each object corresponds to a water body. Specific attributes are required depending on the configuration of the simulator:
-* ```RIV_FLAG = 1``` for river objects, ```=0``` otherwise; to use with ```Create dummy pixc vec river file = yes``` to distinguish river pixels from other pixels; if RIV_FLAG not set, all water bodies are considered as lakes
 *  An attribute named ```HEIGHT``` (or other to fill in the parameter file, see hereafter) gives the height associated to each water body. If the value is set to NULL, then the height is considered to be 0.
 
 ### Orbit files
