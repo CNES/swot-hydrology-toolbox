@@ -27,44 +27,6 @@ def write_annotation_file(ann_file, laketile_shp_file, laketile_edge_file, laket
     f.write("laketile_pixcvec file = %s\n"%laketile_pixcvec_file)
     f.close()
 
-def gdem_pixc_to_pixc( pixc_in, pixc_out):
-    print("Copying file form %s to %s " %(pixc_in, pixc_out))
-    if os.path.exists(pixc_out):
-        os.remove(pixc_out)
-
-    with Dataset(pixc_in) as src, Dataset(pixc_out, "w") as dst:
-        src_pixc_group = src.groups['pixel_cloud']
-        src_sensor_group = src.groups['tvp']
-
-        dst_pixc_group = dst.createGroup('pixel_cloud')
-        dst_sensor_group = dst.createGroup('tvp')
-
-        # copy global attributes all at once via dictionary
-        dst.setncatts(src.__dict__)
-
-        copy_group(src_pixc_group, dst_pixc_group)
-        copy_group(src_sensor_group, dst_sensor_group)
-
-
-def copy_group(src, dst):
-    dst.setncatts(src.__dict__)
-    # copy dimensions
-    for name, dimension in src.dimensions.items():
-        dst.createDimension(name, (len(dimension) if not dimension.isunlimited() else None))
-    # copy all file data except for the excluded
-
-    for name, variable in src.variables.items():
-        data = np.array(src[name][:])
-        if name == 'classification':
-            data[np.where(data == 0)] = 1
-            data[np.where(data == 1)] = 4
-
-        x = dst.createVariable(name, variable.datatype, variable.dimensions)
-        # copy variable attributes all at once via dictionary
-        dst[name].setncatts(src[name].__dict__)
-        dst[name][:] = data
-
-
 def make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_number, tile_number, start_time, stop_time, gdem=None):
     """ Makes symlinks to pixc with the right name for locnes input """
 
@@ -88,19 +50,11 @@ def make_input_symlinks(links_dir, pixc_file, pixcvec_file, cycle_number, pass_n
             print()
         return outpath, flag_rename
 
-    if not gdem:
-        flag_rename_pixc = False
-        if not os.path.basename(pixc_file).startswith("SWOT_L2_HR_PIXC"):
-            pixcname, flag_rename_pixc = swot_symlink(pixc_file, "SWOT_L2_HR_PIXC_{}_{}_{}_{}_{}_{}_{}.nc")
-        else:
-            pixcname = pixc_file
+    flag_rename_pixc = False
+    if not os.path.basename(pixc_file).startswith("SWOT_L2_HR_PIXC"):
+        pixcname, flag_rename_pixc = swot_symlink(pixc_file, "SWOT_L2_HR_PIXC_{}_{}_{}_{}_{}_{}_{}.nc")
     else:
-        flag_rename_pixc = False
-        crid = "Dx0000"
-        product_counter = "01"
-        outname = "SWOT_L2_HR_PIXC_{}_{}_{}_{}_{}_{}_{}.nc".format(cycle_number, pass_number, tile_number, start_time, stop_time, crid, product_counter)
-        pixcname = os.path.join(links_dir, outname)
-        gdem_pixc_to_pixc(pixc_file, pixcname)
+        pixcname = pixc_file
 
     flag_rename_pixcvec = False
     if not os.path.basename(pixcvec_file).startswith("SWOT_L2_HR_PIXCVecRiver"):
@@ -206,6 +160,7 @@ def main():
     parser.add_argument('output_dir', help="output directory", type=str)
     parser.add_argument('parameter_laketile', help="parameter file", type=str)
     parser.add_argument("-gdem", action='store_true', dest='gdem', default=None, help='if true, compute tile with pixc_gdem')
+    parser.add_argument("-trueassign", action='store_true', dest='trueassign', default=None, help='if true, compute tile with pixc_trueassign')
     parser.add_argument(
         '-swotCNES', action='store_true', dest='swotCNES', default=None, help='only for CNES developer users, switch to swotCNES processing env')
             
@@ -249,6 +204,9 @@ def main():
         if args['gdem']:
             pixc_path = abspath(ann_cfg["gdem pixc file"])
             pixcvec_path = abspath(ann_cfg['pixcvec file from gdem'])
+        elif args['trueassign']:
+            pixc_path = abspath(ann_cfg["pixc true assign file"])
+            pixcvec_path = abspath(ann_cfg['pixcvec true assign file'])
         else :
             pixc_path    = abspath(ann_cfg['pixc file'])
             pixcvec_path = abspath(ann_cfg['pixcvec file'])
