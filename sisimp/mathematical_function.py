@@ -12,6 +12,7 @@ This file is part of the SWOT Hydrology Toolbox
 """
 
 from __future__ import absolute_import, division, print_function, unicode_literals
+from scipy import ndimage
 
 import numpy as np
 from math import sin
@@ -263,3 +264,45 @@ def linear_extrap(IN_x, IN_xp, IN_yp):
         OUT_y = np.where(IN_x > IN_xp[0], IN_yp[0], OUT_y)
         OUT_y = np.where(IN_x < IN_xp[-1], IN_yp[-1], OUT_y)
     return OUT_y
+
+def calc_sigma0(IN_water_pixels, classification_tab,  water_flag, water_land_flag, darkwater_flag, \
+                sigma_water_in_db = 10., sigma_darkwater_in_db = 0., sigma_land_in_db = 0., az_ne_look = 4.):
+    """
+    Compute sigma0 for different pixels (land, water, darkwater) coordinates from azimuth-y to lon-lat for a given track
+
+    :param IN_water_pixels: az/rg array of pixel cloud pixels
+    :type IN_az: 2D-array of float
+    
+    :param classification_tab: classification of givens points (1&2 land, 3&4 water, 24 darkwater)
+    :type IN_az: 1D-array of float
+    
+    :return: sigma0 = sigma0 of points
+    :rtype: sigma0 = 1D-array of float 
+    """
+    
+    #Convert sig0 in linear
+    sig0_water = 10.**(sigma_water_in_db/10.)
+    sig0_darkwater = 10.**(sigma_darkwater_in_db/10.)
+    sig0_land = 10.**(sigma_land_in_db/10.)
+    
+    sig0_water_tab = np.random.normal(sig0_water, sig0_water/np.sqrt(az_ne_look), (len(IN_water_pixels), len(IN_water_pixels[0])))
+    sig0_darkwater_tab = np.random.normal(sig0_darkwater, sig0_darkwater/np.sqrt(az_ne_look), (len(IN_water_pixels), len(IN_water_pixels[0])))
+    sig0_land_tab = np.random.normal(sig0_land, sig0_land/np.sqrt(az_ne_look), (len(IN_water_pixels), len(IN_water_pixels[0])))
+        
+    sig0_water_tab_conv = ndimage.convolve(sig0_water_tab, np.array([[1/9, 1/9, 1/9], [1/9, 1/9, 1/9], [1/9, 1/9, 1/9]]))
+    sig0_darkwater_tab_conv = ndimage.convolve(sig0_darkwater_tab, np.array([[1/9, 1/9, 1/9], [1/9, 1/9, 1/9], [1/9, 1/9, 1/9]]))
+    sig0_land_tab_conv = ndimage.convolve(sig0_land_tab, np.array([[1/9, 1/9, 1/9], [1/9, 1/9, 1/9], [1/9, 1/9, 1/9]]))
+    
+    sig0_tab = np.copy(sig0_land_tab)
+    ind=np.where(IN_water_pixels!=0)
+    sig0_tab_flat = sig0_tab[ind]
+    
+    ind_dw = np.where(classification_tab == darkwater_flag) 
+    ind_water = np.where(classification_tab == water_flag) 
+    ind_land_water = np.where(classification_tab == water_land_flag) 
+    
+    sig0_tab_flat[ind_dw] = sig0_darkwater_tab_conv[ind][ind_dw]
+    sig0_tab_flat[ind_water] = sig0_water_tab_conv[ind][ind_water]
+    sig0_tab_flat[ind_land_water] = sig0_water_tab_conv[ind][ind_land_water]
+
+    return sig0_tab_flat

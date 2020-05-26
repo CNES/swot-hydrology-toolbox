@@ -30,7 +30,7 @@ class l2_hr_pixc(object):
                  IN_dh_dphi, IN_dlon_dphi, IN_dlat_dphi, IN_crosstrack,
                  IN_nadir_time, IN_nadir_latitude, IN_nadir_longitude, IN_nadir_altitude, IN_nadir_heading, IN_nadir_x, IN_nadir_y, IN_nadir_z, IN_nadir_vx, IN_nadir_vy, IN_nadir_vz, IN_nadir_near_range,
                  IN_shapefile_path, IN_param_file, 
-                 IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_nb_pix_range, IN_nb_pix_azimuth, IN_azimuth_spacing, IN_range_spacing, IN_near_range, IN_tile_coords, IN_interferogram, IN_water_frac):
+                 IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_nb_pix_range, IN_nb_pix_azimuth, IN_azimuth_spacing, IN_range_spacing, IN_near_range, IN_tile_coords, IN_interferogram, IN_water_frac, IN_sigma0):
         """
         Constructor of the pixel cloud product
 
@@ -114,7 +114,7 @@ class l2_hr_pixc(object):
         self.crosstrack = IN_crosstrack
         self.nb_water_pix = IN_azimuth_index.size
         self.water_frac = IN_water_frac
-
+        self.sigma0 = IN_sigma0
         # Modification to have sensor_s (sensor azimuth position for each pixel) to be compatible with HR simulator. It is a duplication of azimuth_index in the large scale simulator
         self.sensor_s = IN_azimuth_index
         self.nadir_time = IN_nadir_time
@@ -270,7 +270,7 @@ class l2_hr_pixc(object):
         pixel_cloud_vars_val['illumination_time'] = self.computeTime_UTC(self.illumination_time)
         pixel_cloud_vars_val['illumination_time_tai'] = self.computeTime_TAI(self.illumination_time)
         pixel_cloud_vars_val['eff_num_medium_looks'] = np.full(self.nb_water_pix, 36)
-        pixel_cloud_vars_val['sig0'] = np.zeros(self.nb_water_pix)
+        pixel_cloud_vars_val['sig0'] = self.sigma0
         pixel_cloud_vars_val['phase_unwrapping_region'] = np.zeros(self.nb_water_pix)
         #--------------------
         pixel_cloud_vars_val['instrument_range_cor'] = np.zeros(self.nb_water_pix)
@@ -436,12 +436,16 @@ class l2_hr_pixc(object):
         tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
+        tmpField = ogr.FieldDefn(str('sigma0'), ogr.OFTReal)  # Height error relatively to the phase
+        tmpField.SetWidth(15)
+        tmpField.SetPrecision(6)
+        outLayer.CreateField(tmpField)
         # 1.5 - On recupere la definition de la couche
         outLayerDefn = outLayer.GetLayerDefn()
         
         # 2 - On traite point par point
-        for az_ind, range_index, classif, pixel_area, lat, lng, height, crosstrack, phase_noise_std, dlat_dphi, dlon_dphi, dh_dphi in zip(self.azimuth_index, self.range_index, self.classification, \
-        self.pixel_area, self.latitude, self.longitude, self.height, self.crosstrack, self.phase_noise_std, self.dlat_dphi, self.dlon_dphi, self.dh_dphi):
+        for az_ind, range_index, classif, pixel_area, lat, lng, height, crosstrack, phase_noise_std, dlat_dphi, dlon_dphi, dh_dphi, sigma0 in zip(self.azimuth_index, self.range_index, self.classification, \
+        self.pixel_area, self.latitude, self.longitude, self.height, self.crosstrack, self.phase_noise_std, self.dlat_dphi, self.dlon_dphi, self.dh_dphi, self.sigma0):
             # 2.1 - On cree l'objet dans le format de la couche de sortie
             outFeature = ogr.Feature(outLayerDefn)
             # 2.2 - On lui assigne le point
@@ -462,6 +466,7 @@ class l2_hr_pixc(object):
             outFeature.SetField(str('dlat_dph'), float(dlat_dphi))
             outFeature.SetField(str('dlon_dph'), float(dlon_dphi))
             outFeature.SetField(str('dh_dphi'), float(dh_dphi))
+            outFeature.SetField(str('sigma0'), float(sigma0))
          
             # 2.4 - On ajoute l'objet dans la couche de sortie
             outLayer.CreateFeature(outFeature)

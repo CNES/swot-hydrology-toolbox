@@ -527,6 +527,12 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     # 5.3 - Compute final noisy heights (elevation + thermal noise + roll error + height model) 
     elevation_tab_noisy = elevation_tab + delta_h           
     
+    
+    # 6. Compute sigma0
+    
+    sigma0 = math_fct.calc_sigma0(IN_water_pixels, classification_tab, IN_attributes.water_flag, IN_attributes.water_land_flag, \
+                                IN_attributes.darkwater_flag, sigma_water_in_db = 10., sigma_darkwater_in_db = 0., sigma_land_in_db = 0.)
+       
     # 7 - Build velocity arrays
     nb_pix_nadir = IN_attributes.x.size  # Nb pixels at nadir
     # Init velocity arrays
@@ -686,7 +692,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                                            IN_attributes.shapefile_path, IN_attributes.param_file,
                                            IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number,
                                            IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az_size, IN_attributes.azimuth_spacing,
-                                           IN_attributes.range_sampling, IN_attributes.near_range, tile_coords, interf_2d, water_frac[az_indices])
+                                           IN_attributes.range_sampling, IN_attributes.near_range, tile_coords, interf_2d, water_frac[az_indices], sigma0[az_indices])
             
             # Update filenames with tile ref
             IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])
