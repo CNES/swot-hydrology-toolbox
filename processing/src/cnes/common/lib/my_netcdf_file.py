@@ -240,8 +240,15 @@ class MyNcReader(object):
         # replace fill value from netCDF file with fill value from my_variables
 
         try:
-            if cur_content.variables[in_name]._FillValue != my_var.FV_NETCDF[out_type]:
-                logger.warning( "Fill value for type %s from netCDF file are different from my_variable : %s w.r.t. %s " %(out_type, str(cur_content.variables[in_name]._FillValue), str(my_var.FV_NETCDF[out_type])))
+            #if cur_content.variables[in_name]._FillValue != my_var.FV_NETCDF[out_type]:
+            # Particulate case of float type because it is loaded in double variable. The difference test must be truncated.
+            if out_type.startswith("float"):
+                if abs(cur_content.variables[in_name]._FillValue - my_var.FV_NETCDF[out_type])/1e30 > .1:
+                    logger.warning( "Fill value for type %s from netCDF file are different from my_variable : %s w.r.t. %s " %(out_type, str(cur_content.variables[in_name]._FillValue), str(my_var.FV_NETCDF[out_type])))
+            else:
+                if cur_content.variables[in_name]._FillValue != my_var.FV_NETCDF[out_type]:
+                    logger.warning( "Fill value for type %s from netCDF file are different from my_variable : %s w.r.t. %s " %(out_type, str(cur_content.variables[in_name]._FillValue), str(my_var.FV_NETCDF[out_type])))
+ 
             out_data[numpy.where(out_data == cur_content.variables[in_name]._FillValue)] = my_var.FV_NETCDF[out_type]
         except:
             pass
@@ -528,9 +535,9 @@ class MyNcWriter(object):
                         in_data[nan_idx] = my_var.FV_NETCDF[data_type]
             
             # == In case of table of char
-            if data_type.startswith("|S"):
+            if data_type.startswith("|S") or data_type.startswith("<U") or data_type.startswith(">U") or data_type.startswith("|U"):
                 # Data needs to be converted before being written in NetCDF file
-                cur_content.variables[in_name][:] = netCDF4.stringtochar(in_data)
+                cur_content.variables[in_name][:] = netCDF4.stringtochar(in_data.astype('S'))
             elif len(in_data.shape) == 2:
                 cur_content.variables[in_name][:,:] = in_data
             else:

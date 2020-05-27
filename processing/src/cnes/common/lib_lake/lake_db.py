@@ -207,13 +207,34 @@ class LakeDb(object):
             self.lake_layer.SetAttributeFilter(None)
             
             # 4 - Format output
+            # 4.1 - List of names
             out_name = my_tools.get_value(dict_pld_info, self.pld_names)
+            if (out_name is not None) and (out_name in ["", my_var.FV_STRING_SHP]):
+                out_name = None
+            # 4.2 - GRanD identifier
             out_grand = my_tools.get_value(dict_pld_info, self.pld_grand)
+            if (out_grand is not None) and (out_grand < 0):
+                out_grand = None
+            # 4.3 - Max water surface elevation
             out_max_wse = my_tools.get_value(dict_pld_info, self.pld_max_wse)
+            if (out_max_wse is not None) and (out_max_wse < 0):
+                out_max_wse = None
+            # 4.4- Max area
             out_max_area = my_tools.get_value(dict_pld_info, self.pld_max_area)
+            if (out_max_area is not None) and (out_max_area < 0):
+                out_max_area = None
+            # 4.5 - Reference date
             out_ref_date = my_tools.get_value(dict_pld_info, self.pld_ref_date)
+            if (out_ref_date is not None) and (out_ref_date in ["", my_var.FV_STRING_SHP]):
+                out_ref_date = None
+            # 4.6 - Reference data storage
             out_ref_ds = my_tools.get_value(dict_pld_info, self.pld_ref_ds)
+            if (out_ref_ds is not None) and (out_ref_ds == my_var.FV_REAL):
+                out_ref_ds = None
+            # 4.7 - Absolute water storage
             out_storage = my_tools.get_value(dict_pld_info, self.pld_storage)
+            if (out_storage is not None) and (out_storage < 0):
+                out_storage = None
 
         return out_name, out_grand, out_max_wse, out_max_area, out_ref_date, out_ref_ds, out_storage
 

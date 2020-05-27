@@ -33,7 +33,7 @@ import pandas as pd
 from random import randint
 from scipy.spatial import distance, Delaunay
 import shapely.geometry as geometry
-from shapely.geometry import Point, LineString, MultiPoint, MultiLineString, Polygon, MultiPolygon, LinearRing
+from shapely.geometry import Point, LineString, MultiPoint, MultiLineString, Polygon, MultiPolygon, LinearRing, GeometryCollection
 from shapely.ops import cascaded_union
 from shapely.ops import unary_union
 from skimage.measure import find_contours
@@ -65,7 +65,7 @@ def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix
     # Get instance of service config file
     cfg = service_config_file.get_instance()
     logger = logging.getLogger("my_hull")
-    logger.debug("Computing lake boundaries")
+    logger.debug("Computing lake boundaries over %d pixels" %(len(in_v_long)))
 
     hull_method = cfg.getfloat("CONFIG_PARAMS", "HULL_METHOD")
     if len(in_v_long) < 4:
@@ -413,8 +413,79 @@ def get_max_segment(pa, pb, pc):
 
 #######################################
 
+def split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max=1e4):
+    """
+    Split input image into list of sub-images, with 10 000 pixel maximum.
+
+    :param in_range: range of points
+    :type in_range: 1D-array of int
+    :param in_azimuth: azimuth of points
+    :type in_azimuth: 1D-array of int
+    :param in_v_long: longitude of points
+    :type in_v_long: 1D-array of float
+    :param in_v_lat: latitude of points
+    :type in_v_lat: 1D-array of float
+
+    :return: list of tuple of splitted image in sub images
+    :rtype: list of tulple(in_range, in_azimuth, in_v_long, in_v_lat)
+    """
+
+    if len(in_range) > nb_pix_max:
+        margin = 10
+        if np.max(in_range) - np.min(in_range) > np.max(in_azimuth) - np.min(in_azimuth):
+            rg_half = int(np.max(in_range) - np.min(in_range)) / 2 + np.min(in_range)
+            idx1 = np.where(in_range < rg_half + margin)
+            idx2 = np.where(in_range > rg_half - margin)
+        else:
+            az_half = int(np.max(in_azimuth) - np.min(in_azimuth)) / 2 + np.min(in_azimuth)
+            idx1 = np.where(in_azimuth < az_half + margin)
+            idx2 = np.where(in_azimuth > az_half - margin)
+        return split_lake_image(in_range[idx1], in_azimuth[idx1], in_v_long[idx1], in_v_lat[idx1], nb_pix_max) + split_lake_image(in_range[idx2], in_azimuth[idx2], in_v_long[idx2], in_v_lat[idx2], nb_pix_max)
+    else:
+        return [(in_range, in_azimuth, in_v_long, in_v_lat)]
 
 def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, in_v_lat):
+    """
+    Compute the concave hull of a set of points using radar vectorisation, split image into sub-images if needed
+
+    :param in_range: range of points
+    :type in_range: 1D-array of int
+    :param in_azimuth: azimuth of points
+    :type in_azimuth: 1D-array of int
+    :param in_v_long: longitude of points
+    :type in_v_long: 1D-array of float
+    :param in_v_lat: latitude of points
+    :type in_v_lat: 1D-array of float
+
+    :return: the hull of the input set of points
+    :rtype: OGRMultiPolygon
+    """
+
+    logger = logging.getLogger("my_hull")
+
+    nb_pix_max = 5e4
+    # Split lake sar image in sub_images
+    list_sub_img_to_process = split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max)
+    if len(list_sub_img_to_process) > 1:
+        logger.info("Lake image with %d pixels is splitted in %d sub images of less than %d pixels" % (len(in_range), len(list_sub_img_to_process), nb_pix_max))
+
+    multi_poly = ogr.Geometry(ogr.wkbMultiPolygon)
+
+    for i, (sub_range, sub_azimuth, sub_v_long, sub_v_lat) in enumerate(list_sub_img_to_process) :
+        if i%100 == 0 :
+            logger.info("%d over %d sub-image already processed" % ( i+1, len(list_sub_img_to_process)))
+        sub_poly = get_polygon_from_binar_image(sub_range, sub_azimuth, sub_v_long, sub_v_lat)
+        if sub_poly.GetGeometryName() == "MULTIPOLYGON":
+            for geom in sub_poly:
+                multi_poly.AddGeometry(geom)
+        else :
+            multi_poly.AddGeometry(sub_poly)
+
+    poly = multi_poly.UnionCascaded()
+
+    return poly
+
+def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat):
     """
     Compute the concave hull of a set of points using radar vectorisation
 
@@ -442,13 +513,16 @@ def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, i
     lake_y = in_azimuth - np.min(in_azimuth) + 1
 
     # 2 - Get image (1 pixel around lake)
-    lake_img = my_tools.compute_bin_mat(np.max(lake_x) + 2, np.max(lake_y) + 2, lake_x, lake_y)
+    lake_img = my_tools.compute_bin_mat(np.max(lake_x) + 2, np.max(lake_y) + 2, lake_x, lake_y, verbose = False)
+
+    logger.info("Processing image with size %d x %d, with %d water pixels" %(lake_img.shape[0], lake_img.shape[1], np.sum(lake_img)))
+
 
     # 3 - Compute boundaries (there might be more than one if there are islands in lake)
     lake_contours = find_contours(lake_img, 0.99999999999)
 
     # 4 - Round contour range and azimuth coordinates to units, since they are indices in input parameters
-    logger.debug("Removing duplicate points from lake contour")
+    # Removing duplicate points from lake contour
     lake_contour_int = []
 
     for contour in lake_contours:
@@ -512,21 +586,17 @@ def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, i
         ring = build_ring_without_integrity_issues_multi_ring(ring, multi_ring_list)
 
         if len(ring) > 3:
-            logger.debug("Adding new ring containing %d points to multi ring" % (len(ring[:-1])))
-
+            # logger.debug("Adding new ring containing %d points to multi ring" % (len(ring[:-1])))
             multi_ring_list.append(ring)
 
         else:
             logger.debug("Ring contains less than 2 points => Discarded")
 
-    logger.debug("Building polygon from list of rings")
     lake_poly = get_ogr_polygon_from_ring_list(multi_ring_list)
 
     if not lake_poly.IsValid():
         logger.debug("Polygon is invalid -> Polygon is downgraded into a valid geometry")
         lake_poly = lake_poly.Buffer(0)
-    else:
-        logger.debug("Polygon is valid")
 
     return lake_poly
 
@@ -558,6 +628,24 @@ def compute_segment_intersection(s1, s2):
         elif isinstance(inter, MultiLineString):
             inter = (np.mean([inter[0].coords[0][0], inter[0].coords[1][0]]),
                      np.mean([inter[0].coords[0][1], inter[0].coords[1][1]]))
+        elif isinstance(inter, GeometryCollection):
+            for geom in inter :
+                if isinstance(geom, Point):
+                    inter_out = (geom.x, geom.y)
+                elif isinstance(geom, MultiPoint):
+                    inter_out = (geom[0].x, geom[0].y)
+                elif isinstance(geom, LineString):
+                    inter_out = (np.mean([geom.coords[0][0], geom.coords[1][0]]),
+                             np.mean([geom.coords[0][1], geom.coords[1][1]]))
+                elif isinstance(geom, MultiLineString):
+                    inter_out = (np.mean([geom[0].coords[0][0], geom[0].coords[1][0]]),
+                             np.mean([geom[0].coords[0][1], geom[0].coords[1][1]]))
+                else :
+                    logger.warning("Unknown intersection geometry type : %s " % (type(geom)))
+                    inter_out = None
+
+                inter = inter_out
+                break
         else:
             logger.warning("Unknown intersection geometry type : %s " % (type(inter)))
             inter = None
@@ -623,7 +711,6 @@ def build_ring_from_list_of_points(list_of_points):
     :rtype: list of tuple of 2 floats
     """
     logger = logging.getLogger("my_hull")
-    logger.debug("Ending ring by adding last point")
 
     if len(list_of_points) > 3 :
 
@@ -706,7 +793,6 @@ def build_ring_without_integrity_issues_multi_ring(new_ring, multi_ring):
     """
 
     logger = logging.getLogger("my_hull")
-    logger.debug("Checking if new ring and multi ring intersects")
 
     s1 = LineString(new_ring)
     s2 = MultiLineString(multi_ring)
@@ -741,17 +827,44 @@ def get_ogr_polygon_from_ring_list(multi_ring_list) :
     :return: lake polygon
     :rtype: OGRPolygon
     """
-
-    lake_poly = ogr.Geometry(ogr.wkbPolygon)
+    # 1. build a list of ogr geometry "polygon" and "linear ring"
+    list_of_ogr_poly = []
+    list_of_ogr_ring = []
     for ring in multi_ring_list :
         lake_ring_geom = ogr.Geometry(ogr.wkbLinearRing)
-
         for (lon, lat) in ring :
             lake_ring_geom.AddPoint(lon, lat)
+        poly_tmp =  ogr.Geometry(ogr.wkbPolygon)
+        poly_tmp.AddGeometry(lake_ring_geom)
+        list_of_ogr_ring.append(lake_ring_geom)
+        list_of_ogr_poly.append((poly_tmp, poly_tmp.Centroid()))
 
-        lake_poly.AddGeometry(lake_ring_geom)
+    # 2. build a list of outer / inner rings, with inner and outer relations
+    list_of_outer_ring = []
+    list_of_inner_ring = []
+    for i, (poly_i, centroid_i) in enumerate(list_of_ogr_poly):
+        is_i_inner = False
+        for j, (poly_j, centroid_j) in enumerate(list_of_ogr_poly):
+            if i == j :
+                continue
+            if poly_i.Within(poly_j):
+                if j not in list_of_outer_ring:
+                    list_of_outer_ring.append(j)
+                list_of_inner_ring.append((j,i))
+                is_i_inner = True
+        if is_i_inner == False :
+            list_of_outer_ring.append(i)
 
-    return lake_poly
+    # 3. Build out geometry multipolygon, with outer / inner rings in the right order.
+    multi_poly_geom = ogr.Geometry(ogr.wkbMultiPolygon)
+    for i in list_of_outer_ring:
+        poly_geom = list_of_ogr_poly[i][0]
+        for (out_ring, in_ring) in list_of_inner_ring:
+            if i == out_ring:
+                poly_geom.AddGeometry(list_of_ogr_ring[in_ring])
+        multi_poly_geom.AddGeometry(poly_geom)
+
+    return multi_poly_geom
 
 
 #######################################
@@ -1112,3 +1225,4 @@ def alpha_shape_with_cgal(coords, alpha):
             poly_shp = Polygon(polygons_list[0])
 
     return poly_shp
+
