@@ -174,7 +174,10 @@ class Processing(object):
             self.my_attributes.height_bias_std = read_parameter(parameters, "Height bias std", my_var.HEIGHT_BIAS_STD, float)
             self.my_attributes.noise_multiplier_factor = read_parameter(parameters, "Noise multiplier factor", my_var.NOISE_MULTIPLIER_FACTOR, float)
             self.my_attributes.geolocalisation_improvement = read_parameter(parameters, "Geolocalisation improvement", my_var.GEOLOCATION_IMPROVEMENT, str)
-            
+
+            # geoid
+            self.my_attributes.geoid_file = os.path.expandvars(read_parameter(parameters, "Geoid", my_var.GEOID_PATH, str))
+
             # Tropo model
             self.my_attributes.tropo_model = read_parameter(parameters, "Tropo model", None, str)
             self.my_attributes.tropo_error_correlation = read_parameter(parameters, "Tropo error correlation", None, int)
@@ -278,7 +281,7 @@ class Processing(object):
 
         # Load the tile database file
         try:
-            archive = zipfile.ZipFile(os.path.expandvars(read_parameter(parameters, "Tile database path", my_var.TILE_DATABSE_PATH, str)), "r")
+            archive = zipfile.ZipFile(os.path.expandvars(read_parameter(parameters, "Tile database path", my_var.TILE_DATABASE_PATH, str)), "r")
             imgfile = archive.open("tiles_full.txt")
             self.my_attributes.tile_database = np.loadtxt(imgfile, skiprows=1)
         except IOError:

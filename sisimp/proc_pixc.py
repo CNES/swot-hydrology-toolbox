@@ -30,7 +30,7 @@ class l2_hr_pixc(object):
                  IN_dh_dphi, IN_dlon_dphi, IN_dlat_dphi, IN_crosstrack,
                  IN_nadir_time, IN_nadir_latitude, IN_nadir_longitude, IN_nadir_altitude, IN_nadir_heading, IN_nadir_x, IN_nadir_y, IN_nadir_z, IN_nadir_vx, IN_nadir_vy, IN_nadir_vz, IN_nadir_near_range,
                  IN_shapefile_path, IN_param_file, 
-                 IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_nb_pix_range, IN_nb_pix_azimuth, IN_azimuth_spacing, IN_range_spacing, IN_near_range, IN_tile_coords, IN_interferogram, IN_water_frac, IN_sigma0):
+                 IN_mission_start_time, IN_cycle_duration, IN_cycle_num, IN_pass_num, IN_tile_ref, IN_nb_pix_range, IN_nb_pix_azimuth, IN_azimuth_spacing, IN_range_spacing, IN_near_range, IN_tile_coords, IN_interferogram, IN_water_frac, IN_sigma0, IN_geoid):
         """
         Constructor of the pixel cloud product
 
@@ -115,6 +115,8 @@ class l2_hr_pixc(object):
         self.nb_water_pix = IN_azimuth_index.size
         self.water_frac = IN_water_frac
         self.sigma0 = IN_sigma0
+        self.geoid = IN_geoid
+        
         # Modification to have sensor_s (sensor azimuth position for each pixel) to be compatible with HR simulator. It is a duplication of azimuth_index in the large scale simulator
         self.sensor_s = IN_azimuth_index
         self.nadir_time = IN_nadir_time
@@ -283,7 +285,7 @@ class l2_hr_pixc(object):
         pixel_cloud_vars_val['iono_cor_gim_ka'] = np.zeros(self.nb_water_pix)
         pixel_cloud_vars_val['height_cor_xover'] = np.zeros(self.nb_water_pix)
         #--------------------
-        pixel_cloud_vars_val['geoid'] = np.zeros(self.nb_water_pix)
+        pixel_cloud_vars_val['geoid'] = self.geoid
         pixel_cloud_vars_val['solid_earth_tide'] = np.zeros(self.nb_water_pix)
         pixel_cloud_vars_val['load_tide_sol1'] = np.zeros(self.nb_water_pix)
         pixel_cloud_vars_val['load_tide_sol2'] = np.zeros(self.nb_water_pix)

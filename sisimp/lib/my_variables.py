@@ -34,7 +34,8 @@ HEIGHT_BIAS_STD = 0.1  # Height bias std (m)
 NOISE_FILE_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt"
 NOISE_FILE_PATH_FOR_LAND = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2_land.txt"
 NOISE_FILE_PATH_FOR_DW = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2_land.txt"
-TILE_DATABSE_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip"
+TILE_DATABASE_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip"
+GEOID_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/egm2008-5.pgm"
 
 # Orbit parameters
 ORBIT_JITTER = 1000  # Orbit jitter (m)

@@ -562,6 +562,10 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     dlon_dphi = (lon_noisy-lon)/delta_h*dh_dphi
     dlat_dphi = (lat_noisy-lat)/delta_h*dh_dphi
     
+
+    # 6. Compute geoid
+    
+    geoid = np.array(math_fct.calc_geoid(lat, lon, IN_attributes.geoid_file))
     
     ######################
     # Write output files #
@@ -692,7 +696,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                                            IN_attributes.shapefile_path, IN_attributes.param_file,
                                            IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number,
                                            IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az_size, IN_attributes.azimuth_spacing,
-                                           IN_attributes.range_sampling, IN_attributes.near_range, tile_coords, interf_2d, water_frac[az_indices], sigma0[az_indices])
+                                           IN_attributes.range_sampling, IN_attributes.near_range, tile_coords, interf_2d, water_frac[az_indices],
+                                           sigma0[az_indices], geoid[az_indices])
             
             # Update filenames with tile ref
             IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.orbit_time[nadir_az[0]], IN_attributes.orbit_time[nadir_az[-1]])

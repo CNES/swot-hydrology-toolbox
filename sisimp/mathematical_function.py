@@ -22,6 +22,7 @@ import re
 import sys
 
 import lib.my_api as my_api
+import pygeodesy
 
 from lib.my_variables import RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
 
@@ -306,3 +307,9 @@ def calc_sigma0(IN_water_pixels, classification_tab,  water_flag, water_land_fla
     sig0_tab_flat[ind_land_water] = sig0_water_tab_conv[ind][ind_land_water]
 
     return sig0_tab_flat
+
+def calc_geoid(lat, lon, geoid_file):
+    
+    geoid = pygeodesy.GeoidPGM(geoid_file)
+    
+    return geoid.height(lat, lon)
