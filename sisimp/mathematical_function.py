@@ -311,5 +311,10 @@ def calc_sigma0(IN_water_pixels, classification_tab,  water_flag, water_land_fla
 def calc_geoid(lat, lon, geoid_file):
     
     geoid = pygeodesy.GeoidPGM(geoid_file)
+    h_geoid= geoid.height(lat, lon)
+
+    print(h_geoid)
+    h_geoid += (1.0 + 0.3)*np.sqrt(5/(4*np.pi))*(-0.31466)*(1.5*np.sin(lat*DEG2RAD)*np.sin(lat*DEG2RAD)-0.5)
+    print(h_geoid)
     
-    return geoid.height(lat, lon)
+    return h_geoid
