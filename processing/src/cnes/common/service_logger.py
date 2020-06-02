@@ -98,11 +98,12 @@ class ServiceLogger(logging.getLoggerClass()):
             self.file_handler.setFormatter(self.log_formatter)
             self.file_handler.setLevel(cfg.get('LOGGING', 'logFileLevel'))
             # create the error log file
-            #self.file_handler_error = logging.FileHandler(cfg.get('PATHS', 'Output directory') + '/error.log', mode='w')
-            if "LogFile" in cfg.get('LOGGING', 'logFile'):
-                log_error_file = cfg.get('LOGGING', 'logFile').replace("LogFile", "LogError")
-            else:
-                log_error_filename = "LogError_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".log"
+            try:
+                # Try to get errorFile
+                log_error_file = cfg.get('LOGGING', 'errorFile')
+            except:
+                # default name error.log
+                log_error_filename = "error.log"
                 log_error_file = os.path.join(cfg.get('PATHS', 'Output directory'), log_error_filename)
             self.file_handler_error = logging.FileHandler(log_error_file, mode='w')
             self.file_handler_error.setFormatter(self.log_formatter)

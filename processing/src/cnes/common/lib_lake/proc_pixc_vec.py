@@ -188,19 +188,23 @@ class PixelCloudVec(object):
             if self.product_type == "TILE":
                 tmp_id = pixcvec_reader.get_var_value("reach_id")
             elif self.product_type == "SP":
-                tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("reach_id"), encoding='bytes')
+                #tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("reach_id"), encoding='bytes')
+                tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("reach_id"))
             self.reach_id = np.char.asarray(tmp_id, itemsize=11)
             # Node identifier
             if self.product_type == "TILE":
                 tmp_id = pixcvec_reader.get_var_value("node_id")
             elif self.product_type == "SP":
-                tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("node_id"), encoding='bytes')
+                #tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("node_id"), encoding='bytes')
+                tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("node_id"))
             self.node_id = np.char.asarray(tmp_id, itemsize=14) 
             # Specific in LakeTile product for LakeSP product    
             if self.product_type == "SP":
-                tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("lake_id"), encoding='bytes')
+                #tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("lake_id"), encoding='bytes')
+                tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("lake_id"))
                 self.lake_id = np.char.asarray(tmp_id, itemsize=10)
-                tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("obs_id"), encoding='bytes')
+                #tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("obs_id"), encoding='bytes')
+                tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("obs_id"))
                 self.obs_id = np.char.asarray(tmp_id, itemsize=13)
             # 4.7 - Ice flags
             # Climato
