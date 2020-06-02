@@ -595,7 +595,12 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         
         if az_indices.size != 0:  # Write water pixels at this latitude
             
- 
+             #Filtering of bad pixels (dirty trick)
+            az_indices = az_indices[np.where(lon_noisy[az_indices] !=0.)]
+            az_indices = az_indices[np.where(lat_noisy[az_indices] !=0.)]
+            az_indices = az_indices[np.where(np.abs(y[az_indices]) > 8000.)]
+            az_indices = az_indices[np.where(np.abs(y[az_indices]) < 80000.)]
+            
             sub_az, sub_r = [az[az_indices], r[az_indices]]
             
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min r ind = %d - Max r ind = %d" % (np.min(sub_r), np.max(sub_r)))
@@ -683,14 +688,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             # Init L2_HR_PIXC object
 
 
-                       
-            #Filtering of bad pixels (dirty trick)
-            az_indices = az_indices[np.where(lon_noisy[az_indices] !=0.)]
-            az_indices = az_indices[np.where(lat_noisy[az_indices] !=0.)]
-            az_indices = az_indices[np.where(np.abs(y[az_indices]) > 8000.)]
-            az_indices = az_indices[np.where(np.abs(y[az_indices]) < 80000.)]
-            
-                        
             my_pixc = proc_pixc.l2_hr_pixc(sub_az, sub_r, classification_tab[az_indices], pixel_area[az_indices],
                                            lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], phase_noise_std[az_indices],
                                            dh_dphi[az_indices], dlon_dphi[az_indices], dlat_dphi[az_indices], y[az_indices],

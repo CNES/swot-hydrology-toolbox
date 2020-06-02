@@ -31,11 +31,16 @@ Note that both algorithms and products are still under development and will be u
 
 ## Associated RiverObs version
 
-commit 0ef8251af9f0383380766c217301b8b9092a8a91
+commit 8ac4af9954d99b4172675cddb3e149dcd50168d3
 Author: Alex Fore <Alexander.Fore@jpl.nasa.gov>
-Date:   Tue Apr 14 10:01:56 2020 -0700
+Date:   Wed May 27 10:50:07 2020 -0700
 
-    resort by cl_id
+    re-enable height smoothed slopes
+
+River database SWORD v5 available here :
+http://gaia.geosci.unc.edu/SWORD/SWORD_v05.zip
+Don't forget to modify parameter_river.rdf :
+reach_db_path (-) = /work/ALT/swot/swotpub/BD/BD_rivers/SWORD_v05/Reaches_Nodes/netcdf
 
 
 ## Caveats
@@ -135,6 +140,7 @@ The dependencies of swot-hydrology-toolbox are:
   * rtree
   * mahotas
   * utm
+  * pygeodesy
 
 ### Python environment installation
 
