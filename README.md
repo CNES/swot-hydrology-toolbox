@@ -30,12 +30,14 @@ Note that both algorithms and products are still under development and will be u
 * Potentially other modules in the future (for ex. floodplain DEM generation)
 
 ## Associated RiverObs version
+Currently in prd-v5 branch, should be pushed into develop soon
 
-commit 8ac4af9954d99b4172675cddb3e149dcd50168d3
+commit 77a7341acaf97c536b2a12216b01697f7ce65661
 Author: Alex Fore <Alexander.Fore@jpl.nasa.gov>
-Date:   Wed May 27 10:50:07 2020 -0700
+Date:   Thu May 28 08:24:58 2020 -0700
 
-    re-enable height smoothed slopes
+    change guards on discharge to A+dA
+
 
 River database SWORD v5 available here :
 http://gaia.geosci.unc.edu/SWORD/SWORD_v05.zip
