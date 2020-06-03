@@ -54,7 +54,6 @@ def stocc_linear(in_height, in_area, in_ref_height, in_ref_area, in_ref_flood_de
     
     if (in_height is None) or (in_area is None) or (in_ref_height is None) or (in_ref_area is None):
         retour = None, None
-        
     else:
         # Volume variation between both surfaces
         out_stoc_val = (in_height - in_ref_height)/2. * (in_area + in_ref_area)
@@ -93,7 +92,6 @@ def stocc_quadratic(in_height, in_area, in_ref_height, in_ref_area, in_ref_flood
     
     if (in_height is None) or (in_area is None) or (in_ref_height is None) or (in_ref_area is None):
         retour = None, None
-        
     else:
         # Volume variation between both surfaces
         out_stoc_val = (in_height - in_ref_height)/3. * (in_area + in_ref_area + math.sqrt(in_area * in_ref_area))

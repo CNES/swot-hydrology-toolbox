@@ -215,12 +215,6 @@ class PGELakeTile():
             self.cfg.set(section, "logfilelevel", param_list["logfilelevel"])
             self.cfg.set(section, "logConsole", param_list["logConsole"])
             self.cfg.set(section, "logconsolelevel", param_list["logconsolelevel"])
-            if "LogFile" in param_list["logFile"]:
-                log_error_file = param_list["logFile"].replace("LogFile", "LogError")
-            else:
-                log_error_file = os.path.join(param_list["output_dir"], "LogError_" 
-                                                  + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".log")
-            self.cfg.set(section, "errorFile", log_error_file)
             
             # Add PATHS section and parameters
             section = "PATHS"

@@ -112,7 +112,7 @@ class LakeProduct(object):
         :type in_list_labels: 1D-array of int
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("Minimum size for lakes = %0.01f km2" % self.cfg.getfloat('CONFIG_PARAMS', 'MIN_SIZE'))
+        logger.info("Minimum size for lakes = %0.1f km2" % self.cfg.getfloat('CONFIG_PARAMS', 'MIN_SIZE'))
         if self.cfg.getboolean('CONFIG_PARAMS', 'IMP_GEOLOC'):
             logger.info("Improve geoloc = YES")
         else:
@@ -156,17 +156,13 @@ class LakeProduct(object):
             # 2 - Compute categories wrt classification flags
             classif = self.sort_pixels_wrt_classif_flags(pix_index)
 
-            # 3 - Compute object sizes
-            # 3.1 - Total area (=water + dark water)
-            obj_area_total = np.sum(self.obj_pixc.pixel_area[pix_index[select_water_dark_pixels(classif, in_flag_water=True, in_flag_dark=True)]])  # In m2
-            obj_area_total /= 10**6  # Conversion in km2
-            # 3.2 - Detected area (=only water)
-            obj_area_detected = np.sum(self.obj_pixc.pixel_area[pix_index[select_water_dark_pixels(classif, in_flag_water=True, in_flag_dark=False)]])  # In m2
-            obj_area_detected /= 10**6  # Conversion in km2
+            # 3 - Compute object size = detected area
+            obj_size = np.sum(self.obj_pixc.pixel_area[pix_index[select_water_dark_pixels(classif, in_flag_water=True, in_flag_dark=True)]])  # In m2
+            obj_size /= 10**6  # Conversion in km2
             
             logger.info("")
-            logger.info("===== compute_product %d over %d / label = %d / nb pixels = %d / detected area (total area) = %.2f km2 (%.2f km2) =====" \
-                        % (i, len(in_list_labels), label, obj_nb_pix, obj_area_detected, obj_area_total))
+            logger.info("===== compute_product %d over %d / label = %d / nb pixels = %d / size = %.2f km2 =====" \
+                        % (i, len(in_list_labels), label, obj_nb_pix, obj_size))
                         
             # 4 - Compute mean height using both water and dark water pixel (weighting using uncertainties)
             # Use of external method common with RiverObs to compute mean/std
@@ -177,12 +173,12 @@ class LakeProduct(object):
 
                 # 5a - Fit lake height model depending on lake size
 
-                if (biglake_model != 'no') and (obj_area_total >= biglake_min_size):
+                if (biglake_model != 'no') and (obj_size >= biglake_min_size):
 
                     biglakemodel = BigLakeModel(biglake_model)
                     height_model = biglakemodel.height_model
 
-                    logger.info("Using {} biglake model for improved geolocation (lake total area = {} km2)".format(height_model, obj_area_total))
+                    logger.info("Using {} biglake model for improved geolocation (lake size {} km2)".format(height_model, obj_size))
 
                     if height_model == 'grid':
                         height_model = biglakemodel.fit_biglake_model(self.obj_pixc,
@@ -199,7 +195,7 @@ class LakeProduct(object):
                         height_model = np.full(self.obj_pixc.height[pix_index].shape, mean_height)
 
                 else:
-                    logger.debug("Using lake average height = {} m for improved geolocation (lake total area = {} km2)".format(mean_height, obj_area_total))
+                    logger.debug("Using lake average height {} m for improved geolocation (lake size {} km2)".format(mean_height, obj_size))
                     height_model = np.full(self.obj_pixc.height[pix_index].shape, mean_height)
 
                 # 5b - Compute imp geolocation 
@@ -223,13 +219,13 @@ class LakeProduct(object):
             self.obj_pixc_vec.height_vectorproc[tmp_index] = imp_height
 
             # Compute lake product if object area large enough
-            if obj_area_detected >= min_size:
+            if obj_size >= min_size:
 
-                # 6 - Compute obs number
+                # 6 - Compute lakeobs number
                 if self.type == "TILE":  # "TILE" case: only add cpt_obj
-                    obs_number = str(cpt_obj).rjust(nb_digits, str('0'))
+                    lakeobs_num = str(cpt_obj).rjust(nb_digits, str('0'))
                 else :  # "SP" case: add main tile info
-                    obs_number = str(self.obj_pixc.get_lake_tile_label(label)).rjust(nb_digits, str('0'))
+                    lakeobs_num = str(self.obj_pixc.get_lake_tile_label(label)).rjust(nb_digits, str('0'))
 
                 # 7 - Compute lake object (geometry and attributes)
                 # 7.1 - Test potential issue in output of impGeoloc
@@ -238,7 +234,7 @@ class LakeProduct(object):
                 # 7.2 - Process on non NaN points 
                 feature_geom = None
                 if nb_nan == 0:
-                    feature_geom, attributes = self.compute_product(obs_number, pix_index, classif, imp_lon, imp_lat)
+                    feature_geom, attributes = self.compute_product(lakeobs_num, pix_index, classif, imp_lon, imp_lat)
                 else:
                     if nb_nan == obj_nb_pix:
                         logger.warning("!!! All the pixels have NaN for improved geolocation => object not computed")
@@ -246,7 +242,7 @@ class LakeProduct(object):
                         logger.warning("!!! %d pixels have NaN for improved geolocation => removed from computation" % nb_nan)
                         not_nan_index = np.where(np.isfinite(imp_lon))[0]
                         not_nan_classif = self.sort_pixels_wrt_classif_flags(pix_index[not_nan_index])
-                        feature_geom, attributes = self.compute_product(obs_number, pix_index[not_nan_index], not_nan_classif,
+                        feature_geom, attributes = self.compute_product(lakeobs_num, pix_index[not_nan_index], not_nan_classif,
                                                                         imp_lon[not_nan_index], imp_lat[not_nan_index])
                 logger.debug("obs_id: " + str(attributes["obs_id"]))
                 try:
@@ -262,7 +258,7 @@ class LakeProduct(object):
                 cpt_obj += 1
 
             else:
-                logger.info("> Detected area of object %d is too small (= %.2f km2; total area = %.2f km2 with %d pixels)" % (label, obj_area_detected, obj_area_total, obj_nb_pix))
+                logger.info("> Object %d too small (%d pixels = %.2f km2)" % (label, obj_nb_pix, obj_size))
                 cpt_too_small += 1  # Increase counter of too small objects
 
         logger.info("> %d objects not processed because too small" % cpt_too_small)
@@ -293,12 +289,12 @@ class LakeProduct(object):
                 self.set_storage_change(p_max_wse, p_max_area, p_ref_ds) 
                 self.shp_mem_layer.layer.SetAttributeFilter(None)  # Reinit layer attribute filter
                 
-    def compute_product(self, in_obs_number, in_indices, in_classif_dict, in_imp_lon, in_imp_lat):
+    def compute_product(self, in_lakeobs_num, in_indices, in_classif_dict, in_imp_lon, in_imp_lat):
         """
         Computes lake product from a subset of pixel cloud, i.e. pixels for which self.obj_pixc.labels=in_label
 
-        :param in_obs_number: observation number
-        :type in_obs_number: str
+        :param in_lakeobs_num: lake number
+        :type in_lakeobs_num: str
         :param in_indices: list of indices of pixels with a in_id label
         :type in_indices: 1D-array of int
         :param in_classif_dict: dictionary of indices of pixels of in_indices corresponding to categories "water" and "dark"
@@ -314,7 +310,7 @@ class LakeProduct(object):
         :rtype: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("Deal with object number = {}".format(in_obs_number))
+        logger.debug("Deal with object number = {}".format(in_lakeobs_num))
             
         # 1 - Compute geometry
         # 1.1 - Compute the lake boundaries
@@ -361,8 +357,8 @@ class LakeProduct(object):
         if self.type == "TILE":  # "TILE" case: only add cpt_obj
             tile_ref = str(self.obj_pixc.pixc_metadata["tile_number"]).rjust(3, str('0')) + str(self.obj_pixc.pixc_metadata["swath_side"])
         else:  # "SP" case: add main tile info
-            tile_ref = self.obj_pixc.get_majority_pixels_tile_ref(int(in_obs_number))
-        out_attributes["obs_id"] = "%s%s%s" % (lake_basin_id, tile_ref, in_obs_number)
+            tile_ref = self.obj_pixc.get_majority_pixels_tile_ref(int(in_lakeobs_num))
+        out_attributes["obs_id"] = "%s%s%s" % (lake_basin_id, tile_ref, in_lakeobs_num)
         
         # 3.1.2 - Compute lake_id
         if list_prior:
@@ -415,7 +411,7 @@ class LakeProduct(object):
         # 3.5 - Quality indicators
         
         # Summary quality indicator
-        out_attributes["quality_f"] = my_var.FV_INT_SHP
+        out_attributes["quality_f"] = 0
         
         # Fractional area of dark water
         if in_classif_dict["dark"] is None:

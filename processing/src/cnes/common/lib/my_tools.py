@@ -365,7 +365,7 @@ def convert_fillvalue(in_data, in_flag="nc2shp"):
 #######################################
 
 
-def compute_bin_mat(in_size_x, in_size_y, in_x, in_y, verbose=True):
+def compute_bin_mat(in_size_x, in_size_y, in_x, in_y):
     """
     Creates a 2D binary matrix from Y and Y 1D vectors
     i.e. for each ind: mat[in_x[ind],in_y[ind]] = 1
@@ -378,15 +378,12 @@ def compute_bin_mat(in_size_x, in_size_y, in_x, in_y, verbose=True):
     :type in_x: 1D vector of int
     :param in_y: Y indices of "1" pixels
     :type in_y: 1D vector of int
-    :param verbose: print log debug flag
-    :type verbose: bool
 
     :return: 2D matrix with "1" for each (in_x_i, in_y_i) and 0 elsewhere
     :rtype: 2D binary matrix of int 0/1
     """
     logger = logging.getLogger("my_tools")
-    if verbose:
-        logger.debug("- start -")
+    logger.debug("- start -")
 
     # 0 - Deal with exceptions
     # 0.1 - Input vectors size must be the same
@@ -395,8 +392,7 @@ def compute_bin_mat(in_size_x, in_size_y, in_x, in_y, verbose=True):
         raise service_error.ProcessingError(message, logger)
     else:
         nb_pts = in_x.size
-    if verbose:
-        logger.debug("> Nb pixels to deal with = %d" % nb_pts)
+    logger.debug("> Nb pixels to deal with = %d" % nb_pts)
     # 0.2 - max(X) < in_size_x
     if np.max(in_x) >= in_size_x:
         message = "compute_bin_mat(in_x, in_y) : elements of in_x must be less than in_size_x"
@@ -407,8 +403,7 @@ def compute_bin_mat(in_size_x, in_size_y, in_x, in_y, verbose=True):
         raise service_error.ProcessingError(message, logger)
     # 1 - Init output binary image
     out_bin_im = np.zeros((in_size_y, in_size_x))
-    if verbose:
-        logger.debug("> Binary matrix size = (X=%d , Y=%d)" % (in_size_x, in_size_y))
+    logger.debug("> Binary matrix size = (X=%d , Y=%d)" % (in_size_x, in_size_y))
 
     # 2 - Put 1 for every pixels defined by the input vectors
     for ind in range(nb_pts):

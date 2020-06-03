@@ -52,9 +52,9 @@ class PixCVecSP(object):
                 :type in_continent: string
 
         """
-        lake_tile_pixcvec_file_path_r = [ file for file in in_lake_tile_pixcvec_file_list if "R_" in file]
+        lake_tile_pixcvec_file_path_r = [ file for file in in_lake_tile_pixcvec_file_list if "R_20" in file]
         lake_tile_pixcvec_file_path_r.sort()
-        lake_tile_pixcvec_file_path_l = [ file for file in in_lake_tile_pixcvec_file_list if "L_" in file]
+        lake_tile_pixcvec_file_path_l = [ file for file in in_lake_tile_pixcvec_file_list if "L_20" in file]
         lake_tile_pixcvec_file_path_l.sort()
 
         self.pixcvec_r = PixCVecSwath(lake_tile_pixcvec_file_path_r, in_obj_pixc_edge_sp.pixc_edge_r, in_lake_sp_dir, in_continent)
