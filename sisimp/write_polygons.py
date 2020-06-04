@@ -588,7 +588,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         nb_pix_overlap_end = IN_attributes.nb_pix_overlap_end
 
         # Get pixel indices of water pixels corresponding to this latitude interval
-        az_indices = np.where((az >= min(nadir_az) + nb_pix_overlap_begin -1 ) & (az <= max(nadir_az) - nb_pix_overlap_end +1 ))[0]
+        az_indices = np.where((az >= min(nadir_az) + nb_pix_overlap_begin) & (az <= max(nadir_az) - nb_pix_overlap_end))[0]
         
         nb_pix = az_indices.size  # Number of water pixels for this latitude interval
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d water pixels" % nb_pix)
@@ -596,10 +596,14 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         if az_indices.size != 0:  # Write water pixels at this latitude
             
              #Filtering of bad pixels (dirty trick)
+            print(np.amin(az_indices))
+            print(np.amax(az_indices))
             az_indices = az_indices[np.where(lon_noisy[az_indices] !=0.)]
             az_indices = az_indices[np.where(lat_noisy[az_indices] !=0.)]
             az_indices = az_indices[np.where(np.abs(y[az_indices]) > 8000.)]
             az_indices = az_indices[np.where(np.abs(y[az_indices]) < 80000.)]
+            print(np.amax(az_indices))
+            print(np.amin(az_indices))
             
             sub_az, sub_r = [az[az_indices], r[az_indices]]
             
