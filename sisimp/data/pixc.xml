@@ -2,10 +2,10 @@
     <science uid="l2_hr_pixc">
       <nodes>
         <integer name="/pixel_cloud/azimuth_index" shape="points_shape" width="32" signed="true">
-          <annotation app="conformance" _FillValue="2147483647" long_name="rare interferogram azimuth index" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Rare interferogram azimuth index."/>
+          <annotation app="conformance" _FillValue="2147483647" long_name="rare interferogram azimuth index" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Rare interferogram azimuth index (indexed from 0)."/>
         </integer>
         <integer name="/pixel_cloud/range_index" shape="points_shape" width="32" signed="true">
-          <annotation app="conformance" _FillValue="2147483647" long_name="rare interferogram range index" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Rare interferogram range index."/>
+          <annotation app="conformance" _FillValue="2147483647" long_name="rare interferogram range index" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Rare interferogram range index (indexed from 0)."/>
         </integer>
         <real name="/pixel_cloud/interferogram" shape="points_complex_depth_shape" width="32">
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="rare interferogram" units="1" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Complex unflattened rare interferogram."/>
@@ -26,7 +26,7 @@
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="X factor for minus_y channel power" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="X factor for the minus_y channel power in linear units (arbitrary units to normalize noise-subtracted power to sigma0)."/>
         </real>
         <real name="/pixel_cloud/water_frac" shape="points_shape" width="32">
-          <annotation app="conformance" _FillValue="9.96921e+36" long_name="water fraction" units="1" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Noisy estimate of the fraction of the pixel that is water."/>
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="water fraction" units="1" valid_min="-1000" valid_max="10000" coordinates="longitude latitude" comment="Noisy estimate of the fraction of the pixel that is water."/>
         </real>
         <real name="/pixel_cloud/water_frac_uncert" shape="points_shape" width="32">
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="water fraction uncertainty" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Uncertainty estimate of the water fraction estimate (width of noisy water frac estimate distribution)."/>
@@ -104,7 +104,7 @@
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="effective number of medium looks" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Effective number of independent looks taken in forming the medium interferogram (after adaptive averaging)."/>
         </real>
         <real name="/pixel_cloud/sig0" shape="points_shape" width="32">
-          <annotation app="conformance" _FillValue="9.96921e+36" long_name="sigma0" units="1" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Normalized radar cross section, or backscatter brightness."/>
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="sigma0" units="1" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Normalized radar cross section (sigma0) in real, linear units (not decibels). The value may be negative due to noise subtraction."/>
         </real>
         <integer name="/pixel_cloud/phase_unwrapping_region" shape="points_shape" width="32" signed="true">
           <annotation app="conformance" _FillValue="2147483647" long_name="phase unwrapping region index" units="1" valid_min="-1" valid_max="99999999" coordinates="longitude latitude" comment="Phase unwrapping region index."/>
@@ -139,11 +139,11 @@
         <real name="/pixel_cloud/solid_earth_tide" shape="points_shape" width="32">
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="solid Earth tide height" source="Cartwright and Taylor (1971) and Cartwright and Edden (1973)" units="m" valid_min="-1" valid_max="1" coordinates="longitude latitude" comment="Solid-Earth (body) tide height. The zero-frequency permanent tide component is not included."/>
         </real>
-        <real name="/pixel_cloud/load_tide_sol1" shape="points_shape" width="32">
-          <annotation app="conformance" _FillValue="9.96921e+36" long_name="geocentric load tide height from model 1" source="FES2014b (Carrere et al., 2016)" institution="LEGOS/CNES" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth's crust. This value is reported for reference but is not applied to the reported height."/>
+        <real name="/pixel_cloud/load_tide_fes" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="geocentric load tide height (FES)" source="FES2014b (Carrere et al., 2016)" institution="LEGOS/CNES" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth's crust. This value is reported for reference but is not applied to the reported height."/>
         </real>
-        <real name="/pixel_cloud/load_tide_sol2" shape="points_shape" width="32">
-          <annotation app="conformance" _FillValue="9.96921e+36" long_name="geocentric load tide height from model 2" source="GOT4.10c (Ray, 2013)" institution="GSFC" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth's crust. This value is reported for reference but is not applied to the reported height."/>
+        <real name="/pixel_cloud/load_tide_got" shape="points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="geocentric load tide height (GOT)" source="GOT4.10c (Ray, 2013)" institution="GSFC" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth's crust. This value is reported for reference but is not applied to the reported height."/>
         </real>
         <real name="/pixel_cloud/pole_tide" shape="points_shape" width="32">
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="geocentric pole tide height" source="Wahr (1985) and Desai et al. (2015)" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric pole tide height. The total of the contribution from the solid-Earth (body) pole tide height and the load pole tide height (i.e., the effect of the ocean pole tide loading of the Earth's crust)."/>
@@ -359,10 +359,10 @@
           <annotation description="Range resolution (m) for the SLC data.  The resolution is approximately the half-power width of the range point target response."/>
         </real>
         <integer name="/@slc_first_line_index_in_tvp" shape="Scalar" width="32" signed="true">
-          <annotation description="The TVP index (from 0 [TBC]) corresponding to the first SLC image line in the overlapped tile."/>
+          <annotation description="The TVP index (from 0) corresponding to the first SLC image line in the overlapped tile."/>
         </integer>
         <integer name="/@slc_last_line_index_in_tvp" shape="Scalar" width="32" signed="true">
-          <annotation description="The TVP index (from 0 [TBC]) corresponding to the last SLC image line in the overlapped tile."/>
+          <annotation description="The TVP index (from 0) corresponding to the last SLC image line in the overlapped tile."/>
         </integer>
         <string name="/@xref_input_l1b_hr_slc_file" shape="Scalar" width="0">
           <annotation description="Name of input Level 1B Single Look Complex (SLC) product file."/>

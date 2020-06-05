@@ -618,7 +618,7 @@ class LakeSPShpProduct(ShapefileProduct):
                        'valid_min': -1000, 
                        'valid_max': 100000, 
                        'tag_basic_expert': "Basic", 
-                       'comment': "Lake-averaged water surface elevation, relative to the provided model of the geoid (geoid_hght), with corrections for media delays (wet and dry troposphere, and ionosphere), crossover correction, and tidal effects (solid_tide, load_tide1, and pole_tide) applied."}
+                       'comment': "Lake-averaged water surface elevation, relative to the provided model of the geoid (geoid_hght), with corrections for media delays (wet and dry troposphere, and ionosphere), crossover correction, and tidal effects (solid_tide, load_tidef, and pole_tide) applied."}
 
         self.attributes['wse_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
@@ -865,7 +865,7 @@ class LakeSPShpProduct(ShapefileProduct):
                        'tag_basic_expert': "Expert", 
                        'comment': "Geocentric pole tide height. The sum total of the contribution from the solid-Earth (body) pole tide height and the load pole tide height (i.e., the effect of the ocean pole tide loading of the Earth’s crust).."}
 
-        self.attributes['load_tide1'] = {'type': "float", 
+        self.attributes['load_tidef'] = {'type': "float", 
                        'fill_value': -999999999999, 
                        'width': 17,
                        'precision': 3,
@@ -878,7 +878,7 @@ class LakeSPShpProduct(ShapefileProduct):
                        'tag_basic_expert': "Expert", 
                        'comment': "Geocentric load tide height. The effect of the ocean tide loading of the Earth’s crust. This value is used to compute wse."}
 
-        self.attributes['load_tide2'] = {'type': "float", 
+        self.attributes['load_tideg'] = {'type': "float", 
                        'fill_value': -999999999999, 
                        'width': 17,
                        'precision': 3,

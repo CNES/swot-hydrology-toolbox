@@ -445,8 +445,8 @@ class LakeProduct(object):
         # Pole tide
         out_attributes["pole_tide"] = my_tools.compute_mean_2sigma(self.obj_pixc.pole_tide[in_indices], in_nan=my_var.FV_FLOAT)
         # Load tide
-        out_attributes["load_tide1"] = my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_sol1[in_indices], in_nan=my_var.FV_FLOAT)
-        out_attributes["load_tide2"] = my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_sol2[in_indices], in_nan=my_var.FV_FLOAT)
+        out_attributes["load_tidef"] = my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_fes[in_indices], in_nan=my_var.FV_FLOAT)
+        out_attributes["load_tideg"] = my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_got[in_indices], in_nan=my_var.FV_FLOAT)
         
         # 2.7 - Geophysical range corrections
         # Dry tropo corr

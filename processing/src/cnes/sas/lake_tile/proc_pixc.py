@@ -87,8 +87,8 @@ class PixelCloud(object):
             - height_cor_xover / 1D array of float: crossover calibration height correction
             - geoid / 1D array of float: geoid
             - solid_earth_tide / 1D array of float: solid earth tide
-            - load_tide_sol1 / 1D array of float: load tide height (FES2014)
-            - load_tide_sol2 / 1D array of float: load tide height (GOT4.10)
+            - load_tide_fes / 1D array of float: load tide height (FES2014)
+            - load_tide_got / 1D array of float: load tide height (GOT4.10)
             - pole_tide / 1D array of float: pole tide height
             - pixc_qual / 1D-array of byte: status flag
             - wavelength / float: wavelength corresponding to the effective radar carrier frequency 
@@ -169,8 +169,8 @@ class PixelCloud(object):
         self.height_cor_xover = None
         self.geoid = None
         self.solid_earth_tide = None
-        self.load_tide_sol1 = None
-        self.load_tide_sol2 = None
+        self.load_tide_fes = None
+        self.load_tide_got = None
         self.pole_tide = None
         self.pixc_qual = None
         self.wavelength = -9999.0
@@ -481,9 +481,9 @@ class PixelCloud(object):
             # Solid earth tide
             self.solid_earth_tide = pixc_reader.get_var_value_or_empty("solid_earth_tide", in_group=pixc_group)[self.selected_index]
             # Load tide height (FES2014)
-            self.load_tide_sol1 = pixc_reader.get_var_value_or_empty("load_tide_sol1", in_group=pixc_group)[self.selected_index]
+            self.load_tide_fes = pixc_reader.get_var_value_or_empty("load_tide_fes", in_group=pixc_group)[self.selected_index]
             # Load tide height (GOT4.10)
-            self.load_tide_sol2 = pixc_reader.get_var_value_or_empty("load_tide_sol2", in_group=pixc_group)[self.selected_index]
+            self.load_tide_got = pixc_reader.get_var_value_or_empty("load_tide_got", in_group=pixc_group)[self.selected_index]
             # Pole tide height
             self.pole_tide = pixc_reader.get_var_value_or_empty("pole_tide", in_group=pixc_group)[self.selected_index]
             
@@ -539,17 +539,17 @@ class PixelCloud(object):
             valid_geoid = np.where(self.geoid < my_var.FV_NETCDF[str(self.geoid.dtype)])[0]
             valid_solid_earth_tide = np.where(self.solid_earth_tide < my_var.FV_NETCDF[str(self.solid_earth_tide.dtype)])[0]
             valid_pole_tide = np.where(self.pole_tide < my_var.FV_NETCDF[str(self.pole_tide.dtype)])[0]
-            valid_load_tide_sol1 = np.where(self.load_tide_sol1 < my_var.FV_NETCDF[str(self.load_tide_sol1.dtype)])[0]
+            valid_load_tide_fes = np.where(self.load_tide_fes < my_var.FV_NETCDF[str(self.load_tide_fes.dtype)])[0]
             inter1 = np.intersect1d(valid_geoid, valid_solid_earth_tide)
             inter2 = np.intersect1d(valid_pole_tide, inter1)
-            ind_valid_corr = np.intersect1d(valid_load_tide_sol1, inter2)
+            ind_valid_corr = np.intersect1d(valid_load_tide_fes, inter2)
             # Compute corrected height for these PIXC
             self.corrected_height = np.zeros(self.nb_water_pix) + my_var.FV_FLOAT
             self.corrected_height[ind_valid_corr] = self.height[ind_valid_corr] \
                                                     - self.geoid[ind_valid_corr] \
                                                     - self.solid_earth_tide[ind_valid_corr] \
                                                     - self.pole_tide[ind_valid_corr] \
-                                                    - self.load_tide_sol1[ind_valid_corr]
+                                                    - self.load_tide_fes[ind_valid_corr]
                     
         # 7 - Close file
         pixc_reader.close()
@@ -905,8 +905,8 @@ class PixelCloud(object):
             vars_to_write["height_cor_xover"] = self.height_cor_xover[self.edge_index]
             vars_to_write["geoid"] = self.geoid[self.edge_index]
             vars_to_write["solid_earth_tide"] = self.solid_earth_tide[self.edge_index]
-            vars_to_write["load_tide_sol1"] = self.load_tide_sol1[self.edge_index]
-            vars_to_write["load_tide_sol2"] = self.load_tide_sol2[self.edge_index]
+            vars_to_write["load_tide_fes"] = self.load_tide_fes[self.edge_index]
+            vars_to_write["load_tide_got"] = self.load_tide_got[self.edge_index]
             vars_to_write["pole_tide"] = self.pole_tide[self.edge_index]
             vars_to_write["pixc_qual"] = self.pixc_qual[self.edge_index]
             vars_to_write["nadir_time"] = self.nadir_time[self.edge_index]

@@ -250,8 +250,8 @@ class PixCEdgeSwath(object):
                 - height_cor_xover / 1D array of float: crossover calibration height correction
                 - geoid / 1D array of float: geoid
                 - solid_earth_tide / 1D array of float: solid earth tide
-                - load_tide_sol1 / 1D array of float: load tide height (FES2014)
-                - load_tide_sol2 / 1D array of float: load tide height (GOT4.10)
+                - load_tide_fes / 1D array of float: load tide height (FES2014)
+                - load_tide_got / 1D array of float: load tide height (GOT4.10)
                 - pole_tide / 1D array of float: pole tide height
                 - pixc_qual / 1D-array of byte: status flag
                 - wavelength / float: wavelength corresponding to the effective radar carrier frequency 
@@ -317,8 +317,8 @@ class PixCEdgeSwath(object):
         self.height_cor_xover = np.array(())
         self.geoid = np.array(())
         self.solid_earth_tide = np.array(())
-        self.load_tide_sol1 = np.array(())
-        self.load_tide_sol2 = np.array(())
+        self.load_tide_fes = np.array(())
+        self.load_tide_got = np.array(())
         self.pole_tide = np.array(())
         self.pixc_qual = np.array(())
         self.wavelength = -9999.0
@@ -602,10 +602,10 @@ class PixCEdgeSwath(object):
                 self.geoid = np.concatenate((self.geoid, tmp_geoid))
                 tmp_solid_earth_tide = pixc_edge_reader.get_var_value("solid_earth_tide")
                 self.solid_earth_tide = np.concatenate((self.solid_earth_tide, tmp_solid_earth_tide))
-                tmp_load_tide_sol1 = pixc_edge_reader.get_var_value("load_tide_sol1")
-                self.load_tide_sol1 = np.concatenate((self.load_tide_sol1, tmp_load_tide_sol1))
-                tmp_load_tide_sol2 = pixc_edge_reader.get_var_value("load_tide_sol2")
-                self.load_tide_sol2 = np.concatenate((self.load_tide_sol2, tmp_load_tide_sol2))
+                tmp_load_tide_fes = pixc_edge_reader.get_var_value("load_tide_fes")
+                self.load_tide_fes = np.concatenate((self.load_tide_fes, tmp_load_tide_fes))
+                tmp_load_tide_got = pixc_edge_reader.get_var_value("load_tide_got")
+                self.load_tide_got = np.concatenate((self.load_tide_got, tmp_load_tide_got))
                 tmp_pole_tide = pixc_edge_reader.get_var_value("pole_tide")
                 self.pole_tide = np.concatenate((self.pole_tide, tmp_pole_tide))
                 
@@ -650,17 +650,17 @@ class PixCEdgeSwath(object):
                 valid_geoid = np.where(tmp_geoid < my_var.FV_NETCDF[str(tmp_geoid.dtype)])[0]
                 valid_solid_earth_tide = np.where(tmp_solid_earth_tide < my_var.FV_NETCDF[str(tmp_solid_earth_tide.dtype)])[0]
                 valid_pole_tide = np.where(tmp_pole_tide < my_var.FV_NETCDF[str(tmp_pole_tide.dtype)])[0]
-                valid_load_tide_sol1 = np.where(tmp_load_tide_sol1 < my_var.FV_NETCDF[str(tmp_load_tide_sol1.dtype)])[0]
+                valid_load_tide_fes = np.where(tmp_load_tide_fes < my_var.FV_NETCDF[str(tmp_load_tide_fes.dtype)])[0]
                 inter1 = np.intersect1d(valid_geoid, valid_solid_earth_tide)
                 inter2 = np.intersect1d(valid_pole_tide, inter1)
-                ind_valid_corr = np.intersect1d(valid_load_tide_sol1, inter2)
+                ind_valid_corr = np.intersect1d(valid_load_tide_fes, inter2)
                 # Compute corrected height for these PIXC
                 tmp_corrected_height = np.zeros(out_nb_pix) + my_var.FV_FLOAT
                 tmp_corrected_height[ind_valid_corr] = tmp_height[ind_valid_corr] \
                                                        - tmp_geoid[ind_valid_corr] \
                                                        - tmp_solid_earth_tide[ind_valid_corr] \
                                                        - tmp_pole_tide[ind_valid_corr] \
-                                                       - tmp_load_tide_sol1[ind_valid_corr]
+                                                       - tmp_load_tide_fes[ind_valid_corr]
                 self.corrected_height = np.concatenate((self.corrected_height, tmp_corrected_height))
     
             # 6 - Close file

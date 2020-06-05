@@ -686,8 +686,8 @@ class LakeTileEdgeProduct(NetCDFProduct):
             'valid_max': 999999,
             'comment': "Cartwright/Taylor solid earth tide; units are meters above the reference ellipsoid. \
             The zero-frequency permanent tide is not included."}
-        # load_tide_sol1
-        self.variables["load_tide_sol1"] = {'dtype': np.float,
+        # load_tide_fes
+        self.variables["load_tide_fes"] = {'dtype': np.float,
             'long_name': "geocentric load tide height (solution 1)", 
             'institution': "GSFC",
             'units': "m",
@@ -695,8 +695,8 @@ class LakeTileEdgeProduct(NetCDFProduct):
             'valid_max': 999999,
             'comment': "GOT4.10; units are meters above the reference ellipsoid. This term is reported for reference but\
             is not removed from the pixel geolocation."}
-        # load_tide_sol2
-        self.variables["load_tide_sol2"] = {'dtype': np.float,
+        # load_tide_got
+        self.variables["load_tide_got"] = {'dtype': np.float,
             'long_name': "geocentric load tide height (solution 2)", 
             'institution': "LEGOS/CNES",
             'units': "m",
