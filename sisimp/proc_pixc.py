@@ -414,7 +414,7 @@ class l2_hr_pixc(object):
         tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
-        tmpField = ogr.FieldDefn(str('wse'), ogr.OFTReal)  # Hauteur
+        tmpField = ogr.FieldDefn(str('height'), ogr.OFTReal)  # Hauteur
         tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
@@ -462,7 +462,7 @@ class l2_hr_pixc(object):
             outFeature.SetField(str('pix_area'), float(pixel_area))
             outFeature.SetField(str('lat'), float(lat))
             outFeature.SetField(str('long'), float(lng))
-            outFeature.SetField(str('wse'), float(height))
+            outFeature.SetField(str('height'), float(height))
             outFeature.SetField(str('cr_track'), float(crosstrack))
             outFeature.SetField(str('phi_std'), float(phase_noise_std))
             outFeature.SetField(str('dlat_dph'), float(dlat_dphi))
