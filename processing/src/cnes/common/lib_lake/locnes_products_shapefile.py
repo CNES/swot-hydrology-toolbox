@@ -611,7 +611,7 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['wse'] = {'type': "float", 
                        'fill_value': -999999999999,
-                       'width': 16,
+                       'width': 17,
                        'precision': 3,
                        'long_name': "lake-averaged water surface elevation with respect to the geoid", 
                        'units': "m", 
@@ -622,7 +622,7 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['wse_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 16,
+                       'width': 17,
                        'precision': 3,
                        'long_name': "total uncertainty in lake water surface elevation", 
                        'units': "m", 
@@ -633,7 +633,7 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['wse_r_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 16,
+                       'width': 17,
                        'precision': 3,
                        'long_name': "random-only uncertainty in the height water surface elevation", 
                        'units': "m", 
@@ -644,7 +644,7 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['wse_std'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 16,
+                       'width': 17,
                        'precision': 3,
                        'long_name': "standard deviation of pixels wse", 
                        'units': "m", 
@@ -655,7 +655,7 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['area_total'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 13,
+                       'width': 20,
                        'precision': 6,
                        'long_name': "total water area with estimate of dark water", 
                        'units': "km^2", 
@@ -666,7 +666,7 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['area_tot_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 13,
+                       'width': 20,
                        'precision': 6,
                        'long_name': "uncertainty in total water area", 
                        'units': "km^2", 
@@ -677,7 +677,7 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['area_detct'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 13,
+                       'width': 20,
                        'precision': 6,
                        'long_name': "area of detected water pixels", 
                        'units': "km^2", 
@@ -688,7 +688,7 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['area_det_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 13,
+                       'width': 20,
                        'precision': 6,
                        'long_name': "uncertainty in area of detected water", 
                        'units': "km^2", 
@@ -721,8 +721,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['delta_s_l'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 13,
-                       'precision': 7,
+                       'width': 20,
+                       'precision': 6,
                        'long_name': "storage change computed by linear method", 
                        'units': "km^3", 
                        'valid_min': -1000, 
@@ -732,8 +732,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['ds_l_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 13,
-                       'precision': 7,
+                       'width': 20,
+                       'precision': 6,
                        'long_name': "uncertainty in storage change computed by linear method", 
                        'units': "km^3", 
                        'valid_min': -1000, 
@@ -743,8 +743,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['delta_s_q'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 13,
-                       'precision': 7,
+                       'width': 20,
+                       'precision': 6,
                        'long_name': "storage change computed by quadratic method", 
                        'units': "km^3", 
                        'valid_min': -1000, 
@@ -754,8 +754,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['ds_q_u'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 13,
-                       'precision': 7,
+                       'width': 20,
+                       'precision': 6,
                        'long_name': "uncertainty in storage change computed by quadratic method", 
                        'units': "km^3", 
                        'valid_min': -1000, 
@@ -968,7 +968,7 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['p_max_area'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 13,
+                       'width': 20,
                        'precision': 6,
                        'long_name': "maximum water surface area", 
                        'units': "km^2", 
@@ -985,8 +985,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['p_ref_ds'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 13,
-                       'precision': 7,
+                       'width': 20,
+                       'precision': 6,
                        'long_name': "Reference storage change", 
                        'units': "km^3", 
                        'valid_min': -1000, 
@@ -996,8 +996,8 @@ class LakeSPShpProduct(ShapefileProduct):
 
         self.attributes['p_storage'] = {'type': "float", 
                        'fill_value': -999999999999, 
-                       'width': 13,
-                       'precision': 7,
+                       'width': 20,
+                       'precision': 6,
                        'long_name': "maximum water storage", 
                        'units': "km^3", 
                        'valid_min': 0, 
