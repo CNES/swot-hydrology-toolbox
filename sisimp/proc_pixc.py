@@ -287,8 +287,8 @@ class l2_hr_pixc(object):
         #--------------------
         pixel_cloud_vars_val['geoid'] = self.geoid
         pixel_cloud_vars_val['solid_earth_tide'] = np.zeros(self.nb_water_pix)
-        pixel_cloud_vars_val['load_tide_sol1'] = np.zeros(self.nb_water_pix)
-        pixel_cloud_vars_val['load_tide_sol2'] = np.zeros(self.nb_water_pix)
+        pixel_cloud_vars_val['load_tide_fes'] = np.zeros(self.nb_water_pix)
+        pixel_cloud_vars_val['load_tide_got'] = np.zeros(self.nb_water_pix)
         pixel_cloud_vars_val['pole_tide'] = np.zeros(self.nb_water_pix)
         #--------------------
         pixel_cloud_vars_val['pixc_qual'] = np.zeros(self.nb_water_pix)
