@@ -56,7 +56,15 @@ Although the large-scale simulator included in the toolbox provides fairly repre
   * Spatially random correlated heights, and 2D polynomial model (with synthetic slopes)
   * Also possible to inject “true” heights from models (after simulation)
   * Random effective instrument noise added to height (and propagated to geolocation)
-* Idealized pixel cloud processing (i.e. water detection, phase unwrapping etc. are implicitly assumed to be perfect)
+* Idealized pixel cloud processing 
+* Dark water synthetic model (correlated random fields used to simulate low reflectivity areas)
+* Geoid (mean tide corrected EGM-2008), tropospheric and corr-over residual errors simulated
+
+## When do you use the simulator:
+* Large areas studies and multitemporal studies 
+* When a precise representation of phenomenology (layover, algorithm errors, etc.) is not relevent 
+* When you don't want to use a precise slope model as input (option is currently in development)
+* To study the inpact of water bodies complex geometry on River and Lake processing 
 
 ```
 If a higher degree of realism is necessary to conduct a study, lower-level simulators and processors need to be employed. 
