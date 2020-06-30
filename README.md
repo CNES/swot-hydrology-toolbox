@@ -30,14 +30,13 @@ Note that both algorithms and products are still under development and will be u
 * Potentially other modules in the future (for ex. floodplain DEM generation)
 
 ## Associated RiverObs version
-Currently in prd-v5 branch, should be pushed into develop soon
+develop branch
 
-commit 77a7341acaf97c536b2a12216b01697f7ce65661
+commit 3964e3749908ba88a7f1586c7939dc9dcef21a9e
 Author: Alex Fore <Alexander.Fore@jpl.nasa.gov>
-Date:   Thu May 28 08:24:58 2020 -0700
+Date:   Thu Jun 18 12:37:22 2020 -0700
 
-    change guards on discharge to A+dA
-
+    PDD updates
 
 River database SWORD v5 available here :
 http://gaia.geosci.unc.edu/SWORD/SWORD_v05.zip
