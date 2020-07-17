@@ -640,7 +640,7 @@ def check_lake_db(in_xml_tree):
             message = "ERROR bad lake_db. In XML file: " + lake_db_xml + " WHEREAS in config file: None"
             raise service_error.ProcessingError(message, logger)
         elif (tmp_compare != lake_db_xml):
-            message = "ERROR bad lake_db. In XML file: " + lake_db_xml + " WHEREAS in config file: " + os.path.basename(lake_db)
+            message = "ERROR bad lake_db. In XML file: " + lake_db_xml + " WHEREAS in config file: " + tmp_compare
             raise service_error.ProcessingError(message, logger)
             
     # Print PLD filename in log

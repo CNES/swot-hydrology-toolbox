@@ -32,6 +32,7 @@ import configparser
 import datetime
 import logging
 import os
+import sys
 
 import cnes.common.service_config_file as service_config_file
 import cnes.common.service_error as service_error
@@ -155,8 +156,8 @@ class PGELakeTile():
         try:
             out_params["param_file"] = os.path.expandvars(config.get("PATHS", "param_file"))
         except:
-            #out_params["param_file"] = os.path.join(sys.path[0], "lake_tile_param.cfg")
-            out_params["param_file"] = os.path.join(os.getcwd(), "lake_tile_param.cfg")
+            out_params["param_file"] = os.path.join(sys.path[0], "lake_tile_param.cfg")
+            #out_params["param_file"] = os.path.join(os.getcwd(), "lake_tile_param.cfg")
         out_params["pixc_file"] = config.get("PATHS", "PIXC file")
         out_params["pixc_vec_river_file"] = config.get("PATHS", "PIXCVecRiver file")
         out_params["output_dir"] = config.get("PATHS", "Output directory")

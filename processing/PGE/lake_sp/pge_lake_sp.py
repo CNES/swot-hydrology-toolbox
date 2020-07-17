@@ -33,6 +33,7 @@ import datetime
 import logging
 from lxml import etree as ET
 import os
+import sys
 
 import cnes.common.service_config_file as service_config_file
 import cnes.common.service_error as service_error
@@ -154,8 +155,8 @@ class PGELakeSP():
         try:
             out_params["param_file"] = os.path.expandvars(config.get("PATHS", "param_file"))
         except:
-            #out_params["param_file"] = os.path.join(sys.path[0], "lake_sp_param.cfg")
-            out_params["param_file"] = os.path.join(os.getcwd(), "lake_sp_param.cfg")
+            out_params["param_file"] = os.path.join(sys.path[0], "lake_sp_param.cfg")
+            #out_params["param_file"] = os.path.join(os.getcwd(), "lake_sp_param.cfg")
         out_params["laketile_directory"] = config.get("PATHS", "LakeTile directory")
         out_params["output_dir"] = config.get("PATHS", "Output directory")
 

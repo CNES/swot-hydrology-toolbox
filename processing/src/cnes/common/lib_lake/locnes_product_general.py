@@ -13,7 +13,6 @@
 from collections import OrderedDict
 import datetime
 import logging
-import numpy as np
 import os
 
 import cnes.common.service_config_file as service_config_file
@@ -94,7 +93,8 @@ class LocnesProduct(object):
         
         for key, value in in_metadata.items():
             if key in metadata_keys:
-                self.global_metadata[key]["value"] = value
+                if value not in ["", "None", None]:
+                    self.global_metadata[key]["value"] = value
             else:
                 logger.debug("%s key is not used as metadata" % key)
                             

@@ -266,16 +266,21 @@ class NetcdfProduct(my_prod.LocnesProduct):
         logger.debug("- start -")
         
         for name, att_dict in self.global_metadata.items():
-            if "signed" in att_dict.keys():
-                converted_value = convert_str_to_dtype(att_dict["value"], 
-                                                       att_dict["type"],
-                                                       att_dict["width"], 
-                                                       signed=att_dict["signed"])
+            
+            if att_dict["value"] == "None":
+                in_nc_writer.add_global_attribute(name, "")
+                
             else:
-                converted_value = convert_str_to_dtype(att_dict["value"],
-                                                       att_dict["type"],
-                                                       att_dict["width"])
-            in_nc_writer.add_global_attribute(name, converted_value)
+                if "signed" in att_dict.keys():
+                    converted_value = convert_str_to_dtype(att_dict["value"], 
+                                                           att_dict["type"],
+                                                           att_dict["width"], 
+                                                           signed=att_dict["signed"])
+                else:
+                    converted_value = convert_str_to_dtype(att_dict["value"],
+                                                           att_dict["type"],
+                                                           att_dict["width"])
+                in_nc_writer.add_global_attribute(name, converted_value)
 
 
 #######################################

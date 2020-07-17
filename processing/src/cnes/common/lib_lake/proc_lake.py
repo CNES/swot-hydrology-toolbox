@@ -700,7 +700,7 @@ class LakeProduct(object):
                                                            self.obj_pixc_vec.latitude_vectorproc[tmp_pixcvec_index])
                         
                     else:
-                        obs_poly = cur_geom.Intersection(influence_area_poly.GetGeometryRef())
+                        obs_poly = cur_geom.Intersection(influence_area_poly)
                 
                 # Compute overlaping area
                 area_pld = my_tools.get_area(in_pld_geom)
@@ -1483,13 +1483,13 @@ class LakeSPProduct(object):
         # 3.1 - Right swath
         for cur_feature in self.swath_r.content_obs.layer:
             cur_att = {}
-            for att_name in tmp_content_unknown.attributes.keys():
+            for att_name in tmp_content_unknown.attribute_metadata.keys():
                 cur_att[att_name] = cur_feature.GetField(str(att_name))
             tmp_content_unknown.add_feature(cur_feature.GetGeometryRef(), cur_att)
         # 3.2 - Left swath
         for cur_feature in self.swath_l.content_obs.layer:
             cur_att = {}
-            for att_name in tmp_content_unknown.attributes.keys():
+            for att_name in tmp_content_unknown.attribute_metadata.keys():
                 cur_att[att_name] = cur_feature.GetField(str(att_name))
             tmp_content_unknown.add_feature(cur_feature.GetGeometryRef(), cur_att)
         
