@@ -7,6 +7,7 @@
 # ======================================================
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
+# VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -53,11 +54,20 @@ class PixelCloud(object):
         Variables of the object:
 
         - From pixel_cloud group in L2_HR_PIXC file
+        
+            Having the same number of PIXC as in the L2_HR_PIXC file
+            - origin_classif / 1D-array of byte: classification value of pixels (= variable named classification in L2_HR_PIXC)
+            - origin_range_index / 1D-array of int: range indices of water pixels (= variable named range_index in L2_HR_PIXC)
+            - origin_azimuth_index / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in L2_HR_PIXC)
+            - origin_latitude / 1D-array of float: latitude of water pixels
+            - origin_longitude / 1D-array of float: longitude of water pixels
+            
+            Subset of L2_HR_PIXC (after rejection of some PIXC, as river pixels except those associated to reservoirs)
             - nb_pix_range / int: number of pixels in range dimension (= global attribute named interferogram_size_range in L2_HR_PIXC)
             - nb_pix_azimuth / int: number of pixels in azimuth dimension (= global attribute named interferogram_size_azimuth in L2_HR_PIXC)
-            - [origin_]classif / 1D-array of byte: classification value of pixels (= variable named classification in L2_HR_PIXC)
-            - [origin_]range_index / 1D-array of int: range indices of water pixels (= variable named range_index in L2_HR_PIXC)
-            - [origin_]azimuth_index / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in L2_HR_PIXC)
+            - classif / 1D-array of byte: classification value of pixels (= variable named classification in L2_HR_PIXC)
+            - range_index / 1D-array of int: range indices of water pixels (= variable named range_index in L2_HR_PIXC)
+            - azimuth_index / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in L2_HR_PIXC)
             - interferogram / 2D-array of float: rare interferogram
             - power_plus_y / 1D-array of float: power for plus_y channel
             - power_minus_y / 1D-array of float: power for minus_y channel
@@ -68,8 +78,8 @@ class PixelCloud(object):
             - bright_land_flag / 1D array of byte: bright land flag
             - layover_impact /1D array of float: layover impact
             - eff_num_rare_looks / 1D array of byte: number of rare looks
-            - [origin_]latitude / 1D-array of float: latitude of water pixels
-            - [origin_]longitude / 1D-array of float: longitude of water pixels
+            - latitude / 1D-array of float: latitude of water pixels
+            - longitude / 1D-array of float: longitude of water pixels
             - height / 1D-array of float: height of water pixels
             - cross_track / 1D-array of float: cross-track distance from nadir to center of water pixels
             - pixel_area / 1D-array of int: area of water pixels
@@ -92,15 +102,19 @@ class PixelCloud(object):
             - pole_tide / 1D array of float: pole tide height
             - pixc_qual / 1D-array of byte: status flag
             - wavelength / float: wavelength corresponding to the effective radar carrier frequency 
-            - looks_to_efflooks / float: ratio between the number of actual samples and the effective number of independent samples during spatial averaging over a large 2-D area
+            - looks_to_efflooks / float: ratio between the number of actual samples and the effective number of independent samples
+               during spatial averaging over a large 2-D area
         - From tvp group in L2_HR_PIXC file
             - nadir_time[_tai] / 1D-array of float: observation UTC [TAI] time of each nadir pixel (= variable named time[tai] in L2_HR_PIXC file)
             - nadir_longitude / 1D-array of float: longitude of each nadir pixel (= variable named longitude in L2_HR_PIXC file)
             - nadir_latitude / 1D-array of float: latitude of each nadir pixel (= variable named latitude in L2_HR_PIXC file)   
             - nadir_[x|y|z] / 1D-array of float: [x|y|z] cartesian coordinates of each nadir pixel (= variables named [x|y|z] in L2_HR_PIXC file)
-            - nadir_[vx|vy|vz] / 1D-array of float: velocity vector of each nadir pixel in cartesian coordinates (= variables named velocity_unit_[x|y|z] in L2_HR_PIXC file)
-            - nadir_plus_y_antenna_[x|y|z] / 1D-array of float: position vector of the +y KaRIn antenna phase center in ECEF coordinates (= variables named plus_y_antenna_[x|y|z] in L2_HR_PIXC file)
-            - nadir_minus_y_antenna_[x|y|z] / 1D-array of float: position vector of the -y KaRIn antenna phase center in ECEF coordinates (= variables named minus_y_antenna_[x|y|z] in L2_HR_PIXC file)
+            - nadir_[vx|vy|vz] / 1D-array of float: velocity vector of each nadir pixel in cartesian coordinates (= variables 
+              named velocity_unit_[x|y|z] in L2_HR_PIXC file)
+            - nadir_plus_y_antenna_[x|y|z] / 1D-array of float: position vector of the +y KaRIn antenna phase center in ECEF coordinates 
+              (= variables named plus_y_antenna_[x|y|z] in L2_HR_PIXC file)
+            - nadir_minus_y_antenna_[x|y|z] / 1D-array of float: position vector of the -y KaRIn antenna phase center in ECEF coordinates 
+              (= variables named minus_y_antenna_[x|y|z] in L2_HR_PIXC file)
             - nadir_sc_event_flag / 1D array of byte: spacecraft event flag
             - nadir_tvp_qual / 1D array of byte: quality flag
         - From processing
@@ -115,7 +129,8 @@ class PixelCloud(object):
             - inundated_area / 1D-array of int: area of pixels covered by water
             - height_std_pix / 1D-array of float: height std
             - corrected_height / 1D-array of float: height corrected from geoid and other tide corrections
-            - labels / 1D-array of int: labelled regions associated to each PixC water pixel; pixels of this vector correspond one-to-one to the pixels of data from L2_HR_PIXC and L2_HR_PIXC_VEC_RIVER
+            - labels / 1D-array of int: labelled regions associated to each PixC water pixel; pixels of this vector correspond one-to-one 
+              to the pixels of data from L2_HR_PIXC and L2_HR_PIXC_VEC_RIVER
             - nb_obj / int : number of separate entities in the PixC tile
             - labels_inside / 1D-array of int: label of objects entirely inside the tile
             - nb_obj_inside / int : number of these objects
@@ -203,6 +218,10 @@ class PixelCloud(object):
         self.pixc_metadata["tile_name"] = ""
         self.pixc_metadata["time_coverage_start"] = ""
         self.pixc_metadata["time_coverage_end"] = ""
+        self.pixc_metadata["geospatial_lon_min"] = -9999
+        self.pixc_metadata["geospatial_lon_max"] = -9999
+        self.pixc_metadata["geospatial_lat_min"] = -9999
+        self.pixc_metadata["geospatial_lat_max"] = -9999
         self.pixc_metadata["inner_first_latitude"] = -9999.0
         self.pixc_metadata["inner_first_longitude"] = -9999.0
         self.pixc_metadata["inner_last_latitude"] = -9999.0
@@ -293,7 +312,8 @@ class PixelCloud(object):
         self.nb_pix_azimuth = int(self.pixc_metadata["interferogram_size_azimuth"])  # Number of pixels in azimuth dimension
         self.near_range = np.double(self.pixc_metadata["near_range"])  # Slant range for the 1st image pixel
         self.wavelength = np.float(self.pixc_metadata["wavelength"])  # Wavelength
-        self.looks_to_efflooks = np.float(self.pixc_metadata["looks_to_efflooks"])  # Ratio between the number of actual samples and the effective number of independent samples
+        # Ratio between the number of actual samples and the effective number of independent samples
+        self.looks_to_efflooks = np.float(self.pixc_metadata["looks_to_efflooks"])  
 
         # 3 - Create polygon of tile from global attributes
         ring = ogr.Geometry(ogr.wkbLinearRing)
@@ -408,28 +428,28 @@ class PixelCloud(object):
             self.azimuth_index = self.origin_azimuth_index[self.selected_index]
             
             # Interferogram
-            interferogram = pixc_reader.get_var_value_or_empty("interferogram", in_group=pixc_group)[self.selected_index]
+            interferogram = pixc_reader.get_var_value_or_raise_error("interferogram", in_group=pixc_group)[self.selected_index]
             self.interferogram = interferogram[:,0] + 1j*interferogram[:,1]
             self.interferogram_flattened = 0 * self.interferogram 
             # Sensitivity of height estimate to interferogram phase
-            self.power_plus_y = pixc_reader.get_var_value_or_empty("power_plus_y", in_group=pixc_group)[self.selected_index]            
+            self.power_plus_y = pixc_reader.get_var_value_or_raise_error("power_plus_y", in_group=pixc_group)[self.selected_index]            
             # Sensitivity of height estimate to interferogram phase
-            self.power_minus_y = pixc_reader.get_var_value_or_empty("power_minus_y", in_group=pixc_group)[self.selected_index]   
+            self.power_minus_y = pixc_reader.get_var_value_or_raise_error("power_minus_y", in_group=pixc_group)[self.selected_index]   
             
             # Water fraction
-            self.water_frac = pixc_reader.get_var_value_or_empty("water_frac", in_group=pixc_group)[self.selected_index]
+            self.water_frac = pixc_reader.get_var_value_or_raise_error("water_frac", in_group=pixc_group)[self.selected_index]
             # Water fraction uncertainty
-            self.water_frac_uncert = pixc_reader.get_var_value_or_empty("water_frac_uncert", in_group=pixc_group)[self.selected_index]
+            self.water_frac_uncert = pixc_reader.get_var_value_or_raise_error("water_frac_uncert", in_group=pixc_group)[self.selected_index]
             # False detection rate
-            self.false_detection_rate = pixc_reader.get_var_value_or_empty("false_detection_rate", in_group=pixc_group)[self.selected_index]
+            self.false_detection_rate = pixc_reader.get_var_value_or_raise_error("false_detection_rate", in_group=pixc_group)[self.selected_index]
             # Missed detection rate
-            self.missed_detection_rate = pixc_reader.get_var_value_or_empty("missed_detection_rate", in_group=pixc_group)[self.selected_index]
+            self.missed_detection_rate = pixc_reader.get_var_value_or_raise_error("missed_detection_rate", in_group=pixc_group)[self.selected_index]
             # Bright land flag
-            self.bright_land_flag = pixc_reader.get_var_value_or_empty("bright_land_flag", in_group=pixc_group)[self.selected_index]
+            self.bright_land_flag = pixc_reader.get_var_value_or_raise_error("bright_land_flag", in_group=pixc_group)[self.selected_index]
             # Layover impact
-            self.layover_impact = pixc_reader.get_var_value_or_empty("layover_impact", in_group=pixc_group)[self.selected_index]
+            self.layover_impact = pixc_reader.get_var_value_or_raise_error("layover_impact", in_group=pixc_group)[self.selected_index]
             # Number of rare looks
-            self.eff_num_rare_looks = pixc_reader.get_var_value_or_empty("eff_num_rare_looks", in_group=pixc_group)[self.selected_index]
+            self.eff_num_rare_looks = pixc_reader.get_var_value_or_raise_error("eff_num_rare_looks", in_group=pixc_group)[self.selected_index]
             
             # Latitude
             self.latitude = origin_latitude[self.selected_index]
@@ -449,46 +469,52 @@ class PixelCloud(object):
                 self.inundated_area[ind_ok] = self.pixel_area[ind_ok] * self.water_frac[ind_ok]
             
             # Incidence angle
-            self.inc = pixc_reader.get_var_value_or_empty("inc", in_group=pixc_group)[self.selected_index]
+            self.inc = pixc_reader.get_var_value_or_raise_error("inc", in_group=pixc_group)[self.selected_index]
             # Phase noise standard deviation
-            self.phase_noise_std = pixc_reader.get_var_value_or_empty("phase_noise_std", in_group=pixc_group)[self.selected_index]
+            self.phase_noise_std = pixc_reader.get_var_value_or_raise_error("phase_noise_std", in_group=pixc_group)[self.selected_index]
             # Sensitivity of latitude estimate to interferogram phase
-            self.dlatitude_dphase = pixc_reader.get_var_value_or_empty("dlatitude_dphase", in_group=pixc_group)[self.selected_index]
+            self.dlatitude_dphase = pixc_reader.get_var_value_or_raise_error("dlatitude_dphase", in_group=pixc_group)[self.selected_index]
             # Sensitivity of longitude estimate to interferogram phase
-            self.dlongitude_dphase = pixc_reader.get_var_value_or_empty("dlongitude_dphase", in_group=pixc_group)[self.selected_index]
+            self.dlongitude_dphase = pixc_reader.get_var_value_or_raise_error("dlongitude_dphase", in_group=pixc_group)[self.selected_index]
             # Sensitivity of height estimate to interferogram phase
-            self.dheight_dphase = pixc_reader.get_var_value_or_empty("dheight_dphase", in_group=pixc_group)[self.selected_index]
+            self.dheight_dphase = pixc_reader.get_var_value_or_raise_error("dheight_dphase", in_group=pixc_group)[self.selected_index]
             # Sensitivity of height estimate to range
-            self.dheight_drange = pixc_reader.get_var_value_or_empty("dheight_drange", in_group=pixc_group)[self.selected_index]
+            self.dheight_drange = pixc_reader.get_var_value_or_raise_error("dheight_drange", in_group=pixc_group)[self.selected_index]
             # Sensitivity of pixel area to reference height
-            self.darea_dheight = pixc_reader.get_var_value_or_empty("darea_dheight", in_group=pixc_group)[self.selected_index]
+            self.darea_dheight = pixc_reader.get_var_value_or_raise_error("darea_dheight", in_group=pixc_group)[self.selected_index]
             
             # Time of illumination of each pixel
             illumination_time = pixc_reader.get_var_value("illumination_time", in_group=pixc_group)[self.selected_index]
             # Number of medium looks
-            self.eff_num_medium_looks = pixc_reader.get_var_value_or_empty("eff_num_medium_looks", in_group=pixc_group)[self.selected_index]
+            self.eff_num_medium_looks = pixc_reader.get_var_value_or_raise_error("eff_num_medium_looks", in_group=pixc_group)[self.selected_index]
             
             # Dry troposphere vertical correction
-            self.model_dry_tropo_cor = pixc_reader.get_var_value_or_empty("model_dry_tropo_cor", in_group=pixc_group)[self.selected_index]
+            self.model_dry_tropo_cor = pixc_reader.get_var_value_or_raise_error("model_dry_tropo_cor", in_group=pixc_group)[self.selected_index]
             # Wet troposphere vertical correction
-            self.model_wet_tropo_cor = pixc_reader.get_var_value_or_empty("model_wet_tropo_cor", in_group=pixc_group)[self.selected_index]
+            self.model_wet_tropo_cor = pixc_reader.get_var_value_or_raise_error("model_wet_tropo_cor", in_group=pixc_group)[self.selected_index]
             # Ionosphere vertical correction
-            self.iono_cor_gim_ka = pixc_reader.get_var_value_or_empty("iono_cor_gim_ka", in_group=pixc_group)[self.selected_index]
+            self.iono_cor_gim_ka = pixc_reader.get_var_value_or_raise_error("iono_cor_gim_ka", in_group=pixc_group)[self.selected_index]
             # Crossover calibration height correction
-            self.height_cor_xover = pixc_reader.get_var_value_or_empty("height_cor_xover", in_group=pixc_group)[self.selected_index]
+            self.height_cor_xover = pixc_reader.get_var_value_or_raise_error("height_cor_xover", in_group=pixc_group)[self.selected_index]
             # Geoid
-            self.geoid = pixc_reader.get_var_value_or_empty("geoid", in_group=pixc_group)[self.selected_index]
+            self.geoid = pixc_reader.get_var_value_or_raise_error("geoid", in_group=pixc_group)[self.selected_index]
             # Solid earth tide
-            self.solid_earth_tide = pixc_reader.get_var_value_or_empty("solid_earth_tide", in_group=pixc_group)[self.selected_index]
+            self.solid_earth_tide = pixc_reader.get_var_value_or_raise_error("solid_earth_tide", in_group=pixc_group)[self.selected_index]
             # Load tide height (FES2014)
-            self.load_tide_fes = pixc_reader.get_var_value_or_empty("load_tide_fes", in_group=pixc_group)[self.selected_index]
+            try:
+                self.load_tide_fes = pixc_reader.get_var_value_or_raise_error("load_tide_fes", in_group=pixc_group)[self.selected_index]
+            except:
+                self.load_tide_fes = pixc_reader.get_var_value_or_raise_error("load_tide_sol1", in_group=pixc_group)[self.selected_index]
             # Load tide height (GOT4.10)
-            self.load_tide_got = pixc_reader.get_var_value_or_empty("load_tide_got", in_group=pixc_group)[self.selected_index]
+            try:
+                self.load_tide_got = pixc_reader.get_var_value_or_raise_error("load_tide_got", in_group=pixc_group)[self.selected_index]
+            except:
+                self.load_tide_got = pixc_reader.get_var_value_or_raise_error("load_tide_sol2", in_group=pixc_group)[self.selected_index]
             # Pole tide height
-            self.pole_tide = pixc_reader.get_var_value_or_empty("pole_tide", in_group=pixc_group)[self.selected_index]
+            self.pole_tide = pixc_reader.get_var_value_or_raise_error("pole_tide", in_group=pixc_group)[self.selected_index]
             
             # Quality flag
-            self.pixc_qual = pixc_reader.get_var_value_or_empty("pixc_qual", in_group=pixc_group)[self.selected_index]
+            self.pixc_qual = pixc_reader.get_var_value_or_raise_error("pixc_qual", in_group=pixc_group)[self.selected_index]
 
             # 6.2 - In TVP group
             

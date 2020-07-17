@@ -7,6 +7,7 @@
 # ======================================================
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
+# VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -28,7 +29,7 @@ import logging
 import netCDF4
 from netCDF4 import Dataset
 import numpy
-
+import re
 import cnes.common.service_error as service_error
 
 import cnes.common.lib.my_variables as my_var
@@ -244,10 +245,12 @@ class MyNcReader(object):
             # Particulate case of float type because it is loaded in double variable. The difference test must be truncated.
             if out_type.startswith("float"):
                 if abs(cur_content.variables[in_name]._FillValue - my_var.FV_NETCDF[out_type])/1e30 > .1:
-                    logger.warning( "Fill value for type %s from netCDF file are different from my_variable : %s w.r.t. %s " %(out_type, str(cur_content.variables[in_name]._FillValue), str(my_var.FV_NETCDF[out_type])))
+                    logger.warning("Fill value for type %s from netCDF file are different from my_variable : %s w.r.t. %s " \
+                                   %(out_type, str(cur_content.variables[in_name]._FillValue), str(my_var.FV_NETCDF[out_type])))
             else:
                 if cur_content.variables[in_name]._FillValue != my_var.FV_NETCDF[out_type]:
-                    logger.warning( "Fill value for type %s from netCDF file are different from my_variable : %s w.r.t. %s " %(out_type, str(cur_content.variables[in_name]._FillValue), str(my_var.FV_NETCDF[out_type])))
+                    logger.warning("Fill value for type %s from netCDF file are different from my_variable : %s w.r.t. %s " \
+                                   %(out_type, str(cur_content.variables[in_name]._FillValue), str(my_var.FV_NETCDF[out_type])))
  
             out_data[numpy.where(out_data == cur_content.variables[in_name]._FillValue)] = my_var.FV_NETCDF[out_type]
         except:
@@ -256,7 +259,6 @@ class MyNcReader(object):
         # 2 - Get not _FillValue indices
         fv_flag = False
         # TODO Change that try/except/pass without error class is not allowed
-
         try:
             not_nan_idx = numpy.where(out_data < cur_content.variables[in_name]._FillValue)
             if len(not_nan_idx) < len(out_data):
@@ -273,20 +275,19 @@ class MyNcReader(object):
         except:
             pass
 
-
         return out_data
     
     def get_var_value_or_empty(self, in_name, in_group=None):
         """
         Get the data associated to the variable in_name if it exists
-        If not, return None
+        If not, return an array of int _FillValues
         
         :param in_name: name of the variable
         :type in_name: string
         :param in_group: group containing the variable in_name
         :type in_group: netCDF4.Group
         
-        :return: out_data = formatted data or None
+        :return: out_data = formatted data or array of int _FillValues
         :rtype: [depend on the inumpy.t variable]
         """
         logger = logging.getLogger(self.__class__.__name__)
@@ -305,7 +306,32 @@ class MyNcReader(object):
                 if value.size > nb_records:
                     nb_records = value.size
             # Make empty array of int with _FillValue
-            out_data = numpy.zeros(nb_records, dtype=numpy.int32) + 2147483647
+            out_data = numpy.zeros(nb_records, dtype=numpy.int32) + my_var.FV_INT
+            
+        return out_data
+    
+    def get_var_value_or_raise_error(self, in_name, in_group=None):
+        """
+        Get the data associated to the variable in_name if it exists
+        If not, raise an error
+        
+        :param in_name: name of the variable
+        :type in_name: string
+        :param in_group: group containing the variable in_name
+        :type in_group: netCDF4.Group
+        
+        :return: out_data = formatted data
+        :rtype: [depend on the inumpy.t variable]
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        
+        list_vars = self.get_list_var(in_group=in_group)
+        
+        if in_name in list_vars:
+            out_data = self.get_var_value(in_name, in_group)
+        else:
+            message = "Variable %s doesn't exist in NetCDF" % in_name
+            raise service_error.ProcessingError(message, logger)
             
         return out_data
     
@@ -449,7 +475,7 @@ class MyNcWriter(object):
             cur_content = in_group
             
         # Create variable depending on its type
-        if numpy.dtype(in_datatype).char == 'c':  # Table of char
+        if numpy.dtype(in_datatype).char == 'S' or numpy.dtype(in_datatype).char == 'U' or numpy.dtype(in_datatype).char == 'c':
             cur_content.createVariable(in_name, 'c', in_dimensions, in_compress, 2)
         elif numpy.dtype(in_datatype).name in my_var.FV_NETCDF:
             cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, \
@@ -462,7 +488,7 @@ class MyNcWriter(object):
         # Add variable attributes
         if in_attributes is not None:
             for key, value in in_attributes.items():
-                if key not in ["dtype", "shape"]:
+                if key not in ["dtype", "shape", "type", "width", "signed", "value"]:
                     self.add_variable_attribute(in_name, key, value, in_group=in_group)
         
     def add_variable_attribute(self, in_varname, in_attname, in_value, in_group=None):
@@ -488,7 +514,8 @@ class MyNcWriter(object):
 
         if in_varname in cur_content.variables:
             if type(in_value) is str:
-                cur_content.variables[in_varname].setncattr(in_attname, in_value.encode('ascii'))
+                tmp = re.sub(' +', ' ', in_value)
+                cur_content.variables[in_varname].setncattr(in_attname, tmp.encode('ascii'))
             else:
                 cur_content.variables[in_varname].setncattr(in_attname, in_value)
         else:

@@ -7,16 +7,10 @@
 # ======================================================
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
+# VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
-my_basins
-===================
-.. automodule:: cnes.common.lib.my_basins
-   :members:
-   :private-members:
-   :special-members:
-
 my_netcdf_file
 ==============
 .. automodule:: cnes.common.lib.my_netcdf_file

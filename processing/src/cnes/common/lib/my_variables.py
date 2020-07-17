@@ -7,6 +7,7 @@
 # ======================================================
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
+# VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -44,18 +45,30 @@ GEN_RANGE_SPACING = 0.75  # Range spacing of SWOT
 ###############
 
 # FillValues for NetCDF files 
+# double based on netcdf.h value
 FV_DOUBLE = 9.9692099683868690e+36
+# float based on value in netcdf.h file
 FV_FLOAT = 9.96921e+36
+# int inspired by value in netcdf.h file (positive instead of negative)
 FV_INT = 2147483647
+# uint based on value in netcdf.h file
 FV_UINT = 4294967295
+# short inspired by value in netcdf.h file (positive instead of negative)
 FV_SHORT = 32767
+# ushort based on value in netcdf.h file
 FV_USHORT = 65535
+# byte inspired by value in netcdf.h file (positive instead of negative)
 FV_BYTE = 127
+# ubyte based on value in netcdf.h file
 FV_UBYTE = 255
+# no fillvalue for char
 FV_CHAR = ""
+# no fillvalue for string
 FV_STRING = ""
 FV_NETCDF = {'int': FV_INT,
+              'byte': FV_BYTE,
               'int8': FV_BYTE,
+              'short': FV_SHORT,
               'int16': FV_SHORT,
               'int32': FV_INT,
               'int64': FV_INT,
@@ -66,6 +79,7 @@ FV_NETCDF = {'int': FV_INT,
               'float32': FV_FLOAT,
               'double': FV_DOUBLE,
               'float64': FV_DOUBLE,
+              'char': FV_CHAR,
               'str': FV_STRING,
               'str32': FV_STRING,
               'object': FV_STRING}
@@ -80,6 +94,7 @@ FV_SHP = {'int4': FV_INT_SHP,
           'int9': FV_INT9_SHP,
           'int16': FV_INT_SHP,
           'int32': FV_INT_SHP,
+          'integer': FV_INT_SHP,
           'uint8': FV_INT_SHP,
           'uint16': FV_INT_SHP,
           'uint32': FV_INT_SHP,
@@ -87,9 +102,11 @@ FV_SHP = {'int4': FV_INT_SHP,
           'float32': FV_REAL,
           'double': FV_REAL,
           'float64': FV_REAL,
+          'real': FV_REAL,
           'str': FV_STRING_SHP,
           'text': FV_STRING_SHP,
           'str32': FV_STRING_SHP,
+          'string': FV_STRING_SHP, 
           'object': FV_STRING_SHP}
 
 
@@ -99,8 +116,19 @@ FV_SHP = {'int4': FV_INT_SHP,
 
 FORMAT_OGR = {'int4': ogr.OFTInteger,
               'int9': ogr.OFTInteger,
+              'integer': ogr.OFTInteger,
               'float': ogr.OFTReal,
-              'text': ogr.OFTString}
+              'real': ogr.OFTReal,
+              'text': ogr.OFTString,
+              'string': ogr.OFTString}
+
+FORMAT_OGR_STR = {'integer': "ogr.OFTInteger",
+                  'int4': "ogr.OFTInteger",
+                  'int9': "ogr.OFTInteger",
+                  'float': "ogr.OFTReal",
+                  'real': "ogr.OFTReal",
+                  'text': "ogr.OFTString",
+                  'string': "ogr.OFTString"}
 
 
 #################################

@@ -7,6 +7,7 @@
 # ======================================================
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
+# VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -352,7 +353,8 @@ def convert_fillvalue(in_data, in_flag="nc2shp"):
         # 3 - Make conversion
         if in_flag == "nc2shp":
             nan_idx = np.where(in_data == fv_nc)
-            if (type_name == 'uint8') or (type_name == 'uint16') or (type_name == 'int8') or (type_name == 'int16'):  # Otherwise, _FillValues don't work
+            # Otherwise, _FillValues don't work
+            if (type_name == 'uint8') or (type_name == 'uint16') or (type_name == 'int8') or (type_name == 'int16'): 
                 out_data = in_data.astype('int32')
             out_data[nan_idx] = fv_shp
         elif in_flag == "shp2nc":

@@ -8,6 +8,7 @@
 # ======================================================
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
+# VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -31,7 +32,6 @@ import configparser
 import datetime
 import logging
 import os
-import sys
 
 import cnes.common.service_config_file as service_config_file
 import cnes.common.service_error as service_error
@@ -39,11 +39,10 @@ import cnes.common.service_logger as service_logger
 
 import cnes.common.lib.my_timer as my_timer
 import cnes.common.lib.my_tools as my_tools
-import cnes.common.lib.my_shp_file as my_shp
-import cnes.common.lib_lake.locnes_filenames as locnes_filenames
-import cnes.common.lib_lake.proc_pixc_vec as proc_pixc_vec
 import cnes.common.lib_lake.lake_db as lake_db
+import cnes.common.lib_lake.locnes_filenames as locnes_filenames
 import cnes.common.lib_lake.proc_lake as proc_lake
+import cnes.common.lib_lake.proc_pixc_vec as proc_pixc_vec
 
 import cnes.sas.lake_tile.sas_lake_tile as sas_lake_tile
 import cnes.sas.lake_tile.proc_pixc as proc_pixc
@@ -129,7 +128,7 @@ class PGELakeTile():
             self.proc_metadata["xref_static_lake_db_file"] = ""
         self.proc_metadata["xref_input_l2_hr_pixc_file"] = self.pixc_file
         self.proc_metadata["xref_input_l2_hr_pixc_vec_river_file"] = self.pixc_vec_river_file
-        self.proc_metadata["xref_l2_hr_lake_tile_param_file"] = file_config
+        self.proc_metadata["xref_l2_hr_lake_tile_config_parameter_file"] = file_config
         
         logger.info("")
         
@@ -156,7 +155,8 @@ class PGELakeTile():
         try:
             out_params["param_file"] = os.path.expandvars(config.get("PATHS", "param_file"))
         except:
-            out_params["param_file"] = os.path.join(sys.path[0], "lake_tile_param.cfg")
+            #out_params["param_file"] = os.path.join(sys.path[0], "lake_tile_param.cfg")
+            out_params["param_file"] = os.path.join(os.getcwd(), "lake_tile_param.cfg")
         out_params["pixc_file"] = config.get("PATHS", "PIXC file")
         out_params["pixc_vec_river_file"] = config.get("PATHS", "PIXCVecRiver file")
         out_params["output_dir"] = config.get("PATHS", "Output directory")
@@ -181,18 +181,25 @@ class PGELakeTile():
                 out_params["produce_shp"] = config.get("OPTIONS", "Produce shp")
 
         # 5 - Retrieve LOGGING
+        error_file = config.get("LOGGING", "errorFile")
+        out_params["errorFile"] = os.path.splitext(error_file)[0] + "_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + os.path.splitext(error_file)[1]
         log_file = config.get("LOGGING", "logFile")
         out_params["logFile"] = os.path.splitext(log_file)[0] + "_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + os.path.splitext(log_file)[1]
         out_params["logfilelevel"] = config.get("LOGGING", "logfilelevel")
         out_params["logConsole"] = config.get("LOGGING", "logConsole")
         out_params["logconsolelevel"] = config.get("LOGGING", "logconsolelevel")
         
-        # 6 - Retrieve FILE informations
+        # 6 - Retrieve FILE_INFORMATION
+        # CRID
+        out_params["CRID"] = config.get("FILE_INFORMATION", "CRID")
+        # Producer
         out_params["PRODUCER"] = config.get("FILE_INFORMATION", "PRODUCER")
-        # LAKE_TILE
-        out_params["LAKE_TILE_CRID"] = config.get("CRID", "LAKE_TILE_CRID")
-        # LAKE_SP
-        out_params["LAKE_SP_CRID"] = config.get("CRID", "LAKE_SP_CRID")
+        # Method of production of the original data
+        out_params["SOURCE"] = config.get("FILE_INFORMATION", "SOURCE")
+        # Software version
+        out_params["SOFTWARE_VERSION"] = config.get("FILE_INFORMATION", "SOFTWARE_VERSION")
+        # Contact
+        out_params["CONTACT"] = config.get("FILE_INFORMATION", "CONTACT")
 
         return out_params
 
@@ -211,16 +218,11 @@ class PGELakeTile():
             # Add LOGGING section and parameters
             section = "LOGGING"
             self.cfg.add_section(section)
+            self.cfg.set(section, "errorFile", param_list["errorFile"])
             self.cfg.set(section, "logFile", param_list["logFile"])
             self.cfg.set(section, "logfilelevel", param_list["logfilelevel"])
             self.cfg.set(section, "logConsole", param_list["logConsole"])
             self.cfg.set(section, "logconsolelevel", param_list["logconsolelevel"])
-            if "LogFile" in param_list["logFile"]:
-                log_error_file = param_list["logFile"].replace("LogFile", "LogError")
-            else:
-                log_error_file = os.path.join(param_list["output_dir"], "LogError_" 
-                                                  + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".log")
-            self.cfg.set(section, "errorFile", log_error_file)
             
             # Add PATHS section and parameters
             section = "PATHS"
@@ -239,18 +241,15 @@ class PGELakeTile():
             section = "OPTIONS"
             self.cfg.add_section(section)
             self.cfg.set(section, "Produce shp", param_list["produce_shp"])
-
-            # Add section CRID
-            section = "CRID"
-            self.cfg.add_section(section)
-            self.cfg.set(section, "LAKE_TILE_CRID", param_list["LAKE_TILE_CRID"])
-            self.cfg.set(section, "LAKE_SP_CRID", param_list["LAKE_SP_CRID"])
             
             # Add section FILE_INFORMATION
             section = "FILE_INFORMATION"
-            if section not in self.cfg.sections():
-                self.cfg.add_section(section)
+            self.cfg.add_section(section)
+            self.cfg.set(section, "CRID", param_list["CRID"])
             self.cfg.set(section, "PRODUCER", param_list["PRODUCER"])
+            self.cfg.set(section, "SOURCE", param_list["SOURCE"])
+            self.cfg.set(section, "SOFTWARE_VERSION", param_list["SOFTWARE_VERSION"])
+            self.cfg.set(section, "CONTACT", param_list["CONTACT"])
 
         except Exception:
             print("Something wrong happened in _put_cmd_value !")
@@ -278,7 +277,7 @@ class PGELakeTile():
             # PIXCVecRiver file
             self.cfg.test_var_config_file('PATHS', 'PIXCVecRiver file', str, logger=logger)
             my_tools.test_file(self.cfg.get('PATHS', 'PIXCVecRiver file'))
-            logger.debug('OK - PIXCvecRiver file = ' + str(self.cfg.get('PATHS', 'PIXCVecRiver file')))
+            logger.debug('OK - PIXCVecRiver file = ' + str(self.cfg.get('PATHS', 'PIXCVecRiver file')))
             # Output directory
             self.cfg.test_var_config_file('PATHS', 'Output directory', str, logger=logger)
             my_tools.test_dir(self.cfg.get('PATHS', 'Output directory'))
@@ -303,7 +302,7 @@ class PGELakeTile():
                 my_tools.test_file(self.cfg.get('DATABASES', 'LAKE_DB'))
                 logger.debug('OK - LAKE_DB = ' + str(self.cfg.get('DATABASES', 'LAKE_DB')))
             else :
-                logger.debug('WARNING - Unknown LAKE_DB file format for file : %s => LakeTile product not linked to a lake database' % (self.cfg.get('DATABASES', 'LAKE_DB')))
+                logger.debug('WARNING - Unknown LAKE_DB file format for file: %s => LakeTile product not linked to a lake database' % (self.cfg.get('DATABASES', 'LAKE_DB')))
                 
             # 1.3 - OPTIONS section
             # Shapefile production
@@ -361,15 +360,21 @@ class PGELakeTile():
             logger.debug('OK - NB_DIGITS = ' + str(self.cfg.get('ID', 'NB_DIGITS')))
             
             # 2.3 - FILE_INFORMATION section
-            # Product generator
+            # Composite Release IDentifier for LakeTile processing
+            self.cfg.test_var_config_file('FILE_INFORMATION', 'CRID', str, logger=logger)
+            logger.debug('OK - CRID = ' + str(self.cfg.get('FILE_INFORMATION', 'CRID')))
+            # Producer
             self.cfg.test_var_config_file('FILE_INFORMATION', 'PRODUCER', str, logger=logger)
             logger.debug('OK - PRODUCER = ' + str(self.cfg.get('FILE_INFORMATION', 'PRODUCER')))
-            # Composite Release IDentifier for LakeTile processing
-            self.cfg.test_var_config_file('CRID', 'LAKE_TILE_CRID', str, logger=logger)
-            logger.debug('OK - LAKE_TILE_CRID = ' + str(self.cfg.get('CRID', 'LAKE_TILE_CRID')))
-            # Composite Release IDentifier for LakeSP processing
-            self.cfg.test_var_config_file('CRID', 'LAKE_SP_CRID', str, logger=logger)
-            logger.debug('OK - LAKE_SP_CRID = ' + str(self.cfg.get('CRID', 'LAKE_SP_CRID')))
+            # Method of production of the original data
+            self.cfg.test_var_config_file('FILE_INFORMATION', 'SOURCE', str, logger=logger)
+            logger.debug('OK - SOURCE = ' + str(self.cfg.get('FILE_INFORMATION', 'SOURCE')))
+            # Software version
+            self.cfg.test_var_config_file('FILE_INFORMATION', 'SOFTWARE_VERSION', str, logger=logger)
+            logger.debug('OK - SOFTWARE_VERSION = ' + str(self.cfg.get('FILE_INFORMATION', 'SOFTWARE_VERSION')))
+            # Contact
+            self.cfg.test_var_config_file('FILE_INFORMATION', 'CONTACT', str, logger=logger)
+            logger.debug('OK - CONTACT = ' + str(self.cfg.get('FILE_INFORMATION', 'CONTACT')))
 
         # Error managed
         except service_error.ConfigFileError:
@@ -411,12 +416,14 @@ class PGELakeTile():
         
         lake_db_file = self.cfg.get("DATABASES", "LAKE_DB")
         
-        if (lake_db_file == "") or (lake_db_file is None) :
+        if (lake_db_file == "") or (lake_db_file is None):  # No PLD
             logger.warning("NO database specified -> NO link of SWOT obs with a priori lake")
             self.obj_lake_db = lake_db.LakeDb()
             
-        else :
-            type_db = lake_db_file.split('.')[-1]  # Type of database
+        else:  # Init PLD object wrt to file type
+            
+            type_db = lake_db_file.split('.')[-1]  # File type
+            
             if type_db == "shp":  # Shapefile format
                 self.obj_lake_db = lake_db.LakeDbShp(lake_db_file, self.obj_pixc.tile_poly)
             elif type_db == "sqlite":  # SQLite format
@@ -430,7 +437,7 @@ class PGELakeTile():
 
     def _prepare_output_data(self):
         """
-        This method prepares output data class
+        This method creates output data classes
         """
         logger = logging.getLogger(self.__class__.__name__)
         
@@ -438,46 +445,52 @@ class PGELakeTile():
         logger.info("> 3.1 - Retrieving tile infos from PIXC filename...")
         self.lake_tile_filenames = locnes_filenames.LakeTileFilenames(self.pixc_file, self.pixc_vec_river_file, self.output_dir)
         
-        # 2 - Initialize lake product
-        logger.info("> 3.2 - Initialize lake product object...")
-        self.obj_lake = proc_lake.LakeProduct("TILE",
-                                              self.obj_pixc,
-                                              self.obj_pixc_vec,
-                                              self.obj_lake_db,
-                                              os.path.basename(self.lake_tile_filenames.lake_tile_shp_file).split(".")[0])
+        # 2 - Initialize LakeTile product object
+        logger.info("> 3.2 - Initialize LakeTile product object...")
+        self.obj_lake = proc_lake.LakeTileProduct(self.obj_pixc,
+                                                  self.obj_pixc_vec,
+                                                  self.obj_lake_db,
+                                                  os.path.basename(self.lake_tile_filenames.lake_tile_shp_file_obs).split(".")[0])
 
-    def _write_output_data(self, in_proc_metadata):
+    def _write_output_data(self):
         """
         This method write output data
         """
         logger = logging.getLogger(self.__class__.__name__)
         
-        # 1 - Write LakeTile shapefile
-        logger.info("8.1 - Writing LakeTile memory layer to shapefile...")
-        my_shp.write_mem_layer_as_shp(self.obj_lake.shp_mem_layer.layer, self.lake_tile_filenames.lake_tile_shp_file)
-        self.obj_lake.shp_mem_layer.free()  # Close memory layer
-        # Write XML metadatafile for shapefile
-        self.obj_lake.shp_mem_layer.update_and_write_metadata("%s.xml" % self.lake_tile_filenames.lake_tile_shp_file, 
-                                                              in_pixc_metadata=self.obj_pixc.pixc_metadata,
-                                                              in_proc_metadata=in_proc_metadata)
+        # 1 - Write LakeTile shapefiles
+        logger.info("> 8.1 - Writing LakeTile memory layer to shapefiles...")
+        # 1.1 - Obs-oriented shapefile
+        logger.info(". Obs-oriented shapefile = %s" % self.lake_tile_filenames.lake_tile_shp_file_obs)
+        self.obj_lake.write_obs_file(self.lake_tile_filenames.lake_tile_shp_file_obs, self.proc_metadata)
+        # 1.2 - PLD-oriented shapefile
+        logger.info(". PLD-oriented shapefile = %s" % self.lake_tile_filenames.lake_tile_shp_file_prior)
+        self.obj_lake.write_prior_file(self.lake_tile_filenames.lake_tile_shp_file_prior, self.proc_metadata)
+        # 1.3 - Shapefile of unassigned water features
+        logger.info(". Shapefile of unassigned water features = %s" % self.lake_tile_filenames.lake_tile_shp_file_unknown)
+        self.obj_lake.write_unknown_file(self.lake_tile_filenames.lake_tile_shp_file_unknown, self.proc_metadata)
+        # 1.4 - Close memory layer
+        self.obj_lake.free_memory()
         logger.info("")
         
         # 2 - Write PIXCVec for objects entirely inside tile
-        logger.info("8.2 - Writing LakeTile_pixcvec file...")
-        self.obj_pixc_vec.write_file(self.lake_tile_filenames.lake_tile_pixcvec_file, in_proc_metadata)
+        logger.info("> 8.2 - Writing LakeTile_PIXCVec file...")
+        self.obj_pixc_vec.write_file(self.lake_tile_filenames.lake_tile_pixcvec_file, 
+                                     self.proc_metadata, 
+                                     in_pixc_metadata=self.obj_pixc.pixc_metadata)
         if self.flag_prod_shp:
             if self.obj_pixc_vec.nb_water_pix == 0:
-                logger.info("NO water pixel => NO LakeTile_pixcvec file produced")
+                logger.info("NO water pixel => NO LakeTile_PIXCVec shapefile produced")
             else:
                 self.obj_pixc_vec.write_file_as_shp(self.lake_tile_filenames.lake_tile_pixcvec_file.replace(".nc", ".shp"), self.obj_pixc)
         logger.info("")
-
+        
         # 3 - Write intermediate NetCDF file with indices of pixels (and associated label) related to objects at the top/bottom edges of the tile
-        logger.info("8.3 - Writing LakeTile_edge file...")
-        self.obj_pixc.write_edge_file(self.lake_tile_filenames.lake_tile_edge_file, in_proc_metadata)
+        logger.info("> 8.3 - Writing LakeTile_Edge file...")
+        self.obj_pixc.write_edge_file(self.lake_tile_filenames.lake_tile_edge_file, self.proc_metadata)
         if self.flag_prod_shp:
             if self.obj_pixc.nb_edge_pix == 0:
-                logger.info("NO edge pixel => NO LakeTile_edge file produced")
+                logger.info("NO edge pixel => NO LakeTile_edge shapefile produced")
             else:
                 self.obj_pixc.write_edge_file_as_shp(self.lake_tile_filenames.lake_tile_edge_file.replace(".nc", ".shp"))
         logger.info("")
@@ -498,19 +511,23 @@ class PGELakeTile():
             logger.info("***************************************************")
 
             # 1 - Read input data
-            logger.info("> 1 - Init and format intput objects...")
-            self._read_input_data() 
-            logger.info("")         
+            logger.info("> 1 - Init and format input objects...")
+            self._read_input_data()
+            logger.info("")
             
             # 2 - Read lake db
             logger.info("> 2 - Init and read lake DB object...")
-            self._read_lake_db() 
-            logger.info("")         
+            self._read_lake_db()
+            logger.info("")
 
             # 3 - Prepare output data
-            logger.info("> 3 - Prepare output object...")
-            self._prepare_output_data() 
-            logger.info("")         
+            logger.info("> 3 - Prepare output objects...")
+            self._prepare_output_data()
+            logger.info("")
+            
+            logger.info("****************************")
+            logger.info("***** Run SAS LakeTile *****")
+            logger.info("****************************")
             
             # 4 - Initialization
             logger.info("> 4 - Initialization of SASLakeTile class")
@@ -536,15 +553,19 @@ class PGELakeTile():
             logger.info(self.timer.info(0))
             logger.info("")
             
+            logger.info("*****************************")
+            logger.info("***** Write output data *****")
+            logger.info("*****************************")
+            
             # 8 - Write output data
             logger.info("> 8 - Write output data")
-            self._write_output_data(self.proc_metadata)
+            self._write_output_data()
             
         except service_error.SwotError:
             raise
             
         except Exception:
-            message = "Fatal error catch in PGE lake_tile"
+            message = "Fatal error catch in PGE LakeTile"
             logger.error(message, exc_info=True)
             raise
         
@@ -558,9 +579,9 @@ class PGELakeTile():
         logger.info("******************************")
         logger.info("***** Close all services *****")
         logger.info("******************************")
+        logger.info("")
         
         # 1 - Close lake database
-        logger.info("")
         logger.info("> 1 - Closing lake database...")
         self.obj_lake_db.close_db()
 

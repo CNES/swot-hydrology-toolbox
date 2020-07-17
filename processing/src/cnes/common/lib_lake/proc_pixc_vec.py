@@ -7,6 +7,7 @@
 # ======================================================
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
+# VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -56,13 +57,20 @@ class PixelCloudVec(object):
             - From L2_HR_PIXCVecRiver:
                 - river_index / 1D-array of int: indices of river pixels within PIXC arrays (= variable named pixc_index in L2_HR_PIXCVecRiver only)
             - From both L2_HR_PIXCVecRiver and LakeTile_pixcvec:
-                - range_index / 1D-array of int: range indices of water pixels (= variable named range_index in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
-                - azimuth_index / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
-                - longitude_vectorproc / 1D-array of float: improved longitude of water pixels (= variable named longitude_vectorproc in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
-                - latitude_vectorproc / 1D-array of float: improved latitude of water pixels (= variable named latitude_vectorproc in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
-                - height_vectorproc / 1D-array of float: improved height of water pixels (= variable named height_vectorproc in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
-                - reach_id / 1D-array of int or char(11): identifier associated to river reach database (= variable named reach_id in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
-                - node_id / 1D-array of int or char(14): identifier associated to river node database (= variable named node_id in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
+                - range_index / 1D-array of int: range indices of water pixels (= variable named range_index in L2_HR_PIXCVecRiver 
+                  and LakeTile_pixcvec)
+                - azimuth_index / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in L2_HR_PIXCVecRiver 
+                  and LakeTile_pixcvec)
+                - longitude_vectorproc / 1D-array of float: improved longitude of water pixels (= variable named longitude_vectorproc 
+                  in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
+                - latitude_vectorproc / 1D-array of float: improved latitude of water pixels (= variable named latitude_vectorproc 
+                  in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
+                - height_vectorproc / 1D-array of float: improved height of water pixels (= variable named height_vectorproc 
+                  in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
+                - reach_id / 1D-array of int or char(11): identifier associated to river reach database (= variable named reach_id 
+                  in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
+                - node_id / 1D-array of int or char(14): identifier associated to river node database (= variable named node_id 
+                  in L2_HR_PIXCVecRiver and LakeTile_pixcvec)
                 - ice_clim_f / 1D-array of int: climatological ice flag
                 - ice_dyn_f / 1D-array of int: dynamical ice flag
                 - pixcvec_metadata / dict: dictionary of PIXCVec file metadata
@@ -103,16 +111,21 @@ class PixelCloudVec(object):
         self.obs_id = None
         self.ice_clim_f = None
         self.ice_dyn_f = None
-        self.pixcvec_metadata = {}
             
         # Init dictionary of PIXCVec metadata
+        self.pixcvec_metadata = {}
         self.pixcvec_metadata["cycle_number"] = -9999
         self.pixcvec_metadata["pass_number"] = -9999
         self.pixcvec_metadata["tile_number"] = -9999
         self.pixcvec_metadata["swath_side"] = ""
         self.pixcvec_metadata["tile_name"] = ""
+        self.pixcvec_metadata["continent"] = ""
         self.pixcvec_metadata["time_coverage_start"] = ""
         self.pixcvec_metadata["time_coverage_end"] = ""
+        self.pixcvec_metadata["geospatial_lon_min"] = -9999.0
+        self.pixcvec_metadata["geospatial_lon_max"] = -9999.0
+        self.pixcvec_metadata["geospatial_lat_min"] = -9999.0
+        self.pixcvec_metadata["geospatial_lat_max"] = -9999.0
         self.pixcvec_metadata["inner_first_latitude"] = -9999.0
         self.pixcvec_metadata["inner_first_longitude"] = -9999.0
         self.pixcvec_metadata["inner_last_latitude"] = -9999.0
@@ -121,10 +134,12 @@ class PixelCloudVec(object):
         self.pixcvec_metadata["outer_first_longitude"] = -9999.0
         self.pixcvec_metadata["outer_last_latitude"] = -9999.0
         self.pixcvec_metadata["outer_last_longitude"] = -9999.0
-        self.pixcvec_metadata["continent"] = ""
-        self.pixcvec_metadata["ellipsoid_semi_major_axis"] = ""
-        self.pixcvec_metadata["ellipsoid_flattening"] = ""
+        self.pixcvec_metadata["xref_input_l2_hr_pixc_file"] = ""
+        self.pixcvec_metadata["xref_input_l2_hr_pixc_vec_river_file"] = ""
         self.pixcvec_metadata["xref_static_river_db_file"] = ""
+        self.pixcvec_metadata["xref_static_lake_db_file"] = ""
+        self.pixcvec_metadata["ellipsoid_semi_major_axis"] = -9999.0
+        self.pixcvec_metadata["ellipsoid_flattening"] = -9999.0
         
         # Variables specific to processing
         self.continent = None
@@ -158,11 +173,7 @@ class PixelCloudVec(object):
         pixcvec_reader = my_nc.MyNcReader(in_pixcvec_file)
         
         # 2 - Retrieve the number of records
-        try:
-            self.nb_water_pix = pixcvec_reader.get_dim_value("points")
-        except:
-            logger.info("Warning, using record instead of points for nb_water_pixels")
-            self.nb_water_pix = pixcvec_reader.get_dim_value("record")
+        self.nb_water_pix = pixcvec_reader.get_dim_value("points")
             
         # 3 - Retrieve needed global attributes
         pixcvec_keys = pixcvec_reader.get_list_att()
@@ -188,22 +199,18 @@ class PixelCloudVec(object):
             if self.product_type == "TILE":
                 tmp_id = pixcvec_reader.get_var_value("reach_id")
             elif self.product_type == "SP":
-                #tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("reach_id"), encoding='bytes')
                 tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("reach_id"))
             self.reach_id = np.char.asarray(tmp_id, itemsize=11)
             # Node identifier
             if self.product_type == "TILE":
                 tmp_id = pixcvec_reader.get_var_value("node_id")
             elif self.product_type == "SP":
-                #tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("node_id"), encoding='bytes')
                 tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("node_id"))
             self.node_id = np.char.asarray(tmp_id, itemsize=14) 
             # Specific in LakeTile product for LakeSP product    
             if self.product_type == "SP":
-                #tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("lake_id"), encoding='bytes')
                 tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("lake_id"))
                 self.lake_id = np.char.asarray(tmp_id, itemsize=10)
-                #tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("obs_id"), encoding='bytes')
                 tmp_id = netCDF4.chartostring(pixcvec_reader.get_var_value("obs_id"))
                 self.obs_id = np.char.asarray(tmp_id, itemsize=13)
             # 4.7 - Ice flags
@@ -231,7 +238,10 @@ class PixelCloudVec(object):
         logger.info("- start -")
                 
         # Indices of pixels of PixC already processed by PGE_RiverTile
-        self.river_index = in_pixcvec_reader.get_var_value("pixc_index") 
+        # OLD = self.river_index = in_pixcvec_reader.get_var_value("pixc_index")
+        tmp_river_index = in_pixcvec_reader.get_var_value("pixc_index")
+        valid_river_index = np.where(tmp_river_index < my_var.FV_NETCDF['int'])[0]
+        self.river_index = tmp_river_index[valid_river_index]
         
         # Number of pixels of PixC already processed by PGE_RiverTile
         self.nb_river_pix = self.river_index.size
@@ -244,10 +254,12 @@ class PixelCloudVec(object):
             # Indices of PIXC to remove from LakeTile processing = river only pixels (ie connected lakes kept)
             ind_type_not_3 = []
             for ind in range(len(self.reach_id)):
+                # OLD = Check for FillValue in index list
+                # OLD = if (not self.reach_id[ind][-1:] == b'3' and self.river_index[ind] < my_var.FV_NETCDF['int']):
                 if not self.reach_id[ind][-1:] == b'3':
                     ind_type_not_3.append(ind)
             self.reject_index = self.river_index[ind_type_not_3]  # reach_id not ending with 3 (connected lakes)
-        
+            
             logger.info("%d pixels associated to rivers", self.nb_river_pix)
             logger.info("%d pixels associated to connected lakes", self.nb_river_pix-self.reject_index.size)
         
@@ -288,6 +300,24 @@ class PixelCloudVec(object):
             logger.info("No pixel associated to river")
             
         else:
+            """
+            OLD
+            # Manage _FillValue in PIXCVecRiver
+            # Get valid index, ie not a _FillValue
+            valid_index = []
+            for ind in range(len(self.river_index)):
+                if (self.river_index[ind] < my_var.FV_NETCDF['int']):
+                    valid_index.append(ind)
+            logger.info("%d valid pixels associated to rivers", len(self.river_index[valid_index]))
+            # Copy only valid value
+            tmp_longitude_vectorproc[self.river_index[valid_index]] = self.longitude_vectorproc[valid_index]
+            tmp_latitude_vectorproc[self.river_index[valid_index]] = self.latitude_vectorproc[valid_index]
+            tmp_height_vectorproc[self.river_index[valid_index]] = self.height_vectorproc[valid_index]
+            tmp_reach_id[self.river_index[valid_index]] = self.reach_id[valid_index]
+            tmp_node_id[self.river_index[valid_index]] = self.node_id[valid_index]
+            tmp_ice_clim_f[self.river_index[valid_index]] = self.ice_clim_f[valid_index]
+            tmp_ice_dyn_f[self.river_index[valid_index]] = self.ice_dyn_f[valid_index]
+            """
             logger.info("%d pixels associated to rivers", self.nb_river_pix)
             tmp_longitude_vectorproc[self.river_index] = self.longitude_vectorproc
             tmp_latitude_vectorproc[self.river_index] = self.latitude_vectorproc
@@ -316,20 +346,50 @@ class PixelCloudVec(object):
         
     # ----------------------------------------
     
-    def write_file(self, in_filename, in_proc_metadata):
+    def write_file(self, in_filename, in_proc_metadata, in_pixc_metadata=None):
         """
         Write the pixel cloud vector attribute product (L2_HR_PIXCVec product)
+        Update with PIXC metadata if needed.
 
         :param in_filename: full path of the output file
         :type in_filename: string
         :param in_proc_metadata: processing metadata
         :type in_proc_metadata: dict
+        :param in_pixc_metadata: PIXC metadata (optional)
+        :type in_pixc_metadata: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
         if self.product_type == "TILE":
             logger.info("Writing output LakeTile_pixcvec NetCDF file = %s", in_filename)
         else:
             logger.info("Writing output L2_HR_PIXCVec NetCDF file = %s", in_filename)
+            
+        # 0 - Update metadata with PIXC metadata if needed
+        if in_pixc_metadata is not None:
+            list_att = ["time_coverage_start", "time_coverage_end", "geospatial_lon_min", 
+                        "geospatial_lon_max", "geospatial_lat_min", "geospatial_lat_max"]
+            list_att_empty = ["", "", -9999.0, -9999.0, -9999.0, -9999.0]
+            for inda, cur_att in enumerate(list_att):
+                if self.pixcvec_metadata[cur_att] == list_att_empty[inda]:
+                    if cur_att in in_pixc_metadata.keys():
+                        self.pixcvec_metadata[cur_att] = in_pixc_metadata[cur_att]
+        if self.pixcvec_metadata["geospatial_lon_min"] == -9999.0:
+            self.pixcvec_metadata["geospatial_lon_min"] = min(self.pixcvec_metadata["inner_first_longitude"],
+                                                              self.pixcvec_metadata["inner_last_longitude"],
+                                                              self.pixcvec_metadata["outer_first_longitude"],
+                                                              self.pixcvec_metadata["outer_last_longitude"])
+            self.pixcvec_metadata["geospatial_lon_max"] = max(self.pixcvec_metadata["inner_first_longitude"],
+                                                              self.pixcvec_metadata["inner_last_longitude"],
+                                                              self.pixcvec_metadata["outer_first_longitude"],
+                                                              self.pixcvec_metadata["outer_last_longitude"])
+            self.pixcvec_metadata["geospatial_lat_min"] = min(self.pixcvec_metadata["inner_first_latitude"],
+                                                              self.pixcvec_metadata["inner_last_latitude"],
+                                                              self.pixcvec_metadata["outer_first_latitude"],
+                                                              self.pixcvec_metadata["outer_last_latitude"])
+            self.pixcvec_metadata["geospatial_lat_max"] = max(self.pixcvec_metadata["inner_first_latitude"],
+                                                              self.pixcvec_metadata["inner_last_latitude"],
+                                                              self.pixcvec_metadata["outer_first_latitude"],
+                                                              self.pixcvec_metadata["outer_last_latitude"])
         
         # 1 - Init product
         if self.product_type == "TILE":
@@ -493,13 +553,12 @@ def compute_imp_geoloc(in_product_type, in_obj_pixc, in_indices, in_height):
     out_lon_corr = np.zeros(nb_pix)  # Improved longitudes
     out_height_corr = np.zeros(nb_pix)  # Improved heights
     # 2.2 - Improve geolocation
-    out_p_final, p_final_llh, h_mu, (iter_grad, nfev_minimize_scalar) = my_geoloc.pointcloud_height_geoloc_vect(np.transpose(np.array([x, y, z])),
-                                                                                                                 in_obj_pixc.height[in_indices],
-                                                                                                                 np.transpose(np.array([nadir_x, nadir_y, nadir_z])),
-                                                                                                                 np.transpose(np.array([nadir_vx, nadir_vy, nadir_vz])),
-                                                                                                                 ri, in_height, recompute_doppler=True,
-                                                                                                                 recompute_range=True, verbose=False,
-                                                                                                                 max_iter_grad=1, height_goal=1.e-3)
+    out_p_final, p_final_llh, h_mu, (iter_grad, nfev_minimize_scalar) = \
+                      my_geoloc.pointcloud_height_geoloc_vect(np.transpose(np.array([x, y, z])), in_obj_pixc.height[in_indices],
+                                                              np.transpose(np.array([nadir_x, nadir_y, nadir_z])),
+                                                              np.transpose(np.array([nadir_vx, nadir_vy, nadir_vz])),
+                                                              ri, in_height, recompute_doppler=True, recompute_range=True, 
+                                                              verbose=False, max_iter_grad=1, height_goal=1.e-3)
     # 2.3 - Save output variables
     out_lat_corr, out_lon_corr, out_height_corr = np.transpose(p_final_llh)
     

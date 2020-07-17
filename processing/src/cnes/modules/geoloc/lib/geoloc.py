@@ -7,6 +7,7 @@
 # ======================================================
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
+# VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 '''
@@ -225,8 +226,8 @@ def herror2ofx(x, dmu_max, mu_0, s, w_hat, u_hat, v_hat, r_eq, delta, h_target):
      return the cost
 
     :param x: infix variable for cost function
-    :type x:float
-    :param dmu_max:mu derivative
+    :type x: float
+    :param dmu_max: mu derivative
     :type dmu_max: float
     :param mu_0: initial guess for mu angle
     :type mu_0: float
@@ -275,14 +276,14 @@ def pointcloud_height_geoloc_vect(p_noisy, h_noisy, s, vs, range_target, h_targe
     :type h_target: 1D-array of float
     :param recompute_doppler: option to recomputed Doppler (Zdop) instead of using nul vector
     :type recompute_doppler: boolean
-    :param max_iter_grad : number of iteration for gradient method
-    :type max_iter_grad : integer
+    :param max_iter_grad: number of iteration for gradient method
+    :type max_iter_grad: integer
     :param recompute_range: option to recomputed range instead of using Rtarget
     :type recompute_range: boolean
     :param verbose: display progress of optimize function
     :type verbose: boolean
     :param max_iter_grad: number of iteration
-    :type max_iter_grad : integer
+    :type max_iter_grad: integer
     :param height_goal: precision criteria for using numerical method
     :type height_goal: float
 
@@ -428,19 +429,19 @@ def convert_llh2ecef(lat, lon, height, rad_e=GEN_RAD_EARTH_EQ, rad_p=GEN_RAD_EAR
     """
     Converting from geodetic coordinates (lat, lon, height) to cartesian coordinates (x, y, z)
 
-    Args:
-        lat(float): latitude of the record
+    :arg lat: latitude of the record
+    :type lat: float
+    :arg lon: longitude of the record
+    :type lon: float
+    :arg height: height of the record
+    :type height: float
+    :arg rad_e: radius of the Earth model (WGS84 ellipsoid) at the equator
+    :type rad_e: float
+    :arg rad_p: radius of the Earth model at the pole
+    :type rad_p: float
+    :returns: tuple. Contain : base axes (x, y and z)
+    :rtype: float,float,float
 
-        lon(float): longitude of the record
-
-        height(float): height of the record
-
-        rad_e(float): radius of the Earth model (WGS84 ellipsoid) at the equator
-
-        rad_p(float): radius of the Earth model at the pole
-
-    Returns:
-        tuple. Contain : base axes (x, y and z)
     """
     lat = lat * numpy.pi / 180.
     lon = lon * numpy.pi / 180.

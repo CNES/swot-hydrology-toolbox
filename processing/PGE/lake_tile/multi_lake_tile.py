@@ -8,6 +8,7 @@
 # ======================================================
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
+# VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -70,10 +71,18 @@ class MultiLakeTile(object):
         self.flag_prod_shp = in_params["flag_prod_shp"]
         
         # Log level
+        self.error_file = in_params["errorFile"]
         self.log_file = in_params["logFile"]
         self.log_file_level = in_params["logfilelevel"]
         self.log_console = in_params["logConsole"]
         self.log_console_level = in_params["logconsolelevel"]
+        
+        # File information
+        self.crid = in_params["crid"]
+        self.producer = in_params["producer"]
+        self.source = in_params["source"]
+        self.software_version = in_params["software_version"]
+        self.contact = in_params["contact"]
 
         # List of input files
         self.list_pixc = []  # PIXC files
@@ -212,7 +221,16 @@ class MultiLakeTile(object):
         pass_num = information["pass"]
         tile_ref = information["tile_ref"]
 
-        # 3 - Init log filename (without date because it is computed in pge_lake_tile.py)
+        # 3.1 - Init error log filename (without date because it is computed in pge_lake_tile.py)
+        if self.error_file is None:
+            error_file = os.path.join(self.output_dir, "ErrorFile_" + str(cycle_num) + "_" +
+                                    str(pass_num) + "_" + str(tile_ref) + ".log")
+        else:
+            error_file = os.path.splitext(self.error_file)[0] + "_" + str(cycle_num) + "_" \
+                                        + str(pass_num) + "_" + str(tile_ref) + os.path.splitext(self.error_file)[1]
+        print("Error log file: " + error_file)
+
+        # 3.2 - Init log filename (without date because it is computed in pge_lake_tile.py)
         if self.log_file is None:
             log_file = os.path.join(self.output_dir, "LogFile_" + str(cycle_num) + "_" +
                                     str(pass_num) + "_" + str(tile_ref) + ".log")
@@ -238,8 +256,7 @@ class MultiLakeTile(object):
 
         writer_command_file.write("PIXC file = " + pixc_file + "\n")
         writer_command_file.write("PIXCVecRiver file = " + os.path.join(self.pixc_vec_river_dir, self.list_pixc_vec_river[indf]) + "\n")
-        writer_command_file.write("Output directory = " + self.output_dir + "\n")
-        writer_command_file.write("\n")
+        writer_command_file.write("Output directory = " + self.output_dir + "\n\n")
         
         # 5.2 - Fill DATABASES section
         writer_command_file.write("[DATABASES]\n")
@@ -254,35 +271,37 @@ class MultiLakeTile(object):
         # 5.3 - Fill OPTIONS section
         writer_command_file.write("[OPTIONS]\n")
         writer_command_file.write("# To also produce LakeTile_edge and LakeTile_pixcvec as shapefiles (=True); else=False (default)\n")
-        writer_command_file.write("Produce shp = " + str(self.flag_prod_shp) + "\n")
-        writer_command_file.write("\n")
+        writer_command_file.write("Produce shp = " + str(self.flag_prod_shp) + "\n\n")
         
         # 5.4 - Fill LOGGING section
         writer_command_file.write("[LOGGING]\n")
-        writer_command_file.write("# Log filename\n")
+        writer_command_file.write("# Error file full path\n")
+        writer_command_file.write("errorFile = " + error_file + "\n")
+        writer_command_file.write("# Log file full path\n")
         writer_command_file.write("logFile = " + log_file + "\n")
         writer_command_file.write("# Log level put inside the file\n")
         writer_command_file.write("logfilelevel = " + self.log_file_level + "\n")
         writer_command_file.write("# Is log console output ?\n")
         writer_command_file.write("logConsole = " + str(self.log_console) + "\n")
         writer_command_file.write("# Log level print in console\n")
-        writer_command_file.write("logconsolelevel = " + self.log_console_level + "\n")
-        
-        # 5.5 - Fill CRID section
-        writer_command_file.write("# CRID information\n")
-        writer_command_file.write("[CRID]\n")
-        writer_command_file.write("# Composite Release IDentifier for LakeTile processing\n")        
-        writer_command_file.write("LAKE_TILE_CRID = Dx0000 \n")
-        writer_command_file.write("# Composite Release IDentifier for LakeSP processing\n")
-        writer_command_file.write("LAKE_SP_CRID = Dx0000\n")
+        writer_command_file.write("logconsolelevel = " + self.log_console_level + "\n\n")
 
         # 5.6 - Fill FILE_INFORMATION section
-        writer_command_file.write("# File informations\n")
         writer_command_file.write("[FILE_INFORMATION]\n")
-        writer_command_file.write("# Product generator\n")
-        writer_command_file.write("PRODUCER = CNES\n")
-        writer_command_file.write("#######################################\n")
-        writer_command_file.close()  # Close command file
+        writer_command_file.write("# Composite Release IDentifier for LakeTile processing\n")        
+        writer_command_file.write("CRID = " + self.crid + "\n")
+        writer_command_file.write("# Producer\n")
+        writer_command_file.write("PRODUCER = " + self.producer + "\n")
+        writer_command_file.write("# Method of production of the original data\n")        
+        writer_command_file.write("SOURCE = " + self.source + "\n")
+        writer_command_file.write("# Software version\n")        
+        writer_command_file.write("SOFTWARE_VERSION = " + self.software_version + "\n")
+        writer_command_file.write("# Contact\n\n")        
+        writer_command_file.write("CONTACT = " + self.contact + "\n\n")
+        
+        # 5.7 - Close command file
+        writer_command_file.close() 
+        
         return out_cmd_file
 
 #######################################
@@ -310,10 +329,16 @@ def read_command_file(in_filename):
     out_params["pass_num"] = None
     out_params["tile_ref"] = None
     out_params["flag_prod_shp"] = False
+    out_params["errorFile"] = None
     out_params["logFile"] = None
     out_params["logfilelevel"] = "DEBUG"
     out_params["logConsole"] = True
     out_params["logconsolelevel"] = "DEBUG"
+    out_params["crid"] = "Dx0000"
+    out_params["producer"] = "CNES"
+    out_params["source"] = "Simulation"
+    out_params["software_version"] = "0.0"
+    out_params["contact"] = "test@cnes.fr"
 
     # 1 - Read parameter file
     config = cfg.ConfigParser()
@@ -358,6 +383,10 @@ def read_command_file(in_filename):
     # 6 - Retrieve LOGGING
     if "LOGGING" in config.sections():
         list_options = config.options("LOGGING")
+        if "errorFile" in list_options:
+            out_params["errorFile"] = config.get("LOGGING", "errorFile")
+            if out_params["errorFile"] is not None:
+                out_params["errorFile"] = out_params["errorFile"].replace("<date>", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
         if "logFile" in list_options:
             out_params["logFile"] = config.get("LOGGING", "logFile")
             if out_params["logFile"] is not None:
@@ -368,6 +397,20 @@ def read_command_file(in_filename):
             out_params["logConsole"] = config.get("LOGGING", "logConsole")
         if "logconsolelevel" in list_options:
             out_params["logconsolelevel"] = config.get("LOGGING", "logconsolelevel")
+            
+    # 7 - Retrieve FILE_INFORMATION
+    if "FILE_INFORMATION" in config.sections():
+        list_options = config.options("FILE_INFORMATION")
+        if "crid" in list_options:
+            out_params["crid"] = config.get("FILE_INFORMATION", "CRID")
+        if "producer" in list_options:
+            out_params["producer"] = config.get("FILE_INFORMATION", "PRODUCER")
+        if "source" in list_options:
+            out_params["source"] = config.get("FILE_INFORMATION", "SOURCE")
+        if "software_version" in list_options:
+            out_params["software_version"] = config.get("FILE_INFORMATION", "SOFTWARE_VERSION")
+        if "contact" in list_options:
+            out_params["contact"] = config.get("FILE_INFORMATION", "CONTACT")
 
     return out_params
 

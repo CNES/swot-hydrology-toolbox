@@ -7,6 +7,7 @@
 # ======================================================
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
+# VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -31,6 +32,36 @@ from osgeo import ogr, osr
 import cnes.common.service_error as service_error
 
 import cnes.common.lib_lake.lake_db as lake_db
+
+
+def write_mem_layer_as_shp(in_mem_layer, in_shp_filename):
+    """
+    Write memory layer in_mem_layer into a shapefile
+    
+    :param in_mem_layer: memory layer
+    :type in_mem_layer: ogr.Layer
+    :param in_shp_filename: shapefile full path
+    :type in_shp_filename: string
+    """
+    
+    shp_driver = ogr.GetDriverByName(str('ESRI Shapefile'))  # Driver for shapefiles
+    
+    # 1 - Delete output file if already exists
+    if os.path.exists(in_shp_filename):
+        shp_driver.DeleteDataSource(in_shp_filename)
+        
+    # 2 - Create output file
+    data_source = shp_driver.CreateDataSource(in_shp_filename)
+    
+    # 3 - Copy memory layer to output 
+    layer_name = os.path.basename(in_shp_filename).split(".")[0]
+    data_source.CopyLayer(in_mem_layer, str(layer_name))
+    
+    # 4 - Close output file
+    data_source.Destroy()
+
+
+#######################################
 
 
 def merge_mem_layer_with_shp(in_list_shp, in_layer, in_cur_continent):
@@ -105,7 +136,7 @@ def merge_2_layers(in_layer1, in_layer2, in_cur_continent):
 
     nb_feature1 = in_layer1.GetFeatureCount()
     nb_feature2 = in_layer2.GetFeatureCount()
-    logger.debug("Merge %d features of layer 1 to %d feature of layer 2" %(nb_feature1, nb_feature2))
+    logger.debug("Merge %d features of layer 1 to %d features of layer 2" %(nb_feature1, nb_feature2))
     
     # 1 - Get layer definitions
     layer_defn1 = in_layer1.GetLayerDefn()
@@ -131,42 +162,24 @@ def merge_2_layers(in_layer1, in_layer2, in_cur_continent):
     out_layer = out_data_source.CreateLayer(str('tmp'), srs, geom_type=ogr.wkbMultiPolygon)
 
     # 6 - Init output layer fields
-    for i in range(layer_defn1.GetFieldCount()):
-        id_field = layer_defn1.GetFieldDefn(i)
+    for ind in range(layer_defn1.GetFieldCount()):
+        id_field = layer_defn1.GetFieldDefn(ind)
         out_layer.CreateField(id_field)
 
     # 7 - Add in_layer1 and in_layer2 to the output layer
+    # NB: the Update function doesn't keep feature without geometry (may
+    # occur with _Prior layer) => these must be added afterward
     in_layer1.Update(in_layer2, out_layer)
+    
+    # 8 - Add not observed features
+    for cur_layer in [in_layer1, in_layer2]:
+        # 8.1 - Retrieve features without a geometry
+        cur_layer.SetAttributeFilter("obs_id = 'no_data'")
+        # 8.2 - Add them to output layer
+        for cur_feature in cur_layer:
+            out_layer.CreateFeature(cur_feature)
 
     in_layer1.SetAttributeFilter(None)
     in_layer2.SetAttributeFilter(None)
 
     return out_data_source, out_layer
-
-
-def write_mem_layer_as_shp(in_mem_layer, in_shp_filename):
-    """
-    Write memory layer in_mem_layer into a shapefile
-    
-    :param in_mem_layer: memory layer
-    :type in_mem_layer: ogr.Layer
-    :param in_shp_filename: shapefile full path
-    :type in_shp_filename: string
-    """
-    
-    shp_driver = ogr.GetDriverByName(str('ESRI Shapefile'))  # Driver for shapefiles
-    
-    # 1 - Delete output file if already exists
-    if os.path.exists(in_shp_filename):
-        shp_driver.DeleteDataSource(in_shp_filename)
-        
-    # 2 - Create output file
-    data_source = shp_driver.CreateDataSource(in_shp_filename)
-    
-    # 3 - Copy memory layer to output 
-    layer_name = os.path.basename(in_shp_filename).split(".")[0]
-    data_source.CopyLayer(in_mem_layer, str(layer_name))
-    
-    # 4 - Close output file
-    data_source.Destroy()
-    

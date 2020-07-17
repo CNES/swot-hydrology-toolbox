@@ -7,6 +7,7 @@
 # ======================================================
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
+# VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -243,7 +244,8 @@ def alpha_shape(in_coords, in_alpha):
         retour = geometry.MultiPoint(list(points)).convex_hull
     else:
         # 1 - Compute Delaunay triangulation
-        tri = Delaunay(in_coords)  # tri = specific object with attributes (cf. https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.spatial.Delaunay.html)
+        tri = Delaunay(in_coords)  
+        # tri = specific object with attributes (cf. https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.spatial.Delaunay.html)
 
         # 2 - Select triangles following it's shape
         # 2.1 - Compute CircumRatio for each triangle
@@ -331,8 +333,8 @@ def get_concav_hull_bis(in_coords):
         retour = geometry.MultiPoint(list(points)).convex_hull
     else:
         # 1 - Compute Delaunay triangulation
-        tri = Delaunay(
-            in_coords)  # tri = specific object with attributes (cf. https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.spatial.Delaunay.html)
+        tri = Delaunay(in_coords)
+        # tri = specific object with attributes (cf. https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.spatial.Delaunay.html)
 
         # 2 - Select triangles following their shape
 
@@ -430,6 +432,7 @@ def split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max=1e4):
     :rtype: list of tulple(in_range, in_azimuth, in_v_long, in_v_lat)
     """
 
+    retour = [(in_range, in_azimuth, in_v_long, in_v_lat)]
     if len(in_range) > nb_pix_max:
         margin = 10
         if np.max(in_range) - np.min(in_range) > np.max(in_azimuth) - np.min(in_azimuth):
@@ -440,9 +443,11 @@ def split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max=1e4):
             az_half = int(np.max(in_azimuth) - np.min(in_azimuth)) / 2 + np.min(in_azimuth)
             idx1 = np.where(in_azimuth < az_half + margin)
             idx2 = np.where(in_azimuth > az_half - margin)
-        return split_lake_image(in_range[idx1], in_azimuth[idx1], in_v_long[idx1], in_v_lat[idx1], nb_pix_max) + split_lake_image(in_range[idx2], in_azimuth[idx2], in_v_long[idx2], in_v_lat[idx2], nb_pix_max)
+        retour = split_lake_image(in_range[idx1], in_azimuth[idx1], in_v_long[idx1], in_v_lat[idx1], nb_pix_max) +\
+                 split_lake_image(in_range[idx2], in_azimuth[idx2], in_v_long[idx2], in_v_lat[idx2], nb_pix_max)
     else:
-        return [(in_range, in_azimuth, in_v_long, in_v_lat)]
+        retour = [(in_range, in_azimuth, in_v_long, in_v_lat)]
+    return retour
 
 def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, in_v_lat):
     """
@@ -467,7 +472,8 @@ def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, i
     # Split lake sar image in sub_images
     list_sub_img_to_process = split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max)
     if len(list_sub_img_to_process) > 1:
-        logger.info("Lake image with %d pixels is splitted in %d sub images of less than %d pixels" % (len(in_range), len(list_sub_img_to_process), nb_pix_max))
+        logger.info("Lake image with %d pixels is splitted in %d sub images of less than %d pixels" % (len(in_range), 
+                    len(list_sub_img_to_process), nb_pix_max))
 
     multi_poly = ogr.Geometry(ogr.wkbMultiPolygon)
 
@@ -536,7 +542,8 @@ def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat):
     # 5 - Convert (azimuth, range) contour into polygon
     logger.debug("Inital polygon contains 1 external ring and %d holes rings " % (len(lake_contour_int) - 1))
 
-    # multi_ring_list contains every ring composing the polygon, the first ring contains exterior coordinates, all other rings are holes in the polygon
+    # multi_ring_list contains every ring composing the polygon, the first ring contains exterior coordinates, 
+    # all other rings are holes in the polygon
     multi_ring_list = []
 
     for contour in lake_contour_int:  # Loop over contours

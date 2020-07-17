@@ -1,0 +1,168 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<product>
+  <science uid="l2_hr_pixcvec">
+    <nodes>
+      <integer name="/azimuth_index" shape="points_shape" width="32" signed="true">
+        <annotation _FillValue="2147483647" long_name="rare interferogram azimuth index" units="1" valid_min="0" valid_max="999999" coordinates="longitude_vectorproc latitude_vectorproc" comment="Rare interferogram azimuth index (indexed from 0)."/>
+      </integer>
+      <integer name="/range_index" shape="points_shape" width="32" signed="true">
+        <annotation _FillValue="2147483647" long_name="rare interferogram range index" units="1" valid_min="0" valid_max="999999" coordinates="longitude_vectorproc latitude_vectorproc" comment="Rare interferogram range index (indexed from 0)."/>
+      </integer>
+      <real name="/latitude_vectorproc" shape="points_shape" width="64">
+        <annotation _FillValue="9.969209968386869e+36" long_name="height-constrained geolocation latitude" standard_name="latitude" units="degrees_north" valid_min="-80" valid_max="80" comment="Height-constrained geodetic latitude of the pixel. Units are in degrees north of the equator."/>
+      </real>
+      <real name="/longitude_vectorproc" shape="points_shape" width="64">
+        <annotation _FillValue="9.969209968386869e+36" long_name="height-constrained geolocation longitude" standard_name="longitude" units="degrees_east" valid_min="-180" valid_max="180" comment="Height-constrained geodetic longitude of the pixel. Positive=degrees east of the Greenwich meridian. Negative=degrees west of the Greenwich meridian."/>
+      </real>
+      <real name="/height_vectorproc" shape="points_shape" width="32">
+        <annotation _FillValue="9.96921e+36" long_name="height above reference ellipsoid" units="m" valid_min="-1500" valid_max="15000" coordinates="longitude_vectorproc latitude_vectorproc" comment="Height-constrained height of the pixel above the reference ellipsoid."/>
+      </real>
+      <string name="/reach_id" shape="points_nchar_reach_id_shape" width="0">
+        <annotation _FillValue="" long_name="identifier of the associated prior river reach" coordinates="longitude_vectorproc latitude_vectorproc" comment="Unique reach identifier from the prior river database. The format of the identifier is CBBBBBRRRRT, where C=continent, B=basin, R=reach, T=type."/>
+      </string>
+      <string name="/node_id" shape="points_nchar_node_id_shape" width="0">
+        <annotation _FillValue="" long_name="identifier of the associated prior river node" coordinates="longitude_vectorproc latitude_vectorproc" comment="Unique node identifier from the prior river database. The format of the identifier is CBBBBBRRRRNNNT, where C=continent, B=basin, R=reach, N=node, T=type of water body."/>
+      </string>
+      <string name="/lake_id" shape="points_nchar_lake_id_shape" width="0">
+        <annotation _FillValue="" long_name="identifier of the associated prior lake" coordinates="longitude_vectorproc latitude_vectorproc" comment="Identifier of the lake from the lake prior database) associated to the pixel. The format of the identifier is CBBNNNNNNT, where C=continent, B=basin, N=counter within the basin, T=type of water body."/>
+      </string>
+      <string name="/obs_id" shape="points_nchar_obs_id_shape" width="0">
+        <annotation _FillValue="" long_name="identifier of the observed feature" coordinates="longitude_vectorproc latitude_vectorproc" comment="Tile-specific identifier of the observed feature associated to the pixel. The format of the identifier is CBBTTTSNNNNNN, where C=continent, B=basin, T=tile number, S=swath side, N=lake counter within the PIXC tile."/>
+      </string>
+      <integer name="/ice_clim_f" shape="points_shape" width="8" signed="true">
+        <annotation _FillValue="127" long_name="climatological ice cover flag" flag_meanings="no_ice_cover partial_ice_cover full_ice_cover" flag_values="0 1 2" institution="University of North Carolina" coordinates="longitude_vectorproc latitude_vectorproc" comment="Climatological ice cover flag indicating whether the pixel is ice-covered on the day of the observation based on external climatological information (not the SWOT measurement). Values of 0, 1, and 2 indicate that the surface is not ice covered, partially ice covered, and fully ice covered, respectively. A value of 255 indicates that this flag is not available."/>
+      </integer>
+      <integer name="/ice_dyn_f" shape="points_shape" width="8" signed="true">
+        <annotation _FillValue="127" long_name="dynamical ice cover flag" flag_meanings="no_ice_cover partial_ice_cover full_ice_cover" flag_values="0 1 2" institution="University of North Carolina" coordinates="longitude_vectorproc latitude_vectorproc" comment="Dynamic ice cover flag indicating whether the pixel is ice-covered on the day of the observation based on analysis of external satellite optical data. Values of 0, 1, and 2 indicate that the surface is not ice covered, partially ice covered, and fully ice covered, respectively. A value of 255 indicates that this flag is not available."/>
+      </integer>
+      <string name="/@Conventions" shape="Scalar" width="0">
+        <annotation description="NetCDF-4 conventions adopted in this product. This attribute should be set to CF-1.7 to indicate that the product is compliant with the Climate and Forecast NetCDF conventions."/>
+      </string>
+      <string name="/@title" shape="Scalar" width="0">
+        <annotation description="Level 2 KaRIn high rate pixel cloud vector attribute product"/>
+      </string>
+      <string name="/@institution" shape="Scalar" width="0">
+        <annotation description="Name of producing agency."/>
+      </string>
+      <string name="/@source" shape="Scalar" width="0">
+        <annotation description="The method of production of the original data. If it was model-generated, source should name the model and its version, as specifically as could be useful. If it is observational, source should characterize it (e.g., 'Ka-band radar interferometer')."/>
+      </string>
+      <string name="/@history" shape="Scalar" width="0">
+        <annotation description="UTC time when file generated. Format is: 'YYYY-MM-DD hh:mm:ss : Creation'"/>
+      </string>
+      <string name="/@platform" shape="Scalar" width="0">
+        <annotation description="SWOT"/>
+      </string>
+      <string name="/@references" shape="Scalar" width="0">
+        <annotation description="Published or web-based references that describe the data or methods used to product it. Provides version number of software generating product."/>
+      </string>
+      <string name="/@reference_document" shape="Scalar" width="0">
+        <annotation description="SWOT-TN-CDM-0677-CNES"/>
+      </string>
+      <string name="/@contact" shape="Scalar" width="0">
+        <annotation description="Contact information for producer of product. (e.g., 'ops@jpl.nasa.gov')."/>
+      </string>
+      <integer name="/@cycle_number" shape="Scalar" width="16" signed="true">
+        <annotation description="Cycle number of the product granule."/>
+      </integer>
+      <integer name="/@pass_number" shape="Scalar" width="16" signed="true">
+        <annotation description="Pass number of the product granule."/>
+      </integer>
+      <integer name="/@tile_number" shape="Scalar" width="16" signed="true">
+        <annotation description="Tile number in the pass of the product granule."/>
+      </integer>
+      <string name="/@swath_side" shape="Scalar" width="0">
+        <annotation description="'L' or 'R' to indicate left and right swath, respectively."/>
+      </string>
+      <string name="/@tile_name" shape="Scalar" width="0">
+        <annotation description="Tile name using format PPP_TTTS, where PPP is a 3 digit pass number with leading zeros, TTT is a 3 digit tile number within the pass, and S is a character 'L' or 'R' for the left and right swath, respectively."/>
+      </string>
+      <string name="/@continent" shape="Scalar" width="0">
+        <annotation description="Continents the product belongs to. If the tile belongs to more than one continent, all continents are listed, separated by a semi-column."/>
+      </string>
+      <string name="/@time_coverage_start" shape="Scalar" width="0">
+        <annotation description="UTC time of first measurement. Format is: YYYY-MM-DD hh:mm:ss.ssssssZ"/>
+      </string>
+      <string name="/@time_coverage_end" shape="Scalar" width="0">
+        <annotation description="UTC time of last measurement. Format is: YYYY-MM-DD hh:mm:ss.ssssssZ"/>
+      </string>
+      <real name="/@geospatial_lon_min" shape="Scalar" width="64">
+        <annotation description="Westernmost longitude (deg) of granule bounding box"/>
+      </real>
+      <real name="/@geospatial_lon_max" shape="Scalar" width="64">
+        <annotation description="Easternmost longitude (deg) of granule bounding box"/>
+      </real>
+      <real name="/@geospatial_lat_min" shape="Scalar" width="64">
+        <annotation description="Southernmost latitude (deg) of granule bounding box"/>
+      </real>
+      <real name="/@geospatial_lat_max" shape="Scalar" width="64">
+        <annotation description="Northernmost latitude (deg) of granule bounding box"/>
+      </real>
+      <real name="/@inner_first_longitude" shape="Scalar" width="64">
+        <annotation description="Nominal swath corner longitude for the first range line and inner part of the swath (degrees_east)"/>
+      </real>
+      <real name="/@inner_first_latitude" shape="Scalar" width="64">
+        <annotation description="Nominal swath corner latitude for the first range line and inner part of the swath (degrees_north)"/>
+      </real>
+      <real name="/@inner_last_longitude" shape="Scalar" width="64">
+        <annotation description="Nominal swath corner longitude for the last range line and inner part of the swath (degrees_east)"/>
+      </real>
+      <real name="/@inner_last_latitude" shape="Scalar" width="64">
+        <annotation description="Nominal swath corner latitude for the last range line and inner part of the swath (degrees_north)"/>
+      </real>
+      <real name="/@outer_first_longitude" shape="Scalar" width="64">
+        <annotation description="Nominal swath corner longitude for the first range line and outer part of the swath (degrees_east)"/>
+      </real>
+      <real name="/@outer_first_latitude" shape="Scalar" width="64">
+        <annotation description="Nominal swath corner latitude for the first range line and outer part of the swath (degrees_north)"/>
+      </real>
+      <real name="/@outer_last_longitude" shape="Scalar" width="64">
+        <annotation description="Nominal swath corner longitude for the last range line and outer part of the swath (degrees_east)"/>
+      </real>
+      <real name="/@outer_last_latitude" shape="Scalar" width="64">
+        <annotation description="Nominal swath corner latitude for the last range line and outer part of the swath (degrees_north)"/>
+      </real>
+      <string name="/@xref_input_l2_hr_pixc_file" shape="Scalar" width="0">
+        <annotation description="Water mask pixel cloud file used to generate data in product."/>
+      </string>
+      <string name="/@xref_input_l2_hr_pixc_vec_river_file" shape="Scalar" width="0">
+        <annotation description="Pixel cloud vector attribute river file used to generate data in product."/>
+      </string>
+      <string name="/@xref_static_river_db_file" shape="Scalar" width="0">
+        <annotation description="Name of static river a priori database file used to generate data in product."/>
+      </string>
+      <string name="/@xref_static_lake_db_file" shape="Scalar" width="0">
+        <annotation description="Name of static lake a priori database file used to generate data in product."/>
+      </string>
+      <string name="/@xref_l2_hr_lake_sp_config_parameter_file" shape="Scalar" width="0">
+        <annotation description="Name of PGE_L2_HR_LakeSP configuration parameters file."/>
+      </string>
+      <real name="/@ellipsoid_semi_major_axis" shape="Scalar" width="64">
+        <annotation description="Semi-major axis of reference ellipsoid in meters."/>
+      </real>
+      <real name="/@ellipsoid_flattening" shape="Scalar" width="64">
+        <annotation description="Flattening of reference ellipsoid"/>
+      </real>
+    </nodes>
+  </science>
+  <shape name="Scalar" order="irrelevant"/>
+  <shape name="points_shape" order="slowest...fastest">
+    <dimension extent="0" name="points"/>
+  </shape>
+  <shape name="points_nchar_reach_id_shape" order="slowest...fastest">
+    <dimension extent="0" name="points"/>
+    <dimension extent="11" name="nchar_reach_id"/>
+  </shape>
+  <shape name="points_nchar_node_id_shape" order="slowest...fastest">
+    <dimension extent="0" name="points"/>
+    <dimension extent="14" name="nchar_node_id"/>
+  </shape>
+  <shape name="points_nchar_lake_id_shape" order="slowest...fastest">
+    <dimension extent="0" name="points"/>
+    <dimension extent="10" name="nchar_lake_id"/>
+  </shape>
+  <shape name="points_nchar_obs_id_shape" order="slowest...fastest">
+    <dimension extent="0" name="points"/>
+    <dimension extent="13" name="nchar_obs_id"/>
+  </shape>
+</product>
