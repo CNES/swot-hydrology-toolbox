@@ -59,29 +59,29 @@ Although the large-scale simulator included in the toolbox provides fairly repre
 * Synthetic "dark water" model (correlated random fields used to simulate low reflectivity areas)
 * Geoid (mean tide corrected EGM-2008), tropospheric and cross-over residual errors simulated
 
-## When do you use the simulator:
-* Large area and multitemporal studies 
+When to use the simulator:
+* To familiarize with SWOT HR products, if needed over large areas and over time (multitemporal series)
 * To study the inpact of the geometrical shapes of the water bodies on River and Lake processing 
 * When a simplified representation of phenomenology, hydrological characteristics and errors is sufficient (e.g. no layover, artifical water slope, basic error models)  
 
 ```
 If a higher degree of realism is necessary to conduct a study, lower-level simulators and processors need to be employed. 
-These are not publicly available, but SWOT science team members can contact the SWOT algorithm development team for support. 
+These are not publicly available, but SWOT Science Team members can contact the SWOT Algorithm Development Team for support. 
 ```
 
-## Products formats and algorithms:
+Products format and algorithms:
 * The product formats correspond to the current official versions, but are likely to evolve. Some data fields are at this stage void (various flags, some uncertainty indicators…).
 * The processing algorithms will also continue to evolve, as today's prototypes are progessively refined into operational software. 
 
-## Last modifications:
-In large scale simulator:
+Last modifications:
+In the large scale simulator:
 * Uncertainties of geolocated heights added
 * Multilook adaptive averaging implemented
 * Land pixels around water bodies added (label 1 and 2 in classification field)
 * Near-range computaton improved
 * Some fields added or made more realistic
 
-In processing chain
+In the processing chain
 * Lake tile processing improved, new product format (three shapefiles)
 * Lake single pass processing added (cf leman and france_pekel new dataset to test it, can't be pushed on github, but can't be share through CNES cluster if needed)
 ```bash
