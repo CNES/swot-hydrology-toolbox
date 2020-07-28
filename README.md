@@ -69,7 +69,7 @@ If a higher degree of realism is necessary to conduct a study, lower-level simul
 These are not publicly available, but SWOT Science Team members can contact the SWOT Algorithm Development Team for support. 
 ```
 
-Products format and algorithms:
+Product formats and algorithms:
 * The product formats correspond to the current official versions, but are likely to evolve. Some data fields are at this stage void (various flags, some uncertainty indicators…).
 * The processing algorithms will also continue to evolve, as today's prototypes are progessively refined into operational software. 
 
