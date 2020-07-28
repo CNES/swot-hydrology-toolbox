@@ -11,7 +11,7 @@ SWOT (Surface Water and Ocean Topography) is an innovative radar altimetry satel
 ## Objectives 
 * Provide open-source tools that, together with JPL’s RiverObs tool (https://github.com/SWOTAlgorithms/RiverObs.git), enable end-users to generate virtually all SWOT HR level-2 (L2) products with fairly (but not fully) representative characteristics (see section on caveats below)
   * Get familiar with product content and formats, use the data to conduct studies...
-* Give end-users access to the L2+ processing prototypes 
+* Give end-users access to the L2+ HR processing prototypes 
   * Validate methodology, propose improvements...
 * As far as possible let the toolbox correspond directly to the processing prototypes that are evolving towards operational processing chains 
   * Coded in high-level programming language (Python 3), for simple distribution, installation and use
@@ -22,9 +22,9 @@ Note that both algorithms and products are still under development and will be u
 
 ## Content 
 * SISIMP: Large scale simulator of L2_HR_PIXC products (with orbit selection tool)
-* LOCNES: Generation of L2_HR_LAKE* and L2_HR_PIXC_VEC products 
+* LOCNES: Generation of L2_HR_LakeTile, L2_HR_LakeSP and L2_HR_PIXCVec products 
 * Improved geolocation library (used by RiverObs and LOCNES)
-* Module to generate L2_HR_RASTER products (under development, not yet included)
+* Module to generate L2_HR_Raster products (under development, not yet included)
 * Overall script permitting to run all steps consecutively (with example dataset)
 * Tools for file format conversion etc.
 * Potentially other modules in the future (for ex. floodplain DEM generation)
@@ -38,9 +38,9 @@ Date:   Thu Jun 18 12:37:22 2020 -0700
 
     PDD updates
 
-River database SWORD v5 available here :
+River database SWORD v5 available here:
 http://gaia.geosci.unc.edu/SWORD/SWORD_v05.zip
-Don't forget to modify parameter_river.rdf :
+Don't forget to modify parameter_river.rdf:
 reach_db_path (-) = /work/ALT/swot/swotpub/BD/BD_rivers/SWORD_v05/Reaches_Nodes/netcdf
 
 
@@ -56,35 +56,34 @@ Although the large-scale simulator included in the toolbox provides fairly repre
   * Also possible to inject “true” heights from models (after simulation)
   * Random effective instrument noise added to height (and propagated to geolocation)
 * Idealized pixel cloud processing 
-* Dark water synthetic model (correlated random fields used to simulate low reflectivity areas)
-* Geoid (mean tide corrected EGM-2008), tropospheric and corr-over residual errors simulated
+* Synthetic "dark water" model (correlated random fields used to simulate low reflectivity areas)
+* Geoid (mean tide corrected EGM-2008), tropospheric and cross-over residual errors simulated
 
 ## When do you use the simulator:
-* Large areas studies and multitemporal studies 
-* When a precise representation of phenomenology (layover, algorithm errors, etc.) is not relevent 
-* When you don't want to use a precise slope model as input (option is currently in development)
-* To study the inpact of water bodies complex geometry on River and Lake processing 
+* Large area and multitemporal studies 
+* To study the inpact of the geometrical shapes of the water bodies on River and Lake processing 
+* When a simplified representation of phenomenology, hydrological characteristics and errors is sufficient (e.g. no layover, artifical water slope, basic error models)  
 
 ```
 If a higher degree of realism is necessary to conduct a study, lower-level simulators and processors need to be employed. 
 These are not publicly available, but SWOT science team members can contact the SWOT algorithm development team for support. 
 ```
 
-Products formats and algorithms:
-* The product formats are not now in their official version, but can still evolve if the official product formats is changed. Some data fields are at this stage void (various flags, uncertainty indicators…).
+## Products formats and algorithms:
+* The product formats correspond to the current official versions, but are likely to evolve. Some data fields are at this stage void (various flags, some uncertainty indicators…).
 * The processing algorithms will also continue to evolve, as today's prototypes are progessively refined into operational software. 
 
-Last modifications:
+## Last modifications:
 In large scale simulator:
-* Uncertainties on geolocated heights added
+* Uncertainties of geolocated heights added
 * Multilook adaptive averaging implemented
-* Land pixels around water bodies added (label 1 and 2 on classification field)
+* Land pixels around water bodies added (label 1 and 2 in classification field)
 * Near-range computaton improved
-* Some fields corrected-completed
+* Some fields added or made more realistic
 
 In processing chain
-* Lake processing improvements
-* Lake Single pass processing added (cf leman and france_pekel new dataset to test it, can't be pushed on github, but can't be share through CNES cluster if needed)
+* Lake tile processing improved, new product format (three shapefiles)
+* Lake single pass processing added (cf leman and france_pekel new dataset to test it, can't be pushed on github, but can't be share through CNES cluster if needed)
 ```bash
 % python ../../scripts/laketile_to_lakesp.py output/lakesp rdf/multi_lake_sp_command.cfg output/lake/lake-annotation_*
 ```
