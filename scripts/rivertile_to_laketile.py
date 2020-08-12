@@ -25,11 +25,11 @@ def set_swot_cnes_env():
     print("== Run LOCNES from swotCNES ==")
     
     try:
-        
         # 1 - Modify PYTHONPATH
         # 1.1 - Add src dir to PYTHONPATH
         lakesrc = os.environ['SWOT_CNES']
         sys.path.append(lakesrc)
+        sys.path.append(os.path.join(lakesrc, 'src'))
         # 1.2 - Add PGE/lake_sp dir to PYTHONPATH
         pge_lake_sp_src = os.path.join(lakesrc, "PGE" + os.path.sep + "lake_sp")
         sys.path.append(pge_lake_sp_src)

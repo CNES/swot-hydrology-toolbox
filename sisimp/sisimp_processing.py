@@ -258,8 +258,8 @@ class Processing(object):
         shp_srs = wb_layer.GetSpatialRef()
         lonlat_srs = osr.SpatialReference()
         lonlat_srs.ImportFromEPSG(4326)
-        if not lonlat_srs.IsSame(shp_srs):
-            raise IOError("This is not a shapefile in lon/lat WGS84 projection")
+        # ~ if not lonlat_srs.IsSame(shp_srs):
+            # ~ raise IOError("This is not a shapefile in lon/lat WGS84 projection")
         # Name of height variable if used
         if self.my_attributes.height_model == "reference_height":
             field_names = [field.name for field in wb_layer.schema]

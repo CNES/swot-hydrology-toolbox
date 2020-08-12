@@ -1,6 +1,4 @@
 width_db_file             (-) = None
-!shape_file_root          (-) = /work/ALT/swot/swotpub/BD/BD_rivers/prior_db_reaches/ADT_priordatabase_reaches_polylines_v2/EU_reaches_data_discharge_depth_chn_grdc_below60N_revised_v2_GCS
-!reach_db_path             (-) = /work/ALT/swot/swotpub/BD/BD_rivers/prior_db_reaches/current_river_db
 reach_db_path             (-) = /work/ALT/swot/swotpub/BD/BD_rivers/SWORD_v06/Reaches_Nodes/netcdf
 l2_file                   (-) = 'REPLACE_ME'
 fout_reach                (-) = 'REPLACE_ME'
