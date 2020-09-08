@@ -578,7 +578,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] == Dealing with tile number %03d" % IN_attributes.tile_number)
                 
         # Get azimuth indices corresponding to this integer value of latitude
-        nadir_az = np.arange(1, len(IN_attributes.alt)-1)
+        nadir_az = np.arange(0, len(IN_attributes.alt))
                     
         az_min = np.sort(nadir_az)[0]  # Min azimuth index, to remove from tile azimuth ivector
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d pixels in azimuth (index %d put to 0)" % (nadir_az.size, az_min))
@@ -589,7 +589,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
 
         # Get pixel indices of water pixels corresponding to this latitude interval
         az_indices = np.where((az >= min(nadir_az) + nb_pix_overlap_begin) & (az <= max(nadir_az) - nb_pix_overlap_end))[0]
-        
         nb_pix = az_indices.size  # Number of water pixels for this latitude interval
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d water pixels" % nb_pix)
         
@@ -1037,8 +1036,9 @@ def make_swath_polygon(IN_swath, IN_attributes, hmean=0):
     :param IN_attributes:
     :type IN_attributes:
     """
-    n = len(IN_attributes.lon_init) - 4
-    az = np.arange(2, n-2 , 1)
+    n = len(IN_attributes.lon_init) 
+    # ~ az = np.arange(2, n-2 , 1)
+    az = np.arange(0, n, 1)
 
     # # Old computing
     # sign = [-1, 1][IN_swath.lower() == 'right']
@@ -1054,9 +1054,11 @@ def make_swath_polygon(IN_swath, IN_attributes, hmean=0):
     theta = IN_attributes.nr_cross_track/(GEN_APPROX_RAD_EARTH+hmean)
     IN_ri = np.sqrt((GEN_APPROX_RAD_EARTH+IN_attributes.alt[az])**2+(GEN_APPROX_RAD_EARTH+hmean)**2-2*np.cos(theta)*(GEN_APPROX_RAD_EARTH+hmean)*(GEN_APPROX_RAD_EARTH+IN_attributes.alt[az]))
     
-    lon1, lat1 = math_fct.lonlat_from_azy(az, IN_ri, IN_attributes, IN_swath, h=hmean, IN_unit="deg")
-    lon2, lat2 = math_fct.lonlat_from_azy(az, IN_ri + IN_attributes.nb_pix_range*IN_attributes.range_sampling, IN_attributes, IN_swath, h=hmean, IN_unit="deg")
-    
+    margin_minus = 30
+    margin_plus = 300
+    lon1, lat1 = math_fct.lonlat_from_azy(az, IN_ri-margin_minus, IN_attributes, IN_swath, h=hmean, IN_unit="deg")
+    lon2, lat2 = math_fct.lonlat_from_azy(az, IN_ri + IN_attributes.nb_pix_range*IN_attributes.range_sampling+margin_plus, IN_attributes, IN_swath, h=hmean, IN_unit="deg")         
+        
     lonswath = np.concatenate((lon1, lon2[::-1]))
     latswath = np.concatenate((lat1, lat2[::-1]))
 
@@ -1336,6 +1338,7 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
         hmean = IN_attributes.height_model_a + IN_attributes.height_model_a * \
         np.sin(2*np.pi * (np.mean(IN_attributes.orbit_time) + cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period
         near_range = np.mean(np.sqrt((IN_attributes.alt - hmean + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+        
     my_api.printInfo("[write_polygons] [reproject_shapefile] Near_range =  %d" % (near_range))
     
     return near_range, hmean
