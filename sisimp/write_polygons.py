@@ -597,8 +597,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
              #Filtering of bad pixels (dirty trick)
             az_indices = az_indices[np.where(lon_noisy[az_indices] !=0.)]
             az_indices = az_indices[np.where(lat_noisy[az_indices] !=0.)]
-            az_indices = az_indices[np.where(np.abs(y[az_indices]) > 8000.)]
-            az_indices = az_indices[np.where(np.abs(y[az_indices]) < 80000.)]
+            # ~ az_indices = az_indices[np.where(np.abs(y[az_indices]) > 8000.)]
+            # ~ az_indices = az_indices[np.where(np.abs(y[az_indices]) < 80000.)]
             
             sub_az, sub_r = [az[az_indices], r[az_indices]]
             
@@ -967,8 +967,9 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
                 else:
                     az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
-
+                    
                 range_tab = np.concatenate((range_tab, r), -1)
+                
                 npoints = len(az)
                 if len(az) != len(lon):
                     my_api.printDebug("[write_polygons] [reproject_shapefile] Ignore polygons crossing the swath")
@@ -1054,8 +1055,8 @@ def make_swath_polygon(IN_swath, IN_attributes, hmean=0):
     theta = IN_attributes.nr_cross_track/(GEN_APPROX_RAD_EARTH+hmean)
     IN_ri = np.sqrt((GEN_APPROX_RAD_EARTH+IN_attributes.alt[az])**2+(GEN_APPROX_RAD_EARTH+hmean)**2-2*np.cos(theta)*(GEN_APPROX_RAD_EARTH+hmean)*(GEN_APPROX_RAD_EARTH+IN_attributes.alt[az]))
     
-    margin_minus = 30
-    margin_plus = 300
+    margin_minus = 10
+    margin_plus = 200
     lon1, lat1 = math_fct.lonlat_from_azy(az, IN_ri-margin_minus, IN_attributes, IN_swath, h=hmean, IN_unit="deg")
     lon2, lat2 = math_fct.lonlat_from_azy(az, IN_ri + IN_attributes.nb_pix_range*IN_attributes.range_sampling+margin_plus, IN_attributes, IN_swath, h=hmean, IN_unit="deg")         
         
@@ -1322,11 +1323,10 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
         if count != 0:
             hmean = height_tot/count
             near_range = np.mean(np.sqrt((IN_attributes.alt - hmean + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-        # ~ if count != 0:
-            # ~ near_range = np.mean(np.sqrt((IN_attributes.alt - h_min + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-
         else:
             near_range = 0
+            
+        
     if IN_attributes.height_model == 'gaussian':
         near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
     if IN_attributes.height_model == 'polynomial':
