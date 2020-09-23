@@ -300,6 +300,19 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     IN_water_pixels[np.nonzero(IN_water_pixels)] = IN_attributes.water_flag
     IN_water_pixels[np.where(np.logical_and(IN_water_pixels!=0, water_land_pixels==0))] = IN_attributes.water_land_flag
     IN_water_pixels[np.where(np.logical_and(land_water_pixels!=0, IN_water_pixels==0))] = IN_attributes.land_water_flag 
+
+    IN_water_pixels_borders = np.copy(IN_water_pixels)
+    IN_water_pixels_borders[:,:] = 0
+    IN_water_pixels_borders[0,:] = 1
+    IN_water_pixels_borders[:,0] = 1
+    IN_water_pixels_borders[-1,:] = 1
+    IN_water_pixels_borders[:,-1] = 1
+        
+    ind_border = np.where(np.logical_and(IN_water_pixels!=0, IN_water_pixels_borders==1))
+        
+    if len(ind_border[0]) > 0:
+        IN_water_pixels[ind_border] = IN_attributes.water_flag
+        
     IN_water_pixels[np.where(np.logical_and(land_pixels!=0, land_water_pixels==0))] = IN_attributes.land_flag 
     
     # Print number of water pixels
@@ -1055,7 +1068,7 @@ def make_swath_polygon(IN_swath, IN_attributes, hmean=0):
     theta = IN_attributes.nr_cross_track/(GEN_APPROX_RAD_EARTH+hmean)
     IN_ri = np.sqrt((GEN_APPROX_RAD_EARTH+IN_attributes.alt[az])**2+(GEN_APPROX_RAD_EARTH+hmean)**2-2*np.cos(theta)*(GEN_APPROX_RAD_EARTH+hmean)*(GEN_APPROX_RAD_EARTH+IN_attributes.alt[az]))
     
-    margin_minus = 10
+    margin_minus = 20
     margin_plus = 200
     lon1, lat1 = math_fct.lonlat_from_azy(az, IN_ri-margin_minus, IN_attributes, IN_swath, h=hmean, IN_unit="deg")
     lon2, lat2 = math_fct.lonlat_from_azy(az, IN_ri + IN_attributes.nb_pix_range*IN_attributes.range_sampling+margin_plus, IN_attributes, IN_swath, h=hmean, IN_unit="deg")         
