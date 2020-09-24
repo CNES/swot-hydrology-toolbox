@@ -734,7 +734,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
 #######################################
 
 
-def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycle_number):
+def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycle_number, tile_number):
     """
     Read the water polygon shapefile and compute polygons in radar coordinates. 
     Save the reprojected polygons in a new shapefile and return its name.
@@ -793,7 +793,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
     # 3 - Create the output shapefile
     swath_t = '%s_swath' % IN_swath
-    OUT_filename = os.path.join(IN_attributes.out_dir, os.path.splitext(os.path.split(IN_filename)[1])[0] + '_tmp_radarproj_%s.shp' % swath_t)
+    OUT_filename = os.path.join(IN_attributes.out_dir, os.path.splitext(os.path.split(IN_filename)[1])[0] + '_tmp_radarproj_%s%s.shp' % (str(tile_number), IN_swath[0]))
     if os.path.exists(OUT_filename):
         IN_driver.DeleteDataSource(OUT_filename)
     dataout = IN_driver.CreateDataSource(OUT_filename)
