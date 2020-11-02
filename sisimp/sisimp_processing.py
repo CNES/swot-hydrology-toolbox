@@ -442,7 +442,7 @@ class Processing(object):
         my_api.printInfo("[sisimp_processing] PROCESSING...")
         my_api.printInfo("")
 
-        n_cores = 4
+        n_cores = int(mp.cpu_count() / 2)
         pool = mp.Pool(n_cores, init_process())
         work = [(att, deepcopy( self.my_attributes)) for att in self.my_attributes.orbit_list]
         # print(len(self.my_attributes.orbit_list))

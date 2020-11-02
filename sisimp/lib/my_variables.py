@@ -20,7 +20,7 @@ GEN_APPROX_RAD_EARTH = (2*GEN_RAD_EARTH_EQ + GEN_RAD_EARTH_POLE)/3  # Radius (in
 
 # Instrument parameters
 SWATH_WIDTH = 120000.000000  # Swath width (m)
-NR_CROSS_TRACK = 5000.000  # NR cross track (m)
+NR_CROSS_TRACK = 10000.000  # NR cross track (m)
 SENSOR_WAVELENGTH = 0.008385803  # Sensor wavelength (m)
 NB_PIX_RANGE = 3117  # Number of pixels in range 3117 (10-60km) or 3500 (extended swath 5-65km)
 RANGE_SAMPLING = 0.75  # Range spacing of SWOT

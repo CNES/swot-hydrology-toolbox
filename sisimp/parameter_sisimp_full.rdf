@@ -21,10 +21,10 @@ Orbit = 29
 
 !### Simulation parameters
 Swath width = 120000.
-NR cross track = 5000.
+NR cross track = 10000.
 Sensor wavelength = 0.0084
 Range sampling = 0.75 !by default
-Number of pixels in range = 4575 !3117 (10-60km) or 3500 (extended swath 5-65km)
+Number of pixels in range = 3117 !3117 (10-60km) or 3500 (extended swath 5-65km)
 Orbit jitter = 1000
 Water flag = 4
 
