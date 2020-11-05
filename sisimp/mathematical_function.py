@@ -54,6 +54,10 @@ def calc_delta_h(IN_water_pixels, IN_angles_water, IN_angles, IN_noise_height, I
 
     if (IN_angles.size != 0) and (np.max(IN_angles*RAD2DEG) > np.max(IN_noise_height[:, 0])):
         my_api.printInfo("One or more incidence angles are greater than the max value defined in the noise file ! Values higher than {0} degrees will be set to      the maximum value defined in the file.".format(np.max(IN_noise_height[:, 0])))
+        
+        IN_angles[np.where(IN_angles*RAD2DEG>np.max(IN_noise_height[:, 0]))] = np.max(IN_noise_height[:, 0])*DEG2RAD
+        IN_angles_water[np.where(IN_angles_water*RAD2DEG>np.max(IN_noise_height[:, 0]))] = np.max(IN_noise_height[:, 0])*DEG2RAD
+        
         stdv = np.interp(IN_angles*RAD2DEG, IN_noise_height[:, 0], IN_noise_phase)
         stdv[np.isnan(stdv)]= 0.
         stdv_2d = np.interp(IN_angles_water*RAD2DEG, IN_noise_height[:,0], IN_noise_phase)
