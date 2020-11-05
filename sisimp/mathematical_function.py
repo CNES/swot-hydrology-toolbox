@@ -63,7 +63,6 @@ def calc_delta_h(IN_water_pixels, IN_angles_water, IN_angles, IN_noise_height, I
         stdv_2d = np.interp(IN_angles_water*RAD2DEG, IN_noise_height[:,0], IN_noise_phase)
         stdv_2d[np.isnan(stdv_2d)]=0.
         OUT_noisy_phi = np.random.normal(0, stdv_2d, (len(IN_water_pixels), len(IN_water_pixels[0])))   
-        OUT_noisy_phi[np.where(IN_angles*RAD2DEG) > np.max(IN_noise_height[:, 1])] = IN_noise_height[-1, 1]
         
     if (IN_noise_height[:, 1] < 1.e-5).any() :  # Case noise file as one or more zeros
         OUT_noisy_phi = np.zeros((len(IN_water_pixels), len(IN_water_pixels[0])))
