@@ -405,7 +405,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
         
             indice_water_f = np.isin(toto, merge(indice_water[0],indice_water[1]))
      
-            elevation_tab[indice_water_f] = lac.h_ref
+            elevation_tab[indice_water_f] = lac.hmean
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
 
     # 3 - Build cross-track distance array
@@ -917,12 +917,15 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                         lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
 
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
-                try:
-                    lac.h_ref=float(polygon_index.GetField(str(IN_attributes.height_name)))
-                    if lac.h_ref==None:
-                        lac.h_ref=0
-                except:
-                    lac.h_ref=0
+                
+                
+                # ~ try:
+                    # ~ lac.h_ref=float(polygon_index.GetField(str(IN_attributes.height_name)))
+                    # ~ if lac.h_ref==None:
+                        # ~ lac.h_ref=0
+                # ~ except:
+                    # ~ lac.h_ref=0
+                
 
                 if IN_attributes.height_model == 'polynomial' and area > IN_attributes.height_model_min_area:
                     # Create database to save all parameters 
