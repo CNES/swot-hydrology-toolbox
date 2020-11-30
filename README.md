@@ -29,12 +29,16 @@ Note that both algorithms and products are still under development and will be u
 * Tools for file format conversion etc.
 * Potentially other modules in the future (for ex. floodplain DEM generation)
 
-## Associated RiverObs version
-commit d2b7ce016fb01fef30c0ad845dd981669ee15e34  
-Author: Alex Fore <Alexander.Fore@jpl.nasa.gov>
-Date:   Thu Oct 31 13:37:46 2019 -0700
 
-    write out without brackets for attributres in XML
+## Last swot-hydrology-toolbox version
+branch release_version_11_24_2020  
+
+## Associated RiverObs version
+commit 1c13a9fc2f2bdc257db84a3ee51194f6bf6dec46
+Author: Cassie Stuurman <cassie.stuurman@jpl.nasa.gov>
+Date:   Mon Nov 23 19:19:21 2020 -0800
+
+    updated batch validation tool for compatibility with plot reach
 
 
 ## Caveats
