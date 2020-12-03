@@ -91,6 +91,7 @@ class PGELakeTile():
         self._put_cmd_value(my_params)
         # Retrieve options which are optionnal
         self.flag_prod_shp = self.cfg.getboolean("OPTIONS", "Produce shp")
+        self.flag_inc_file_counter = self.cfg.getboolean("OPTIONS", "Increment file counter")
         
         # 4 - Init data object
         self.obj_pixc_vec = None
@@ -146,7 +147,8 @@ class PGELakeTile():
         # 0 - Init output dictionary
         out_params = {}
         # Default values
-        out_params["produce_shp"] = "False"
+        out_params["flag_prod_shp"] = "False"
+        out_params["flag_inc_file_counter"] = "True"
 
         # 1 - Read parameter file
         config = configparser.ConfigParser()
@@ -179,7 +181,10 @@ class PGELakeTile():
             list_options = config.options("OPTIONS")
             # Flag to also produce LakeTile_edge and LakeTile_pixcvec as shapefiles (=True); else=False (default)
             if "produce shp" in list_options:
-                out_params["produce_shp"] = config.get("OPTIONS", "Produce shp")
+                out_params["flag_prod_shp"] = config.get("OPTIONS", "Produce shp")
+            # Flag to increment the file counter in the output filenames (=True, default); else=False
+            if "increment file counter" in list_options:
+                out_params["flag_inc_file_counter"] = config.get("OPTIONS", "Increment file counter")
 
         # 5 - Retrieve LOGGING
         error_file = config.get("LOGGING", "errorFile")
@@ -241,7 +246,8 @@ class PGELakeTile():
             # Add OPTIONS section and parameters
             section = "OPTIONS"
             self.cfg.add_section(section)
-            self.cfg.set(section, "Produce shp", param_list["produce_shp"])
+            self.cfg.set(section, "Produce shp", param_list["flag_prod_shp"])
+            self.cfg.set(section, "Increment file counter", param_list["flag_inc_file_counter"])
             
             # Add section FILE_INFORMATION
             section = "FILE_INFORMATION"
@@ -309,6 +315,9 @@ class PGELakeTile():
             # Shapefile production
             self.cfg.test_var_config_file('OPTIONS', 'Produce shp', bool, logger=logger)
             logger.debug('OK - Produce shp = ' + str(self.cfg.get('OPTIONS', 'Produce shp')))
+            # Increment output file counter
+            self.cfg.test_var_config_file('OPTIONS', 'Increment file counter', bool, logger=logger)
+            logger.debug('OK - Increment file counter = ' + str(self.cfg.get('OPTIONS', 'Increment file counter')))
 
             # 2 - Config parameters from parameter file
 
@@ -334,9 +343,10 @@ class PGELakeTile():
             # Method to compute lake boundary or polygon hull
             # 0 = convex hull 
             # 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library
-            # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track
+            # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation
+            # 1.2 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track
             # 2 = edge computed in radar geometry, then converted in ground geometry (default)
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'HULL_METHOD', float, valeurs=[0, 1.0, 1.1, 2], val_default=2, logger=logger)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'HULL_METHOD', float, valeurs=[0, 1.0, 1.1, 1.2, 2], val_default=2, logger=logger)
             logger.debug('OK - HULL_METHOD = ' + str(self.cfg.get('CONFIG_PARAMS', 'HULL_METHOD')))
             # max number of pixel for hull computation 1            
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY', int, val_default=100000, logger=logger)
@@ -429,6 +439,8 @@ class PGELakeTile():
                 self.obj_lake_db = lake_db.LakeDbShp(lake_db_file, self.obj_pixc.tile_poly)
             elif type_db == "sqlite":  # SQLite format
                 self.obj_lake_db = lake_db.LakeDbSqlite(lake_db_file, self.obj_pixc.tile_poly)
+            elif os.path.isdir(lake_db_file):  # Directory containing Sqlite files
+                self.obj_lake_db = lake_db.LakeDbDirectory(lake_db_file, self.obj_pixc.tile_poly)
             else:
                 message = "Prior lake database format (%s) is unknown: must be .shp or .sqlite => set to None" % type_db
                 logger.warning(message)
@@ -444,7 +456,8 @@ class PGELakeTile():
         
         # 1 - Retrieve orbit info from PIXC filename and compute output filenames
         logger.info("> 3.1 - Retrieving tile infos from PIXC filename...")
-        self.lake_tile_filenames = locnes_filenames.LakeTileFilenames(self.pixc_file, self.pixc_vec_river_file, self.output_dir)
+        self.lake_tile_filenames = locnes_filenames.LakeTileFilenames(self.pixc_file, self.pixc_vec_river_file, self.output_dir,
+                                                                      flag_inc=self.flag_inc_file_counter)
         
         # 2 - Initialize LakeTile product object
         logger.info("> 3.2 - Initialize LakeTile product object...")

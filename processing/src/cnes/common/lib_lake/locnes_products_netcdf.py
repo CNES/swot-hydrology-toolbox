@@ -203,6 +203,11 @@ class NetcdfProduct(my_prod.LocnesProduct):
         logger = logging.getLogger(self.__class__.__name__)
         logger.debug("- start -")
         
+        # Remove file if already exists
+        if os.path.exists(in_out_file):
+            logger.warning("Output NetCDF file %s already exists => delete file" % in_out_file)
+            os.remove(in_out_file)
+        
         # Open file in writing mode
         nc_writer = my_nc.MyNcWriter(in_out_file)
         

@@ -146,6 +146,8 @@ class LakeProduct(object):
         elif hull_method == 1.0:
             logger.info("Use of CONCAVE HULL based on Delaunay triangulation with CGAL library for lake boundaries")
         elif hull_method == 1.1:
+            logger.info("Use of CONCAVE HULL based on Delaunay triangulation")
+        elif hull_method == 1.2:
             logger.info("Use of CONCAVE HULL based on Delaunay triangulation with varying alpha param for lake boundaries")
         elif hull_method == 2:
             logger.info("Use of RADAR VECTORISATION for lake boundaries")
@@ -184,12 +186,12 @@ class LakeProduct(object):
             # ========================
             
             # 3.1 - Total area (=water + dark water)
-            obj_area_total = np.sum(self.obj_pixc.pixel_area[pix_index[select_water_dark_pixels(classif, in_flag_water=True, in_flag_dark=True)]]) 
+            obj_area_total = np.nansum(self.obj_pixc.pixel_area[pix_index[select_water_dark_pixels(classif, in_flag_water=True, in_flag_dark=True)]]) 
             # In m2
             obj_area_total /= 10**6  # Conversion in km2
             
             # 3.2 - Detected area (=only water)
-            obj_area_detected = np.sum(self.obj_pixc.pixel_area[pix_index[select_water_dark_pixels(classif, in_flag_water=True, in_flag_dark=False)]])
+            obj_area_detected = np.nansum(self.obj_pixc.pixel_area[pix_index[select_water_dark_pixels(classif, in_flag_water=True, in_flag_dark=False)]])
             # In m2
             obj_area_detected /= 10**6  # Conversion in km2
             
@@ -275,7 +277,11 @@ class LakeProduct(object):
                 logger.info("> Deal with PLD lake %s" % cur_lakeid)
                 
                 # 6.0 - Remove from the list of PLD located over the area
-                self.obj_lake_db.list_lakeid.remove(cur_lakeid)
+                try:
+                    self.obj_lake_db.list_lakeid.remove(cur_lakeid)
+                except:  # To handle obs lakes at the edge of the tile, intersecting PLD lakes not covered by the tile
+                    msg = "PLD lake with lake_id=%s is not covered by the PIXC tile BUT intersects an observed feature" % cur_lakeid
+                    logger.warning(msg)
         
                 # 6.1.1 - Get infos related to this PLD lake
                 pld_geom, p_name, p_grand, p_max_wse, p_max_area, p_ref_date, p_ref_ds, p_storage = self.obj_lake_db.get_prior_values(cur_lakeid)
@@ -343,13 +349,13 @@ class LakeProduct(object):
         # 2 - Improve geolocation
         if self.cfg.getboolean('CONFIG_PARAMS', 'IMP_GEOLOC'):
 
-            # 5a - Fit lake height model depending on lake size
+            # 2a - Fit lake height model depending on lake size
             height_model = self.compute_height_model(in_pix_index, in_classif, mean_height, in_area_total)
 
-            # 5b - Compute imp geolocation 
+            # 2b - Compute imp geolocation 
             out_lon, out_lat, out_height, p_final = proc_pixc_vec.compute_imp_geoloc(self.product_type, self.obj_pixc, in_pix_index, height_model)
             
-            # 5c - Compute flattened interferogram in order to compute coherence during uncertainties estimation
+            # 2c - Compute flattened interferogram in order to compute coherence during uncertainties estimation
             self.obj_pixc.compute_interferogram_flattened(in_pix_index, p_final)
 
         else:
@@ -734,7 +740,7 @@ class LakeProduct(object):
         :param in_classif_dict: dictionary of indices of pixels of in_indices corresponding to categories "water" and "dark"
         :type in_classif_dict: dict (output of self.sort_pixels_wrt_classif_flags)
 
-        :return: out_attributes = lake attributes
+        :return: out_attributes = lake attributes (None for each item which could not be computed)
         :rtype: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
@@ -747,9 +753,13 @@ class LakeProduct(object):
         # 1 - Median datetime of observation
         # ==================================
         
-        out_attributes["time"] = np.median(self.obj_pixc.nadir_time[in_pixc_index])  # UTC time
-        out_attributes["time_tai"] = np.median(self.obj_pixc.nadir_time_tai[in_pixc_index])  # TAI time
-        out_attributes["time_str"] = my_tools.convert_utc_to_str(out_attributes["time"])  # Time in UTC as a string
+        tmp_time = np.nanmedian(self.obj_pixc.nadir_time[in_pixc_index])
+        out_attributes["time"] = value_or_none(tmp_time)  # UTC time
+        out_attributes["time_tai"] = value_or_none(np.nanmedian(self.obj_pixc.nadir_time_tai[in_pixc_index]))  # TAI time
+        if tmp_time is None:
+            out_attributes["time_str"] = None
+        else:
+            out_attributes["time_str"] = my_tools.convert_utc_to_str(out_attributes["time"])  # Time in UTC as a string
         
         # =================================
         # 2 - Measured hydrology parameters
@@ -757,30 +767,30 @@ class LakeProduct(object):
         
         # Area and uncertainty
         area_total, area_total_unc, area_detct, area_detct_unc = self.obj_pixc.compute_area_with_uncertainties(in_pixc_index, method='composite')
-        out_attributes["area_total"] = value_or_fillvalue(area_total / 10**6)
-        out_attributes["area_tot_u"] = value_or_fillvalue(area_total_unc / 10**6)
-        out_attributes["area_detct"] = value_or_fillvalue(area_detct / 10**6)
-        out_attributes["area_det_u"] = value_or_fillvalue(area_detct_unc / 10**6)
+        out_attributes["area_total"] = value_or_none(area_total / 10**6)
+        out_attributes["area_tot_u"] = value_or_none(area_total_unc / 10**6)
+        out_attributes["area_detct"] = value_or_none(area_detct / 10**6)
+        out_attributes["area_det_u"] = value_or_none(area_detct_unc / 10**6)
         
         # Water surface elevation and uncertainty
         mean_height, height_std, height_unc = self.obj_pixc.compute_height_with_uncertainties(in_pixc_index)
-        out_attributes["wse"] = value_or_fillvalue(mean_height)
-        out_attributes["wse_u"] = my_var.FV_SHP["float"]
-        out_attributes["wse_r_u"] = value_or_fillvalue(height_unc)
-        out_attributes["wse_std"] = value_or_fillvalue(height_std)
+        out_attributes["wse"] = value_or_none(mean_height)
+        out_attributes["wse_u"] = None
+        out_attributes["wse_r_u"] = value_or_none(height_unc)
+        out_attributes["wse_std"] = value_or_none(height_std)
         
         # Metric of layover effect = layover area
-        out_attributes["layovr_val"] = my_var.FV_SHP["float"]
+        out_attributes["layovr_val"] = None
         
         # Median distance from PIXC to the satellite ground track
-        out_attributes["xtrk_dist"] = np.median(self.obj_pixc.cross_track[in_pixc_index])
+        out_attributes["xtrk_dist"] = np.nanmedian(self.obj_pixc.cross_track[in_pixc_index])
         
         # ======================
         # 3 - Quality indicators
         # ======================
         
         # Summary quality indicator
-        out_attributes["quality_f"] = my_var.FV_INT_SHP
+        out_attributes["quality_f"] = None
         
         # Fractional area of dark water
         if in_classif_dict is not None:
@@ -790,8 +800,8 @@ class LakeProduct(object):
             out_attributes["dark_frac"] = (area_total - area_detct) / area_total * 100.0
             
         # Ice cover flags
-        out_attributes["ice_clim_f"] = my_var.FV_INT_SHP
-        out_attributes["ice_dyn_f"] = my_var.FV_INT_SHP
+        out_attributes["ice_clim_f"] = None
+        out_attributes["ice_dyn_f"] = None
         
         # Partial flag: =1 if the lake is partially covered by the swath, 0 otherwise
         range_index = self.obj_pixc.range_index[in_pixc_index]
@@ -800,7 +810,7 @@ class LakeProduct(object):
         # Specific processing for 1st and last tiles
         az_edge_pix = np.array([])
         if self.product_type == "SP":
-            # get pixels that belong to the first or last azimuth line
+            # Get pixels that belong to the first or last azimuth line
             az_edge_pix = np.where(self.obj_pixc.is_boundary_pix[in_pixc_index])[0]
         if nr_edge_pix.size+fr_edge_pix.size+az_edge_pix.size == 0:
             out_attributes["partial_f"] = 0
@@ -812,32 +822,32 @@ class LakeProduct(object):
         # ==========================
         
         # Geoid model height
-        out_attributes["geoid_hght"] = my_tools.compute_mean_2sigma(self.obj_pixc.geoid[in_pixc_index], in_nan=my_var.FV_FLOAT)
+        out_attributes["geoid_hght"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.geoid[in_pixc_index]))
         # Earth tide
-        out_attributes["solid_tide"] = my_tools.compute_mean_2sigma(self.obj_pixc.solid_earth_tide[in_pixc_index], in_nan=my_var.FV_FLOAT)
+        out_attributes["solid_tide"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.solid_earth_tide[in_pixc_index]))
         # Pole tide
-        out_attributes["pole_tide"] = my_tools.compute_mean_2sigma(self.obj_pixc.pole_tide[in_pixc_index], in_nan=my_var.FV_FLOAT)
+        out_attributes["pole_tide"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.pole_tide[in_pixc_index]))
         # Load tide
-        out_attributes["load_tidef"] = my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_fes[in_pixc_index], in_nan=my_var.FV_FLOAT)
-        out_attributes["load_tideg"] = my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_got[in_pixc_index], in_nan=my_var.FV_FLOAT)
+        out_attributes["load_tidef"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_fes[in_pixc_index]))
+        out_attributes["load_tideg"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_got[in_pixc_index]))
         
         # =================================
         # 5 - Geophysical range corrections
         # =================================
         
         # Dry tropo corr
-        out_attributes["dry_trop_c"] = my_tools.compute_mean_2sigma(self.obj_pixc.model_dry_tropo_cor[in_pixc_index], in_nan=my_var.FV_FLOAT)
+        out_attributes["dry_trop_c"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.model_dry_tropo_cor[in_pixc_index]))
         # Wet tropo corr
-        out_attributes["wet_trop_c"] = my_tools.compute_mean_2sigma(self.obj_pixc.model_wet_tropo_cor[in_pixc_index], in_nan=my_var.FV_FLOAT)
+        out_attributes["wet_trop_c"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.model_wet_tropo_cor[in_pixc_index]))
         # Iono corr
-        out_attributes["iono_c"] = my_tools.compute_mean_2sigma(self.obj_pixc.iono_cor_gim_ka[in_pixc_index], in_nan=my_var.FV_FLOAT)
+        out_attributes["iono_c"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.iono_cor_gim_ka[in_pixc_index]))
         
         # ==========================
         # 6 - Instrument corrections
         # ==========================
         
         # KaRIn correction from crossover cal processing evaluated for lake
-        out_attributes["xovr_cal_c"] = my_tools.compute_mean_2sigma(self.obj_pixc.height_cor_xover[in_pixc_index], in_nan=my_var.FV_FLOAT)
+        out_attributes["xovr_cal_c"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.height_cor_xover[in_pixc_index]))
         
         return out_attributes
 
@@ -1546,14 +1556,14 @@ def select_water_dark_pixels(in_classif_dict, in_flag_water=False, in_flag_dark=
     return out_ind
     
 
-def value_or_fillvalue(in_value):
+def value_or_none(in_value):
     """
-    Test if in_value is finite or not; if not, return the associated _FillValue
+    Test if in_value is finite or not (case of NaN); if not, return None
     
     :param in_value: value to test
     :type in_value: float
     
-    :return: out_value = in_value or _FillValue if finite
+    :return: out_value = in_value or None if NaN
     :rtype: out_value = float
     """
     
@@ -1561,6 +1571,6 @@ def value_or_fillvalue(in_value):
     
     if isinstance(out_value, float):
         if not np.isfinite(out_value):
-            out_value = my_var.FV_REAL
+            out_value = None
             
     return out_value

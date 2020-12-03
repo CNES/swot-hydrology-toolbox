@@ -69,6 +69,8 @@ class MultiLakeTile(object):
 
         # Flag to produce LakeTile_edge and LakeTile_pixcvec shapefiles
         self.flag_prod_shp = in_params["flag_prod_shp"]
+        # Flag to increment output file counter
+        self.flag_inc_file_counter = in_params["flag_inc_file_counter"]
         
         # Log level
         self.error_file = in_params["errorFile"]
@@ -271,7 +273,9 @@ class MultiLakeTile(object):
         # 5.3 - Fill OPTIONS section
         writer_command_file.write("[OPTIONS]\n")
         writer_command_file.write("# To also produce LakeTile_edge and LakeTile_pixcvec as shapefiles (=True); else=False (default)\n")
-        writer_command_file.write("Produce shp = " + str(self.flag_prod_shp) + "\n\n")
+        writer_command_file.write("Produce shp = " + str(self.flag_prod_shp) + "\n")
+        writer_command_file.write("# To increment the file counter in the output filenames (=True, default); else=False\n")
+        writer_command_file.write("Increment file counter = " + str(self.flag_inc_file_counter) + "\n\n")
         
         # 5.4 - Fill LOGGING section
         writer_command_file.write("[LOGGING]\n")
@@ -329,6 +333,7 @@ def read_command_file(in_filename):
     out_params["pass_num"] = None
     out_params["tile_ref"] = None
     out_params["flag_prod_shp"] = False
+    out_params["flag_inc_file_counter"] = True
     out_params["errorFile"] = None
     out_params["logFile"] = None
     out_params["logfilelevel"] = "DEBUG"
@@ -379,6 +384,9 @@ def read_command_file(in_filename):
         # Flag to also produce LakeTile_edge and LakeTile_pixcvec as shapefiles (=True); else=False (default)
         if "produce shp" in list_options:
             out_params["flag_prod_shp"] = config.getboolean("OPTIONS", "Produce shp")
+        # Flag to increment the file counter in the output filenames (=True, default); else=False
+        if "increment file counter" in list_options:
+            out_params["flag_inc_file_counter"] = config.get("OPTIONS", "Increment file counter")
 
     # 6 - Retrieve LOGGING
     if "LOGGING" in config.sections():

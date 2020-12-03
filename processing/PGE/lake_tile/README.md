@@ -39,6 +39,8 @@ LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20200309_PLD/PLD_EU.sqlite
 [OPTIONS]
 # To also produce LakeTile_edge and LakeTile_pixcvec as shapefiles (=True); else=False (default)
 Produce shp = <True|False>
+# To increment the file counter in the output filenames (=True, default); else=False
+Increment file counter = <True|False>
 
 [LOGGING]
 # Error file full path

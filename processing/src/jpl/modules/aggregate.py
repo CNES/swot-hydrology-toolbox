@@ -25,13 +25,13 @@ def simple(in_var, metric='mean'):
              (river node, raster bin, lake)
     """
     if metric == 'mean':
-        out_var = np.mean(in_var)
+        out_var = np.nanmean(in_var)
     elif metric == 'median':
-        out_var = np.median(in_var)
+        out_var = np.nanmedian(in_var)
     elif metric == 'sum':
-        out_var = np.sum(in_var)
+        out_var = np.nansum(in_var)
     elif metric == 'std':
-        out_var = np.std(in_var)
+        out_var = np.nanstd(in_var)
     elif metric == 'count':
         out_var = np.sum(np.ones(np.shape(in_var)))
     elif metric == 'mode':

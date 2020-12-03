@@ -89,7 +89,8 @@ FV_REAL = -999999999999
 FV_INT9_SHP = -99999999
 FV_INT_SHP = -999
 FV_STRING_SHP = "no_data"
-FV_SHP = {'int4': FV_INT_SHP, 
+FV_SHP = {'int': FV_INT_SHP,  
+          'int4': FV_INT_SHP, 
           'int8': FV_INT_SHP, 
           'int9': FV_INT9_SHP,
           'int16': FV_INT_SHP,
@@ -114,7 +115,8 @@ FV_SHP = {'int4': FV_INT_SHP,
 # Conversion metadata type to OGR type #
 ########################################
 
-FORMAT_OGR = {'int4': ogr.OFTInteger,
+FORMAT_OGR = {'int': ogr.OFTInteger,
+              'int4': ogr.OFTInteger,
               'int9': ogr.OFTInteger,
               'integer': ogr.OFTInteger,
               'float': ogr.OFTReal,
@@ -123,6 +125,7 @@ FORMAT_OGR = {'int4': ogr.OFTInteger,
               'string': ogr.OFTString}
 
 FORMAT_OGR_STR = {'integer': "ogr.OFTInteger",
+                  'int': "ogr.OFTInteger",
                   'int4': "ogr.OFTInteger",
                   'int9': "ogr.OFTInteger",
                   'float': "ogr.OFTReal",

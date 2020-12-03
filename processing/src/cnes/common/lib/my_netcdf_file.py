@@ -195,16 +195,16 @@ class MyNcReader(object):
     def get_var_value(self, in_name, in_group=None):
         """
         Get the data associated to the variable in_name
+        _FillValue values are converted to numpy.nan
         The multiplication by the scale_factor is done if there is a scale_factor attribute 
-        _FillValue values are let as is (not filled by NaN)
         
         :param in_name: name of the variable
         :type in_name: string
-        :param in_group: group containing the variable in_name
+        :param in_group: group containing the variable in_name (optionnal)
         :type in_group: netCDF4.Group
         
         :return: out_data = formatted data
-        :rtype: [depend on the inumpy.t variable]
+        :rtype: numpy.array
         """
         logger = logging.getLogger(self.__class__.__name__)
 
@@ -218,121 +218,48 @@ class MyNcReader(object):
         try:
             out_data = numpy.copy(cur_content.variables[in_name][:])
         except KeyError:
-            message = "Variable %s does not exist in netCDF file" % in_name
+            message = "Variable %s does not exist in NetCDF file" % in_name
             raise service_error.ProcessingError(message, logger)
-        # TODO: remove when inumpy.t variables corrected (no NaN values anymore)
-        out_type = str(out_data.dtype)
-
-        # replace nan with fill value from netCDF fill
-        if out_type.startswith("float") or out_type.startswith("double"):
-            nan_idx = numpy.argwhere(numpy.isnan(out_data))
-            nb_nan = len(nan_idx)
-            if nb_nan > 0:
-                try:
-                    logger.warning("{} NaN values remaining in {} variable => replaced by {}".format(nb_nan, in_name, \
-                                                                                                     cur_content.variables[in_name]._FillValue))
-                    out_data[nan_idx] = cur_content.variables[in_name]._FillValue
-                except AttributeError:
-                    logger.warning("{} NaN values remaining in {} variable => replaced by {} (_FillValue unknown)".format(nb_nan, in_name, \
-                                                                                                                          my_var.FV_NETCDF[out_type]))
-                    out_data[nan_idx] = my_var.FV_NETCDF[out_type]
-        # == END-TODO ==
-
-        # replace fill value from netCDF file with fill value from my_variables
-
+        
+        # 2 - !!! SHOULD NOT OCCUR => IN CASE _FillValue != my_var.FV_NETCDF
+        # Replace FillValue from NetCDF file with FillValue from my_variables
+        type_out_data = str(out_data.dtype)
         try:
-            #if cur_content.variables[in_name]._FillValue != my_var.FV_NETCDF[out_type]:
-            # Particulate case of float type because it is loaded in double variable. The difference test must be truncated.
-            if out_type.startswith("float"):
-                if abs(cur_content.variables[in_name]._FillValue - my_var.FV_NETCDF[out_type])/1e30 > .1:
-                    logger.warning("Fill value for type %s from netCDF file are different from my_variable : %s w.r.t. %s " \
-                                   %(out_type, str(cur_content.variables[in_name]._FillValue), str(my_var.FV_NETCDF[out_type])))
+            # Test if FillValue are different
+            flag_nok = False
+            if type_out_data.startswith("float"):  
+                # Particular case of float type because it is loaded in double variable. 
+                # The difference test must be truncated.
+                if abs(cur_content.variables[in_name]._FillValue - my_var.FV_NETCDF[type_out_data])/1e30 > .1:
+                    flag_nok = True
             else:
-                if cur_content.variables[in_name]._FillValue != my_var.FV_NETCDF[out_type]:
-                    logger.warning("Fill value for type %s from netCDF file are different from my_variable : %s w.r.t. %s " \
-                                   %(out_type, str(cur_content.variables[in_name]._FillValue), str(my_var.FV_NETCDF[out_type])))
- 
-            out_data[numpy.where(out_data == cur_content.variables[in_name]._FillValue)] = my_var.FV_NETCDF[out_type]
+                if cur_content.variables[in_name]._FillValue != my_var.FV_NETCDF[type_out_data]:
+                    flag_nok = True
+            # Replace if needed
+            if flag_nok:
+                logger.warning("FillValue for type %s from NetCDF file is different from my_variable.FV_NETCDF: %s w.r.t. %s " \
+                                   %(type_out_data, str(cur_content.variables[in_name]._FillValue), str(my_var.FV_NETCDF[type_out_data])))
+                out_data[numpy.where(out_data == cur_content.variables[in_name]._FillValue)] = my_var.FV_NETCDF[type_out_data]
         except:
             pass
-
-        # 2 - Get not _FillValue indices
-        fv_flag = False
-        # TODO Change that try/except/pass without error class is not allowed
-        try:
-            not_nan_idx = numpy.where(out_data < cur_content.variables[in_name]._FillValue)
-            if len(not_nan_idx) < len(out_data):
-                fv_flag = True
-        except:
-            pass
+        
+        # 3 - Replace FillValue with numpy.nan
+        # NB: use of NaN numpy library after in the code
+        if type_out_data.startswith("float") or type_out_data.startswith("double"):
+            fillvalue_idx = numpy.where(out_data > 1e30)[0]
+            nb_fillvalue = len(fillvalue_idx)
+            if nb_fillvalue > 0:
+                logger.warning("{} _FillValue in variable {} => replaced by numpy.nan".format(nb_fillvalue, in_name))
+                out_data[fillvalue_idx] = numpy.nan
                 
-        # 3 - Multiplication by the scale factor where not NaN
+        # 4 - Multiplication by the scale factor if it exists
         try:
-            if fv_flag:
-                out_data[not_nan_idx] *= cur_content.variables[in_name].scale_factor
-            else:
-                out_data *= cur_content.variables[in_name].scale_factor
+            scale_factor = cur_content.variables[in_name].scale_factor
+            logger.info("Apply scale_factor={} for variable {}" % (scale_factor, in_name))
+            out_data *= scale_factor
         except:
-            pass
+            logger.info("No scale_factor for variable %s" % in_name)
 
-        return out_data
-    
-    def get_var_value_or_empty(self, in_name, in_group=None):
-        """
-        Get the data associated to the variable in_name if it exists
-        If not, return an array of int _FillValues
-        
-        :param in_name: name of the variable
-        :type in_name: string
-        :param in_group: group containing the variable in_name
-        :type in_group: netCDF4.Group
-        
-        :return: out_data = formatted data or array of int _FillValues
-        :rtype: [depend on the inumpy.t variable]
-        """
-        logger = logging.getLogger(self.__class__.__name__)
-        
-        list_vars = self.get_list_var(in_group=in_group)
-        
-        if in_name in list_vars:
-            out_data = self.get_var_value(in_name, in_group)
-        else:
-            logger.info("Variable %s doesn't exit => return empty array" % in_name)
-            # Get all dimensions
-            list_dims = self.get_list_dim(in_group=in_group)
-            # Compute greatest one
-            nb_records = 0
-            for key, value in list_dims.items():
-                if value.size > nb_records:
-                    nb_records = value.size
-            # Make empty array of int with _FillValue
-            out_data = numpy.zeros(nb_records, dtype=numpy.int32) + my_var.FV_INT
-            
-        return out_data
-    
-    def get_var_value_or_raise_error(self, in_name, in_group=None):
-        """
-        Get the data associated to the variable in_name if it exists
-        If not, raise an error
-        
-        :param in_name: name of the variable
-        :type in_name: string
-        :param in_group: group containing the variable in_name
-        :type in_group: netCDF4.Group
-        
-        :return: out_data = formatted data
-        :rtype: [depend on the inumpy.t variable]
-        """
-        logger = logging.getLogger(self.__class__.__name__)
-        
-        list_vars = self.get_list_var(in_group=in_group)
-        
-        if in_name in list_vars:
-            out_data = self.get_var_value(in_name, in_group)
-        else:
-            message = "Variable %s doesn't exist in NetCDF" % in_name
-            raise service_error.ProcessingError(message, logger)
-            
         return out_data
     
     def get_var_unit(self, in_name, in_group=None):
@@ -488,7 +415,7 @@ class MyNcWriter(object):
         # Add variable attributes
         if in_attributes is not None:
             for key, value in in_attributes.items():
-                if key not in ["dtype", "shape", "type", "width", "signed", "value"]:
+                if key not in ["dtype", "shape", "type", "width", "signed", "value", "_FillValue"]:
                     self.add_variable_attribute(in_name, key, value, in_group=in_group)
         
     def add_variable_attribute(self, in_varname, in_attname, in_value, in_group=None):

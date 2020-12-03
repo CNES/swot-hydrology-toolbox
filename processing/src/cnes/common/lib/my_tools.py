@@ -576,128 +576,49 @@ def convert_2d_mat_in_1d_vec(in_x, in_y, in_mat):
 #######################################
 
 
-def compute_mean_2sigma(in_v_val, in_nan=None):
+def compute_mean_2sigma(in_v_val):
     """
     Compute the mean of the input values, after remove of non-sense values, i.e. below or above the median +/- 2*standard deviation
-    If set, remove NaN values from the computation
+    NaN values are removed from the computation
 
     :param in_v_val: vector of values for which the mean is computed
     :type in_v_val: 1D-array of float
-    :param in_nan: value to consider as NaN (default=None)
-    :type in_nan: depends on the initial vector
 
-    :return: the mean value (None if no finite value)
+    :return: out_mean = the mean value (numpy.nan if no finite value)
     :rtype: float
     """
     logger = logging.getLogger("my_tools")
-
-    retour = None  # Init retour to None
-    flag_ok = True  # Flag to compute the sum
-    v_val = in_v_val  # Vector on which compute the sum
     
-    # 0 - Consider only non-NaN values
-    if in_nan is not None:
-        not_nan_idx = np.where(v_val < in_nan)[0]
-        if len(not_nan_idx) == 0:
-            flag_ok = False
-            retour = None
-        else:
-            v_val = in_v_val[not_nan_idx]
-
-    if flag_ok:
+    # 1 - Retrieve all values != numpy.nan
+    not_nan_idx = np.where(np.isfinite(in_v_val))[0]
+    
+    if len(not_nan_idx) == 0:
+        logger.warning("No finite value in the input array => return NaN")
+        out_mean = np.nan
         
-        # 1 - Compute statistical values over this vector
-        # 1.1 - Median
-        med = np.median(v_val)
-        # 1.2 - Standard deviation
-        std = np.std(v_val)
-        # 1.3 - Nb values
-        nb_val = v_val.size
-
-        # 2 - Remove indices with value out of 2 sigma
-
-        # 2.1 - Lower than mean - 2 sigma
-        idx_lower = np.where(v_val < med-2*std)[0]
-        v_indices = np.delete(np.arange(nb_val), idx_lower)
-        # 2.2 - Higher than mean + 2 sigma
-        idx_higher = np.where(v_val[v_indices] > med+2*std)[0]
+    else:
+        
+        # 2 - Compute statistical values over the input vector
+        # 2.1 - Median
+        med = np.nanmedian(in_v_val)
+        # 2.2 - Standard deviation
+        std = np.nanstd(in_v_val)
+        
+        # 3 - Remove indices with value out of 2 sigma
+        # 3.1 - Lower than mean - 2 sigma
+        idx_lower = np.where(in_v_val[not_nan_idx] < med-2*std)[0]
+        v_indices = np.delete(not_nan_idx, idx_lower)
+        # 3.2 - Higher than mean + 2 sigma
+        idx_higher = np.where(in_v_val[v_indices] > med+2*std)[0]
         v_indices = np.delete(v_indices, idx_higher)
 
-        message = "%d / %d pixels used for mean computation" % (v_indices.size, nb_val)
+        message = "%d / %d pixels used for mean computation (med=%.3f and std=%.3f)" % (v_indices.size, len(in_v_val), med, std)
         logger.debug(message)
 
-        # 3 - Return the mean of clean vector
-        retour = np.mean(v_val[v_indices])
+        # 3 - Compute the mean of clean array
+        out_mean = np.mean(in_v_val[v_indices])
 
-    return retour
-
-
-def compute_std(in_v_val, in_nan=None):
-    """
-    Compute the standard deviation of the input values
-    If set, remove NaN values from the computation
-
-    :param in_v_val: vector of values for which the standard deviation is computed
-    :type in_v_val: 1D-array of float
-    :param in_nan: value to consider as NaN (default=None)
-    :type in_nan: depends on the initial vector
-
-    :return: the mean value (None if no finite value)
-    :rtype: float
-    """
-
-    retour = None  # Init retour to None
-    flag_ok = True  # Flag to compute the sum
-    v_val = in_v_val  # Vector on which compute the sum
-    
-    # Consider only non-NaN values
-    if in_nan is not None:
-        not_nan_idx = np.where(v_val < in_nan)[0]
-        if len(not_nan_idx) == 0:
-            flag_ok = False
-            retour = None
-        else:
-            v_val = in_v_val[not_nan_idx]
-
-    # Return the standard deviation of the clean vector elements
-    if flag_ok:
-        retour = np.std(v_val)
-        
-    return retour
-
-
-def compute_sum(in_v_val, in_nan=None):
-    """
-    Compute the sum of the input values
-    If set, remove NaN values from the computation
-
-    :param in_v_val: vector of values for which the sum is computed
-    :type in_v_val: 1D-array of float
-    :param in_nan: value to consider as NaN (default=None)
-    :type in_nan: depends on the initial vector
-
-    :return: the mean value (None if no finite value)
-    :rtype: float
-    """
-    
-    retour = None  # Init retour to None
-    flag_ok = True  # Flag to compute the sum
-    v_val = in_v_val  # Vector on which compute the sum
-    
-    # Consider only non-NaN values
-    if in_nan is not None:
-        not_nan_idx = np.where(v_val < in_nan)[0]
-        if len(not_nan_idx) == 0:
-            flag_ok = False
-            retour = None
-        else:
-            v_val = in_v_val[not_nan_idx]
-
-    # Return the sum of the clean vector elements
-    if flag_ok:
-        retour = np.sum(v_val)
-        
-    return retour
+    return out_mean
 
 
 #######################################
@@ -761,7 +682,7 @@ def compute_dist(in_lon1, in_lat1, in_lon2, in_lat2):
     lon2 = deg2rad(in_lon2)
     lat2 = deg2rad(in_lat2)
 
-    # 1 - Distance angulaire en radians
+    # 2 - Distance angulaire en radians
     s12 = np.arccos(np.sin(lat1)*np.sin(lat2) + np.cos(lat1)*np.cos(lat2)*np.cos(lon2-lon1))
 
     return s12 * my_var.GEN_APPROX_RAD_EARTH

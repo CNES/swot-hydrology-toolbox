@@ -30,6 +30,7 @@ import numpy as np
 from osgeo import ogr
 from scipy.spatial import KDTree
 import sqlite3
+import os
 
 import cnes.common.service_config_file as service_config_file
 
@@ -169,8 +170,10 @@ class LakeDb(object):
         """
         Set the list of lake_id of the PLD lakes located over the retrieved subset of PLD
         """
+        self.lake_layer.ResetReading()
         for cur_lake in self.lake_layer:
             self.list_lakeid.add(cur_lake.GetField(self.lakedb_id_name))
+        self.lake_layer.ResetReading()
 
     # ----------------------------------------
     
@@ -389,7 +392,7 @@ class LakeDb(object):
                         geom_inter = in_poly.Intersection(cur_geom)
                         if geom_inter is not None:
                             area_inter = my_tools.get_area(geom_inter)
-                            frac_inter = str(round(area_inter/area_obs*100.))
+                            frac_inter = round(area_inter/area_obs*100.)
                             tmp_list_pld_overlap.append(frac_inter)
                             prior_geoms.append(cur_geom)
                             
@@ -419,9 +422,9 @@ class LakeDb(object):
                     # coordinates and not polygon edges.
 
                     # 2.5 - Sort output prior ID and overlap fractions lists by decreasing area intersection
-                    sorted_idx = sorted(range(len(tmp_list_pld_overlap)), key=lambda k: tmp_list_pld_overlap[k], reverse=True)
+                    sorted_idx = np.argsort(tmp_list_pld_overlap)[::-1]
                     out_list_prior_id = [tmp_list_prior_id[idx] for idx in sorted_idx]
-                    out_list_pld_overlap = [tmp_list_pld_overlap[idx] for idx in sorted_idx]
+                    out_list_pld_overlap = [str(tmp_list_pld_overlap[idx]) for idx in sorted_idx]
 
                     # Print number of pixels and lake_id
                     unique, counts = np.unique(out_pixcvec_lakeid, return_counts=True)
@@ -817,6 +820,309 @@ class LakeDbSqlite(LakeDb):
         
 
 #######################################
+
+class LakeDbDirectory(LakeDb):
+    """
+        class LakeDbDirectory
+    """
+
+    def __init__(self, in_lake_db_directory, in_poly=None):
+        """
+        Constructor
+
+        :param in_lake_db_directory: full path of the prior lake database directory
+        :type in_lake_db_directory: string
+        :param in_poly: polygon to spatially select lakes from DB
+        :type in_poly: ogr.Polygon
+
+        Variables of the object:
+            - lake_db_id / String: Fieldname of lake id in lakedb
+            - lake_layer / osgeo.ogr.Layer: lake_layer of a priori lake database
+            - lake_ds / osgeo.ogr.DataSource: datasource of a priori lake database
+            - influence_lake_layer / osgeo.ogr.Layer: lake_influence_layer of a priori lake database
+            - influence_lake_ds / osgeo.ogr.DataSource: datasource of influence of  a priori lake database
+            - influence_map_flag / Bool: flag that determine if LakeDb uses influence map
+            - basin_layer / osgeo.ogr.Layer: basin_layer of a priori lake database
+            - basin_ds / osgeo.ogr.DataSource: datasource of basin of a priori lake database
+            - basin_flag / Bool: flag that determine if LakeDb uses basin
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.info("PLD directory = %s", in_lake_db_directory)
+
+        # 1 - Init LakeDb object
+        super().__init__()
+
+        # 2 - Set DB type
+        self.db_format = "sqlite"
+
+        # 3 - Get list of PLD files
+        pld_path_list = get_list_of_pld_path(in_lake_db_directory)
+
+        # 4 - Open table basin
+        self.basin_flag = True  # Set flag indicating basin table is used
+        self.basin_ds, self.basin_layer = self.open_db(pld_path_list[0],
+                                                       my_var.PLD_TABLE_BASIN,
+                                                       [self.basindb_id_name],
+                                                       ['text'],
+                                                       in_poly=in_poly)
+
+        # 5 - Select pld path corrponding to continents containted in self.basin_layer
+        pld_path_list = select_pld_file_from_polygon(pld_path_list, self.basin_layer)
+
+        # 2 - Open database
+        self.lake_ds, self.lake_layer = self.open_db_multipld(pld_path_list, my_var.PLD_TABLE_LAKE,
+                                                     [self.lakedb_id_name, self.pld_names, self.pld_grand, self.pld_max_wse, \
+                                                      self.pld_max_area, self.pld_ref_date, self.pld_ref_ds, self.pld_storage],
+                                                     ['text', 'text', 'int9', 'float', 'float', 'text', 'float', 'float'],
+                                                     in_poly=in_poly)
+
+        # 3.2 - Table influence area
+        self.influence_lake_flag = True  # Set flag indicating influence area table is used
+        self.influence_lake_ds, self.influence_lake_layer = self.open_db_multipld(pld_path_list,
+                                                                         my_var.PLD_TABLE_LAKE_INFL,
+                                                                         [self.lakedb_id_name],
+                                                                         ['text'],
+                                                                         in_poly=in_poly)
+
+
+        # 4 - Init fields name and type
+        self.init_fields_name_and_type(test_fields=False)
+
+        # 5 - Set list of selected lake_id
+        self.set_list_lakeid()
+
+        # ----------------------------------------
+
+    def open_db_multipld(self, pld_path_list, in_table_name, in_field_name_list, in_field_type_list=None, in_poly=None):
+
+        """
+        Open several databases, optionnally spatially select polygons and copy layer to memory
+
+        :param pld_path_list: list of full path of PLD
+        :type pld_path_list: list of str
+        :param in_table_name: name of table to load from DB
+        :type in_table_name: str
+        :param in_field_name_list: list of fieldnames to load from table, first element is the identifier
+        :type in_field_name_list: list of str
+        :param in_field_type_list: list of type of each in_field_name_list, except the identifier (=None if no attribute in addition to identifier)
+        :type in_field_type_list: list of str
+        :param in_poly: polygon to spatially select lakes from DB
+        :type in_poly: ogr.Polygon
+
+        :return: out_data_source = DataSource of the specified table
+        :rtype: osgeo.ogr.DataSource
+        :return: out_layer = layer associated to the specified table
+        :rtype: osgeo.ogr.Layer
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+
+        cfg = service_config_file.get_instance()
+
+        # 0 - Init output in memory
+        mem_driver = ogr.GetDriverByName('MEMORY')  # Memory driver
+        # 0.1 - Open the memory DataSource with write access
+        out_data_source = mem_driver.CreateDataSource('memData')
+        # 0.2 - Set spatial projection
+        srs = ogr.osr.SpatialReference()
+        srs.ImportFromEPSG(4326)
+        # 0.3 - Create memory layer
+        out_layer = out_data_source.CreateLayer(str('layer'), srs=srs, geom_type=ogr.wkbPolygon)
+        # 0.4 - Create needed fields
+        for ind, field_type in enumerate(in_field_type_list):
+            out_layer.CreateField(ogr.FieldDefn(in_field_name_list[ind], my_var.FORMAT_OGR[field_type]))
+        # Retrieve layer definition
+        lyr_defn = out_layer.GetLayerDefn()
+
+        for pld_path in pld_path_list:
+            logger.debug("Loading fields %s of table %s from folder %s" % (
+            " ".join(in_field_name_list), in_table_name, pld_path))
+
+            # 1 - Open the SQLite database
+            # 1.1 - Define the connector
+            db_connector = sqlite3.connect(pld_path, timeout=10)
+            # 1.2 - Load spatialite extension
+            db_connector.enable_load_extension(True)
+            db_connector.execute('SELECT load_extension("mod_spatialite")')
+            # 1.3 - Define the cursor
+            db_cursor = db_connector.cursor()
+            # Print info
+            if cfg.get('LOGGING', 'logFileLevel') == 'DEBUG':
+                (lakes_nb,) = db_cursor.execute('SELECT count(*) from %s' % (in_table_name)).fetchone()
+                logger.debug("%d features stored in table <%s>" % (lakes_nb, in_table_name))
+
+            # 2 - Select subset among PLD lakes using in_poly
+            if in_poly is not None:
+                in_poly.FlattenTo2D()  # Transform 3D geometry into 2D geometry (necessary for spatialite query)
+                cmd = "SELECT %s, AsText(geometry) FROM %s WHERE MBRIntersects(GeomFromText('%s'), %s.geometry);" % (
+                    ",".join(in_field_name_list), in_table_name, in_poly.ExportToWkt(), in_table_name)
+                db_cursor.execute(cmd)
+            else:
+                cmd = "SELECT %s, AsText(geometry) FROM %s ;" % (",".join(in_field_name_list), in_table_name)
+                db_cursor.execute(cmd)
+
+            logger.debug("Loading features to memory layer")
+            # 3 - Copy selected features to output memory layer
+            for db_feature in db_cursor:
+
+                # 3.1 - Create empty feature
+                tmp_feat = ogr.Feature(lyr_defn)
+
+                # 3.2 - Fill feature with attributes and geometry from SQLite request
+                poly = ogr.CreateGeometryFromWkt(db_feature[-1])
+                for ind, fieldname in enumerate(in_field_name_list):
+                    tmp_feat.SetField(fieldname, str(db_feature[ind]))
+                tmp_feat.SetGeometry(poly)
+
+                # 3.3 - Add feature to output layer
+                out_layer.CreateFeature(tmp_feat)
+
+                # 3.4 - Close temporary feature
+                tmp_feat.Destroy()
+
+            # 5 - Close spatialite database
+            db_connector.close()
+
+        # 4 - Reset reading pointer
+        out_layer.ResetReading()
+
+
+        logger.info("%d features after focus over studied area" % out_layer.GetFeatureCount())
+        return out_data_source, out_layer
+
+    def open_db(self, in_lakedb_filename, in_table_name, in_field_name_list, in_field_type_list=None, in_poly=None):
+        """
+        Open database, optionnally spatially select polygons and copy layer to memory
+
+        :param in_lakedb_filename: full path of PLD
+        :type in_lakedb_filename: str
+        :param in_table_name: name of table to load from DB
+        :type in_table_name: str
+        :param in_field_name_list: list of fieldnames to load from table, first element is the identifier
+        :type in_field_name_list: list of str
+        :param in_field_type_list: list of type of each in_field_name_list, except the identifier (=None if no attribute in addition to identifier)
+        :type in_field_type_list: list of str
+        :param in_poly: polygon to spatially select lakes from DB
+        :type in_poly: ogr.Polygon
+
+        :return: out_data_source = DataSource of the specified table
+        :rtype: osgeo.ogr.DataSource
+        :return: out_layer = layer associated to the specified table
+        :rtype: osgeo.ogr.Layer
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.debug("Loading fields %s of table %s from file %s" % (
+        " ".join(in_field_name_list), in_table_name, in_lakedb_filename))
+        cfg = service_config_file.get_instance()
+
+        # 0 - Init output in memory
+        mem_driver = ogr.GetDriverByName('MEMORY')  # Memory driver
+        # 0.1 - Open the memory DataSource with write access
+        out_data_source = mem_driver.CreateDataSource('memData')
+        # 0.2 - Set spatial projection
+        srs = ogr.osr.SpatialReference()
+        srs.ImportFromEPSG(4326)
+        # 0.3 - Create memory layer
+        out_layer = out_data_source.CreateLayer(str('layer'), srs=srs, geom_type=ogr.wkbPolygon)
+        # 0.4 - Create needed fields
+        for ind, field_type in enumerate(in_field_type_list):
+            out_layer.CreateField(ogr.FieldDefn(in_field_name_list[ind], my_var.FORMAT_OGR[field_type]))
+        # Retrieve layer definition
+        lyr_defn = out_layer.GetLayerDefn()
+
+        # 1 - Open the SQLite database
+        # 1.1 - Define the connector
+        db_connector = sqlite3.connect(in_lakedb_filename, timeout=10)
+        # 1.2 - Load spatialite extension
+        db_connector.enable_load_extension(True)
+        db_connector.execute('SELECT load_extension("mod_spatialite")')
+        # 1.3 - Define the cursor
+        db_cursor = db_connector.cursor()
+        # Print info
+        if cfg.get('LOGGING', 'logFileLevel') == 'DEBUG':
+            (lakes_nb,) = db_cursor.execute('SELECT count(*) from %s' % (in_table_name)).fetchone()
+            logger.debug("%d features stored in table <%s>" % (lakes_nb, in_table_name))
+
+        # 2 - Select subset among PLD lakes using in_poly
+        if in_poly is not None:
+            in_poly.FlattenTo2D()  # Transform 3D geometry into 2D geometry (necessary for spatialite query)
+            cmd = "SELECT %s, AsText(geometry) FROM %s WHERE MBRIntersects(GeomFromText('%s'), %s.geometry);" % (
+                ",".join(in_field_name_list), in_table_name, in_poly.ExportToWkt(), in_table_name)
+            db_cursor.execute(cmd)
+        else:
+            cmd = "SELECT %s, AsText(geometry) FROM %s ;" % (",".join(in_field_name_list), in_table_name)
+            db_cursor.execute(cmd)
+
+        # 3 - Copy selected features to output memory layer
+        for db_feature in db_cursor:
+
+            # 3.1 - Create empty feature
+            tmp_feat = ogr.Feature(lyr_defn)
+
+            # 3.2 - Fill feature with attributes and geometry from SQLite request
+            poly = ogr.CreateGeometryFromWkt(db_feature[-1])
+            for ind, fieldname in enumerate(in_field_name_list):
+                tmp_feat.SetField(fieldname, str(db_feature[ind]))
+            tmp_feat.SetGeometry(poly)
+
+            # 3.3 - Add feature to output layer
+            out_layer.CreateFeature(tmp_feat)
+
+            # 3.4 - Close temporary feature
+            tmp_feat.Destroy()
+
+        # 4 - Reset reading pointer
+        out_layer.ResetReading()
+
+        # 5 - Close spatialite database
+        db_connector.close()
+
+        logger.info("%d features after focus over studied area" % out_layer.GetFeatureCount())
+        return out_data_source, out_layer
+
+        # ----------------------------------------
+
+def get_list_of_pld_path(pld_directory_path):
+    """
+    Get list of pld file path from folder
+
+    :pld_directory_path : path if directory containing pld files
+    :pld_directory_path : list of string
+
+    :return: list of pld path contained in pld_directory_path
+    :rtype: list of str
+    """
+    pld_path_list = []
+
+    for file in os.listdir(pld_directory_path):
+        if file.endswith(".sqlite") :
+            pld_path_list.append(os.path.join(pld_directory_path, file))
+
+    return pld_path_list
+
+
+
+def select_pld_file_from_polygon( pld_path_list, basin_lyr):
+    """
+    Select files for pld_path_list that are related to the continents contained in basin_lyr
+
+    :pld_path_list: list of pld path related to the continents contained in basin_lyr
+    :pld_path_list: list of str
+
+    :return: list of pld path covering continents contained in basin_lyr
+    :rtype: list of str
+    """
+    continent_set = set()
+    for feat in basin_lyr :
+       basin_id = feat.GetField("basin_id")
+       continent_set.add(compute_continent_from_basin_id(str(basin_id)))
+
+    basin_lyr.ResetReading()
+
+    pld_file_list_selected = []
+    for cont_id in continent_set:
+        pld_file_list_selected += [pld_file for pld_file in pld_path_list if cont_id in pld_file]
+
+    return pld_file_list_selected
 
 
 def compute_closest_polygon_with_kdtree(in_lon, in_lat, prior_geoms, prior_id):

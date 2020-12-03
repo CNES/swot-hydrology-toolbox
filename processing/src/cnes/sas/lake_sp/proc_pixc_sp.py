@@ -232,11 +232,20 @@ class PixCEdge(object):
         # 5.1 - ellipsoid_semi_major_axis
         if self.pixc_edge_l.pixc_metadata["ellipsoid_semi_major_axis"] == self.pixc_edge_r.pixc_metadata["ellipsoid_semi_major_axis"]:
             self.pixc_metadata["ellipsoid_semi_major_axis"] =  self.pixc_edge_l.pixc_metadata["ellipsoid_semi_major_axis"]
+        elif self.pixc_edge_l.pixc_metadata["ellipsoid_semi_major_axis"] == "": # if one swath is processed
+            self.pixc_metadata["ellipsoid_semi_major_axis"] = self.pixc_edge_r.pixc_metadata["ellipsoid_semi_major_axis"]
+        elif self.pixc_edge_r.pixc_metadata["ellipsoid_semi_major_axis"] == "": # if one swath is processed
+            self.pixc_metadata["ellipsoid_semi_major_axis"] = self.pixc_edge_l.pixc_metadata["ellipsoid_semi_major_axis"]
         else:
             logger.error("Ellipsoid semi major axis for left and right half-swaths are not the same")
+
         # 5.2 - ellipsoid_flattening
         if self.pixc_edge_l.pixc_metadata["ellipsoid_flattening"] == self.pixc_edge_r.pixc_metadata["ellipsoid_flattening"]:
             self.pixc_metadata["ellipsoid_flattening"] =  self.pixc_edge_l.pixc_metadata["ellipsoid_flattening"]
+        elif self.pixc_edge_l.pixc_metadata["ellipsoid_flattening"] == "":  # if one swath is processed
+            self.pixc_metadata["ellipsoid_flattening"] = self.pixc_edge_r.pixc_metadata["ellipsoid_flattening"]
+        elif self.pixc_edge_r.pixc_metadata["ellipsoid_flattening"] == "":  # if one swath is processed
+            self.pixc_metadata["ellipsoid_flattening"] = self.pixc_edge_l.pixc_metadata["ellipsoid_flattening"]
         else:
             logger.error("Ellipsoid flattening for swath left and right are not the same")
     

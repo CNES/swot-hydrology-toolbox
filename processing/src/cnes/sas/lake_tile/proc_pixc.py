@@ -30,6 +30,7 @@ import numpy as np
 import os
 from osgeo import ogr, osr
 from scipy import interpolate
+import ast
 
 import cnes.common.service_config_file as service_config_file
 
@@ -283,6 +284,8 @@ class PixelCloud(object):
         # Get flag variables from configuration file
         flag_water = self.cfg.get("CONFIG_PARAMS", "FLAG_WATER")
         flag_dark = self.cfg.get("CONFIG_PARAMS", "FLAG_DARK")
+        use_fractional_inundation = self.cfg.get("CONFIG_PARAMS", "USE_FRACTIONAL_INUNDATION")
+
         
         tmp_print = "Keep pixels with classification flags ="
         if flag_water != "":
@@ -339,8 +342,10 @@ class PixelCloud(object):
         self.origin_azimuth_index = pixc_reader.get_var_value("azimuth_index", in_group=pixc_group)
         # 4.4 - Longitude
         origin_longitude = my_tools.convert_to_m180_180(pixc_reader.get_var_value("longitude", in_group=pixc_group))
-        # 4.4 - Azimuth indices of water pixels
+        # 4.5 - Latitude
         origin_latitude = pixc_reader.get_var_value("latitude", in_group=pixc_group)
+        # 4.6 - Height
+        origin_height = pixc_reader.get_var_value("height", in_group=pixc_group)
                 
         # 5 - Get indices corresponding to input classification flags
         logger.info("There are %d pixels in the input PIXC" % len(origin_longitude))
@@ -351,31 +356,20 @@ class PixelCloud(object):
             logger.info("%d pixels are river (but not connected lakes) pixels => will be rejected" % in_index_reject.size)
             tmp_classif[in_index_reject] = 100  # Dummy value to ease selection hereafter
             
-        # 5.2 - Remove pixels with longitude or latitude = FillValue or NaN
-        # longitude = _FillValue
-        nan_idx = np.where(origin_longitude == my_var.FV_DOUBLE)[0]
-        nb_nan = len(nan_idx)
-        if nb_nan != 0:
-            logger.info("%d pixels have _FillValue longitude => will be rejected" % nb_nan)
-            tmp_classif[nan_idx] = 100 
-        # longitude = NaN
-        nan_idx = np.argwhere(np.isnan(origin_longitude))
-        nb_nan = len(nan_idx)
-        if nb_nan != 0:
-            logger.info("%d pixels have NaN longitude => will be rejected" % nb_nan)
-            tmp_classif[nan_idx] = 100 
-        # latitude = _FillValue
-        nan_idx = np.where(origin_latitude == my_var.FV_DOUBLE)[0]
-        nb_nan = len(nan_idx)
-        if nb_nan != 0:
-            logger.info("%d pixels have _FillValue latitude => will be rejected" % nb_nan)
-            tmp_classif[nan_idx] = 100 
-        # latitude = NaN
-        nan_idx = np.argwhere(np.isnan(origin_latitude))
-        nb_nan = len(nan_idx)
-        if nb_nan != 0:
-            logger.info("%d pixels have NaN latitude => will be rejected" % nb_nan)
-            tmp_classif[nan_idx] = 100 
+        # 5.2 - Remove pixels with range_index, azimuth_index, longitude or latitude = numpy.nan
+        vars_to_look_for_nans = {}
+        vars_to_look_for_nans["classification"] = self.origin_classif
+        vars_to_look_for_nans["range_index"] = self.origin_range_index
+        vars_to_look_for_nans["azimuth_index"] = self.origin_azimuth_index
+        vars_to_look_for_nans["longitude"] = origin_longitude
+        vars_to_look_for_nans["latitude"] = origin_latitude
+        vars_to_look_for_nans["height"] = origin_height
+        for var_name, var_value in vars_to_look_for_nans.items():
+            nan_idx = np.argwhere(np.isnan(var_value))
+            nb_nan = len(nan_idx)
+            if nb_nan != 0:
+                logger.info("%d pixels have NaN in %s variable => will be rejected" % (nb_nan, var_name))
+                tmp_classif[nan_idx] = 100 
             
         # 5.3 - Build list of classification flags to keep
         tmp_flags = ""
@@ -428,93 +422,96 @@ class PixelCloud(object):
             self.azimuth_index = self.origin_azimuth_index[self.selected_index]
             
             # Interferogram
-            interferogram = pixc_reader.get_var_value_or_raise_error("interferogram", in_group=pixc_group)[self.selected_index]
+            interferogram = pixc_reader.get_var_value("interferogram", in_group=pixc_group)[self.selected_index]
             self.interferogram = interferogram[:,0] + 1j*interferogram[:,1]
             self.interferogram_flattened = 0 * self.interferogram 
             # Sensitivity of height estimate to interferogram phase
-            self.power_plus_y = pixc_reader.get_var_value_or_raise_error("power_plus_y", in_group=pixc_group)[self.selected_index]            
+            self.power_plus_y = pixc_reader.get_var_value("power_plus_y", in_group=pixc_group)[self.selected_index]            
             # Sensitivity of height estimate to interferogram phase
-            self.power_minus_y = pixc_reader.get_var_value_or_raise_error("power_minus_y", in_group=pixc_group)[self.selected_index]   
+            self.power_minus_y = pixc_reader.get_var_value("power_minus_y", in_group=pixc_group)[self.selected_index]   
             
             # Water fraction
-            self.water_frac = pixc_reader.get_var_value_or_raise_error("water_frac", in_group=pixc_group)[self.selected_index]
+            self.water_frac = pixc_reader.get_var_value("water_frac", in_group=pixc_group)[self.selected_index]
             # Water fraction uncertainty
-            self.water_frac_uncert = pixc_reader.get_var_value_or_raise_error("water_frac_uncert", in_group=pixc_group)[self.selected_index]
+            self.water_frac_uncert = pixc_reader.get_var_value("water_frac_uncert", in_group=pixc_group)[self.selected_index]
             # False detection rate
-            self.false_detection_rate = pixc_reader.get_var_value_or_raise_error("false_detection_rate", in_group=pixc_group)[self.selected_index]
+            self.false_detection_rate = pixc_reader.get_var_value("false_detection_rate", in_group=pixc_group)[self.selected_index]
             # Missed detection rate
-            self.missed_detection_rate = pixc_reader.get_var_value_or_raise_error("missed_detection_rate", in_group=pixc_group)[self.selected_index]
+            self.missed_detection_rate = pixc_reader.get_var_value("missed_detection_rate", in_group=pixc_group)[self.selected_index]
             # Bright land flag
-            self.bright_land_flag = pixc_reader.get_var_value_or_raise_error("bright_land_flag", in_group=pixc_group)[self.selected_index]
+            self.bright_land_flag = pixc_reader.get_var_value("bright_land_flag", in_group=pixc_group)[self.selected_index]
             # Layover impact
-            self.layover_impact = pixc_reader.get_var_value_or_raise_error("layover_impact", in_group=pixc_group)[self.selected_index]
+            self.layover_impact = pixc_reader.get_var_value("layover_impact", in_group=pixc_group)[self.selected_index]
             # Number of rare looks
-            self.eff_num_rare_looks = pixc_reader.get_var_value_or_raise_error("eff_num_rare_looks", in_group=pixc_group)[self.selected_index]
+            self.eff_num_rare_looks = pixc_reader.get_var_value("eff_num_rare_looks", in_group=pixc_group)[self.selected_index]
             
             # Latitude
             self.latitude = origin_latitude[self.selected_index]
             # Longitude
             self.longitude = origin_longitude[self.selected_index]
             # Height
-            self.height = pixc_reader.get_var_value("height", in_group=pixc_group)[self.selected_index]
+            self.height = origin_height[self.selected_index]
             
             # Cross-track distance
             self.cross_track = pixc_reader.get_var_value("cross_track", in_group=pixc_group)[self.selected_index]
             # Pixel area
             self.pixel_area = pixc_reader.get_var_value("pixel_area", in_group=pixc_group)[self.selected_index]
             # Inundated area
+            fractional_inundation = use_fractional_inundation.split(";")
             self.inundated_area = np.copy(self.pixel_area)
-            ind_ok = np.where(self.water_frac < my_var.FV_FLOAT)
-            if len(ind_ok) > 0:
-                self.inundated_area[ind_ok] = self.pixel_area[ind_ok] * self.water_frac[ind_ok]
-            
+            for i, k in enumerate(list_classif_flags):
+                if ast.literal_eval(fractional_inundation[i]):
+                    ind_ok = np.where((self.classif == int(k)))
+                    if len(ind_ok) > 0:
+                        logger.info("=> Use water fraction to compute pixel area for flag %d" % int(k))
+                        self.inundated_area[ind_ok] = self.pixel_area[ind_ok] * self.water_frac[ind_ok]
             # Incidence angle
-            self.inc = pixc_reader.get_var_value_or_raise_error("inc", in_group=pixc_group)[self.selected_index]
+            self.inc = pixc_reader.get_var_value("inc", in_group=pixc_group)[self.selected_index]
             # Phase noise standard deviation
-            self.phase_noise_std = pixc_reader.get_var_value_or_raise_error("phase_noise_std", in_group=pixc_group)[self.selected_index]
+            self.phase_noise_std = pixc_reader.get_var_value("phase_noise_std", in_group=pixc_group)[self.selected_index]
             # Sensitivity of latitude estimate to interferogram phase
-            self.dlatitude_dphase = pixc_reader.get_var_value_or_raise_error("dlatitude_dphase", in_group=pixc_group)[self.selected_index]
+            self.dlatitude_dphase = pixc_reader.get_var_value("dlatitude_dphase", in_group=pixc_group)[self.selected_index]
             # Sensitivity of longitude estimate to interferogram phase
-            self.dlongitude_dphase = pixc_reader.get_var_value_or_raise_error("dlongitude_dphase", in_group=pixc_group)[self.selected_index]
+            self.dlongitude_dphase = pixc_reader.get_var_value("dlongitude_dphase", in_group=pixc_group)[self.selected_index]
             # Sensitivity of height estimate to interferogram phase
-            self.dheight_dphase = pixc_reader.get_var_value_or_raise_error("dheight_dphase", in_group=pixc_group)[self.selected_index]
+            self.dheight_dphase = pixc_reader.get_var_value("dheight_dphase", in_group=pixc_group)[self.selected_index]
             # Sensitivity of height estimate to range
-            self.dheight_drange = pixc_reader.get_var_value_or_raise_error("dheight_drange", in_group=pixc_group)[self.selected_index]
+            self.dheight_drange = pixc_reader.get_var_value("dheight_drange", in_group=pixc_group)[self.selected_index]
             # Sensitivity of pixel area to reference height
-            self.darea_dheight = pixc_reader.get_var_value_or_raise_error("darea_dheight", in_group=pixc_group)[self.selected_index]
+            self.darea_dheight = pixc_reader.get_var_value("darea_dheight", in_group=pixc_group)[self.selected_index]
             
             # Time of illumination of each pixel
             illumination_time = pixc_reader.get_var_value("illumination_time", in_group=pixc_group)[self.selected_index]
             # Number of medium looks
-            self.eff_num_medium_looks = pixc_reader.get_var_value_or_raise_error("eff_num_medium_looks", in_group=pixc_group)[self.selected_index]
+            self.eff_num_medium_looks = pixc_reader.get_var_value("eff_num_medium_looks", in_group=pixc_group)[self.selected_index]
             
             # Dry troposphere vertical correction
-            self.model_dry_tropo_cor = pixc_reader.get_var_value_or_raise_error("model_dry_tropo_cor", in_group=pixc_group)[self.selected_index]
+            self.model_dry_tropo_cor = pixc_reader.get_var_value("model_dry_tropo_cor", in_group=pixc_group)[self.selected_index]
             # Wet troposphere vertical correction
-            self.model_wet_tropo_cor = pixc_reader.get_var_value_or_raise_error("model_wet_tropo_cor", in_group=pixc_group)[self.selected_index]
+            self.model_wet_tropo_cor = pixc_reader.get_var_value("model_wet_tropo_cor", in_group=pixc_group)[self.selected_index]
             # Ionosphere vertical correction
-            self.iono_cor_gim_ka = pixc_reader.get_var_value_or_raise_error("iono_cor_gim_ka", in_group=pixc_group)[self.selected_index]
+            self.iono_cor_gim_ka = pixc_reader.get_var_value("iono_cor_gim_ka", in_group=pixc_group)[self.selected_index]
             # Crossover calibration height correction
-            self.height_cor_xover = pixc_reader.get_var_value_or_raise_error("height_cor_xover", in_group=pixc_group)[self.selected_index]
+            self.height_cor_xover = pixc_reader.get_var_value("height_cor_xover", in_group=pixc_group)[self.selected_index]
             # Geoid
-            self.geoid = pixc_reader.get_var_value_or_raise_error("geoid", in_group=pixc_group)[self.selected_index]
+            self.geoid = pixc_reader.get_var_value("geoid", in_group=pixc_group)[self.selected_index]
             # Solid earth tide
-            self.solid_earth_tide = pixc_reader.get_var_value_or_raise_error("solid_earth_tide", in_group=pixc_group)[self.selected_index]
+            self.solid_earth_tide = pixc_reader.get_var_value("solid_earth_tide", in_group=pixc_group)[self.selected_index]
             # Load tide height (FES2014)
             try:
-                self.load_tide_fes = pixc_reader.get_var_value_or_raise_error("load_tide_fes", in_group=pixc_group)[self.selected_index]
+                self.load_tide_fes = pixc_reader.get_var_value("load_tide_fes", in_group=pixc_group)[self.selected_index]
             except:
-                self.load_tide_fes = pixc_reader.get_var_value_or_raise_error("load_tide_sol1", in_group=pixc_group)[self.selected_index]
+                self.load_tide_fes = pixc_reader.get_var_value("load_tide_sol1", in_group=pixc_group)[self.selected_index]
             # Load tide height (GOT4.10)
             try:
-                self.load_tide_got = pixc_reader.get_var_value_or_raise_error("load_tide_got", in_group=pixc_group)[self.selected_index]
+                self.load_tide_got = pixc_reader.get_var_value("load_tide_got", in_group=pixc_group)[self.selected_index]
             except:
-                self.load_tide_got = pixc_reader.get_var_value_or_raise_error("load_tide_sol2", in_group=pixc_group)[self.selected_index]
+                self.load_tide_got = pixc_reader.get_var_value("load_tide_sol2", in_group=pixc_group)[self.selected_index]
             # Pole tide height
-            self.pole_tide = pixc_reader.get_var_value_or_raise_error("pole_tide", in_group=pixc_group)[self.selected_index]
+            self.pole_tide = pixc_reader.get_var_value("pole_tide", in_group=pixc_group)[self.selected_index]
             
             # Quality flag
-            self.pixc_qual = pixc_reader.get_var_value_or_raise_error("pixc_qual", in_group=pixc_group)[self.selected_index]
+            self.pixc_qual = pixc_reader.get_var_value("pixc_qual", in_group=pixc_group)[self.selected_index]
 
             # 6.2 - In TVP group
             
@@ -561,16 +558,16 @@ class PixelCloud(object):
             self.height_std_pix[np.isnan(self.height_std_pix)] = bad_num
             
             # 6.4 - Compute height wrt the geoid and apply tide corrections
-            # Compute indices of PIXC for which corrections are all valid
-            valid_geoid = np.where(self.geoid < my_var.FV_NETCDF[str(self.geoid.dtype)])[0]
-            valid_solid_earth_tide = np.where(self.solid_earth_tide < my_var.FV_NETCDF[str(self.solid_earth_tide.dtype)])[0]
-            valid_pole_tide = np.where(self.pole_tide < my_var.FV_NETCDF[str(self.pole_tide.dtype)])[0]
-            valid_load_tide_fes = np.where(self.load_tide_fes < my_var.FV_NETCDF[str(self.load_tide_fes.dtype)])[0]
+            # Compute indices of PIXC for which all corrections are valid
+            valid_geoid = np.where(np.isfinite(self.geoid))[0]
+            valid_solid_earth_tide = np.where(np.isfinite(self.solid_earth_tide))[0]
+            valid_pole_tide = np.where(np.isfinite(self.pole_tide))[0]
+            valid_load_tide_fes = np.where(np.isfinite(self.load_tide_fes))[0]
             inter1 = np.intersect1d(valid_geoid, valid_solid_earth_tide)
             inter2 = np.intersect1d(valid_pole_tide, inter1)
             ind_valid_corr = np.intersect1d(valid_load_tide_fes, inter2)
             # Compute corrected height for these PIXC
-            self.corrected_height = np.zeros(self.nb_water_pix) + my_var.FV_FLOAT
+            self.corrected_height = np.zeros(self.nb_water_pix) + np.nan
             self.corrected_height[ind_valid_corr] = self.height[ind_valid_corr] \
                                                     - self.geoid[ind_valid_corr] \
                                                     - self.solid_earth_tide[ind_valid_corr] \
@@ -755,6 +752,11 @@ class PixelCloud(object):
         """
         Caller of JPL aggregate.py/height_only function 
         which computes the aggregation of PIXC height over a feature
+        Compute height only over pixels having self.height != numpy.nan
+        
+        !!! Used in input of height-constrained geolocation => MUST BE APPLIED 
+            ON self.height AND NOT self.corrected_height because use of heights
+            above the ellipsoid
     
         :param in_pixc_index: indices of pixels to consider for computation
         :type in_pixc_index: 1D-array of int
@@ -764,9 +766,29 @@ class PixelCloud(object):
         :return: out_height = aggregated height
         :rtype: out_height = float
         """
-    
-        # Call JPL function
-        out_height, weight_norm = jpl_aggregate.height_only(self.height, in_pixc_index, height_std=self.height_std_pix, method=method)
+        logger = logging.getLogger(self.__class__.__name__)
+        
+        # Get pixels having self.height != numpy_nan
+        not_nan_idx = np.argwhere(np.isfinite(self.height[in_pixc_index]))
+        nb_not_nan = len(not_nan_idx)
+        
+        # Process depending their number
+        if len(not_nan_idx) == 0:
+            logger.warning("All pixels have height=NaN => output height is set to NaN")
+            out_height = np.nan
+            
+        else:            
+            nb_pixc = len(in_pixc_index)
+            
+            if nb_not_nan == nb_pixc:
+                logger.debug("There are NO pixels having height=NaN => aggregate height only over all pixels")
+                # Call JPL function
+                out_height, weight_norm = jpl_aggregate.height_only(self.height, in_pixc_index, height_std=self.height_std_pix, method=method)
+                
+            else:
+                logger.warning("There are %d/%d pixels having height=NaN => aggregate height only over these" % (nb_pixc-nb_not_nan, nb_pixc))
+                # Call JPL function
+                out_height, weight_norm = jpl_aggregate.height_only(self.height, in_pixc_index[not_nan_idx], height_std=self.height_std_pix, method=method)        
         
         return out_height
     
@@ -774,6 +796,7 @@ class PixelCloud(object):
         """
         Caller of JPL aggregate.py/height_with_uncerts function 
         which computes the aggregation of PIXC height over a feature, with corresponding uncertainty
+        Compute height only over pixels having self.corrected_height != numpy.nan
     
         :param in_pixc_index: indices of pixels to consider for computation
         :type in_pixc_index: 1D-array of int
@@ -787,10 +810,34 @@ class PixelCloud(object):
         :return: out_height_unc = height uncertainty for the feature
         :rtype: out_height_unc = float
         """
+        logger = logging.getLogger(self.__class__.__name__)
         
-        # Call JPL function
-        out_height, out_height_std, out_height_unc, lat_unc, lon_unc = jpl_aggregate.height_with_uncerts(
+        # Get pixels having self.corrected_height != numpy_nan
+        not_nan_idx = np.argwhere(np.isfinite(self.corrected_height[in_pixc_index]))
+        nb_not_nan = len(not_nan_idx)
+        
+        # Process depending their number
+        if len(not_nan_idx) == 0:
+            logger.warning("All pixels have corrected_height=NaN => output height is set to NaN")
+            out_height = np.nan
+            
+        else:            
+            nb_pixc = len(in_pixc_index)
+            
+            if nb_not_nan == nb_pixc:
+                logger.debug("There are NO pixels having corrected_height=NaN => aggregate height over all pixels")
+                # Call JPL function
+                out_height, out_height_std, out_height_unc, lat_unc, lon_unc = jpl_aggregate.height_with_uncerts(
                     self.corrected_height, in_pixc_index, self.eff_num_rare_looks, self.eff_num_medium_looks,
+                    self.interferogram_flattened, self.power_plus_y, self.power_minus_y, self.looks_to_efflooks,
+                    self.dheight_dphase, self.dlatitude_dphase, self.dlongitude_dphase, height_std=self.height_std_pix,
+                    method=method)
+                
+            else:
+                logger.warning("There are %d/%d pixels having corrected_height=NaN => aggregate height only over these" % (nb_pixc-nb_not_nan, nb_pixc))
+                # Call JPL function
+                out_height, out_height_std, out_height_unc, lat_unc, lon_unc = jpl_aggregate.height_with_uncerts(
+                    self.corrected_height, in_pixc_index[not_nan_idx], self.eff_num_rare_looks, self.eff_num_medium_looks,
                     self.interferogram_flattened, self.power_plus_y, self.power_minus_y, self.looks_to_efflooks,
                     self.dheight_dphase, self.dlatitude_dphase, self.dlongitude_dphase, height_std=self.height_std_pix,
                     method=method)
@@ -801,6 +848,7 @@ class PixelCloud(object):
         """
         Caller of JPL aggregate.py/area_with_uncert function 
         which computes the aggregation of PIXC area over a feature, with corresponding uncertainty
+        Compute area only over pixels having self.pixel_area != numpy.nan
     
         :param in_pixc_index: indices of pixels to consider for computation
         :type in_pixc_index: 1D-array of int
@@ -816,36 +864,55 @@ class PixelCloud(object):
         :return: out_area_detct_unc = uncertainty in area of detected water
         :rtype: out_area_detct_unc = float
         """
+        logger = logging.getLogger(self.__class__.__name__)
+        
         # == TODO: compute the pixel assignment error?
         # call the general function
-
-        # Should normally just use all the data 
-        # (not just the use_heights pixels), but could use goodvar 
-        # to filter out outliers
-
-        # 1 - Aggregate PIXC area and uncertainty considering all PIXC (ie water + dark water)
-        # Call external function common with RiverObs
-        out_area, out_area_unc, area_pcnt_uncert = jpl_aggregate.area_with_uncert(
-                self.pixel_area, self.water_frac, self.water_frac_uncert,
-                self.darea_dheight, self.classif_full_water, self.false_detection_rate,
-                self.missed_detection_rate, in_pixc_index,
-                Pca=0.9, Pw=0.5, Ptf=0.5, ref_dem_std=10,
-                interior_water_klass=my_var.CLASSIF_INTERIOR_WATER,
-                water_edge_klass=my_var.CLASSIF_WATER_EDGE,
-                land_edge_klass=my_var.CLASSIF_LAND_EDGE,
-                method=method)
         
-        # 2 - Aggregate PIXC area and uncertainty considering only water PIXC (ie detected water)
-        # Call external function common with RiverObs
-        out_area_detct, out_area_detct_unc, area_detct_pcnt_uncert = jpl_aggregate.area_with_uncert(
-                self.pixel_area, self.water_frac, self.water_frac_uncert,
-                self.darea_dheight, self.classif_without_dw, self.false_detection_rate,
-                self.missed_detection_rate, in_pixc_index,
-                Pca=0.9, Pw=0.5, Ptf=0.5, ref_dem_std=10,
-                interior_water_klass=my_var.CLASSIF_INTERIOR_WATER,
-                water_edge_klass=my_var.CLASSIF_WATER_EDGE,
-                land_edge_klass=my_var.CLASSIF_LAND_EDGE,
-                method=method)
+        # 0 - Select only pixels having self.pixel_area != numpy.nan
+        not_nan_idx = np.argwhere(np.isfinite(self.pixel_area[in_pixc_index]))
+        nb_not_nan = len(not_nan_idx)
+        
+        if len(not_nan_idx) == 0:
+            logger.warning("All pixels have corrected_height=NaN => output area are set to NaN")
+            out_area = np.nan
+            out_area_unc = np.nan
+            out_area_detct = np.nan
+            out_area_detct_unc = np.nan
+            
+        else:            
+            nb_pixc = len(in_pixc_index)
+            
+            if nb_not_nan == nb_pixc:
+                logger.debug("There are NO pixels having corrected_height=NaN => aggregate area over all pixels")
+                selected_pixc_idx = in_pixc_index
+            else:
+                logger.warning("There are %d/%d pixels having corrected_height=NaN => aggregate height only over these" % (nb_pixc-nb_not_nan, nb_pixc))
+                selected_pixc_idx = in_pixc_index[not_nan_idx]
+
+            # 1 - Aggregate PIXC area and uncertainty considering all PIXC (ie water + dark water)
+            # Call external function common with RiverObs
+            out_area, out_area_unc, area_pcnt_uncert = jpl_aggregate.area_with_uncert(
+                    self.pixel_area, self.water_frac, self.water_frac_uncert,
+                    self.darea_dheight, self.classif_full_water, self.false_detection_rate,
+                    self.missed_detection_rate, selected_pixc_idx,
+                    Pca=0.9, Pw=0.5, Ptf=0.5, ref_dem_std=10,
+                    interior_water_klass=my_var.CLASSIF_INTERIOR_WATER,
+                    water_edge_klass=my_var.CLASSIF_WATER_EDGE,
+                    land_edge_klass=my_var.CLASSIF_LAND_EDGE,
+                    method=method)
+            
+            # 2 - Aggregate PIXC area and uncertainty considering only water PIXC (ie detected water)
+            # Call external function common with RiverObs
+            out_area_detct, out_area_detct_unc, area_detct_pcnt_uncert = jpl_aggregate.area_with_uncert(
+                    self.pixel_area, self.water_frac, self.water_frac_uncert,
+                    self.darea_dheight, self.classif_without_dw, self.false_detection_rate,
+                    self.missed_detection_rate, selected_pixc_idx,
+                    Pca=0.9, Pw=0.5, Ptf=0.5, ref_dem_std=10,
+                    interior_water_klass=my_var.CLASSIF_INTERIOR_WATER,
+                    water_edge_klass=my_var.CLASSIF_WATER_EDGE,
+                    land_edge_klass=my_var.CLASSIF_LAND_EDGE,
+                    method=method)
         
         return out_area, out_area_unc, out_area_detct, out_area_detct_unc
     

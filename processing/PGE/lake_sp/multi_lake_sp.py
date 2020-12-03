@@ -13,12 +13,13 @@
 # ======================================================
 """
 .. module:: multi_lake_sp.py
-    :synopsis Process PGE_L2_HR_LakeSP, i.e. generate L2_HR_LakeSP
+    :synopsis: Process PGE_L2_HR_LakeSP, i.e. generate L2_HR_LakeSP
     product from all tile of L2_HR_LAKE_TILE product
     Created on 08/23/2018
 
 .. moduleauthor:: Claire POTTIER - CNES DSO/SI/TR
                   Cécile Cazals - C-S
+                  
 This file is part of the SWOT Hydrology Toolbox
  Copyright (C) 2018 Centre National d’Etudes Spatiales
  This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
@@ -29,6 +30,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import argparse
 import configparser as cfg
 import datetime
+from lxml import etree as ET
 import os
 import sys
 
@@ -70,6 +72,8 @@ class MultiLakeSP(object):
 
         # Flag to produce LakeTile_edge and LakeTile_pixcvec shapefiles
         self.flag_prod_shp = in_params["flag_prod_shp"]
+        # Flag to increment output file counter
+        self.flag_inc_file_counter = in_params["flag_inc_file_counter"]
         
         # Log level
         self.error_file = in_params["errorFile"]
@@ -141,11 +145,19 @@ class MultiLakeSP(object):
                 cycle_num = information["cycle"]
                 pass_num = information["pass"]
 
-                self.cycle_pass_set.add((cycle_num, pass_num))
+                # Get continent from LakeTile_shp metadata file (ie .shp.xml)
+                metadata = ET.parse(os.path.join(self.laketile_dir, cur_item + ".xml"))
+                # Retrieve continent
+                cur_continent_txt = metadata.xpath("//swot_product/global_metadata/continent")[0].text
+                if not cur_continent_txt:
+                    self.cycle_pass_set.add((cycle_num, pass_num, ""))
+                else :
+                    for continent in cur_continent_txt.split(";"):
+                        self.cycle_pass_set.add((cycle_num, pass_num, continent))
 
-        print("[multiLakeSPProcessing]   --> %d cycle and pass to deal with" % len(self.cycle_pass_set))
-        for (cycle_num, pass_num) in self.cycle_pass_set:
-            print("[multiLakeSPProcessing]  cycle %s pass %s " % (cycle_num, pass_num))
+        print("[multiLakeSPProcessing]   --> %d cycle and continental pass to deal with" % len(self.cycle_pass_set))
+        for (cycle_num, pass_num, continent) in self.cycle_pass_set:
+            print("[multiLakeSPProcessing]  cycle %s pass %s continent %s" % (cycle_num, pass_num, continent))
         print("")
 
     def run_processing(self):
@@ -160,7 +172,7 @@ class MultiLakeSP(object):
 
         timer_proc = my_timer.Timer()
 
-        for (cycle_num, pass_num) in self.cycle_pass_set:  # Deal with all selected files
+        for (cycle_num, pass_num, continent) in self.cycle_pass_set:  # Deal with all selected files
         
             timer_proc.start()
 
@@ -171,7 +183,7 @@ class MultiLakeSP(object):
             print("")
 
             # 1 - Initialization
-            cmd_file = self.create_cmd_file(cycle_num, pass_num)
+            cmd_file = self.create_cmd_file(cycle_num, pass_num, continent)
 
             my_lake_tile = pge_lake_sp.PGELakeSP(cmd_file)
 
@@ -190,7 +202,7 @@ class MultiLakeSP(object):
         print("")
         print("")
 
-    def create_cmd_file(self, cycle_num, pass_num):
+    def create_cmd_file(self, cycle_num, pass_num, continent):
         """
         Create command file for PGE_L2_HR_LakeSP for each input cycle and pass
         
@@ -198,6 +210,8 @@ class MultiLakeSP(object):
         :type cycle_num: int
         :param pass_num: pass number
         :type pass_num: int
+        :param continent: continent code (AF, EU, etc.)
+        :type continent: string
         
         :return: out_cmd_file = command file full path
         :rtype: string
@@ -206,21 +220,21 @@ class MultiLakeSP(object):
         # 1.1 - Init error log filename (without date because it is computed in pge_lake_sp.py)
         if self.error_file is None:
             error_file = os.path.join(self.output_dir, "ErrorFile_" + str(cycle_num) + "_" +
-                                    str(pass_num) + ".log")
+                                    str(pass_num)  + "_" + str(continent) + ".log")
         else:
-            error_file = os.path.splitext(self.error_file)[0] + "_" + str(cycle_num) + "_" + str(pass_num) + os.path.splitext(self.error_file)[1]
+            error_file = os.path.splitext(self.error_file)[0] + "_" + str(cycle_num) + "_" + str(pass_num)  + "_" + str(continent) +  os.path.splitext(self.error_file)[1]
         print("Error log file : " + error_file)
         
         # 1.2 - Init log filename
         if self.log_file is None:
             log_file = os.path.join(self.output_dir, "LogFile_" + str(cycle_num) + "_" +
-                                    str(pass_num) + ".log")
+                                    str(pass_num)  + "_" + str(continent) + ".log")
         else:
-            log_file = os.path.splitext(self.log_file)[0] + "_" + str(cycle_num) + "_" + str(pass_num) + os.path.splitext(self.log_file)[1]
+            log_file = os.path.splitext(self.log_file)[0] + "_" + str(cycle_num) + "_" + str(pass_num)  + "_" + str(continent) + os.path.splitext(self.log_file)[1]
         print("Log file : " + log_file)
 
         # 2 - Init command filename
-        cmd_filename = "lake_sp_command_" + str(cycle_num) + "_" + str(pass_num) + ".cfg"
+        cmd_filename = "lake_sp_command_" + str(cycle_num) + "_" + str(pass_num)  + "_" + str(continent) + ".cfg"
         out_cmd_file = os.path.join(self.output_dir, cmd_filename)
         
         # 3 - Write command variables in command file
@@ -252,12 +266,15 @@ class MultiLakeSP(object):
         writer_command_file.write("[TILES_INFOS]\n")
         writer_command_file.write("Cycle number = " + str(cycle_num) +"\n")
         writer_command_file.write("Pass number = " + str(pass_num) +"\n")
+        writer_command_file.write("Continent = " + str(continent) +"\n")
         writer_command_file.write("\n")
         
         # 3.4 - Fill OPTIONS section
         writer_command_file.write("[OPTIONS]\n")
         writer_command_file.write("# To also produce PIXCVec products as shapefiles (=True); else=False (default)\n")
         writer_command_file.write("Produce shp = " + str(self.flag_prod_shp) + "\n")
+        writer_command_file.write("# To increment the file counter in the output filenames (=True, default); else=False\n")
+        writer_command_file.write("Increment file counter = " + str(self.flag_inc_file_counter) + "\n")
         writer_command_file.write("\n")
         
         # 3.5 - Fill LOGGING section
@@ -319,6 +336,7 @@ def read_command_file(in_filename):
     out_params["cycle_num"] = None
     out_params["pass_num"] = None
     out_params["flag_prod_shp"] = False
+    out_params["flag_inc_file_counter"] = True
     out_params["errorFile"] = None
     out_params["logFile"] = None
     out_params["logfilelevel"] = "DEBUG"
@@ -367,6 +385,9 @@ def read_command_file(in_filename):
         # Flag to also produce PIXCVEC nc files as shapefiles (=True); else=False (default)
         if "produce shp" in list_options:
             out_params["flag_prod_shp"] = config.getboolean("OPTIONS", "Produce shp")
+        # Flag to increment the file counter in the output filenames (=True, default); else=False
+        if "increment file counter" in list_options:
+            out_params["flag_inc_file_counter"] = config.get("OPTIONS", "Increment file counter")
             
     # 6 - Retrieve LOGGING
     if "LOGGING" in config.sections():

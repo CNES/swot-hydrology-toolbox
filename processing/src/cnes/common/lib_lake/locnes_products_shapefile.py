@@ -178,6 +178,9 @@ class ShapefileProduct(my_prod.LocnesProduct):
         else:
             logger.info('> Creating shapefile layer')
             driver = ogr.GetDriverByName(str('ESRI Shapefile'))  # Driver for shapefile 
+            if os.path.exists(in_filename):
+                logger.warning("Output shapefile %s already exists => delete file" % in_filename)
+                driver.DeleteDataSource(in_filename)
             self.data_source = driver.CreateDataSource(in_filename)
         
         # 2 - Create layer
@@ -199,14 +202,14 @@ class ShapefileProduct(my_prod.LocnesProduct):
         
         for key, value in self.attribute_metadata.items():
             
-            if value['type'] in ["int4", "int9", "float", "text"]:
+            if value['type'] in ["int", "int4", "int9", "float", "text"]:
                 tmp_field = ogr.FieldDefn(str(key), my_var.FORMAT_OGR[value['type']])  # Init field
                 logger.debug("> Create attribute %s of type %s" % (key, my_var.FORMAT_OGR_STR[value['type']]))
                 
                 # Set width
                 if value['type'] == "int4":
                     tmp_field.SetWidth(4)
-                elif value['type'] == "int9":
+                elif value['type'] in ["int", "int9"]:
                     tmp_field.SetWidth(9)
                 elif "width" in value.keys():
                     tmp_field.SetWidth(value['width'])
@@ -237,7 +240,7 @@ class ShapefileProduct(my_prod.LocnesProduct):
         feature = ogr.Feature(self.layer_defn)
         
         # 2 - Add geometry
-        feature.SetGeometry(in_geom)
+        feature.SetGeometry(in_geom)    
         
         # 3 - Add attribute values
         att_keys = in_attributes.keys()  # List of attributes to value
@@ -586,7 +589,7 @@ def convert_wrt_type(in_val, in_type):
     :param in_type: type of the wanted output (default=str)
     :type in_type: type OGR
     
-    :return: retour = converted string
+    :return: retour = converted value
     :rtype: retour = depends on the wanted type
     """
     

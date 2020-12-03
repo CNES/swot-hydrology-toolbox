@@ -82,7 +82,7 @@ class PGELakeSP():
 
         self.cycle_num = my_params["cycle_num"]
         self.pass_num = my_params["pass_num"]
-        self.continent_list = set()
+        self.continent = my_params["continent"]
 
         # 2 - Load parameter file
         # 2.1 - Read value from command file
@@ -95,19 +95,20 @@ class PGELakeSP():
 
         # 3 - Put command parameter inside cfg
         self._put_cmd_value(my_params)
-        # Retrieve options which are optionnal
+        # Retrieve parameters which are optionnal
         self.flag_prod_shp = self.cfg.getboolean("OPTIONS", "Produce shp")
+        self.flag_inc_file_counter = self.cfg.getboolean("OPTIONS", "Increment file counter")
         
-        # 4 - Init data dict. Each key corresponds to a continent_code
-        self.obj_pixc_sp = {}
-        self.obj_pixcvec_sp = {}
-        self.obj_lake_db = {}
-        self.obj_lake = {}
-        self.lake_sp_filenames = {}
-        self.laketile_obs_path_dict = {}  # List of _Obs files split per continent
-        self.laketile_prior_path_dict = {}  # List of _Prior files split per continent
-        self.laketile_unknown_path_dict = {}  # List of _Unassigned files split per continent
-        self.proc_metadata = {}
+        # 4 - Init objects
+        self.obj_pixc_sp = None
+        self.obj_pixcvec_sp = None
+        self.obj_lake_db = None
+        self.obj_lake = None
+        self.lake_sp_filenames = None
+        self.laketile_obs_path_list = []  # List of _Obs files
+        self.laketile_prior_path_list = []  # List of _Prior files
+        self.laketile_unknown_path_list = []  # List of _Unassigned
+        self.proc_metadata = None
 
         # 5 - Initiate logging service
         service_logger.ServiceLogger()
@@ -145,7 +146,8 @@ class PGELakeSP():
         # 0 - Init output dictionary
         out_params = {}
         # Default values
-        out_params["Produce_shp"] = False
+        out_params["flag_prod_shp"] = False
+        out_params["flag_inc_file_counter"] = True
 
         # 1 - Read parameter file
         config = configparser.ConfigParser()
@@ -175,13 +177,17 @@ class PGELakeSP():
         # 4 - Retrieve cycle and pass number
         out_params["cycle_num"] = config.getint("TILES_INFOS", "Cycle number")
         out_params["pass_num"] = config.getint("TILES_INFOS", "Pass number")
+        out_params["continent"] = config.get("TILES_INFOS", "Continent")
 
         # 5 - Retrieve OPTIONS
         if "OPTIONS" in config.sections():
             list_options = config.options("OPTIONS")
             # Flag to also produce LakeTile_edge and LakeTile_pixcvec as shapefiles (=True); else=False (default)
             if "produce shp" in list_options:
-                out_params["produce_shp"] = config.get("OPTIONS", "Produce shp")
+                out_params["flag_prod_shp"] = config.get("OPTIONS", "Produce shp")
+            # Flag to increment the file counter in the output filenames (=True, default); else=False
+            if "increment file counter" in list_options:
+                out_params["flag_inc_file_counter"] = config.get("OPTIONS", "Increment file counter")
 
         # 6 - Retrieve LOGGING
         error_file = config.get("LOGGING", "errorFile")
@@ -246,11 +252,13 @@ class PGELakeSP():
             self.cfg.add_section(section)
             self.cfg.set(section, "Cycle number", param_list["cycle_num"])
             self.cfg.set(section, "Pass number", param_list["pass_num"])
+            self.cfg.set(section, "Continent", param_list["continent"])
 
             # Add OPTIONS section and parameters
             section = "OPTIONS"
             self.cfg.add_section(section)
-            self.cfg.set(section, "Produce shp", param_list["produce_shp"])
+            self.cfg.set(section, "Produce shp", param_list["flag_prod_shp"])
+            self.cfg.set(section, "Increment file counter", param_list["flag_inc_file_counter"])
             
             # Add section FILE_INFORMATION
             section = "FILE_INFORMATION"
@@ -318,11 +326,17 @@ class PGELakeSP():
             # Pass number
             self.cfg.test_var_config_file('TILES_INFOS', 'Pass number', int)
             logger.debug('Pass number = ' + str(self.cfg.get('TILES_INFOS', 'Pass number')))
+            # Continent
+            self.cfg.test_var_config_file('TILES_INFOS', 'Continent', str)
+            logger.debug('Continent = ' + str(self.cfg.get('TILES_INFOS', 'Continent')))
             
             # 1.4 - OPTIONS section
             # Shapefile production
             self.cfg.test_var_config_file('OPTIONS', 'Produce shp', bool, logger=logger)
             logger.debug('OK - Produce shp = ' + str(self.cfg.get('OPTIONS', 'Produce shp')))
+            # Increment output file counter
+            self.cfg.test_var_config_file('OPTIONS', 'Increment file counter', bool, logger=logger)
+            logger.debug('OK - Increment file counter = ' + str(self.cfg.get('OPTIONS', 'Increment file counter')))
 
             # 2 - Config parameters from parameter file
 
@@ -348,9 +362,10 @@ class PGELakeSP():
             # Method to compute lake boundary or polygon hull
             # 0 = convex hull 
             # 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library
-            # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track
+            # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation
+            # 1.2 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track
             # 2 = edge computed in radar geometry, then converted in ground geometry (default)
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'HULL_METHOD', float, valeurs=[0, 1.0, 1.1, 2], val_default=2, logger=logger)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'HULL_METHOD', float, valeurs=[0, 1.0, 1.1, 1.2, 2], val_default=2, logger=logger)
             logger.debug('OK - HULL_METHOD = ' + str(self.cfg.get('CONFIG_PARAMS', 'HULL_METHOD')))
             # max number of pixel for hull computation 1            
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY', int, val_default=100000, logger=logger)
@@ -427,10 +442,10 @@ class PGELakeSP():
         # 3 - For each listed LakeTile_Obs shapefile, get related LakeTile_Prior, LakeTile_Unassigned, _edge and _pixcvec files if they exist
         
         # Init variables
-        laketile_root_dict = {}  # List of LakeTile root name
-        laketile_edge_path_dict = {}  # List of _edge files
-        laketile_pixcvec_path_dict = {}  # List of _pixcvec files
-        pixc_path_dict = {}  # List of PIXC files
+        laketile_root_list = []  # List of LakeTile root name
+        laketile_edge_path_list = []  # List of _edge files
+        laketile_pixcvec_path_list = []  # List of _pixcvec files
+        pixc_path_list = []  # List of PIXC files
         
         for cur_file in tmp_list_laketile_files:  # Foreach file in LakeTile shapefile directory
 
@@ -500,73 +515,68 @@ class PGELakeSP():
                                         
                     # 3.3 - Add current information to lists related to files to process
                     for cur_continent in cur_continent_list:
-                        
-                        # Current continent
-                        self.continent_list.add(cur_continent)
 
-                        # LakeTile_Obs full path 
-                        self.laketile_obs_path_dict.setdefault(cur_continent, []).append(cur_laketile_obs_path)
-                        # LakeTile_Prior full path 
-                        self.laketile_prior_path_dict.setdefault(cur_continent, []).append(cur_laketile_prior_path)
-                        # LakeTile_Unassigned full path 
-                        self.laketile_unknown_path_dict.setdefault(cur_continent, []).append(cur_laketile_unknown_path)
-                        # LakeTile_edge full path
-                        laketile_edge_path_dict.setdefault(cur_continent, []).append(cur_laketile_edge_path)
-                        # LakeTile_pixcvec full path
-                        laketile_pixcvec_path_dict.setdefault(cur_continent, []).append(cur_laketile_pixcvec_path)
-                        # LakeTile root names
-                        laketile_root_dict.setdefault(cur_continent, []).append(cur_laketile_root)
+                        if cur_continent == self.continent :
 
-                        # PIXC full path
-                        pixc_path_dict.setdefault(cur_continent, []).append(cur_pixc_path)
+                            # LakeTile_Obs full path
+                            self.laketile_obs_path_list.append(cur_laketile_obs_path)
+                            # LakeTile_Prior full path
+                            self.laketile_prior_path_list.append(cur_laketile_prior_path)
+                            # LakeTile_Unassigned full path
+                            self.laketile_unknown_path_list.append(cur_laketile_unknown_path)
+                            # LakeTile_edge full path
+                            laketile_edge_path_list.append(cur_laketile_edge_path)
+                            # LakeTile_pixcvec full path
+                            laketile_pixcvec_path_list.append(cur_laketile_pixcvec_path)
+                            # LakeTile root names
+                            laketile_root_list.append(cur_laketile_root)
 
-        logger.info("Continent list = {}".format(self.continent_list))
+                            # PIXC full path
+                            pixc_path_list.append(cur_pixc_path)
+
 
         # 4 - Fill processing metadata with filenames
-        for cur_continent in self.continent_list:
-            
-            # Init
-            self.proc_metadata[cur_continent] = {}
-            
-            # PIXC filenames
-            self.proc_metadata[cur_continent]["xref_input_l2_hr_pixc_files"] = ", ".join(pixc_path_dict[cur_continent])
-            # LakeTile filenames
-            self.proc_metadata[cur_continent]["xref_input_l2_hr_lake_tile_files"] = ", ".join(laketile_root_dict[cur_continent])
-            
-            # Lake database
-            if self.cfg.get("DATABASES", "LAKE_DB") is not None:
-                self.proc_metadata[cur_continent]["xref_static_lake_db_file"] = self.cfg.get("DATABASES", "LAKE_DB")
-            else:
-                self.proc_metadata[cur_continent]["xref_static_lake_db_file"] = ""
-                
-            # Parameter file
-            if self.cfg.get("FILE_INFORMATION", "SOURCE") == "Simulation":
-                self.proc_metadata[cur_continent]["xref_l2_hr_lake_sp_config_parameter_file"] = self.file_config
-            else:
-                self.proc_metadata[cur_continent]["xref_l2_hr_lake_sp_config_parameter_file"] = os.path.basename(self.file_config)
+        # Init
+        self.proc_metadata = {}
 
-        # 5 - Init PIXC_edge_SP and PIXCVec_SP objects by retrieving data from the LakeTile files for each continent
-        for cur_continent in self.continent_list:
+        # PIXC filenames
+        self.proc_metadata["xref_input_l2_hr_pixc_files"] = ", ".join(pixc_path_list)
+        # LakeTile filenames
+        self.proc_metadata["xref_input_l2_hr_lake_tile_files"] = ", ".join(laketile_root_list)
 
-            logger.info("== Init objects for continent %s" % cur_continent)
+        # Lake database
+        if self.cfg.get("DATABASES", "LAKE_DB") is not None:
+            self.proc_metadata["xref_static_lake_db_file"] = self.cfg.get("DATABASES", "LAKE_DB")
+        else:
+            self.proc_metadata["xref_static_lake_db_file"] = ""
 
-            # Init PIXC_edge_SP object
-            logger.debug(". Init PIXC_edge_SP object")
-            self.obj_pixc_sp[cur_continent] = proc_pixc_sp.PixCEdge(laketile_edge_path_dict[cur_continent], 
-                                                                    self.cycle_num,
-                                                                    self.pass_num, 
-                                                                    cur_continent)
-            
-            # Fill PIXC_edge_SP object with LakeTile_edge file information
-            logger.debug(". Fill PIXC_edge_SP object")
-            self.obj_pixc_sp[cur_continent].set_pixc_edge_from_laketile_edge_file()
+        # Parameter file
+        if self.cfg.get("FILE_INFORMATION", "SOURCE") == "Simulation":
+            self.proc_metadata["xref_l2_hr_lake_sp_config_parameter_file"] = self.file_config
+        else:
+            self.proc_metadata["xref_l2_hr_lake_sp_config_parameter_file"] = os.path.basename(self.file_config)
 
-            # Init PIXCVec_SP
-            logger.debug(". Init PIXCVec_SP object")
-            self.obj_pixcvec_sp[cur_continent] = proc_pixc_vec_sp.PixCVecSP(laketile_pixcvec_path_dict[cur_continent], 
-                                                                            self.obj_pixc_sp[cur_continent],
-                                                                            self.output_dir, 
-                                                                            cur_continent)
+        # 5 - Init PIXC_edge_SP and PIXCVec_SP objects by retrieving data from the LakeTile files for the continent
+
+        logger.info("== Init objects for continent %s" % self.continent)
+
+        # Init PIXC_edge_SP object
+        logger.debug(". Init PIXC_edge_SP object")
+        self.obj_pixc_sp = proc_pixc_sp.PixCEdge(laketile_edge_path_list,
+                                                                self.cycle_num,
+                                                                self.pass_num,
+                                                                self.continent)
+
+        # Fill PIXC_edge_SP object with LakeTile_edge file information
+        logger.debug(". Fill PIXC_edge_SP object")
+        self.obj_pixc_sp.set_pixc_edge_from_laketile_edge_file()
+
+        # Init PIXCVec_SP
+        logger.debug(". Init PIXCVec_SP object")
+        self.obj_pixcvec_sp = proc_pixc_vec_sp.PixCVecSP(laketile_pixcvec_path_list,
+                                                                        self.obj_pixc_sp,
+                                                                        self.output_dir,
+                                                                        self.continent)
 
     def _read_lake_db(self):
         """
@@ -578,19 +588,16 @@ class PGELakeSP():
         
         if (lake_db_file == "") or (lake_db_file is None):  # No PLD
             logger.warning("NO database specified -> NO link of SWOT obs with a priori lake")
-            for cur_continent in self.continent_list:
-                self.obj_lake_db[cur_continent] = lake_db.LakeDb()
+            self.obj_lake_db = lake_db.LakeDb()
                 
         else:  # Init PLD object wrt to file type
             
             type_db = lake_db_file.split('.')[-1]  # File type
             
             if type_db == "shp":  # Shapefile format
-                for cur_continent in self.continent_list:
-                    self.obj_lake_db[cur_continent] = lake_db.LakeDbShp(lake_db_file, self.obj_pixc_sp[cur_continent].tile_poly)
+                self.obj_lake_db = lake_db.LakeDbShp(lake_db_file, self.obj_pixc_sp.tile_poly)
             elif type_db == "sqlite":  # SQLite format
-                for cur_continent in self.continent_list:
-                    self.obj_lake_db[cur_continent] = lake_db.LakeDbSqlite(lake_db_file, self.obj_pixc_sp[cur_continent].tile_poly)
+                self.obj_lake_db = lake_db.LakeDbSqlite(lake_db_file, self.obj_pixc_sp.tile_poly)
             else:
                 message = "Prior lake database format (%s) is unknown: must be .shp or .sqlite => set to None" % type_db
                 logger.warning(message)
@@ -604,22 +611,23 @@ class PGELakeSP():
         """
         logger = logging.getLogger(self.__class__.__name__)
 
-        for cur_continent in self.continent_list:
-            logger.info("== Continent %s ==" % cur_continent)
 
-            # 1 - Retrieve tile info from LakeTile filename and compute output filenames
-            logger.info("> 3.1 - Retrieving tile infos from LakeTile filename...")
-            self.lake_sp_filenames[cur_continent] = locnes_filenames.LakeSPFilenames(self.laketile_obs_path_dict[cur_continent], 
-                                                                                     cur_continent, 
-                                                                                     self.output_dir)
+        logger.info("== Continent %s ==" % self.continent)
 
-            # 2 - Initialize LakeSP product object
-            logger.info("> 3.2 - Initialize LakeSP product object...")
-            self.obj_lake[cur_continent] = proc_lake.LakeSPProduct(self.obj_pixc_sp[cur_continent],
-                                                                     self.obj_pixcvec_sp[cur_continent],
-                                                                     self.obj_lake_db[cur_continent],
-                                                                     os.path.basename(self.lake_sp_filenames[cur_continent].lake_sp_file_obs).split(".")[0],
-                                                                     cur_continent)
+        # 1 - Retrieve tile info from LakeTile filename and compute output filenames
+        logger.info("> 3.1 - Retrieving tile infos from LakeTile filename...")
+        self.lake_sp_filenames = locnes_filenames.LakeSPFilenames(self.laketile_obs_path_list,
+                                                                  self.continent,
+                                                                  self.output_dir,
+                                                                  flag_inc=self.flag_inc_file_counter)
+
+        # 2 - Initialize LakeSP product object
+        logger.info("> 3.2 - Initialize LakeSP product object...")
+        self.obj_lake = proc_lake.LakeSPProduct(self.obj_pixc_sp,
+                                                                 self.obj_pixcvec_sp,
+                                                                 self.obj_lake_db,
+                                                                 os.path.basename(self.lake_sp_filenames.lake_sp_file_obs).split(".")[0],
+                                                                 self.continent)
 
     def _write_output_data(self):
         """
@@ -627,43 +635,41 @@ class PGELakeSP():
         """
         logger = logging.getLogger(self.__class__.__name__)
 
-        for cur_continent in self.continent_list:
-            logger.info("== Continent %s ==" % cur_continent)
-            
-            # 1 - Write LakeSP shapefiles
-            logger.info("> 8.1 - Writing LakeSP memory layers to shapefiles, and adding LakeTile_shp files...")
-            # 1.1 - Obs-oriented shapefile
-            logger.info(". Obs-oriented shapefile = %s" % self.lake_sp_filenames[cur_continent].lake_sp_file_obs)
-            self.obj_lake[cur_continent].write_obs_file(self.lake_sp_filenames[cur_continent].lake_sp_file_obs, 
-                                                         self.obj_pixc_sp[cur_continent].pixc_metadata, 
-                                                         self.proc_metadata[cur_continent], 
-                                                         self.laketile_obs_path_dict[cur_continent])
-            # 1.2 - Shapefile of prior water features
-            logger.info(". PLD-oriented shapefile = %s" % self.lake_sp_filenames[cur_continent].lake_sp_file_prior)
-            self.obj_lake[cur_continent].write_prior_file(self.lake_sp_filenames[cur_continent].lake_sp_file_prior, 
-                                                             self.obj_pixc_sp[cur_continent].pixc_metadata, 
-                                                             self.proc_metadata[cur_continent],
-                                                             self.laketile_prior_path_dict[cur_continent])
-            # 1.3 - Shapefile of unassigned water features
-            logger.info(". Shapefile of unassigned water features = %s" % self.lake_sp_filenames[cur_continent].lake_sp_file_unknown)
-            self.obj_lake[cur_continent].write_unknown_file(self.lake_sp_filenames[cur_continent].lake_sp_file_unknown, 
-                                                             self.obj_pixc_sp[cur_continent].pixc_metadata, 
-                                                             self.proc_metadata[cur_continent],
-                                                             self.laketile_unknown_path_dict[cur_continent])
-            # 1.4 - Close memory layer
-            self.obj_lake[cur_continent].free_memory()
-            logger.info("")
 
-            # 2 - Update PIXCVec files
-            logger.info("> 8.2 - Updating L2_HR_PIXCVec files...")
-            self.obj_pixcvec_sp[cur_continent].pixcvec_r.update_pixc_vec(in_write_to_shp=self.flag_prod_shp,
-                                                                           in_proc_metadata=self.proc_metadata[cur_continent])
-            self.obj_pixcvec_sp[cur_continent].pixcvec_l.update_pixc_vec(in_write_to_shp=self.flag_prod_shp,
-                                                                           in_proc_metadata=self.proc_metadata[cur_continent])
-            logger.info("")
+        logger.info("== Continent %s ==" % self.continent)
 
+        # 1 - Write LakeSP shapefiles
+        logger.info("> 8.1 - Writing LakeSP memory layers to shapefiles, and adding LakeTile_shp files...")
+        # 1.1 - Obs-oriented shapefile
+        logger.info(". Obs-oriented shapefile = %s" % self.lake_sp_filenames.lake_sp_file_obs)
+        self.obj_lake.write_obs_file(self.lake_sp_filenames.lake_sp_file_obs,
+                                                     self.obj_pixc_sp.pixc_metadata,
+                                                     self.proc_metadata,
+                                                     self.laketile_obs_path_list)
+        # 1.2 - Shapefile of prior water features
+        logger.info(". PLD-oriented shapefile = %s" % self.lake_sp_filenames.lake_sp_file_prior)
+        self.obj_lake.write_prior_file(self.lake_sp_filenames.lake_sp_file_prior,
+                                                         self.obj_pixc_sp.pixc_metadata,
+                                                         self.proc_metadata,
+                                                         self.laketile_prior_path_list)
+        # 1.3 - Shapefile of unassigned water features
+        logger.info(". Shapefile of unassigned water features = %s" % self.lake_sp_filenames.lake_sp_file_unknown)
+        self.obj_lake.write_unknown_file(self.lake_sp_filenames.lake_sp_file_unknown,
+                                                         self.obj_pixc_sp.pixc_metadata,
+                                                         self.proc_metadata,
+                                                         self.laketile_unknown_path_list)
+        # 1.4 - Close memory layer
+        self.obj_lake.free_memory()
         logger.info("")
-        
+
+        # 2 - Update PIXCVec files
+        logger.info("> 8.2 - Updating L2_HR_PIXCVec files...")
+        self.obj_pixcvec_sp.pixcvec_r.update_pixc_vec(in_write_to_shp=self.flag_prod_shp,
+                                                                       in_proc_metadata=self.proc_metadata)
+        self.obj_pixcvec_sp.pixcvec_l.update_pixc_vec(in_write_to_shp=self.flag_prod_shp,
+                                                                       in_proc_metadata=self.proc_metadata)
+        logger.info("")
+
     # -------------------------------------------
 
     def start(self):
@@ -685,12 +691,12 @@ class PGELakeSP():
             logger.info("")
             
             # 2 - Read lake db
-            logger.info("> 2 - Init and read lake DB object for each continent...")
+            logger.info("> 2 - Init and read lake DB object for each continental pass...")
             self._read_lake_db()
             logger.info("")
 
             # 3 - Prepare output data
-            logger.info("> 3 - Prepare output objects for each continent...")
+            logger.info("> 3 - Prepare output objects for continental pass ...")
             self._prepare_output_data()
             logger.info("")
             
@@ -698,41 +704,41 @@ class PGELakeSP():
             logger.info("***** Run SAS LakeSP *****")
             logger.info("**************************")
 
-            for cur_continent in self.continent_list:
+
                 
-                logger.info("=============================")
-                logger.info("== Processing continent %s ==" % cur_continent)
-                logger.info("=============================")
+            logger.info("=============================")
+            logger.info("== Processing continent %s ==" % self.continent)
+            logger.info("=============================")
 
-                # 4 - Initialization
-                logger.info("> 4 - Initialization of SASLakeSP class")
-                my_lake_sp = sas_lake_sp.SASLakeSP(self.obj_pixc_sp[cur_continent], 
-                                                   self.obj_pixcvec_sp[cur_continent],
-                                                   self.obj_lake_db[cur_continent], 
-                                                   self.obj_lake[cur_continent])
-                logger.info(self.timer.info(0))
-                logger.info("")
+            # 4 - Initialization
+            logger.info("> 4 - Initialization of SASLakeSP class")
+            my_lake_sp = sas_lake_sp.SASLakeSP(self.obj_pixc_sp,
+                                               self.obj_pixcvec_sp,
+                                               self.obj_lake_db,
+                                               self.obj_lake)
+            logger.info(self.timer.info(0))
+            logger.info("")
 
-                # 5 - Run pre-processing
-                logger.info("> 5 - Run SASpre-processing")
-                my_lake_sp.run_preprocessing()
-                logger.info(self.timer.info(0))
-                logger.info("")
+            # 5 - Run pre-processing
+            logger.info("> 5 - Run SASpre-processing")
+            my_lake_sp.run_preprocessing()
+            logger.info(self.timer.info(0))
+            logger.info("")
 
-                # 6 - Run processing
-                logger.info("> 6 - Run SASprocessing")
-                my_lake_sp.run_processing()
-                logger.info(self.timer.info(0))
-                logger.info("")
-    
-                # 7 - Run post-processing
-                logger.info("> 7 - Run SASpost-processing")
-                my_lake_sp.run_postprocessing()
-                logger.info(self.timer.info(0))
-                logger.info("")
-                
-                logger.info("=========== E N D ===========")
-            
+            # 6 - Run processing
+            logger.info("> 6 - Run SASprocessing")
+            my_lake_sp.run_processing()
+            logger.info(self.timer.info(0))
+            logger.info("")
+
+            # 7 - Run post-processing
+            logger.info("> 7 - Run SASpost-processing")
+            my_lake_sp.run_postprocessing()
+            logger.info(self.timer.info(0))
+            logger.info("")
+
+            logger.info("=========== E N D ===========")
+
             logger.info("*****************************")
             logger.info("***** Write output data *****")
             logger.info("*****************************")
@@ -763,8 +769,7 @@ class PGELakeSP():
         
         # 1 - Close lake database
         logger.info("> 1 - Closing lake database...")
-        for cur_continent in self.continent_list:
-            self.obj_lake_db[cur_continent].close_db()
+        self.obj_lake_db.close_db()
 
         logger.info("")
         logger.info(self.timer.stop())
