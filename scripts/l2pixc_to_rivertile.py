@@ -125,8 +125,8 @@ def l2pixc_to_rivertile(pixc_file, out_riverobs_file, out_pixc_vector_file, rdf_
         os.remove(pixc_file)
 
 
-def run_river_tile( work):
-    args, pixc_ann_file = work
+def run_river_tile( args_and_pixc_ann_file):
+    args, pixc_ann_file = args_and_pixc_ann_file
     logging.info("***** Dealing with PixC annotation file %s *****" % pixc_ann_file)
 
     # Open and read RDF file
@@ -219,7 +219,8 @@ def main():
                         nargs='?', type=bool, default=False, const=True)
     parser.add_argument("--verbose", help="Verbose level (debug or info=default)", nargs="?", type=str, default="info")
     parser.add_argument("--writelog", help="if true, write riverobs output to log file", nargs='?', type=bool, default=False, const=True)
-    parser.add_argument("--multiproc", help="if true, tiles will be computed in parallel", nargs='?', type=bool, default=False, const=True)
+    parser.add_argument("-mp", "--multiproc", help="if true, tiles will be computed in parallel", nargs='?', type=bool,
+                        default=False, const=True)
     parser.add_argument(
         '-f', '--force', action='store_true', dest='force', default=False,
         help='force overwrite existing outputs; default is to quit')
@@ -259,14 +260,14 @@ def main():
 
     if not args["multiproc"]:
         for pixc_ann_file in rdf_files :
-            run_river_tile(args, pixc_ann_file)
+            run_river_tile((args, pixc_ann_file))
     else :
         n_cores = int(mp.cpu_count() / 2)
         pool = mp.Pool(n_cores, print('Initializing process {}'.format(os.getpid())))
         with pool:
             print('Running map')
-            work = [(deepcopy(args), pixc_ann_file) for pixc_ann_file in rdf_files]
-            tmp_result = pool.map(run_river_tile, work)
+            list_of_args_and_pixc_ann_file = [(deepcopy(args), pixc_ann_file) for pixc_ann_file in rdf_files]
+            tmp_result = pool.map(run_river_tile, list_of_args_and_pixc_ann_file)
             pool.close()
             pool.join()
 

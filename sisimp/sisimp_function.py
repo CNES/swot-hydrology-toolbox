@@ -135,7 +135,7 @@ def read_orbit(IN_filename, IN_cycle_number, IN_attributes):
 #######################################
 
 
-def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attributes):
+def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attributes, IN_tile_number):
     """
     Write a pixel cloud file for the given swath (left or right)
 
@@ -147,6 +147,8 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
     :type IN_orbit_number: int
     :param IN_attributes
     :type IN_attributes
+    :param IN_tile_number : tile number
+    :type IN_tile_number : int
     """
     my_api.printInfo("[sisimp_function] [make_pixel_cloud] == make_pixel_cloud ==")
     my_api.printInfo("[sisimp_function] [make_pixel_cloud] > Working on the " + IN_side_name + " swath")
@@ -157,7 +159,8 @@ def make_pixel_cloud(IN_side_name, IN_cycle_number, IN_orbit_number, IN_attribut
     fshp = IN_attributes.shapefile_path + ".shp"
     driver = ogr.GetDriverByName(str("ESRI Shapefile"))
 
-    fshp_reproj, IN_attributes, swath_polygon = write_poly.reproject_shapefile(fshp, swath, driver, IN_attributes, IN_cycle_number)
+    tile_ref = "%s_%s_%s%s" %(str(IN_cycle_number).rjust(3, str('0')), str(IN_orbit_number).rjust(3, str('0')), str(IN_tile_number).rjust(3, str('0')), IN_side_name)
+    fshp_reproj, IN_attributes, swath_polygon = write_poly.reproject_shapefile(fshp, swath, driver, IN_attributes, IN_cycle_number, tile_ref)
 
     if fshp_reproj is None:  # No water body crossing the swath => stop process
         my_api.printInfo("[sisimp_function] [make_pixel_cloud] No output data file to write")

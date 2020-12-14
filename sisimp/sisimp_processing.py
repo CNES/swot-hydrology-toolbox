@@ -19,7 +19,6 @@ from osgeo import osr, ogr
 import re
 import zipfile
 
-from copy import deepcopy
 import lib.my_api as my_api
 import lib.my_filenames as my_names
 import lib.my_variables as my_var
@@ -31,6 +30,7 @@ import lib.my_shp as my_shp
 import lib.my_timer as my_timer
 import lib.tropo_module as tropo_module
 import multiprocessing as mp
+from copy import deepcopy
 
 import sisimp_function as sisimp_fct
 from write_polygons import orbitAttributes
@@ -356,101 +356,103 @@ class Processing(object):
             self.my_attributes.create_dummy_pixc_vec_river = False
             my_api.printInfo("[sisimp_processing] No Create dummy pixc vec river file parameter set, no L2_HR_PIXCVecRiver file will be created")
 
-    def run_orbit(self, tu):
-        elem, my_attributes = tu
-        my_api.printInfo("########################################################")
-        my_api.printInfo("[sisimp_processing] >>> CYCLE %03d and ORBIT %03d <<<" % (elem[0], elem[1]))
-        my_api.printInfo("########################################################")
-        my_api.printInfo("")
-        # 1 - Read orbit file
-        my_attributes = sisimp_fct.read_orbit(elem[2], elem[0], my_attributes)
-        my_api.printInfo("")
-        # 2 - Init SISIMP filenames object
-        my_attributes.sisimp_filenames = my_names.sisimpFilenames(my_attributes.out_dir,
-                                                                       my_attributes.mission_start_time,
-                                                                       my_attributes.cycle_duration, elem[0],
-                                                                       elem[1])
+    def run_processing(self, my_attributes = None):
+        if not my_attributes:
+            my_attributes = self.my_attributes
 
-        ## loop over tile
+        for (cycle_number, pass_number, orbit_file) in my_attributes.orbit_list:
+            my_api.printInfo("########################################################")
+            my_api.printInfo("[sisimp_processing] >>> CYCLE %03d and ORBIT %03d <<<" % (cycle_number, pass_number))
+            my_api.printInfo("########################################################")
+            my_api.printInfo("")
+            # 1 - Read orbit file
+            my_attributes = sisimp_fct.read_orbit(orbit_file, cycle_number, my_attributes)
+            my_api.printInfo("")
+            # 2 - Init SISIMP filenames object
+            my_attributes.sisimp_filenames = my_names.sisimpFilenames(my_attributes.out_dir,
+                                                                           my_attributes.mission_start_time,
+                                                                           my_attributes.cycle_duration, cycle_number,
+                                                                      pass_number)
 
-        tile_values, tile_list = tiling.get_tiles_from_orbit(my_attributes, elem[1])
+            ## loop over tile
 
-        pre_tiling = True
-        if pre_tiling:
-            tropo = tropo_module.Tropo_module(my_attributes.tropo_model, 0, my_attributes.nb_pix_range, 0,
-                                              len(tile_values), \
-                                              my_attributes.tropo_error_stdv, my_attributes.tropo_error_mean,
-                                              my_attributes.tropo_error_correlation, \
-                                              my_attributes.tropo_error_map_file)
-            tropo.generate_tropo_field_over_pass(min(my_attributes.lat))
+            tile_values, tile_list = tiling.get_tiles_from_orbit(my_attributes, pass_number)
 
-            for tile_number in tile_list:
-                time = my_timer.Timer()
-                time.start()
-                my_api.printInfo("========================================================")
-                my_api.printInfo("[sisimp_processing] Processing tile %d " % (tile_number))
-                my_api.printInfo("========================================================")
-                my_new_attributes = tiling.crop_orbit(my_attributes, tile_values, tile_number,
-                                                           tropo.tropo_map_rg_az)
+            pre_tiling = True
+            if pre_tiling:
+                tropo = tropo_module.Tropo_module(my_attributes.tropo_model, 0, my_attributes.nb_pix_range, 0,
+                                                  len(tile_values), \
+                                                  my_attributes.tropo_error_stdv, my_attributes.tropo_error_mean,
+                                                  my_attributes.tropo_error_correlation, \
+                                                  my_attributes.tropo_error_map_file)
+                tropo.generate_tropo_field_over_pass(min(my_attributes.lat))
+
+                for tile_number in tile_list:
+                    time = my_timer.Timer()
+                    time.start()
+                    my_api.printInfo("========================================================")
+                    my_api.printInfo("[sisimp_processing] Processing tile %d " % (tile_number))
+                    my_api.printInfo("========================================================")
+                    my_new_attributes = tiling.crop_orbit(my_attributes, tile_values, tile_number,
+                                                               tropo.tropo_map_rg_az)
+                    # 3 - Process right swath
+                    my_new_attributes = sisimp_fct.make_pixel_cloud("Right", cycle_number, pass_number, my_new_attributes, tile_number)
+                    my_api.printInfo("")
+                    my_api.printInfo("[sisimp_processing] %s " % (time.stop()))
+                    my_api.printInfo("")
+
+                    time = my_timer.Timer()
+                    time.start()
+
+                    # 4 - Process left swath
+                    my_new_attributes = sisimp_fct.make_pixel_cloud("Left", cycle_number, pass_number, my_new_attributes, tile_number)
+                    my_api.printInfo("")
+                    my_api.printInfo("[sisimp_processing] %s " % (time.stop()))
+                    my_api.printInfo("")
+
+                    # 5 - Write swath polygons shapefile
+                    sisimp_fct.write_swath_polygons(my_new_attributes)
+                    my_api.printInfo("")
+                    my_api.printInfo("")
+
+            else:
                 # 3 - Process right swath
-                my_new_attributes = sisimp_fct.make_pixel_cloud("Right", elem[0], elem[1], my_new_attributes, tile_number)
-                my_api.printInfo("")
-                my_api.printInfo("[sisimp_processing] %s " % (time.stop()))
-                my_api.printInfo("")
 
-                time = my_timer.Timer()
-                time.start()
+                my_attributes.tile_number = 0
+
+                my_attributes = sisimp_fct.make_pixel_cloud("Right", cycle_number, pass_number, my_attributes)
+                my_api.printInfo("")
 
                 # 4 - Process left swath
-                my_new_attributes = sisimp_fct.make_pixel_cloud("Left", elem[0], elem[1], my_new_attributes, tile_number)
-                my_api.printInfo("")
-                my_api.printInfo("[sisimp_processing] %s " % (time.stop()))
+                my_attributes = sisimp_fct.make_pixel_cloud("Left", cycle_number, pass_number, my_attributes)
                 my_api.printInfo("")
 
                 # 5 - Write swath polygons shapefile
-                sisimp_fct.write_swath_polygons(my_new_attributes)
+                sisimp_fct.write_swath_polygons(my_attributes)
                 my_api.printInfo("")
                 my_api.printInfo("")
+                # Delete pickle file if exist
 
-        else:
-            # 3 - Process right swath
+            try:
+                os.remove(my_attributes.out_dir + "/*.pkl")
+            except:
+                pass
 
-            my_attributes.tile_number = 0
-
-            my_attributes = sisimp_fct.make_pixel_cloud("Right", elem[0], elem[1], my_attributes)
-            my_api.printInfo("")
-
-            # 4 - Process left swath
-            my_attributes = sisimp_fct.make_pixel_cloud("Left", elem[0], elem[1], my_attributes)
-            my_api.printInfo("")
-
-            # 5 - Write swath polygons shapefile
-            sisimp_fct.write_swath_polygons(my_attributes)
-            my_api.printInfo("")
-            my_api.printInfo("")
-            # Delete pickle file if exist
-
-        try:
-            os.remove(my_attributes.out_dir + "/*.pkl")
-        except:
-            pass
-
-    def run_processing(self):
+    def run_multiprocessing(self):
         """Main process, computations are done here"""
+        n_cores = int(mp.cpu_count() / 2)
         my_api.printInfo("")
         my_api.printInfo("")
-        my_api.printInfo("[sisimp_processing] PROCESSING...")
+        my_api.printInfo("[sisimp_processing] MULTIPROCESSING on %d cores ..." %(n_cores))
         my_api.printInfo("")
 
-        n_cores = int(mp.cpu_count() / 2)
         pool = mp.Pool(n_cores, init_process())
-        work = [(att, deepcopy( self.my_attributes)) for att in self.my_attributes.orbit_list]
-        # print(len(self.my_attributes.orbit_list))
-        # print(zip(self.my_attributes.orbit_list, deepcopy( self.my_attributes)))
-        tmp_result = pool.map(self.run_orbit, work)
-        # for elem in self.my_attributes.orbit_list:  # Process per element in orbit list = triplet (cycle_number, orbit_number, orbit_file)
-        #     self.run_orbit( elem, self.my_attributes)
-        #
+        list_of_attributes = []
+        for (cycle_number, pass_number, orbit_file) in self.my_attributes.orbit_list:
+            tmp_attributes = deepcopy( self.my_attributes)
+            tmp_attributes.orbit_list = [(cycle_number, pass_number, orbit_file)]
+            list_of_attributes.append(tmp_attributes)
+        tmp_result = pool.map(self.run_processing, list_of_attributes)
 
     def run_postprocessing(self):
         """

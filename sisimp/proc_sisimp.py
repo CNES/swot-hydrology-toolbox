@@ -31,7 +31,7 @@ if __name__ == '__main__':
     parser.add_argument("parameter_file", type=str)
     parser.add_argument("-v", "--verbose", help="Verbose level (DEBUG or INFO=default)", nargs="?", type=str, default="INFO")
     parser.add_argument("-l", "--logfile", help="Write prints to a logfile in addition to the console", nargs='?', type=bool, default=False, const=True)
-    parser.add_argument("--multiproc", help="if true, tiles will be computed in parallel", nargs='?', type=bool, default=False, const=True)
+    parser.add_argument("-mp", "--multiproc", help="if true, tiles will be computed in parallel", nargs='?', type=bool, default=False, const=True)
     args = parser.parse_args()
 
     print("===== sisimp = BEGIN =====")
@@ -64,7 +64,10 @@ if __name__ == '__main__':
     my_api.printInfo(timer.info(0))
     
     # 3 - Run processing
-    mySimu.run_processing()
+    if args.multiproc:
+        mySimu.run_multiprocessing()
+    else :
+        mySimu.run_processing()
     my_api.printInfo(timer.info(0))
 
     # 4 - Run post-processing
