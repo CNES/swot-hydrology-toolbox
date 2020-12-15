@@ -26,7 +26,7 @@ from ressources.utils import my_api
 GEN_RAD_EARTH = 6378137.0
 GEN_RAD_EARTH_POLE = 6356752.31425
 
-RECORD_MARGIN = 3  # Margin between 2 orbit points
+RECORD_MARGIN = 2  # Margin between 2 orbit points
 SWATH_MARGIN = 0  # Margin (in meters) to add at the end of the swath
 
 
