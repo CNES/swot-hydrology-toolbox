@@ -632,7 +632,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             if nb_pix_overlap_begin == 0:
                 nb_pix_overlap_begin = 1
                 nb_pix_overlap_end = nb_pix_overlap_end - nb_pix_overlap_begin
-            if nb_pix_overlap_end == 0:
+            if nb_pix_overlap_end <= 0:
                 nb_pix_overlap_end = 1
 
             #TODO:keep only indices + negative values from azr_from_lonlat
