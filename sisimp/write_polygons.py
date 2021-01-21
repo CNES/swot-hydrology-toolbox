@@ -1343,14 +1343,14 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
             near_range = 0
             
         
-    if IN_attributes.height_model == 'gaussian':
-        near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-    if IN_attributes.height_model == 'polynomial':
-        near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-    if IN_attributes.height_model == 'reference_file':
-        near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+    # ~ if IN_attributes.height_model == 'gaussian':
+        # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+    # ~ if IN_attributes.height_model == 'polynomial':
+        # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+    # ~ if IN_attributes.height_model == 'reference_file':
+        # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
         
-    if IN_attributes.height_model == None:
+    else:
         hmean = IN_attributes.height_model_a + IN_attributes.height_model_a * \
         np.sin(2*np.pi * (np.mean(IN_attributes.orbit_time) + cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period
         near_range = np.mean(np.sqrt((IN_attributes.alt - hmean + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
