@@ -632,7 +632,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             if nb_pix_overlap_begin == 0:
                 nb_pix_overlap_begin = 1
                 nb_pix_overlap_end = nb_pix_overlap_end - nb_pix_overlap_begin
-            if nb_pix_overlap_end == 0:
+            if nb_pix_overlap_end <= 0:
                 nb_pix_overlap_end = 1
 
             #TODO:keep only indices + negative values from azr_from_lonlat
@@ -746,7 +746,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
 #######################################
 
 
-def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycle_number):
+def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycle_number, IN_tile_ref):
     """
     Read the water polygon shapefile and compute polygons in radar coordinates. 
     Save the reprojected polygons in a new shapefile and return its name.
@@ -765,6 +765,8 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     :type IN_attributes:
     :param IN_cycle_number:
     :type IN_cycle_number:
+    :param IN_tile_ref: Tile reference : CYCLE_PASS_TILE[R/L]
+    :type IN_tile_ref: string
     
     :return OUT_file/Getname: full path of the shapefile with the water body polygons in radar coordinates
     :rtype OUT_filename: string
@@ -804,8 +806,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
         return None, IN_attributes, None
 
     # 3 - Create the output shapefile
-    swath_t = '%s_swath' % IN_swath
-    OUT_filename = os.path.join(IN_attributes.out_dir, os.path.splitext(os.path.split(IN_filename)[1])[0] + '_tmp_radarproj_%s.shp' % swath_t)
+    OUT_filename = os.path.join(IN_attributes.out_dir, os.path.splitext(os.path.split(IN_filename)[1])[0] + '_tmp_radarproj_%s.shp' % IN_tile_ref)
     if os.path.exists(OUT_filename):
         IN_driver.DeleteDataSource(OUT_filename)
     dataout = IN_driver.CreateDataSource(OUT_filename)
@@ -917,15 +918,12 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                         lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
 
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
-                
-                
                 # ~ try:
                     # ~ lac.h_ref=float(polygon_index.GetField(str(IN_attributes.height_name)))
                     # ~ if lac.h_ref==None:
                         # ~ lac.h_ref=0
                 # ~ except:
                     # ~ lac.h_ref=0
-                
 
                 if IN_attributes.height_model == 'polynomial' and area > IN_attributes.height_model_min_area:
                     # Create database to save all parameters 
@@ -1343,14 +1341,14 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
             near_range = 0
             
         
-    if IN_attributes.height_model == 'gaussian':
-        near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-    if IN_attributes.height_model == 'polynomial':
-        near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-    if IN_attributes.height_model == 'reference_file':
-        near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+    # ~ if IN_attributes.height_model == 'gaussian':
+        # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+    # ~ if IN_attributes.height_model == 'polynomial':
+        # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+    # ~ if IN_attributes.height_model == 'reference_file':
+        # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
         
-    if IN_attributes.height_model == None:
+    else:
         hmean = IN_attributes.height_model_a + IN_attributes.height_model_a * \
         np.sin(2*np.pi * (np.mean(IN_attributes.orbit_time) + cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period
         near_range = np.mean(np.sqrt((IN_attributes.alt - hmean + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))

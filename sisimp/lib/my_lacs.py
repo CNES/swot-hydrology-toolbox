@@ -104,7 +104,7 @@ class Gaussian_Lac(Lac):
         self.height = height_model.generate_2d_profile_gaussian(self.dlat, latmin, latmax, self.dlon, lonmin, lonmax, self.height_model_stdv, seed = self.seed)
         print("gaussian min height",np.min(self.height))
         print("gaussian max height",np.max(self.height))
-        
+      
         self.h_interp = scipy.interpolate.RectBivariateSpline(latmin + self.dlat*np.arange(taille_lat),lonmin + self.dlon*np.arange(taille_lon),  self.height)
 
     def compute_h(self, lat, lon):
@@ -115,7 +115,7 @@ class Gaussian_Lac(Lac):
         if self.mode == 'orbit_time':
             self.mode = 'az' 
             
-        h0 =  np.mean(self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period)
+        h0 =  np.mean(self.height_model_a + self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period)
 
         return h0 + self.h_interp.ev(lat,lon)
                 
@@ -158,12 +158,12 @@ class Polynomial_Lac(Lac):
         if self.mode == 'orbit_time':
             self.mode = 'az' 
                         
-        h0 = np.mean(self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period)
+        h0 = np.mean(self.height_model_a + self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period)
         X, Y = pyproj.transform(self.latlon, self.utm_proj, lon, lat)
         
         
         height_water = height_model.generate_2d_profile_2nd_order_list(self.X0, self.Y0, X, Y, self.COEFF_X2, self.COEFF_Y2, self.COEFF_X, self.COEFF_Y, self.COEFF_XY, self.COEFF_CST)
-        
+
         return h0 + height_water
 
 class Height_in_file_Lac(Lac):
