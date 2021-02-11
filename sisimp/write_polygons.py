@@ -183,6 +183,7 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_attributes):
     # 1 - Read the reprojected shapefile
     layer, da_shapefile = my_shp.open_shp(IN_fshp_reproj)
 
+    
     # Create a GDAL raster in memory
     nx = len(IN_attributes.lon)
     ny = IN_attributes.nb_pix_range
@@ -838,7 +839,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
         geom = polygon_index.GetGeometryRef()
         
         if geom is not None:  # Test geom.IsValid() not necessary
-
             # 4.2 - Create the output polygon in radar projection
             # 4.2.1 - Init output geometry
             geom_out = ogr.Geometry(ogr.wkbPolygon)
@@ -868,7 +868,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     continue  # ignore polygons completely outside the swath
 
                 points = np.transpose(np.array(ring.GetPoints()))
-
                 lon, lat = points[0], points[1]
 
                 x_c, y_c, zone_number, zone_letter = utm.from_latlon(lat[0], lon[0])
@@ -889,7 +888,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
                 lon = lon * DEG2RAD
                 lat = lat * DEG2RAD
-
 
                 if IN_attributes.height_model is None:
                     lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
@@ -918,6 +916,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                         lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
 
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
+                
                 # ~ try:
                     # ~ lac.h_ref=float(polygon_index.GetField(str(IN_attributes.height_name)))
                     # ~ if lac.h_ref==None:
@@ -981,7 +980,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
 
                 else:
                     az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
-                    
+
                 range_tab = np.concatenate((range_tab, r), -1)
                 
                 npoints = len(az)
@@ -990,16 +989,17 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     continue  # Ignore polygons crossing the swath
 
                 for p in range(npoints):  # no fonction ring.SetPoints()
-                    ring.SetPoint(p, az[p], r[p])
-                #ring.Intersection(swath_polygon)
+                    azp = az[p]
+                    rp = r[p]
+                    ring.SetPoint(p, azp, rp)
+                    # ~ if azp < 10e7 and azp >= 0 and rp < 10e7 and rp >= 0:
+                        # ~ ring.SetPoint(p, azp, rp)
                 ring.CloseRings()
 
                 add_ring = True
                 # Add the reprojected ring to the output geometry
                 geom_out.AddGeometry(ring)
             
-            #geom_out=geom_out.Intersection(swath_polygon)
-
             # 4.2.4 - Add Output geometry
             if add_ring:
 
@@ -1022,14 +1022,13 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 #~ # Not used, commented to improve speed
                 if IN_attributes.height_model == 'reference_height':
                     feature_out.SetField(str("HEIGHT"), lac.height)
-
                 # Add the output feature to the output layer
                 layerout.CreateFeature(feature_out)
                 liste_lac.append(lac)
                 indmax += 1
 
     dataout.Destroy()
-
+    
     safe_flag_layover = False
     if (safe_flag_layover) and (IN_attributes.height_model == 'reference_height'):
         liste_lac = intersect(OUT_filename, OUT_filename, indmax, IN_attributes) + liste_lac
@@ -1127,7 +1126,9 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau=0.):
     psi = math_fct.linear_extrap(lat0, IN_attributes.lat_init, IN_attributes.heading_init)
     y = du * np.cos(psi)  # eq (3)
     OUT_azcoord = (math_fct.linear_extrap(lat0, IN_attributes.lat_init, np.arange(len(IN_attributes.lat_init))))
-    nb_points = 50
+    
+    # from 50 to 500 to remove strange bug
+    nb_points = 500
     gamma = np.zeros([len(IN_lat), nb_points])
     beta = np.zeros([len(IN_lat), nb_points])
   
