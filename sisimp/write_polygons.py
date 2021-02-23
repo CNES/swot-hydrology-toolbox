@@ -893,7 +893,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
 
                 if IN_attributes.height_model == 'reference_height':
-                    lac = Reference_height_Lac(ind+1, polygon_index, layerDefn, IN_attributes, id_lake)
+                    lac = Reference_height_Lac(ind+1, polygon_index, layerDefn, IN_attributes, lat, IN_cycle_number, id_lake)
 
                 if IN_attributes.height_model == 'gaussian':
                     if area > IN_attributes.height_model_min_area:
@@ -978,6 +978,10 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     lac.set_hmean(np.mean(lac.compute_h(lat*RAD2DEG, lon*RAD2DEG)))
                     az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
 
+                elif IN_attributes.height_model=='reference_file':
+                    h = lac.compute_h(lat*RAD2DEG, lon*RAD2DEG)
+                    az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=h)
+
                 else:
                     az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
 
@@ -1031,7 +1035,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     
     safe_flag_layover = False
     if (safe_flag_layover) and (IN_attributes.height_model == 'reference_height'):
-        liste_lac = intersect(OUT_filename, OUT_filename, indmax, IN_attributes) + liste_lac
+        liste_lac = intersect(OUT_filename, OUT_filename, indmax, IN_attributes, lat, IN_cycle_number) + liste_lac
 
     IN_attributes.liste_lacs = liste_lac
 
@@ -1195,7 +1199,7 @@ def all_linear_rings(geom):
             yield geom.GetGeometryRef(line_index)
 
 
-def intersect(input, output, indmax, IN_attributes, overwrite=False):
+def intersect(input, output, indmax, IN_attributes, lat, IN_cycle_number, overwrite=False):
 
     # Function to modify polygon shapefile in radar geometry in order to detect overlapped polygons
     # Only intersection between 2 polygons are considered, not multi
@@ -1260,7 +1264,7 @@ def intersect(input, output, indmax, IN_attributes, overwrite=False):
                             out_feat.SetField(str("HEIGHT"), h)
 
                             out_lyr.CreateFeature(out_feat)
-                            lac = Reference_height_Lac(indmax + 1, intersection, defn, IN_attributes)
+                            lac = Reference_height_Lac(indmax + 1, intersection, defn, IN_attributes, lat, IN_cycle_number)
                             lac.height = h
                             lac.set_hmean(np.mean(lac.compute_h()))
                             liste_lac.append(lac)
@@ -1285,7 +1289,7 @@ def intersect(input, output, indmax, IN_attributes, overwrite=False):
                                     out_feat.SetField(str("IND_LAC"), indmax + 1)
                                     out_feat.SetField(str("HEIGHT"), h)
                                     out_lyr.CreateFeature(out_feat)
-                                    lac = Reference_height_Lac(indmax + 1, i, defn, IN_attributes)
+                                    lac = Reference_height_Lac(indmax + 1, i, defn, IN_attributes, lat, IN_cycle_number)
                                     lac.height = h
                                     lac.set_hmean(np.mean(lac.compute_h()))
                                     liste_lac.append(lac)
@@ -1346,9 +1350,9 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
         # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
     # ~ if IN_attributes.height_model == 'polynomial':
         # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-    # ~ if IN_attributes.height_model == 'reference_file':
-        # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-        
+
+    elif IN_attributes.height_model == 'reference_file':
+        near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
     else:
         hmean = IN_attributes.height_model_a + IN_attributes.height_model_a * \
         np.sin(2*np.pi * (np.mean(IN_attributes.orbit_time) + cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period
