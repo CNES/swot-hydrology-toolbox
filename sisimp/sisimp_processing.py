@@ -228,6 +228,7 @@ class Processing(object):
                     
                 elif self.my_attributes.height_model == "reference_height":
                     self.my_attributes.height_name = read_parameter(parameters, "Height shp attribute name", "HEIGHT", str)
+                    self.my_attributes.height_ref_multitemp = read_parameter(parameters, "Height ref multitemp", False, str)
                     
                 elif self.my_attributes.height_model == "reference_file":  # True height file
                     self.my_attributes.trueheight_file = os.path.expandvars(parameters.getValue("True height file"))
