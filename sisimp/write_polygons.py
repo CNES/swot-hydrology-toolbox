@@ -395,18 +395,30 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             #~ indice = np.logical_and(np.isin(r, lac.pixels[0]), np.isin(az, lac.pixels[1]))
             def merge(a,b):
                 return a*100000+b
+            # [range, azimuth] coordinate for a given lake
             titi = merge(lac.pixels[0], lac.pixels[1])
+            # [range, azimuth] coordinate for every water (+ buffer land) pixels of the simulated area
             toto = merge(r, az)
+            # Indices for water pixels which are inside the given lake
             indice = np.isin(toto,titi)
+            # Tree to given closest pixel and distance for a point to the lake pixels
             tree = KDTree(np.column_stack((lac.pixels[0], lac.pixels[1])))
-            indice_water = np.array([r[np.where(tree.query(np.column_stack((r, az)))[0] < 5*np.sqrt(2))[0]],\
-                            az[np.where(tree.query(np.column_stack((r, az)))[0] < 5*np.sqrt(2))[0]]])
-
+            # distance, indices for each pixel to the water (+buffer land) pixels
+            tree_output = tree.query(np.column_stack((r, az)))
+    
+            indice_water = np.array([r[np.where(tree_output[0] < 5*np.sqrt(2))[0]],\
+                            az[np.where(tree_output[0] < 5*np.sqrt(2))[0]]])
+ 
             lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
-        
             indice_water_f = np.isin(toto, merge(indice_water[0],indice_water[1]))
-     
-            elevation_tab[indice_water_f] = lac.hmean
+                       
+            # Same method everywhere now
+            if IN_attributes.height_model == "reference_file":
+                elevation_tab[indice_water_f] = lac.compute_h(lat[indice_water_f], lon[indice_water_f])          
+            else:
+                # ~ elevation_tab[indice_water_f] = lac.hmean
+                elevation_tab[indice_water_f] = lac.compute_h(lat[indice_water_f], lon[indice_water_f])
+
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
 
     # 3 - Build cross-track distance array
