@@ -88,9 +88,8 @@ class Reference_height_Lac(Lac):
                     
             
     def compute_h(self, lat = None, lon = None):
+        
         if self.height_ref_multitemp:
-            return self.height
-        else:
             if self.mode == 'az':
                 self.time = math_fct.linear_extrap(lat, self.lat_init, self.orbit_time)
     
@@ -98,8 +97,9 @@ class Reference_height_Lac(Lac):
                 self.mode = 'az' 
                 
             return self.height_model_a + self.height_model_a * np.sin(2*np.pi * (self.time + self.cycle_number * self.cycle_duration) - self.height_model_t0) / self.height_model_period
-
-        
+        else:
+            return self.height
+            
 class Gaussian_Lac(Lac):
     
     def __init__(self, num, IN_attributes, lat, lon, IN_cycle_number, id=None):
