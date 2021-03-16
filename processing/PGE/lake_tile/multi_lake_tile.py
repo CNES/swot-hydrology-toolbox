@@ -30,6 +30,7 @@ import configparser as cfg
 import datetime
 import os
 import sys
+import multiprocessing as mp
 
 import cnes.common.lib.my_tools as my_tools
 import cnes.common.lib.my_timer as my_timer
@@ -90,6 +91,7 @@ class MultiLakeTile(object):
         self.list_pixc = []  # PIXC files
         self.list_pixc_vec_river = []  # PIXCVecRiver
         self.nb_input = 0  # Nb of input files
+        self.cmd_file_path_list = [] # list of command files
 
     def run_preprocessing(self):
         """
@@ -159,33 +161,32 @@ class MultiLakeTile(object):
         print("[multiLakeTileProcessing]   --> %d tile(s) to deal with" % self.nb_input)
         print("")
 
-    def run_processing(self):
+        for indf in range(self.nb_input):  # Deal with all selected files
+            print("[multiLakeTileProcessing]  Writing command files %d / %d" %(indf, self.nb_input))
+            print("")
+
+            cmd_file_path = self.create_cmd_file(indf)
+            self.cmd_file_path_list.append(cmd_file_path)
+
+
+    def run_processing(self, cmd_file = None):
         """
         Process SAS_L2_HR_LakeTile for each input tile
         """
         print("")
         print("")
-        print("[multiLakeTileProcessing] PROCESSING...")
-        print("")
-        print("")
-
         timer_proc = my_timer.Timer()
-
-        if self.nb_input != 0:
-
-            for indf in range(self.nb_input):  # Deal with all selected files
-                
-                timer_proc.start()  # Init timer
-
-                print("****************************************************************************************************************")
-                print("***** Dealing with tile %d / %d = %s *****" % (indf+1, self.nb_input, self.list_pixc[indf]))
-                print("****************************************************************************************************************")
+        timer_proc.start()  # Init timer
+        if not cmd_file:
+            for indf, cmd_file in enumerate(self.cmd_file_path_list) :
+                print(
+                    "****************************************************************************************************************")
+                print("***** Dealing with command file %d / %d *****" % (indf, len(self.cmd_file_path_list)))
+                print(
+                    "****************************************************************************************************************")
                 print("")
                 print("")
 
-                # 1 - Initialization
-                cmd_file = self.create_cmd_file(indf)
-                print(cmd_file)
                 my_lake_tile = pge_lake_tile.PGELakeTile(cmd_file)
 
                 # 2 - Run
@@ -194,14 +195,42 @@ class MultiLakeTile(object):
                 # 3 - Stop
                 my_lake_tile.stop()
 
-                print("")
-                print(timer_proc.stop())  # Print tile process duration
-                print("")
-                print("")
+        else :
+            print(
+                "****************************************************************************************************************")
+            print("***** Dealing with command file %s *****" % (cmd_file))
+            print(
+                "****************************************************************************************************************")
+            print("")
+            print("")
 
-            print("****************************************************************************************************************")
-            print("")
-            print("")
+            # 1 - Init
+            my_lake_tile = pge_lake_tile.PGELakeTile(cmd_file)
+
+            # 2 - Run
+            my_lake_tile.start()
+
+            # 3 - Stop
+            my_lake_tile.stop()
+
+        print("****************************************************************************************************************")
+        print("")
+        print("")
+        print(timer_proc.stop())  # Print tile process duration
+        print("")
+        print("")
+
+    def run_multiprocessing(self):
+        n_cores = int(mp.cpu_count())
+        pool = mp.Pool(n_cores)
+        with pool:
+            print('Running map')
+            print("[multiLakeTileProcessing] PROCESSING...")
+            tmp_result = pool.map(self.run_processing, self.cmd_file_path_list)
+
+            pool.close()
+            pool.join()
+
 
     def create_cmd_file(self, indf):
         """
@@ -423,14 +452,13 @@ def read_command_file(in_filename):
     return out_params
 
 
-#######################################
-
-
 if __name__ == '__main__':
 
     # 0 - Parse inline parameters
     parser = argparse.ArgumentParser(description="Compute SWOT LakeTile products from multiple tiles of PIXC products and their associated PIXCVecRiver products.")
     parser.add_argument("command_file", help="command file (*.cfg)")
+    parser.add_argument("-mp", "--multiproc", help="if true, tiles will be computed in parallel", nargs='?', type=bool,
+                        default=False, const=True)
     args = parser.parse_args()
 
     print("===== multiLakeTileProcessing = BEGIN =====")
@@ -453,7 +481,11 @@ if __name__ == '__main__':
     print(timer.info(0))
 
     # 4 - Run processing
-    multi_lake_tile.run_processing()
+    if args.multiproc:
+        multi_lake_tile.run_multiprocessing()
+    else :
+        multi_lake_tile.run_processing()
+
     print(timer.info(0))
 
     print("")

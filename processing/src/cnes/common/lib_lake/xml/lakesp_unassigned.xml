@@ -89,8 +89,8 @@
       <string name="xref_static_lake_db_file">
         <annotation description="Name of static lake a priori database file used to generate data in product."/>
       </string>
-      <string name="xref_l2_hr_lake_sp_config_parameter_file">
-        <annotation description="Name of PGE_L2_HR_LakeSP configuration parameters file."/>
+      <string name="xref_l2_hr_lake_tile_config_parameter_file">
+        <annotation description="Name of PGE_L2_HR_LakeTile configuration parameters file."/>
       </string>
     </global_metadata>
     <attribute_metadata>
@@ -154,31 +154,31 @@
       <int4 name="xovr_cal_q">
         <annotation fill_value="-999" long_name="quality of the cross-over calibrations" flag_meanings="TBD" flag_masks="TBD" flag_values="TBD" valid_min="0" valid_max="TBD" tag_basic_expert="Basic" comment="Quality of the cross-over calibration."/>
       </int4>
-      <float name="geoid_hght" width="17" precision="3">
+      <float name="geoid_hght" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="geoid height" standard_name="geoid_height_above_reference_ellipsoid" source="EGM2008" institution="GSFC" units="m" valid_min="-150" valid_max="150" tag_basic_expert="Basic" comment="Lake-averaged geoid model height above the reference ellipsoid. The value is computed from the EGM2008 geoid model with a correction to refer the value to the mean tide system (i.e., includes the zero-frequency permanent tide)."/>
       </float>
-      <float name="solid_tide" width="17" precision="3">
+      <float name="solid_tide" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="solid Earth tide height" source="Cartwright and Taylor (1971) and Cartwright and Edden (1973)" units="m" valid_min="-1" valid_max="1" tag_basic_expert="Expert" comment="Solid-Earth (Body) tide height, averaged over the lake. The zero-frequency permanent tide component is not included."/>
       </float>
-      <float name="load_tidef" width="17" precision="3">
+      <float name="load_tidef" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="geocentric load tide height (FES)" source="FES2014b (Carrere et al., 2016)" institution="LEGOS/CNES" units="m" valid_min="-0.2" valid_max="0.2" tag_basic_expert="Expert" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth’s crust. This value is used to compute wse."/>
       </float>
-      <float name="load_tideg" width="17" precision="3">
+      <float name="load_tideg" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="geocentric load tide height (GOT)" source="GOT4.10c (Ray, 2013)" institution="GSFC" units="m" valid_min="-0.2" valid_max="0.2" tag_basic_expert="Expert" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth’s crust."/>
       </float>
-      <float name="pole_tide" width="17" precision="3">
+      <float name="pole_tide" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="height of pole tide" units="m" source="Wahr (1985) and Desai et al. (2015)" valid_min="-0.2" valid_max="0.2" tag_basic_expert="Expert" comment="Geocentric pole tide height. The sum total of the contribution from the solid-Earth (body) pole tide height and the load pole tide height (i.e., the effect of the ocean pole tide loading of the Earth’s crust).."/>
       </float>
-      <float name="dry_trop_c" width="17" precision="3">
+      <float name="dry_trop_c" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="dry tropospheric vertical correction to WSE" source="European Centre for Medium-Range Weather Forecasting" institution="ECMWF" units="m" valid_min="-3" valid_max="-1.5" tag_basic_expert="Expert" comment="Equivalent vertical correction due to dry troposphere delay. Adding the reported correction to the reported lake WSE results in the uncorrected lake WSE."/>
       </float>
-      <float name="wet_trop_c" width="17" precision="3">
+      <float name="wet_trop_c" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="wet tropospheric vertical correction to WSE" source="European Centre for Medium-Range Weather Forecasting" institution="ECMWF" units="m" valid_min="-1" valid_max="0" tag_basic_expert="Expert" comment="Equivalent vertical correction due to wet troposphere delay. Adding the reported correction to the reported lake WSE results in the uncorrected lake WSE."/>
       </float>
-      <float name="iono_c" width="17" precision="3">
+      <float name="iono_c" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="ionospheric vertical correction to WSE" source="Global Ionosphere Maps" institution="JPL" units="m" valid_min="-0.5" valid_max="0" tag_basic_expert="Expert" comment="Equivalent vertical correction due to ionosphere delay. Adding the reported correction to the reported lake WSE results in the uncorrected lake WSE."/>
       </float>
-      <float name="xovr_cal_c" width="17" precision="3">
+      <float name="xovr_cal_c" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="crossover calibration height correction" units="m" valid_min="-10" valid_max="10" tag_basic_expert="Expert" comment="Equivalent height correction estimated from KaRIn crossover calibration. The correction is applied during processing before geolocation in terms of roll, baseline dilation, etc., but reported as an equivalent height correction. The correction term should be subtracted from the reported WSE to obtain the uncorrected WSE."/>
       </float>
     </attribute_metadata>

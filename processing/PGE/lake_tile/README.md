@@ -74,7 +74,16 @@ They are:
 * __FLAG_WATER__ is the list of water flags to keep for processing (3=water near land edge  4=interior water)
 * __FLAG_DARK__ is the list of dark water flags to keep for processing (23=dark water near land edge  24=interior dark water)
 * __MIN_SIZE__ is the minimum size for a lake to generate a lake product (=polygon + attributes) for it
-* __STD_HEIGHT_MAX__ is the maximal standard deviation of height inside a lake; this value is used to distinguish different lakes that may be merged in the radar geometry
+* __MIN_OVERLAP__ is the minimum percentage of overlapping area to consider a PLD lake linked to an observed feature
+* __SEGMENTATION_METHOD__ is the segmentation method chosen; this value is used to distinguish different lakes that may be merged in the radar geometry
+  * 1 = Felzenszwalb
+  * 2 = SLIC
+  * 3 = Unsupervised thresholding
+  * 4 = Watershed segmentation method
+  * 5 = k-means clustering method
+  * 6 = hierarchical clustering
+  * 7 (default) = Otsu thresholding
+  * 8 = MeanShift
 * __IMP_GEOLOC__ is the flag to improve PixC golocation (=True) or not (=False)
 * __HULL_METHOD__ is the method to compute lake boundary (or polygon hull): 
   * 0 = convex hull
@@ -84,7 +93,7 @@ They are:
 * __NB_PIX_MAX_DELAUNEY__ is the max number of pixels used for Delaunay triangulation (when ```HULL_METHOD = 1.1```)
 * __NB_PIX_MAX_CONTOUR__ is the maximum number of contour points (when ```HULL_METHOD = 2```)
 * __BIGLAKE_MODEL, BIGLAKE_MIN_SIZE, BIGLAKE_GRID_SPACING, BIGLAKE_GRID_RES__ are parameters specific to the processing of "big" lakes, ie. lakes with an area greater than BIGLAKE_MIN_SIZE
-* __NB_DIGITS__ are the number of digits for a counter of lakes in a tile or pass, used in the LakeID of each observed lake
+* __NB_DIGITS__ are the number of digits for a counter of lakes in a tile or pass, used in the obs_id identifier of each observed lake
 
 ### Input files
 

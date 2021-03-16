@@ -33,6 +33,7 @@ import datetime
 from lxml import etree as ET
 import os
 import sys
+import multiprocessing as mp
 
 import cnes.common.lib.my_tools as my_tools
 import cnes.common.lib.my_timer as my_timer
@@ -95,6 +96,7 @@ class MultiLakeSP(object):
         self.list_laketile_edge_files = []
         self.list_laketile_pixcvec_files = []
         self.nb_input = 0  # Nb of input files
+        self.cmd_file_path_list = []  # list of command files
 
     def run_preprocessing(self):
         """
@@ -160,10 +162,65 @@ class MultiLakeSP(object):
             print("[multiLakeSPProcessing]  cycle %s pass %s continent %s" % (cycle_num, pass_num, continent))
         print("")
 
-    def run_processing(self):
+        print("[multiLakeSPProcessing]  Writing command files")
+        for (cycle_num, pass_num, continent) in self.cycle_pass_set:
+            print("[multiLakeSPProcessing]  Writing command files for cycle %s orbit %s and continent %s" %(cycle_num, pass_num, continent))
+            print("")
+
+            cmd_file = self.create_cmd_file(cycle_num, pass_num, continent)
+            self.cmd_file_path_list.append(cmd_file)
+
+    def run_processing(self, cmd_file = None):
         """
-        Process SAS_L2_HR_LakeTile for each input tile
+        Process SAS_L2_HR_LakeSP for each input tile
         """
+        print("")
+        print("")
+        timer_proc = my_timer.Timer()
+        timer_proc.start()  # Init timer
+        if not cmd_file:
+            for indf, cmd_file in enumerate(self.cmd_file_path_list):
+                print(
+                    "****************************************************************************************************************")
+                print("***** Dealing with command file %d / %d *****" % (indf, len(self.cmd_file_path_list)))
+                print(
+                    "****************************************************************************************************************")
+                print("")
+                print("")
+
+                my_lake_sp = pge_lake_sp.PGELakeSP(cmd_file)
+
+                # 2 - Run
+                my_lake_sp.start()
+
+                # 3 - Stop
+                my_lake_sp.stop()
+
+        else:
+            print(
+                "****************************************************************************************************************")
+            print("***** Dealing with command file %s *****" % (cmd_file))
+            print(
+                "****************************************************************************************************************")
+            print("")
+            print("")
+            my_lake_sp = pge_lake_sp.PGELakeSP(cmd_file)
+
+            # 2 - Run
+            my_lake_sp.start()
+
+            # 3 - Stop
+            my_lake_sp.stop()
+
+            print(
+                "****************************************************************************************************************")
+            print("")
+            print("")
+        print("")
+        print(timer_proc.stop())  # Print tile process duration
+        print("")
+        print("")
+
         print("")
         print("")
         print("[multiLakeSPProcessing] PROCESSING...")
@@ -172,35 +229,18 @@ class MultiLakeSP(object):
 
         timer_proc = my_timer.Timer()
 
-        for (cycle_num, pass_num, continent) in self.cycle_pass_set:  # Deal with all selected files
-        
-            timer_proc.start()
 
-            print("***********************************************")
-            print("***** Dealing with cycle %s and pass %s *****" % (cycle_num, pass_num))
-            print("***********************************************")
-            print("")
-            print("")
 
-            # 1 - Initialization
-            cmd_file = self.create_cmd_file(cycle_num, pass_num, continent)
+    def run_multiprocessing(self):
+        n_cores = int(mp.cpu_count())
+        pool = mp.Pool(n_cores)
+        with pool:
+            print('Running map')
+            print("[multiLakeTileProcessing] PROCESSING...")
+            tmp_result = pool.map(self.run_processing, self.cmd_file_path_list)
 
-            my_lake_tile = pge_lake_sp.PGELakeSP(cmd_file)
-
-            # 2 - Run
-            my_lake_tile.start()
-
-            # 3 - Stop
-            my_lake_tile.stop()
-
-            print("")
-            print(timer_proc.stop())
-            print("")
-            print("")
-
-        print("****************************************************************************************************************")
-        print("")
-        print("")
+            pool.close()
+            pool.join()
 
     def create_cmd_file(self, cycle_num, pass_num, continent):
         """
@@ -242,12 +282,6 @@ class MultiLakeSP(object):
         
         # 3.1 - Fill PATHS section
         writer_command_file.write("[PATHS]\n")
-        if self.param_file is not None:
-            writer_command_file.write("param_file = %s\n" % self.param_file)
-        else:
-            # needed by jenkins script
-            writer_command_file.write("param_file = " + os.path.join(sys.path[0], "lake_sp_param.cfg") + "\n")
-
         writer_command_file.write("LakeTile directory = " + self.laketile_dir + "\n")
         writer_command_file.write("Output directory = " + self.output_dir + "\n")
         writer_command_file.write("\n")
@@ -428,6 +462,8 @@ if __name__ == '__main__':
     # 0 - Parse inline parameters
     parser = argparse.ArgumentParser(description="Compute multiple SWOT LakeSP products from multiple tiles of LakeTile product.")
     parser.add_argument("command_file", help="command file (*.cfg)")
+    parser.add_argument("-mp", "--multiproc", help="if true, tiles will be computed in parallel", nargs='?', type=bool,
+                        default=False, const=True)
     args = parser.parse_args()
 
     print("===== multiLakeSPProcessing = BEGIN =====")
@@ -450,7 +486,10 @@ if __name__ == '__main__':
     print(timer.info(0))
 
     # 4 - Run processing
-    multi_lake_sp.run_processing()
+    if args.multiproc:
+        multi_lake_sp.run_multiprocessing()
+    else :
+        multi_lake_sp.run_processing()
     print(timer.info(0))
 
     print("")

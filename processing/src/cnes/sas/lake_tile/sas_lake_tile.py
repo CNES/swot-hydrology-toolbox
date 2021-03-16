@@ -108,7 +108,8 @@ class SASLakeTile(object):
 
                 # 3 - Retrieve pixels corresponding to lakes and unknown entirely inside the tile
                 logger.info("2 - Getting pixels corresponding to lakes and unknown entirely inside the tile...")
-                self.obj_pixc.compute_obj_inside_tile()
+                self.obj_pixc.compute_obj_inside_tile(self.obj_lake_db.az_0_geom, self.obj_lake_db.az_max_geom, self.obj_lake_db.az_0_and_max_geom)
+
                 logger.info("" + timer_proc.info(0))
                 logger.info("")
 
@@ -143,5 +144,23 @@ class SASLakeTile(object):
         logger.sigmsg("===== POST-PROCESSING =====")
         logger.sigmsg("===========================")
         logger.sigmsg("")
-        logger.info("NOTHING TO DO")
+        
+        # 1 - Print high level comparison between _Obs and _Prior files
+        # 1.1 - Compute stats for _Obs file
+        self.obj_lake.compute_obs_stats()
+        # 1.2 - Print comparison
+        for param in self.obj_lake.compare_stats_params:
+            diff = abs(self.obj_lake.compare_stats["obs"][param] - self.obj_lake.compare_stats["prior"][param])
+            mean_value = (self.obj_lake.compare_stats["obs"][param] + self.obj_lake.compare_stats["prior"][param])/2.0
+            diff_rel = 0.0
+            if mean_value != 0:
+                diff_rel = diff / mean_value
+            msg = "[{}] _Obs = {} - _Prior = {} - Diff = {} ({}%)".format(param, self.obj_lake.compare_stats["obs"][param],
+                            self.obj_lake.compare_stats["prior"][param], diff, diff_rel*100.0)
+            if diff_rel > 0.1:
+                logger.warning(msg)
+            else:
+                logger.info(msg)
+        
+        logger.info("")
         

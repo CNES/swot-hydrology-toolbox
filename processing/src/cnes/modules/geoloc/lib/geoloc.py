@@ -388,10 +388,12 @@ def pointcloud_height_geoloc_vect(p_noisy, h_noisy, s, vs, range_target, h_targe
         d3G_dth2dmu = 2 * (dd_dmu * GEN_RAD_EARTH_EQ * s_th + dz_dmu * GEN_RAD_EARTH_POLE * c_th)
         B = dG_dmu - d2G_dthdmu * dG_dth / d2G_dth2 + dG_dth ** 2 * d3G_dth2dmu / d2G_dth2 ** 2 / 2
 
-        # 7 - compute delta_mu
-        delta_mu = (h_target ** 2 - A) / B
-
-        # 6 - rescale mu before iteration
+        # 6 - compute delta_mu ## if B == 0, delta_mu = 0
+        ind = numpy.where(B!=0)
+        delta_mu = numpy.zeros_like(B)
+        delta_mu[ind] = (h_target[ind] ** 2 - A[ind]) / B[ind]
+        
+        # 7 - rescale mu before iteration
         mu += delta_mu  # note that if this is the last iteration and we got that far (error criterion not met), then this is never applied
         iter_grad += 1
 

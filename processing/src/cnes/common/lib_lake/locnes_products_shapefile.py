@@ -181,6 +181,8 @@ class ShapefileProduct(my_prod.LocnesProduct):
             if os.path.exists(in_filename):
                 logger.warning("Output shapefile %s already exists => delete file" % in_filename)
                 driver.DeleteDataSource(in_filename)
+            else:
+                logger.info("Output shapefile = %s" % in_filename)
             self.data_source = driver.CreateDataSource(in_filename)
         
         # 2 - Create layer
@@ -367,7 +369,8 @@ class LakeTileShpProduct(ShapefileProduct):
         self.config_metadata["flag_water"] = str(cfg.get('CONFIG_PARAMS', 'FLAG_WATER'))
         self.config_metadata["flag_dark"] = str(cfg.get('CONFIG_PARAMS', 'FLAG_DARK'))
         self.config_metadata["min_size"] = cfg.get('CONFIG_PARAMS', 'MIN_SIZE')
-        self.config_metadata["std_height_max"] = cfg.get('CONFIG_PARAMS', 'STD_HEIGHT_MAX')
+        self.config_metadata["min_overlap"] = cfg.get('CONFIG_PARAMS', 'MIN_OVERLAP')
+        self.config_metadata["segmentation_method"] = cfg.get('CONFIG_PARAMS', 'SEGMENTATION_METHOD')
         self.config_metadata["imp_geoloc"] = cfg.get('CONFIG_PARAMS', 'IMP_GEOLOC')
         self.config_metadata["hull_method"] = cfg.get('CONFIG_PARAMS', 'HULL_METHOD')
         self.config_metadata["nb_pix_max_delauney"] = cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY')
@@ -376,6 +379,7 @@ class LakeTileShpProduct(ShapefileProduct):
         self.config_metadata["biglake_min_size"] = cfg.get('CONFIG_PARAMS', 'BIGLAKE_MIN_SIZE')
         self.config_metadata["biglake_grid_spacing"] = cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_SPACING')
         self.config_metadata["biglake_grid_res"] = cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_RES')
+        self.config_metadata["nb_digits"] = cfg.get('CONFIG_PARAMS', 'NB_DIGITS')
 
 
 class LakeTileObsProduct(LakeTileShpProduct):
@@ -635,15 +639,18 @@ def check_lake_db(in_xml_tree):
     else:
         # Compare full path or basename of PLD depending on the environment (Simulation or else)
         if source == "Simulation":
-            tmp_compare = lake_db
+            tmp_compare_cfg = lake_db
+            tmp_compare_xml = lake_db_xml
         else:
-            tmp_compare = os.path.basename(lake_db)
+            tmp_compare_cfg = os.path.basename(lake_db)
+            tmp_compare_xml = os.path.basename(lake_db_xml)
+            
         # Test
         if (lake_db is None):
-            message = "ERROR bad lake_db. In XML file: " + lake_db_xml + " WHEREAS in config file: None"
+            message = "ERROR bad lake_db. In XML file: " + lake_db_xml + " WHEREAS in command file: None"
             raise service_error.ProcessingError(message, logger)
-        elif (tmp_compare != lake_db_xml):
-            message = "ERROR bad lake_db. In XML file: " + lake_db_xml + " WHEREAS in config file: " + tmp_compare
+        elif (tmp_compare_cfg != tmp_compare_xml):
+            message = "ERROR bad lake_db. In XML file: " + tmp_compare_xml + " WHEREAS in command file: " + tmp_compare_cfg
             raise service_error.ProcessingError(message, logger)
             
     # Print PLD filename in log
@@ -678,7 +685,7 @@ def check_lake_db_id(in_xml_tree):
         logger.warning('LAKE_DB_ID not filled')
     else:
         if (lake_db_id != lake_db_id_xml):
-            message = "ERROR bad lake_db_id. In XML file: " + lake_db_id + " WHEREAS in config file: " + lake_db_id_xml
+            message = "ERROR bad lake_db_id. In XML file: " + lake_db_id + " WHEREAS in command file: " + lake_db_id_xml
             raise service_error.ProcessingError(message, logger)
             
     # Print lake identifier in log
@@ -727,13 +734,26 @@ def set_config_from_xml(in_xml_tree):
         cfg.set(section, "MIN_SIZE", min_size)
         logger.debug('MIN_SIZE = ' + str(cfg.get('CONFIG_PARAMS', 'MIN_SIZE')))
         
-        # Maximal standard deviation of height inside a lake (-1 = do not compute lake height segmentation)
-        std_height_max = float(in_xml_tree.xpath("//swot_product/processing_parameters/std_height_max")[0].text)
-        cfg.set(section, "STD_HEIGHT_MAX", std_height_max)
-        logger.debug('STD_HEIGHT_MAX = ' + str(cfg.get('CONFIG_PARAMS', 'STD_HEIGHT_MAX')))
+        # Min percentage of overlapping area to consider a PLD lake linked to an observed feature
+        min_overlap = float(in_xml_tree.xpath("//swot_product/processing_parameters/min_overlap")[0].text)
+        cfg.set(section, "MIN_OVERLAP", min_overlap)
+        logger.debug('MIN_OVERLAP = ' + str(cfg.get('CONFIG_PARAMS', 'MIN_OVERLAP')))
+        
+        # Method to compute height-segmentation
+        # 1 = Felzenszwalb
+        # 2 = SLIC
+        # 3 = Unsupervised thresholding
+        # 4 = Watershed segmentation method
+        # 5 = k-means clustering method
+        # 6 = hierarchical clustering
+        # 7 (default) = Otsu thresholding
+        # 8 = MeanShift
+        segmentation_method = float(in_xml_tree.xpath("//swot_product/processing_parameters/segmentation_method")[0].text)
+        cfg.set(section, "SEGMENTATION_METHOD", segmentation_method)
+        logger.debug('SEGMENTATION_METHOD = ' + str(cfg.get('CONFIG_PARAMS', 'SEGMENTATION_METHOD')))
             
         # To improve PixC golocation (=True) or not (=False)
-        imp_geoloc = bool(in_xml_tree.xpath("//swot_product/processing_parameters/imp_geoloc")[0].text)
+        imp_geoloc = in_xml_tree.xpath("//swot_product/processing_parameters/imp_geoloc")[0].text
         cfg.set(section, "IMP_GEOLOC", imp_geoloc)
         logger.debug('IMP_GEOLOC = ' + str(cfg.get('CONFIG_PARAMS', 'IMP_GEOLOC')))
         
@@ -773,6 +793,11 @@ def set_config_from_xml(in_xml_tree):
         biglake_grid_res = int(in_xml_tree.xpath("//swot_product/processing_parameters/biglake_grid_res")[0].text)
         cfg.set(section, "BIGLAKE_GRID_RES", biglake_grid_res)
         logger.debug('BIGLAKE_GRID_RES = ' + str(cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_RES')))
+        
+        # Nb digits for counter of lakes, used in the obs_id identifier of each observed lake
+        nb_digits = int(in_xml_tree.xpath("//swot_product/processing_parameters/nb_digits")[0].text)
+        cfg.set(section, "NB_DIGITS", nb_digits)
+        logger.debug('NB_DIGITS = ' + str(cfg.get('CONFIG_PARAMS', 'NB_DIGITS')))
 
     else:
         
@@ -783,7 +808,7 @@ def set_config_from_xml(in_xml_tree):
             flag_water_xml = in_xml_tree.xpath("//swot_product/processing_parameters/flag_water")[0].text
             flag_water = cfg.get(section, "FLAG_WATER")
             if (flag_water_xml != flag_water):
-                message = "ERROR bad flag_water. In XML file: " + str(flag_water_xml) + " WHEREAS in config file: " + str(flag_water)
+                message = "ERROR bad flag_water. In XML file: " + str(flag_water_xml) + " WHEREAS previously set at: " + str(flag_water)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('FLAG_WATER = ' + str(cfg.get('CONFIG_PARAMS', 'FLAG_WATER')))
             
@@ -791,7 +816,7 @@ def set_config_from_xml(in_xml_tree):
             flag_dark_xml = in_xml_tree.xpath("//swot_product/processing_parameters/flag_dark")[0].text
             flag_dark = cfg.get(section, "FLAG_DARK")
             if (flag_dark_xml != flag_dark):
-                message = "ERROR bad flag_dark. In XML file: " + str(flag_dark_xml) + " WHEREAS in config file: " + str(flag_dark)
+                message = "ERROR bad flag_dark. In XML file: " + str(flag_dark_xml) + " WHEREAS previously set at: " + str(flag_dark)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('FLAG_DARK = ' + str(cfg.get('CONFIG_PARAMS', 'FLAG_DARK')))
             
@@ -799,23 +824,39 @@ def set_config_from_xml(in_xml_tree):
             min_size_xml = float(in_xml_tree.xpath("//swot_product/processing_parameters/min_size")[0].text)
             min_size = cfg.getfloat(section, "MIN_SIZE")
             if (min_size_xml != min_size):
-                message = "ERROR bad min_size. In XML file: " + str(min_size_xml) + " WHEREAS in config file: " + str(min_size)
+                message = "ERROR bad min_size. In XML file: " + str(min_size_xml) + " WHEREAS previously set at: " + str(min_size)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('MIN_SIZE = ' + str(cfg.get('CONFIG_PARAMS', 'MIN_SIZE')))
             
-            # Maximal standard deviation of height inside a lake (-1 = do not compute lake height segmentation)
-            std_height_max_xml = float(in_xml_tree.xpath("//swot_product/processing_parameters/std_height_max")[0].text)
-            std_height_max = cfg.getfloat(section, "STD_HEIGHT_MAX")
-            if (std_height_max_xml != std_height_max):
-                message = "ERROR bad std_height_max. In XML file: " + str(std_height_max_xml) + " WHEREAS in config file: " + str(std_height_max)
+            # Min percentage of overlapping area to consider a PLD lake linked to an observed feature
+            min_overlap_xml = float(in_xml_tree.xpath("//swot_product/processing_parameters/min_overlap")[0].text)
+            min_overlap = cfg.getfloat(section, "MIN_OVERLAP")
+            if (min_overlap_xml != min_overlap):
+                message = "ERROR bad min_overlap. In XML file: " + str(min_overlap_xml) + " WHEREAS previously set at: " + str(min_overlap)
                 raise service_error.ProcessingError(message, logger)
-            logger.debug('STD_HEIGHT_MAX = ' + str(cfg.get('CONFIG_PARAMS', 'STD_HEIGHT_MAX')))
+            logger.debug('MIN_OVERLAP = ' + str(cfg.get('CONFIG_PARAMS', 'MIN_OVERLAP')))
+            
+            # Method to compute height-segmentation
+            # 1 = Felzenszwalb
+            # 2 = SLIC
+            # 3 = Unsupervised thresholding
+            # 4 = Watershed segmentation method
+            # 5 = k-means clustering method
+            # 6 = hierarchical clustering
+            # 7 (default) = Otsu thresholding
+            # 8 = MeanShift
+            segmentation_method_xml = float(in_xml_tree.xpath("//swot_product/processing_parameters/segmentation_method")[0].text)
+            segmentation_method = cfg.getint(section, "SEGMENTATION_METHOD")
+            if (segmentation_method_xml != segmentation_method):
+                message = "ERROR bad segmentation_method. In XML file: " + str(segmentation_method_xml) + " WHEREAS previously set at: " + str(segmentation_method)
+                raise service_error.ProcessingError(message, logger)
+            logger.debug('SEGMENTATION_METHOD = ' + str(cfg.get('CONFIG_PARAMS', 'SEGMENTATION_METHOD')))
     
             # To improve PixC golocation (=True) or not (=False)
-            imp_geoloc_xml = (in_xml_tree.xpath("//swot_product/processing_parameters/imp_geoloc")[0].text).lower() == "true"
+            imp_geoloc_xml = bool(in_xml_tree.xpath("//swot_product/processing_parameters/imp_geoloc")[0].text)
             imp_geoloc = cfg.getboolean(section, "IMP_GEOLOC")
             if (imp_geoloc_xml != imp_geoloc):
-                message = "ERROR bad imp_geoloc. In XML file: " + str(imp_geoloc_xml) + " WHEREAS in config file: " + str(imp_geoloc)
+                message = "ERROR bad imp_geoloc. In XML file: " + str(imp_geoloc_xml) + " WHEREAS previously set at: " + str(imp_geoloc)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('IMP_GEOLOC = ' + str(cfg.get('CONFIG_PARAMS', 'IMP_GEOLOC')))
             
@@ -827,7 +868,7 @@ def set_config_from_xml(in_xml_tree):
             hull_method_xml = float(in_xml_tree.xpath("//swot_product/processing_parameters/hull_method")[0].text)
             hull_method = cfg.getfloat(section, "HULL_METHOD")
             if (hull_method_xml != hull_method):
-                message = "ERROR bad hull_method. In XML file: " + str(hull_method_xml) + " WHEREAS in config file: " + str(hull_method)
+                message = "ERROR bad hull_method. In XML file: " + str(hull_method_xml) + " WHEREAS previously set at: " + str(hull_method)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('HULL_METHOD = ' + str(cfg.get('CONFIG_PARAMS', 'HULL_METHOD')))
             
@@ -835,7 +876,7 @@ def set_config_from_xml(in_xml_tree):
             nb_pix_max_delauney_xml = int(in_xml_tree.xpath("//swot_product/processing_parameters/nb_pix_max_delauney")[0].text)
             nb_pix_max_delauney = cfg.getint(section, "NB_PIX_MAX_DELAUNEY")
             if (nb_pix_max_delauney_xml != nb_pix_max_delauney):
-                message = "ERROR bad nb_pix_max_delauney. In XML file: " + str(nb_pix_max_delauney_xml) + " WHEREAS in config file: " \
+                message = "ERROR bad nb_pix_max_delauney. In XML file: " + str(nb_pix_max_delauney_xml) + " WHEREAS previously set at: " \
                                                                          + str(nb_pix_max_delauney)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('NB_PIX_MAX_DELAUNEY = ' + str(cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY')))
@@ -844,7 +885,7 @@ def set_config_from_xml(in_xml_tree):
             nb_pix_max_contour_xml = int(in_xml_tree.xpath("//swot_product/processing_parameters/nb_pix_max_contour")[0].text)
             nb_pix_max_contour = cfg.getint(section, "NB_PIX_MAX_CONTOUR")
             if (nb_pix_max_contour_xml != nb_pix_max_contour):
-                message = "ERROR bad nb_pix_max_contour. In XML file: " + str(nb_pix_max_contour_xml) + " WHEREAS in config file: " \
+                message = "ERROR bad nb_pix_max_contour. In XML file: " + str(nb_pix_max_contour_xml) + " WHEREAS previously set at: " \
                                                                         + str(nb_pix_max_contour)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('NB_PIX_MAX_CONTOUR = ' + str(cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_CONTOUR')))
@@ -854,14 +895,14 @@ def set_config_from_xml(in_xml_tree):
             biglake_model_xml = in_xml_tree.xpath("//swot_product/processing_parameters/biglake_model")[0].text
             biglake_model = cfg.get(section, "BIGLAKE_MODEL")
             if (biglake_model_xml != biglake_model):
-                message = "ERROR bad biglake_model. In XML file: " + str(biglake_model_xml) + " WHEREAS in config file: " + str(biglake_model)
+                message = "ERROR bad biglake_model. In XML file: " + str(biglake_model_xml) + " WHEREAS previously set at: " + str(biglake_model)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('BIGLAKE_MODEL = ' + str(cfg.get('CONFIG_PARAMS', 'BIGLAKE_MODEL')))
             # Min size for lake to be considered as big
             biglake_min_size_xml = float(in_xml_tree.xpath("//swot_product/processing_parameters/biglake_min_size")[0].text)
             biglake_min_size = cfg.getfloat(section, "BIGLAKE_MIN_SIZE")
             if (biglake_min_size_xml != biglake_min_size):
-                message = "ERROR bad biglake_min_size. In XML file: " + str(biglake_min_size_xml) + " WHEREAS in config file: " \
+                message = "ERROR bad biglake_min_size. In XML file: " + str(biglake_min_size_xml) + " WHEREAS previously set at: " \
                           + str(biglake_min_size)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('BIGLAKE_MIN_SIZE = ' + str(cfg.get('CONFIG_PARAMS', 'BIGLAKE_MIN_SIZE')))
@@ -869,7 +910,7 @@ def set_config_from_xml(in_xml_tree):
             biglake_grid_spacing_xml = int(in_xml_tree.xpath("//swot_product/processing_parameters/biglake_grid_spacing")[0].text)
             biglake_grid_spacing = cfg.getint(section, "BIGLAKE_GRID_SPACING")
             if (biglake_grid_spacing_xml != biglake_grid_spacing):
-                message = "ERROR bad biglake_grid_spacing. In XML file: " + str(biglake_grid_spacing_xml) + " WHEREAS in config file: " \
+                message = "ERROR bad biglake_grid_spacing. In XML file: " + str(biglake_grid_spacing_xml) + " WHEREAS previously set at: " \
                           + str(biglake_grid_spacing)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('BIGLAKE_GRID_SPACING = ' + str(cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_SPACING')))
@@ -877,10 +918,19 @@ def set_config_from_xml(in_xml_tree):
             biglake_grid_res_xml = int(in_xml_tree.xpath("//swot_product/processing_parameters/biglake_grid_res")[0].text)
             biglake_grid_res = cfg.getint(section, "BIGLAKE_GRID_RES")
             if (biglake_grid_res_xml != biglake_grid_res):
-                message = "ERROR bad biglake_grid_res. In XML file: " + str(biglake_grid_res_xml) + " WHEREAS in config file: " \
+                message = "ERROR bad biglake_grid_res. In XML file: " + str(biglake_grid_res_xml) + " WHEREAS previously set at: " \
                           + str(biglake_grid_res)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('BIGLAKE_GRID_RES = ' + str(cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_RES')))
+            
+            # Nb digits for counter of lakes, used in the obs_id identifier of each observed lake
+            nb_digits_xml = int(in_xml_tree.xpath("//swot_product/processing_parameters/nb_digits")[0].text)
+            nb_digits = cfg.getint(section, "NB_DIGITS")
+            if (nb_digits_xml != nb_digits):
+                message = "ERROR bad nb_digits. In XML file: " + str(nb_digits_xml) + " WHEREAS previously set at: " \
+                          + str(nb_digits)
+                raise service_error.ProcessingError(message, logger)
+            logger.debug('NB_DIGITS = ' + str(cfg.get('CONFIG_PARAMS', 'NB_DIGITS')))
 
         except(IndexError):
             raise

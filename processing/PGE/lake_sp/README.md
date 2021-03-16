@@ -22,7 +22,6 @@ optional arguments:
 The command file must contain the following (example provided in ```PGE/pge_lake_sp_command.cfg```):
 ```
 [PATHS]
-param_file = <full_path_to_param_file>
 LakeTile directory = <full_path_to_LakeTile_directory>
 Output directory = <output_directory>
 
@@ -73,25 +72,6 @@ SOFTWARE_VERSION = <X.Y>
 # Contact
 CONTACT = <xxxx@cnes.fr>
 ```
-
-### Parameter file
-If the __param_file__ key is not set in the command file, the software uses default configuration parameters listed in ```PGE/lake_sp_param.cfg```. If the __param_file__ key is set , the software will use your own configuration parameters.
-
-They are:
-* __FLAG_WATER__ is the list of water flags to keep for processing (3=water near land edge  4=interior water)
-* __FLAG_DARK__ is the list of dark water flags to keep for processing (23=dark water near land edge  24=interior dark water)
-* __MIN_SIZE__ is the minimum size for a lake to generate a lake product (=polygon + attributes) for it
-* __STD_HEIGHT_MAX__ is the maximal standard deviation of height inside a lake; this value is used to distinguish different lakes that may be merged in the radar geometry
-* __IMP_GEOLOC__ is the flag to improve PixC golocation (=True) or not (=False)
-* __HULL_METHOD__ is the method to compute lake boundary (or polygon hull): 
-  * 0 = convex hull
-  * 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library 
-  * 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track
-  * 2 = edge computed in radar geometry, then converted in ground geometry (default)
-* __NB_PIX_MAX_DELAUNEY__ is the max number of pixels used for Delaunay triangulation (when ```HULL_METHOD = 1.1```)
-* __NB_PIX_MAX_CONTOUR__ is the maximum number of contour points (when ```HULL_METHOD = 2```)
-* __BIGLAKE_MODEL, BIGLAKE_MIN_SIZE, BIGLAKE_GRID_SPACING, BIGLAKE_GRID_RES__ are parameters specific to the processing of "big" lakes, ie. lakes with an area greater than BIGLAKE_MIN_SIZE
-* __NB_DIGITS__ are the number of digits for a counter of lakes in a tile or pass, used in the LakeID of each observed lake
 
 ### Input files
 The LakeTile pattern is ```SWOT_L2_HR_LakeTile_<FileIdentifier>_<ccc>_<ppp>_<ttt><s>_<yyyyMMddThhmmss>_<yyyyMMddThhmmss>_<CRID>_<nn>.<extension>``` where:

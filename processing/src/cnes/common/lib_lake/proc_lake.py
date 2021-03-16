@@ -39,9 +39,9 @@ import cnes.common.lib.my_hull as my_hull
 import cnes.common.lib.my_shp_file as my_shp
 import cnes.common.lib.my_tools as my_tools
 import cnes.common.lib.my_variables as my_var
+import cnes.common.lib_lake.lake_db as lake_db
 import cnes.common.lib_lake.locnes_products_shapefile as shp_file
 import cnes.common.lib_lake.proc_pixc_vec as proc_pixc_vec
-import cnes.common.lib_lake.storage_change as storage_change
 
 
 class LakeProduct(object):
@@ -73,7 +73,9 @@ class LakeProduct(object):
             - obj_lake_db / lake_db.lakeDb_shp or lake_db.lakeDb_sqlite: lake database
             - content_obs / LakeSPShpProduct: container of the lake "obs" product
             - content_prior / LakeSPShpProduct: container of the lake "prior" product
-            - uniq_prior_id / set: list of uniq prior identifiers linked to observed objects
+            - lakeid_uniq / set: list of uniq prior identifiers linked to all observed objects
+            - compare_stats / dict: store parameters for global comparison between _Obs and _Prior lake products
+            - compare_stats_param / list: list of parameters to compare between _Obs and _Prior lake products
         """
         # Get instance of service config file
         self.cfg = service_config_file.get_instance()
@@ -104,6 +106,13 @@ class LakeProduct(object):
         
         # 3 - Other variables
         self.lakeid_uniq = set()  # List of uniq prior identifiers linked to all observed objects
+        # Dictionnary to store parameters for global comparison between _Obs and _Prior lake products
+        self.compare_stats = {}
+        self.compare_stats_params = ["delta_s_l", "delta_s_q", "area_total", "area_detct"]
+        for key in ["obs", "prior"]:
+            self.compare_stats[key] = {}
+            for param in self.compare_stats_params:
+                self.compare_stats[key][param] = 0.0
         
     def free_memory(self):
         """
@@ -130,10 +139,10 @@ class LakeProduct(object):
         min_size = self.cfg.getfloat('CONFIG_PARAMS', 'MIN_SIZE')
         hull_method = self.cfg.getfloat("CONFIG_PARAMS", "HULL_METHOD")
         flag_geoloc = self.cfg.getboolean('CONFIG_PARAMS', 'IMP_GEOLOC')
-        nb_digits = self.cfg.getint('ID', 'NB_DIGITS')
+        nb_digits = self.cfg.getint('CONFIG_PARAMS', 'NB_DIGITS')
         
         # Print min_size
-        logger.info("Minimum size for lakes = %0.01f km2" % min_size)
+        logger.info("Minimum size for lakes = %0.2f km2" % min_size)
         # Print geoloc
         if flag_geoloc:
             logger.info("Improve geoloc = YES")
@@ -197,7 +206,7 @@ class LakeProduct(object):
             
             logger.info("")
             logger.info("===== compute_product %d over %d / label = %d / nb pixels = %d / detected area (total area) = %.2f km2 (%.2f km2) =====" \
-                        % (indl, len(in_list_labels), label, obj_nb_pix, obj_area_detected, obj_area_total))
+                        % (indl+1, len(in_list_labels), label, obj_nb_pix, obj_area_detected, obj_area_total))
             
             # ================================
             # 4 - Compute improved geolocation
@@ -211,18 +220,20 @@ class LakeProduct(object):
             
             # 4.3 - Select valid PIXC wrt value of longitude, latitude or height
             #       which must be finite
-            valid_flag, not_nan_index = self.select_valid_pixels(obj_nb_pix, imp_lon, imp_lat, imp_height)
+            valid_flag, not_nan_index = select_valid_pixels(obj_nb_pix, imp_lon, imp_lat, imp_height)
             # No need to continue if there is no valid PIXC
             if valid_flag == 0:  
-                self.add_pld_features_not_observed()  # Add not observed PLD lakes to _Prior layer
+                #self.add_pld_features_not_observed()  # Add not observed PLD lakes to _Prior layer
                 continue
 
             # ====================================================
             # 5 - Compute lake feature 
-            #     if detected water area of object is large enough
+            #     if detected water area of object is large enough 
+            #     and all pixels are not aligned
             # ====================================================
-            
-            if obj_area_detected >= min_size:
+            is_aligned = my_tools.are_pixels_aligned(self.obj_pixc.range_index[pix_index], self.obj_pixc.azimuth_index[pix_index])
+
+            if obj_area_detected >= min_size and not is_aligned:
 
                 # 5.1 - Compute obs number
                 if self.product_type == "TILE":  # "TILE" case: only add cpt_obj
@@ -271,11 +282,16 @@ class LakeProduct(object):
             
         else:
             # Deal with PLD lakes observed by SWOT
+            logger.info("==================")
+            logger.info("Compute PLD features")
+            logger.info("==================")
+            logger.info("")
+
             logger.info("%d PLD lakes linked to observed lakes" % nb_prior)
-            
+
             for cur_lakeid in self.lakeid_uniq:
-                logger.info("> Deal with PLD lake %s" % cur_lakeid)
-                
+                logger.info("===== Deal with PLD lake %s =====" %cur_lakeid)
+
                 # 6.0 - Remove from the list of PLD located over the area
                 try:
                     self.obj_lake_db.list_lakeid.remove(cur_lakeid)
@@ -283,37 +299,61 @@ class LakeProduct(object):
                     msg = "PLD lake with lake_id=%s is not covered by the PIXC tile BUT intersects an observed feature" % cur_lakeid
                     logger.warning(msg)
         
-                # 6.1.1 - Get infos related to this PLD lake
-                pld_geom, p_name, p_grand, p_max_wse, p_max_area, p_ref_date, p_ref_ds, p_storage = self.obj_lake_db.get_prior_values(cur_lakeid)
-                # 6.1.2 - Compute PLD attributes (i.e. convert None to required _FillValue if needed)
-                pld_attributes = self.compute_pld_attributes(p_name, p_grand, p_max_wse, p_max_area, p_ref_date, p_ref_ds, p_storage)
+                # 6.1.1 - Create prior lake object
+                obj_plake = lake_db.PriorLake(self.obj_lake_db, cur_lakeid)
+                # 6.1.2 - Format PLD attributes (i.e. convert None to required _FillValue if needed)
+                pld_attributes = obj_plake.format_attributes()
                 
                 # 6.2 - Update p_ attributes of observed features strongly connected to this PLD lake
                 # 6.2.1 - Select them
                 self.content_obs.layer.SetAttributeFilter("lake_id LIKE '{}%'".format(cur_lakeid))
-                logger.debug(". {} observed lake(s) are strongly connected to this PLD lake".format(self.content_obs.layer.GetFeatureCount()))
+                nb_obslake = self.content_obs.layer.GetFeatureCount()
+                logger.debug("{} observed lake(s) are strongly connected to this PLD lake".format(nb_obslake))
                 # 6.2.2 - Set p_ attributes from PLD infos to all observed lakes having this PLD lake as main overlap
-                self.set_pld_attributes(pld_attributes)
+                if nb_obslake > 0:
+                    self.set_pld_attributes(pld_attributes)
                 # 6.2.3 - Reinit layer attribute filter
                 self.content_obs.layer.SetAttributeFilter(None)
                 
                 # 6.3 - Select all observed lakes overlapping the PLD lake
                 self.content_obs.layer.SetAttributeFilter("lake_id LIKE '%{}%'".format(cur_lakeid))
+                nb_obslake = self.content_obs.layer.GetFeatureCount()
+                logger.debug("{} observed lake(s) are connected to this PLD lake".format(nb_obslake))
                 
-                # 6.4 - Compute observed geometry and common attributes of PLD feature
-                prior_geom, prior_attributes = self.form_prior_feature(cur_lakeid, pld_geom)
+                if nb_obslake == 0:
+                    logger.warning("[STRANGE...] PLD lake listed in _Obs file corresponds to NO obs lake...")
+                    
+                    # 6.6 - Add prior feature to _Prior layer
+                    self.content_prior.add_feature(None, pld_attributes)
+                    
+                else:
+        
+                    # 6.4 - Retrieve PIXCVec indices corresponding to prior feature
+                    # NB: use of selected_index to convert PIXCVec indices to PIXC indices reference
+                    if self.product_type == "SP":
+                        pixc_index = np.where(self.obj_pixc_vec.lake_id == obj_plake.lake_id.encode())[0]
+                    else:
+                        pixc_index = np.where(self.obj_pixc_vec.lake_id[self.obj_pixc.selected_index] == obj_plake.lake_id.encode())[0]
                 
-                # 6.5 - Compute storage change for this PLD lake and all observed lakes overlapping it
-                storage_change_values = self.set_storage_change(p_max_wse, p_max_area, p_ref_ds) 
+                    # 6.5 - Compute observed geometry and common attributes of PLD feature
+                    prior_geom, prior_attributes = self.form_prior_feature(obj_plake, pixc_index)
+                    
+                    if obj_plake.ok_to_compute_stocc:
+                        # 6.6 - Compute storage change for this PLD lake and all observed lakes overlapping it
+                        storage_change_values = self.compute_storage_change(obj_plake, pixc_index, prior_attributes)                     
+                        # 6.7 - Add prior feature to _Prior layer
+                        self.content_prior.add_feature(prior_geom, {**prior_attributes, **pld_attributes, **storage_change_values})
+                    else:
+                        logger.debug("Not able to compute storage change")
+                        # 6.7 - Add prior feature to _Prior layer
+                        self.content_prior.add_feature(prior_geom, {**prior_attributes, **pld_attributes})
                 
-                # 6.6 - Add prior feature to _Prior layer
-                self.content_prior.add_feature(prior_geom, {**prior_attributes, **pld_attributes, **storage_change_values})
-                
-                # 6.7 - Reinit layer attribute filter
+                # 6.8 - Reinit layer attribute filter
                 self.content_obs.layer.SetAttributeFilter(None)
                 
         # 6.8 - Deal with PLD lakes which should have been observed by SWOT
-        self.add_pld_features_not_observed()
+        if self.product_type == "TILE":
+            self.add_pld_features_not_observed()
 
     # ----------------------------------------
     # Fonctions specific to height-constrained 
@@ -416,54 +456,6 @@ class LakeProduct(object):
             
         # Return
         return out_height_model
-    
-    def select_valid_pixels(self, in_nb_pixels, in_lon, in_lat, in_height):
-        """
-        Test potential issue in output of height-constrained geolocation process,
-        i.e. select valid PIXC = PIXC without NaNs for longitude or latitude or height
-        
-        :param in_nb_pixels: nb of PIXC
-        :type in_nb_pixels: int
-        :param in_lon: improved longitudes to test
-        :type in_lon: 1D-array of float
-        :param in_lat: improved latitudes to test
-        :type in_lat: 1D-array of float
-        :param in_height: improved heights to test
-        :type in_height: 1D-array of float
-        
-        :return: out_valid_flag =0 if there is no valid PIXC; =2 if all PIXC are valid; =1 otherwise
-        :rtype: out_valid_flag = int
-        :return: out_valid_index = indices of valid PIXC when out_valid_flag == 1; =None otherwise
-        :rtype: out_valid_index = 1D-array of float
-        """
-        logger = logging.getLogger(self.__class__.__name__)
-        
-        # 1 - Init output values
-        out_valid_flag = 2
-        out_valid_index = None
-        
-        # 2 - Retrieve indices of PIXC with either longitude, or latitude or heights being NaN
-        tmp_nan_index1 = np.where(np.isnan(in_lon))[0]
-        tmp_nan_index2 = np.where(np.isnan(in_lat))[0]
-        tmp_nan_index3 = np.where(np.isnan(in_height))[0]
-        tmp_nan_index = np.concatenate((tmp_nan_index1, tmp_nan_index2, tmp_nan_index3))
-        tmp_nan_index_clean = np.unique(tmp_nan_index)
-        nb_nan = len(tmp_nan_index_clean)
-        
-        # 3 - Compute valid indices
-        if nb_nan == in_nb_pixels:
-            logger.warning("!!! All the pixels have NaN for improved geolocation => feature not computed")
-            out_valid_flag = 0
-        elif nb_nan != 0:
-            logger.warning("!!! %d pixels have NaN for improved geolocation => removed from computation" % nb_nan)
-            out_valid_flag = 1
-            tmp_valid_index1 = np.where(np.isfinite(in_lon))[0]
-            tmp_valid_index2 = np.where(np.isfinite(in_lat))[0]
-            tmp_valid_index3 = np.where(np.isfinite(in_height))[0]
-            tmp_valid_index = np.concatenate((tmp_valid_index1, tmp_valid_index2, tmp_valid_index3))
-            out_valid_index = np.unique(tmp_valid_index)
-            
-        return out_valid_flag, out_valid_index
 
     # ----------------------------------------
     # Functions specific to lake feature (i.e.
@@ -558,38 +550,35 @@ class LakeProduct(object):
             
         return out_geom
     
-    def form_prior_feature(self, in_lakeid, in_pld_geom):
+    def form_prior_feature(self, in_obj_plake, in_pixc_index):
         """
         Create and initialize prior feature 
         
-        :param in_lakeid: PLD lake identifier
-        :type in_lakeid: string
-        :param in_pld_geom: PLD lake geometry from PLD
-        :type in_pld_geom: OGRPolygon
+        :param in_obj_plake: PLD lake object
+        :type in_obj_plake: lake_db.PriorLake
+        :param in_pixc_index: indices of PIXC related to PLD lake
+        :type in_pixc_index: Numpy 1D-array of int
         
         :return: out_geom = geometry of prior feature
         :rtype: out_geom = OGRPolygon
         :return: out_attributes = attributes of prior feature
-        :rtype: out_geom = dict
+        :rtype: out_attributes = dict
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("Deal with PLD lake = {}".format(in_lakeid))
-        
-        # 1 - Retrieve PIXCVec indices corresponding to prior feature
-        # NB: use of selected_index to convert PIXCVec indices to PIXC indices reference
-        if self.product_type == "SP":
-            pixc_index = np.where(self.obj_pixc_vec.lake_id == in_lakeid.encode())[0]
-        else:
-            pixc_index = np.where(self.obj_pixc_vec.lake_id[self.obj_pixc.selected_index] == in_lakeid.encode())[0]
+        logger.debug("Deal with PLD lake = {}".format(in_obj_plake.lake_id))
         
         # 2 - Compute common attributes
-        out_attributes = self.compute_common_attributes(pixc_index)
+        out_attributes = self.compute_common_attributes(in_pixc_index)
+        # Save for comparison
+        for param in self.compare_stats_params:
+            if (param in out_attributes.keys()) and (out_attributes[param] is not None):
+                self.compare_stats["prior"][param] += out_attributes[param]
         
         # 3 - Build feature boundary
-        out_geom, list_obs_id, list_overlap = self.build_prior_boundary(in_lakeid, in_pld_geom, pixc_index)
+        out_geom, list_obs_id, list_overlap = self.build_prior_boundary(in_obj_plake, in_pixc_index)
         
         # 4 - Add identifiers and overlap values
-        out_attributes["lake_id"] = in_lakeid
+        out_attributes["lake_id"] = in_obj_plake.lake_id
         if list_obs_id:
             out_attributes["obs_id"] = ';'.join(list_obs_id)
         else:
@@ -601,15 +590,13 @@ class LakeProduct(object):
         
         return out_geom, out_attributes
     
-    def build_prior_boundary(self, in_lakeid, in_pld_geom, in_pixc_index):
+    def build_prior_boundary(self, in_obj_plake, in_pixc_index):
         """
         Build prior feature boundary by intersecting the influence area of the PLD lake
         with the observed features selected in _Obs layer.
         
-        :param in_lakeid: PLD lake identifier
-        :type in_lakeid: string
-        :param in_pld_geom: PLD lake geometry from PLD
-        :type in_pld_geom: OGRPolygon
+        :param in_obj_plake: PLD lake object
+        :type in_obj_plake: lake_db.PriorLake
         :param in_pixc_index: list of indices of the PIXC related to the PLD feature
         :type in_pixc_index: 1D-array of int
         
@@ -621,7 +608,7 @@ class LakeProduct(object):
         :rtype: out_list_overlap = list
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("Deal with PLD lake = {}".format(in_lakeid))
+        logger.debug("Deal with PLD lake = {}".format(in_obj_plake.lake_id))
         
         out_geom = None
         out_list_obs_id = []
@@ -648,7 +635,7 @@ class LakeProduct(object):
                 logger.debug("Complex case with 1 obs <-> N PLD lakes => keep part of OBS geometry")
                 
                 # Get the influence area polygon
-                influence_area_poly = self.obj_lake_db.get_influence_area_poly(in_lakeid)
+                influence_area_poly = self.obj_lake_db.get_influence_area_poly(in_obj_plake.lake_id)
                 
                 if influence_area_poly is None:
                     tmp_pixcvec_index = self.get_pixcvec_index_from_pixc_index(in_pixc_index)
@@ -660,8 +647,8 @@ class LakeProduct(object):
                     tmp_geom = cur_geom.Intersection(influence_area_poly)
         
             # Compute overlaping area
-            area_pld = my_tools.get_area(in_pld_geom)
-            geom_inter = tmp_geom.Intersection(in_pld_geom)
+            area_pld = my_tools.get_area(in_obj_plake.geom)
+            geom_inter = tmp_geom.Intersection(in_obj_plake.geom)
             if geom_inter is not None:
                 area_inter = my_tools.get_area(geom_inter)
                 out_list_overlap.append(str(round(area_inter/area_pld*100.)))
@@ -676,7 +663,7 @@ class LakeProduct(object):
             tmp_geom = ogr.Geometry(ogr.wkbMultiPolygon)
             
             # Get the influence area polygon
-            influence_area_poly = self.obj_lake_db.get_influence_area_poly(in_lakeid)
+            influence_area_poly = self.obj_lake_db.get_influence_area_poly(in_obj_plake.lake_id)
             
             tmp_list_obs_id = []
             tmp_list_overlap = []
@@ -688,7 +675,7 @@ class LakeProduct(object):
                 # Retrieve corresponding obs_id:
                 cur_obs_id = cur_feature.GetField("obs_id")
                 tmp_list_obs_id.append(cur_obs_id)
-                
+                logger.debug("Deal with obsid %s " % cur_obs_id)
                 # Simple case with N obs <-> 1 PLD lake
                 if ";" not in cur_feature.GetField("lake_id"):
                     logger.debug("Simple case with obs <-> 1 PLD lake => keep OBS geometry")
@@ -699,7 +686,9 @@ class LakeProduct(object):
                     logger.debug("Complex case with obs <-> N PLD lakes => keep part of OBS geometry")
                 
                     if influence_area_poly is None:
-                        tmp_pixc_index = np.where(self.obj_pixc_vec.obs_id[self.get_pixcvec_index_from_pixc_index(in_pixc_index)] == cur_obs_id.encode())[0]
+                        in_pixcvec_index = self.get_pixcvec_index_from_pixc_index(in_pixc_index)
+                        obsid_over_in_lakeid = self.obj_pixc_vec.obs_id[in_pixcvec_index]
+                        tmp_pixc_index = in_pixc_index[np.where(obsid_over_in_lakeid == cur_obs_id.encode())]
                         tmp_pixcvec_index = self.get_pixcvec_index_from_pixc_index(tmp_pixc_index)
                         obs_poly = self.build_obs_boundary(tmp_pixc_index, 
                                                            self.obj_pixc_vec.longitude_vectorproc[tmp_pixcvec_index],
@@ -709,22 +698,23 @@ class LakeProduct(object):
                         obs_poly = cur_geom.Intersection(influence_area_poly)
                 
                 # Compute overlaping area
-                area_pld = my_tools.get_area(in_pld_geom)
-                geom_inter = obs_poly.Intersection(in_pld_geom)
+                area_pld = my_tools.get_area(in_obj_plake.geom)
+                geom_inter = obs_poly.Intersection(in_obj_plake.geom)
                 if geom_inter is not None:
                     area_inter = my_tools.get_area(geom_inter)
                     tmp_overlap = str(round(area_inter/area_pld*100.))
                     tmp_list_overlap.append(tmp_overlap)
                     logger.debug("PLD lake area = {} m2 - PLD/obs intersection area = {} m2 - overlap = {}%".format(area_pld, area_inter, tmp_overlap))
-                    
+                else :
+                    logger.warning("PLD lakeid %s geometrie do not intersects observed geometry %s " %(str(in_obj_plake.lake_id), str(tmp_list_obs_id)))
                 # Add current geometry to output geometry
-                tmp_geom.AddGeometry(obs_poly)
-                
+                tmp_geom = tmp_geom.Union(obs_poly)
+
             # Sort obs_id and overlap fractions by decreasing area intersection
             sorted_idx = sorted(range(len(tmp_list_overlap)), key=lambda k: tmp_list_overlap[k], reverse=True)
             out_list_obs_id = [tmp_list_obs_id[idx] for idx in sorted_idx]
             out_list_overlap = [tmp_list_overlap[idx] for idx in sorted_idx]
-            
+
         if tmp_geom is not None:
             out_geom = tmp_geom.Clone()
         
@@ -756,7 +746,7 @@ class LakeProduct(object):
         tmp_time = np.nanmedian(self.obj_pixc.nadir_time[in_pixc_index])
         out_attributes["time"] = value_or_none(tmp_time)  # UTC time
         out_attributes["time_tai"] = value_or_none(np.nanmedian(self.obj_pixc.nadir_time_tai[in_pixc_index]))  # TAI time
-        if tmp_time is None:
+        if out_attributes["time"] is None:
             out_attributes["time_str"] = None
         else:
             out_attributes["time_str"] = my_tools.convert_utc_to_str(out_attributes["time"])  # Time in UTC as a string
@@ -775,8 +765,8 @@ class LakeProduct(object):
         # Water surface elevation and uncertainty
         mean_height, height_std, height_unc = self.obj_pixc.compute_height_with_uncertainties(in_pixc_index)
         out_attributes["wse"] = value_or_none(mean_height)
-        out_attributes["wse_u"] = None
         out_attributes["wse_r_u"] = value_or_none(height_unc)
+        out_attributes["wse_u"] = out_attributes["wse_r_u"]
         out_attributes["wse_std"] = value_or_none(height_std)
         
         # Metric of layover effect = layover area
@@ -793,11 +783,10 @@ class LakeProduct(object):
         out_attributes["quality_f"] = None
         
         # Fractional area of dark water
+        out_attributes["dark_frac"] = (area_total - area_detct) / area_total * 100.0
         if in_classif_dict is not None:
             if in_classif_dict["dark"] is None:
-                out_attributes["dark_frac"] = 0
-        else:
-            out_attributes["dark_frac"] = (area_total - area_detct) / area_total * 100.0
+                out_attributes["dark_frac"] = 0.0
             
         # Ice cover flags
         out_attributes["ice_clim_f"] = None
@@ -896,82 +885,6 @@ class LakeProduct(object):
             
         return out_lake_id, out_overlap, out_pixcvec_lakeid
     
-    def compute_pld_attributes(self, in_name, in_grand, in_max_wse, in_max_area, in_ref_date, in_ref_ds, in_storage):
-        """
-        Compute correct value for retrieved prior infos, i.e. convert None to
-        correct _FillValue if needed 
-        
-        :param in_name: name of the prior lake
-        :type in_name: string
-        :param in_grand: GRanD identifier 
-        :type in_grand: int
-        :param in_max_wse: PLD lake maximum water surface elevation
-        :type in_max_wse: float
-        :param in_max_area: PLD lake maximum area
-        :type in_max_area: float
-        :param in_ref_date: reference date for storage change computation
-        :type in_ref_date: string
-        :param in_ref_ds: reference storage change for storage change computation
-        :type in_ref_ds: float
-        :param in_storage: PLD lake maximum storage value
-        :type in_storage: float
-
-        
-        :return: out_pld_infos = p_ attributes related to current PLD lake
-        :rtype: out_pld_infos = dict
-        """
-        logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("- start -")
-        
-        # 0 - Init output dictionary
-        out_pld_infos = dict()
-        
-        # 2 - Compute values to write
-        
-        # 2.1 - Set PLD name
-        if in_name is not None:
-            out_pld_infos["p_name"] = in_name
-        else:
-            out_pld_infos["p_name"] = my_var.FV_STRING_SHP
-                
-        # 2.2 - Set GRanD identifier
-        if in_grand is not None:
-            out_pld_infos["p_grand_id"] = in_grand
-        else:
-            out_pld_infos["p_grand_id"] = my_var.FV_INT9_SHP
-
-        # 2.3 - Set max water surface elevation
-        if in_max_wse is not None:
-            out_pld_infos["p_max_wse"] = in_max_wse
-        else:
-            out_pld_infos["p_max_wse"] = my_var.FV_REAL
-
-        # 2.4 - Set max area
-        if in_max_area is not None:
-            out_pld_infos["p_max_area"] = in_max_area
-        else:
-            out_pld_infos["p_max_area"] = my_var.FV_REAL
-
-        # 2.5 - Set reference date
-        if in_ref_date is not None:
-            out_pld_infos["p_ref_date"] = in_ref_date
-        else:
-            out_pld_infos["p_ref_date"] = my_var.FV_STRING_SHP
-
-        # 2.6 - Set refence storage change
-        if in_ref_ds is not None:
-            out_pld_infos["p_ref_ds"] = in_ref_ds
-        else:
-            out_pld_infos["p_ref_ds"] = my_var.FV_REAL
-                
-        # 2.7 - Update maximum water storage value
-        if in_storage is not None:
-            out_pld_infos["p_storage"] = in_storage
-        else:
-            out_pld_infos["p_storage"] = my_var.FV_REAL
-            
-        return out_pld_infos
-    
     def set_pld_attributes(self, in_pld_infos):
         """
         Set p_ attributes to prior values to current PLD lake 
@@ -989,92 +902,6 @@ class LakeProduct(object):
                 obs_lake.SetField(str(key), value)
             # Rewrite obs feature with updated attributes
             self.content_obs.layer.SetFeature(obs_lake)
-
-    def set_storage_change(self, in_max_wse, in_max_area, in_ref_ds):
-        """
-        Set storage change values for all observed features linked to current PLD lake
-        and return then
-        NB: these observed objects have been selected in the layer before the use of this function
-
-        Envisionned cases:
-            - 1 prior lake <=> 1 observed lake
-            - 1 prior lake <=> 2 or more observed lakes
-            - 1 observed lake <=> 2 or more prior lakes
-            - mixed lakes...
-        
-        :param in_max_height: maximum water surface elevation
-        :type in_max_height: float
-        :param in_max_area: maximum area
-        :type in_max_area: float
-        :param in_ref_ds: reference storage change
-        :type in_ref_ds: float
-        
-        :return: out_storage_values = storage change values related to current PLD lake
-        :rtype: out_storage_values = dict
-        """
-        
-        # 0 - Init output
-        out_storage_values = dict()
-        out_storage_values["delta_s_l"] = my_var.FV_REAL
-        out_storage_values["ds_l_u"] = my_var.FV_REAL
-        out_storage_values["delta_s_q"] = my_var.FV_REAL
-        out_storage_values["ds_q_u"] = my_var.FV_REAL
-
-        # 1 - Number of observed objects linked to this a priori lake
-        nb_obs_lake = self.content_obs.layer.GetFeatureCount()
-            
-        # 2 - Process wrt to case
-        if nb_obs_lake == 1:
-
-            # Get lake feature and values
-            obs_lake = self.content_obs.layer.GetNextFeature()
-            obs_height = obs_lake.GetField(str("wse"))
-            obs_area = obs_lake.GetField(str("area_total"))
-
-            if ";" in obs_lake.GetField(str("lake_id")):  # Case 1 observed lake <=> 2 or more prior lakes
-                pass
-
-            else:  # Case 1 prior lake <=> 1 observed lake
-
-                # Compute linear storage change
-                stoc_val, stoc_u = storage_change.stocc_linear(obs_height, obs_area, in_max_wse, in_max_area)
-                # Fill associated field
-                if stoc_val is not None:
-                    if in_ref_ds is not None:
-                        out_storage_values["delta_s_l"] = stoc_val - in_ref_ds
-                    else:
-                        out_storage_values["delta_s_l"] = stoc_val
-                if stoc_u is not None:
-                    out_storage_values["ds_l_u"] = stoc_u
-
-                # Compute quadratic storage change
-                stoc_val, stoc_u = storage_change.stocc_quadratic(obs_height, obs_area, in_max_wse, in_max_area)
-                # Fill associated field
-                if stoc_val is not None:
-                    if in_ref_ds is not None:
-                        out_storage_values["delta_s_q"] = stoc_val - in_ref_ds
-                    else:
-                        out_storage_values["delta_s_q"] = stoc_val
-                if stoc_u is not None:
-                    out_storage_values["ds_q_u"] = stoc_u
-
-                
-        else:  # Case 1 prior lake <=> 2 or more observed lakes
-            pass
-        
-        # 3 - Set to selected observed features
-        for cur_obs in self.content_obs.layer:
-            
-            # Set fields
-            cur_obs.SetField(str("delta_s_l"), out_storage_values["delta_s_l"])
-            cur_obs.SetField(str("ds_l_u"), out_storage_values["ds_l_u"])
-            cur_obs.SetField(str("delta_s_q"), out_storage_values["delta_s_q"])
-            cur_obs.SetField(str("ds_q_u"), out_storage_values["ds_q_u"])
-            
-            # Rewrite feature with storage change values
-            self.content_obs.layer.SetFeature(cur_obs)
-        
-        return out_storage_values
     
     def add_pld_features_not_observed(self):
         """
@@ -1092,16 +919,163 @@ class LakeProduct(object):
             
             for cur_lakeid in self.obj_lake_db.list_lakeid:
                 
-                # 1.1 - Get infos related to this PLD lake
-                pld_geom, p_name, p_grand, p_max_wse, p_max_area, p_ref_date, p_ref_ds, p_storage = self.obj_lake_db.get_prior_values(cur_lakeid)
-                # 1.2 - Compute PLD attributes (i.e. convert None to required _FillValue if needed)
-                pld_attributes = self.compute_pld_attributes(p_name, p_grand, p_max_wse, p_max_area, p_ref_date, p_ref_ds, p_storage)
+                # 1.1 - Create prior lake object
+                obj_plake = lake_db.PriorLake(self.obj_lake_db, cur_lakeid)
+                # 1.2 - Format PLD attributes (i.e. convert None to required _FillValue if needed)
+                pld_attributes = obj_plake.format_attributes()
                 
                 # 2 - Add lake_id
                 pld_attributes["lake_id"] = cur_lakeid
                 
                 # 3 - Add prior feature to _Prior layer
                 self.content_prior.add_feature(None, pld_attributes)
+
+    # ------------------------------------------------
+    # Functions specific to storage change computation
+    # ------------------------------------------------
+
+    def compute_storage_change(self, in_obj_plake, in_pixc_index, in_prior_attributes):
+        """
+        Set storage change values for all observed features linked to current PLD lake
+        and return them
+        NB: these observed objects have been selected in the _Obs layer before the use of this function
+
+        Envisionned cases:
+            - 1 prior lake <=> 1 observed lake
+            - 1 prior lake <=> 2 or more observed lakes
+            - 1 observed lake <=> 2 or more prior lakes
+            - mixed lakes...
+        
+        :param in_obj_plake: PLD lake object
+        :type in_obj_plake: lake_db.PriorLake
+        :param in_pixc_index: indices of PIXC related to PLD lake
+        :type in_pixc_index: Numpy 1D-array of int
+        :return: in_prior_attributes = attributes of prior feature related to PLD lake
+        :rtype: in_prior_attributes = dict
+        
+        :return: out_storage_values = storage change values related to current PLD lake
+        :rtype: out_storage_values = dict
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        
+        # 0 - Init output
+        out_storage_values = dict()
+        out_storage_values["delta_s_l"] = my_var.FV_REAL
+        out_storage_values["ds_l_u"] = my_var.FV_REAL
+        out_storage_values["delta_s_q"] = my_var.FV_REAL
+        out_storage_values["ds_q_u"] = my_var.FV_REAL
+        
+        # Nb of observed lakes related to in_obj_plake
+        nb_obs_lake = self.content_obs.layer.GetFeatureCount()
+        logger.debug("Case PLD lake -> %d obs lakes" % nb_obs_lake)
+        
+        # 1 - Build dictionary going in intput of storage change function
+        
+        # 1.0 - Compute prior overlap coefficients
+        prior_overlap = dict()
+        tmp_prior_obsid = in_prior_attributes["obs_id"].split(";")
+        tmp_prior_overlap = np.array(in_prior_attributes["overlap"].split(";"), dtype="float")
+        sum_tmp_prior_overlap = np.sum(tmp_prior_overlap)
+        for obs_id, overlap in zip(tmp_prior_obsid, tmp_prior_overlap):
+            prior_overlap[obs_id] = overlap / sum_tmp_prior_overlap
+            
+        list_obs = dict()
+        for obs_lake in self.content_obs.layer:
+
+            # 1.1 - Retrieve lake feature ID and init dedicated dict
+            obs_id = obs_lake.GetField(str("obs_id"))
+            list_obs[obs_id] = dict()
+            
+            # 1.2 - Compute related wse and area values
+            if ";" in obs_lake.GetField(str("lake_id")):
+                # Case the observed lake is related to 2 or more prior lakes
+                if nb_obs_lake == 1:
+                    # Case 1 obs lake <-> N PLD lakes
+                    logger.debug("> sub-case obs lake -> N PLD lakes")
+                    list_obs[obs_id]["area"] = in_prior_attributes["area_total"]
+                    list_obs[obs_id]["area_u"] = in_prior_attributes["area_tot_u"]
+                    list_obs[obs_id]["wse"] = in_prior_attributes["wse"]
+                    list_obs[obs_id]["wse_u"] = in_prior_attributes["wse_u"]
+                else:
+                    # Case multi obs <-> PLD lakes associations
+                    logger.debug("> sub-case multi obs <-> PLD lakes associations")
+                    list_obs[obs_id]["area"], list_obs[obs_id]["area_u"], tmp1, tmp2 = self.obj_pixc.compute_area_with_uncertainties(in_pixc_index, flag_all=False)
+                    list_obs[obs_id]["wse"], list_obs[obs_id]["wse_u"], tmp1 = self.obj_pixc.compute_height_with_uncertainties(in_pixc_index)
+                    
+                # Retrieve storage change previous values
+                list_obs[obs_id]["lake_id"] = obs_lake.GetField(str("lake_id")).split(";")
+                list_obs[obs_id]["overlap"] = np.array(obs_lake.GetField(str("overlap")).split(";"), dtype="float")
+                list_obs[obs_id]["delta_s_l"] = float(obs_lake.GetField(str("delta_s_l")))
+                list_obs[obs_id]["ds_l_u"] = float(obs_lake.GetField(str("ds_l_u")))
+                list_obs[obs_id]["delta_s_q"] = float(obs_lake.GetField(str("delta_s_q")))
+                list_obs[obs_id]["ds_q_u"] = float(obs_lake.GetField(str("ds_q_u")))
+                if list_obs[obs_id]["delta_s_l"] < -9e11:
+                    list_obs[obs_id]["delta_s_l"] = 0.0
+                    list_obs[obs_id]["ds_l_u"] = 0.0
+                    list_obs[obs_id]["delta_s_q"] = 0.0
+                    list_obs[obs_id]["ds_q_u"] = 0.0
+                
+            else:
+                # Case the observed lake is related to only 1 prior lake
+                logger.debug("> sub-case obs lake -> 1 PLD lake")
+                list_obs[obs_id]["area"] = float(obs_lake.GetField(str("area_total")))
+                list_obs[obs_id]["area_u"] = float(obs_lake.GetField(str("area_tot_u")))
+                list_obs[obs_id]["wse"] = float(obs_lake.GetField(str("wse")))
+                list_obs[obs_id]["wse_u"] = float(obs_lake.GetField(str("wse_u")))
+            
+            # 1.4 - Compute alpha coefficient from prior overlap attribute
+            if nb_obs_lake == 1:
+                list_obs[obs_id]["alpha"] = 1.0
+            else:
+                list_obs[obs_id]["alpha"] = prior_overlap[obs_id]
+            
+        # Reset reading
+        self.content_obs.layer.ResetReading()
+            
+        # 2 - Compute storage change for PLD lake
+        out_storage_values["delta_s_l"], out_storage_values["ds_l_u"], out_storage_values["delta_s_q"], out_storage_values["ds_q_u"] = in_obj_plake.run_stocc(list_obs) 
+                
+        # 3 - Compute storage change for observed features and set values
+        for obs_lake in self.content_obs.layer:
+            
+            # 3.1 - Retrieve lake feature ID and init dedicated dict
+            obs_id = obs_lake.GetField(str("obs_id"))
+            
+            # 3.2 - Set fields
+            if "overlap" in list_obs[obs_id].keys():
+                # Case the observed lake is related to 2 or more prior lakes
+                for indi, lakeid in enumerate(list_obs[obs_id]["lake_id"]):
+                    if lakeid == in_obj_plake.lake_id:
+                        coeff = list_obs[obs_id]["overlap"][indi] / np.sum(list_obs[obs_id]["overlap"])
+                        break
+                obs_lake.SetField(str("delta_s_l"), list_obs[obs_id]["delta_s_l"] + out_storage_values["delta_s_l"]*list_obs[obs_id]["alpha"])
+                obs_lake.SetField(str("ds_l_u"), list_obs[obs_id]["ds_l_u"] + out_storage_values["ds_l_u"]*coeff*list_obs[obs_id]["alpha"])
+                obs_lake.SetField(str("delta_s_q"), list_obs[obs_id]["delta_s_q"] + out_storage_values["delta_s_q"]*list_obs[obs_id]["alpha"])
+                obs_lake.SetField(str("ds_q_u"), list_obs[obs_id]["ds_q_u"] + out_storage_values["ds_q_u"]*coeff*list_obs[obs_id]["alpha"])
+            else:
+                # Case the observed lake is related to only 1 prior lake
+                obs_lake.SetField(str("delta_s_l"), out_storage_values["delta_s_l"]*list_obs[obs_id]["alpha"])
+                obs_lake.SetField(str("ds_l_u"), out_storage_values["ds_l_u"]*list_obs[obs_id]["alpha"])
+                obs_lake.SetField(str("delta_s_q"), out_storage_values["delta_s_q"]*list_obs[obs_id]["alpha"])
+                obs_lake.SetField(str("ds_q_u"), out_storage_values["ds_q_u"]*list_obs[obs_id]["alpha"])
+            
+            # 3.3 - Rewrite feature with storage change values
+            self.content_obs.layer.SetFeature(obs_lake)
+            
+        # Reset reading
+        self.content_obs.layer.ResetReading()
+            
+        # 4 - Add values to statistics dictionary
+        if out_storage_values["delta_s_l"] < my_var.FV_REAL:
+            self.compare_stats["obs"]["delta_s_l"] += out_storage_values["delta_s_l"]
+        if out_storage_values["delta_s_q"] < my_var.FV_REAL:
+            self.compare_stats["obs"]["delta_s_q"] += out_storage_values["delta_s_q"]
+        if out_storage_values["delta_s_l"] < my_var.FV_REAL:
+            self.compare_stats["prior"]["delta_s_l"] += out_storage_values["delta_s_l"]
+        if out_storage_values["delta_s_q"] < my_var.FV_REAL:
+            self.compare_stats["prior"]["delta_s_q"] += out_storage_values["delta_s_q"]
+        
+        return out_storage_values
 
     # ----------------------------------------
     # Functions specific to PIXCVec update
@@ -1210,6 +1184,31 @@ class LakeProduct(object):
                     out_dict["dark"] = np.concatenate((out_dict["dark"], v_ind))
 
         return out_dict
+
+    # ----------------------------------------
+    # Function dedicated to high-level stats
+    # ----------------------------------------
+    
+    def compute_obs_stats(self):
+        """
+        Compute sum of values listed in self.compare_stats_params for the _Obs shapefile
+        """
+    
+        # 1 - Select water features
+        self.content_obs.layer.SetAttributeFilter("lake_id != 'no_data'")
+        
+        # 2 - Compute and store stats
+        for lake in self.content_obs.layer:
+            for param in self.compare_stats_params:
+                tmp_value = float(lake.GetField(param))
+                if tmp_value > my_var.FV_REAL:
+                    self.compare_stats["obs"][param] += tmp_value
+                
+        # 3 - Reinitialize reader pointer
+        self.content_obs.layer.ResetReading()
+        
+        # 4 - Remove filter over memory layer
+        self.content_obs.layer.SetAttributeFilter(None)
     
 
 #######################################
@@ -1522,7 +1521,7 @@ class LakeSPProduct(object):
         # 6 - Close temporary dataSources
         tmp_content_unknown.free()
         dataSource_sp2.Destroy()
-    
+
 
 #######################################
 
@@ -1554,6 +1553,55 @@ def select_water_dark_pixels(in_classif_dict, in_flag_water=False, in_flag_dark=
             out_ind = np.concatenate((out_ind, in_classif_dict["dark"]))
             
     return out_ind
+
+    
+def select_valid_pixels(in_nb_pixels, in_lon, in_lat, in_height):
+    """
+    Test potential issue in output of height-constrained geolocation process,
+    i.e. select valid PIXC = PIXC without NaNs for longitude or latitude or height
+    
+    :param in_nb_pixels: nb of PIXC
+    :type in_nb_pixels: int
+    :param in_lon: improved longitudes to test
+    :type in_lon: 1D-array of float
+    :param in_lat: improved latitudes to test
+    :type in_lat: 1D-array of float
+    :param in_height: improved heights to test
+    :type in_height: 1D-array of float
+    
+    :return: out_valid_flag =0 if there is no valid PIXC; =2 if all PIXC are valid; =1 otherwise
+    :rtype: out_valid_flag = int
+    :return: out_valid_index = indices of valid PIXC when out_valid_flag == 1; =None otherwise
+    :rtype: out_valid_index = 1D-array of float
+    """
+    logger = logging.getLogger("proc_lake.py/select_valid_pixels")
+    
+    # 1 - Init output values
+    out_valid_flag = 2
+    out_valid_index = None
+    
+    # 2 - Retrieve indices of PIXC with either longitude, or latitude or heights being NaN
+    tmp_nan_index1 = np.where(np.isnan(in_lon))[0]
+    tmp_nan_index2 = np.where(np.isnan(in_lat))[0]
+    tmp_nan_index3 = np.where(np.isnan(in_height))[0]
+    tmp_nan_index = np.concatenate((tmp_nan_index1, tmp_nan_index2, tmp_nan_index3))
+    tmp_nan_index_clean = np.unique(tmp_nan_index)
+    nb_nan = len(tmp_nan_index_clean)
+    
+    # 3 - Compute valid indices
+    if nb_nan == in_nb_pixels:
+        logger.warning("!!! All the pixels have NaN for improved geolocation => feature not computed")
+        out_valid_flag = 0
+    elif nb_nan != 0:
+        logger.warning("!!! %d pixels have NaN for improved geolocation => removed from computation" % nb_nan)
+        out_valid_flag = 1
+        tmp_valid_index1 = np.where(np.isfinite(in_lon))[0]
+        tmp_valid_index2 = np.where(np.isfinite(in_lat))[0]
+        tmp_valid_index3 = np.where(np.isfinite(in_height))[0]
+        tmp_valid_index = np.concatenate((tmp_valid_index1, tmp_valid_index2, tmp_valid_index3))
+        out_valid_index = np.unique(tmp_valid_index)
+        
+    return out_valid_flag, out_valid_index
     
 
 def value_or_none(in_value):

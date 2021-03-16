@@ -65,16 +65,14 @@ class ServiceConfigFile(RawConfigParser):
         """
         if THIS.path_conf is None:
             # first set of path_conf and cfg
-            if path_conf is None:
-                raise Exception("First call to ServiceConfigFile: path_conf_name is not define")
             THIS.path_conf = path_conf
             # we call the constructor of mother class
             RawConfigParser.__init__(self)
-            # we load the configuration file
-            self.read(path_conf)
+            if path_conf is not None:
+                # we load the configuration file
+                self.read(path_conf)
             # we save instance of class
             THIS.cfg = self
-        #initialize_config(self, path_conf)
         self.path_conf = THIS.path_conf
 
     # Default message
@@ -84,7 +82,10 @@ class ServiceConfigFile(RawConfigParser):
             :return: message
             :rtype: string
         """
-        return "Configuration file : " + self.path_conf
+        if self.path_conf is None:
+            return "Configuration file initialized empty"
+        else:
+            return "Configuration file : " + self.path_conf
 
     def test_var_config_file(self, section, variable, var_type, valeurs="",
                              val_default=None, valid_min=None, valid_max=None,

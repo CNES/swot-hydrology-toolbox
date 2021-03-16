@@ -185,7 +185,10 @@ class PixCVecSwath(object):
             # 2 - Init proc_pixc_vec.PixelCloudVec object
             obj_pixc_vec = proc_pixc_vec.PixelCloudVec("SP")
             obj_pixc_vec.set_from_pixcvec_file(lake_tile_pixcvec_file)
-            obj_pixc_vec.pixcvec_metadata["xref_l2_hr_lake_sp_config_parameter_file"] = in_proc_metadata["xref_l2_hr_lake_sp_config_parameter_file"]
+            obj_pixc_vec.pixcvec_metadata["xref_l2_hr_lake_tile_config_parameter_file"] = in_proc_metadata["xref_l2_hr_lake_tile_config_parameter_file"]
+
+            # get continent list of current LakeTile_pixcvec
+            current_continent_list = obj_pixc_vec.pixcvec_metadata["continent"].split(";")
 
             # obj_pixc_vec.setContinent(self.continent)
 
@@ -216,11 +219,13 @@ class PixCVecSwath(object):
                 obj_pixc_vec.ice_dyn_f[pixc_tile_idx] = self.ice_dyn_f[pixc_sp_idx]
 
             else :
-                logger.debug("Updating 0 pixels of pixc vec")
+                logger.debug("Updating 0 pixels of PIXCVec")
 
-            # 5 - Write PIXCVec file
-            obj_pixc_vec.write_file(pixc_vec_file, None)
+            # write PIXCVec file only if major continent of tile corresponds to current continent processed
+            if current_continent_list[0] == self.continent :
+                # 5 - Write PIXCVec file
+                obj_pixc_vec.write_file(pixc_vec_file, None)
 
-            # 6 - Write associated shapefile if asked
-            if in_write_to_shp:
-                obj_pixc_vec.write_file_as_shp(pixc_vec_file.replace('.nc', '.shp'), self.obj_pixc_edge_sp)
+                # 6 - Write associated shapefile if asked
+                if in_write_to_shp:
+                    obj_pixc_vec.write_file_as_shp(pixc_vec_file.replace('.nc', '.shp'), self.obj_pixc_edge_sp)

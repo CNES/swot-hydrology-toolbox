@@ -216,7 +216,8 @@ class MyNcReader(object):
         
         # 1 - Get data
         try:
-            out_data = numpy.copy(cur_content.variables[in_name][:])
+            variable_obj = cur_content.variables[in_name]
+            out_data = numpy.copy(variable_obj[:])
         except KeyError:
             message = "Variable %s does not exist in NetCDF file" % in_name
             raise service_error.ProcessingError(message, logger)
@@ -243,9 +244,10 @@ class MyNcReader(object):
         except:
             pass
         
-        # 3 - Replace FillValue with numpy.nan
+        # 3 - Replace _FillValue with numpy.nan
         # NB: use of NaN numpy library after in the code
         if type_out_data.startswith("float") or type_out_data.startswith("double"):
+            
             fillvalue_idx = numpy.where(out_data > 1e30)[0]
             nb_fillvalue = len(fillvalue_idx)
             if nb_fillvalue > 0:
@@ -259,6 +261,31 @@ class MyNcReader(object):
             out_data *= scale_factor
         except:
             logger.info("No scale_factor for variable %s" % in_name)
+            
+        # 5 - Replace invalid values with numpy.nan
+        if type_out_data.startswith("float") or type_out_data.startswith("double"):
+            
+            # 5.1 - Values < valid_min
+            try:
+                valid_min = getattr(variable_obj, "valid_min")
+                idx_inf_min = numpy.where(out_data < valid_min)[0]
+                nb_inf_min = len(idx_inf_min)
+                if nb_inf_min > 0:
+                    logger.warning("{} values < valid_min = {} in variable {} => replaced by numpy.nan".format(nb_inf_min, valid_min, in_name))
+                    out_data[idx_inf_min] = numpy.nan
+            except:
+                logger.warning("No valid_min for variable {}".format(in_name))
+            
+            # 5.2 - Values > valid_max
+            try:
+                valid_max = getattr(variable_obj, "valid_max")
+                idx_inf_max = numpy.where(out_data > valid_max)[0]
+                nb_inf_max = len(idx_inf_max)
+                if nb_inf_max > 0:
+                    logger.warning("{} values > valid_max = {} in variable {} => replaced by numpy.nan".format(nb_inf_max, valid_max, in_name))
+                    out_data[idx_inf_max] = numpy.nan
+            except:
+                logger.warning("No valid_max for variable {}".format(in_name))
 
         return out_data
     

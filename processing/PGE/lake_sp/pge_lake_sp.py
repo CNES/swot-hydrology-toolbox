@@ -33,7 +33,6 @@ import datetime
 import logging
 from lxml import etree as ET
 import os
-import sys
 
 import cnes.common.service_config_file as service_config_file
 import cnes.common.service_error as service_error
@@ -84,22 +83,15 @@ class PGELakeSP():
         self.pass_num = my_params["pass_num"]
         self.continent = my_params["continent"]
 
-        # 2 - Load parameter file
-        # 2.1 - Read value from command file
-        self.file_config = my_params["param_file"]
-        # 2.2 - Test existence
-        if not os.path.exists(self.file_config):
-            raise service_error.DirFileError(self.file_config)
-        # 2.3 - Load parameters
-        self.cfg = service_config_file.ServiceConfigFile(self.file_config)
-
-        # 3 - Put command parameter inside cfg
+        # 2.1 - Init parameter file
+        self.cfg = service_config_file.ServiceConfigFile(None)
+        # 2.2 - Put command parameter inside cfg
         self._put_cmd_value(my_params)
-        # Retrieve parameters which are optionnal
+        # 2.3 - Retrieve parameters which are optionnal
         self.flag_prod_shp = self.cfg.getboolean("OPTIONS", "Produce shp")
         self.flag_inc_file_counter = self.cfg.getboolean("OPTIONS", "Increment file counter")
         
-        # 4 - Init objects
+        # 3 - Init objects
         self.obj_pixc_sp = None
         self.obj_pixcvec_sp = None
         self.obj_lake_db = None
@@ -110,11 +102,11 @@ class PGELakeSP():
         self.laketile_unknown_path_list = []  # List of _Unassigned
         self.proc_metadata = None
 
-        # 5 - Initiate logging service
+        # 4 - Initiate logging service
         service_logger.ServiceLogger()
         logger = logging.getLogger(self.__class__.__name__)
 
-        # 6 - Print info
+        # 5 - Print info
         logger.sigmsg("====================================")
         logger.sigmsg("===== LakeSPProcessing = BEGIN =====")
         logger.sigmsg("====================================")
@@ -123,11 +115,9 @@ class PGELakeSP():
         logger.info("======================================")
         message = "> Command file: " + str(self.cmd_file)
         logger.info(message)
-        message = "> " + str(self.cfg)
-        logger.info(message)
         logger.info("======================================")
         
-        # 7 - Test input parameters
+        # 6 - Test input parameters
         logger.info(">> Check config parameters type and value")
         self._check_config_parameters()
 
@@ -154,11 +144,6 @@ class PGELakeSP():
         config.read(self.cmd_file)
 
         # 2 - Retrieve PATHS
-        try:
-            out_params["param_file"] = os.path.expandvars(config.get("PATHS", "param_file"))
-        except:
-            out_params["param_file"] = os.path.join(sys.path[0], "lake_sp_param.cfg")
-            #out_params["param_file"] = os.path.join(os.getcwd(), "lake_sp_param.cfg")
         out_params["laketile_directory"] = config.get("PATHS", "LakeTile directory")
         out_params["output_dir"] = config.get("PATHS", "Output directory")
 
@@ -286,9 +271,9 @@ class PGELakeSP():
         
         try:
 
-            # 1 - Config parameters from command file
+            # Config parameters from command file
             
-            # 1.1 - PATH section
+            # 1 - PATH section
             # LakeTile files
             self.cfg.test_var_config_file('PATHS', 'LakeTile directory', str)
             my_tools.test_dir(self.cfg.get('PATHS', 'LakeTile directory'))
@@ -298,7 +283,7 @@ class PGELakeSP():
             my_tools.test_dir(self.cfg.get('PATHS', 'Output directory'))
             logger.debug('Output directory = ' + str(self.cfg.get('PATHS', 'Output directory')))
 
-            # 1.2 - DATABASES section
+            # 2 - DATABASES section
             # Lake database full path
             if self.cfg.get('DATABASES', 'LAKE_DB') is None:
                 logger.debug('WARNING - LAKE_DB not filled => LakeTile product not linked to a lake database and continent')
@@ -319,7 +304,7 @@ class PGELakeSP():
             else :
                 logger.debug('WARNING - Unknown LAKE_DB file format for file: %s => LakeTile product not linked to a lake database' % (self.cfg.get('DATABASES', 'LAKE_DB')))
               
-            # 1.3 - TILES_INFO section
+            # 3 - TILES_INFO section
             # Cycle number
             self.cfg.test_var_config_file('TILES_INFOS', 'Cycle number', int)
             logger.debug('Cycle number = ' + str(self.cfg.get('TILES_INFOS', 'Cycle number')))
@@ -330,66 +315,15 @@ class PGELakeSP():
             self.cfg.test_var_config_file('TILES_INFOS', 'Continent', str)
             logger.debug('Continent = ' + str(self.cfg.get('TILES_INFOS', 'Continent')))
             
-            # 1.4 - OPTIONS section
+            # 4 - OPTIONS section
             # Shapefile production
             self.cfg.test_var_config_file('OPTIONS', 'Produce shp', bool, logger=logger)
             logger.debug('OK - Produce shp = ' + str(self.cfg.get('OPTIONS', 'Produce shp')))
             # Increment output file counter
             self.cfg.test_var_config_file('OPTIONS', 'Increment file counter', bool, logger=logger)
             logger.debug('OK - Increment file counter = ' + str(self.cfg.get('OPTIONS', 'Increment file counter')))
-
-            # 2 - Config parameters from parameter file
-
-            # 2.1 - CONFIG_PARAMS section
             
-            # Water flag = 3=water near land edge  4=interior water
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'FLAG_WATER', str, val_default="3;4", logger=logger)
-            logger.debug('OK - FLAG_WATER = ' + str(self.cfg.get('CONFIG_PARAMS', 'FLAG_WATER')))
-            # Dark water flag = 23=darkwater near land  24=interior dark water
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'FLAG_DARK', str, val_default="23;24", logger=logger)
-            logger.debug('OK - FLAG_DARK = ' + str(self.cfg.get('CONFIG_PARAMS', 'FLAG_DARK')))
-            
-            # Min size for a lake to generate a lake product (=polygon + attributes) for it
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'MIN_SIZE', float, val_default=0.01, logger=logger)
-            logger.debug('OK - MIN_SIZE = ' + str(self.cfg.get('CONFIG_PARAMS', 'MIN_SIZE')))
-            # Maximal standard deviation of height inside a lake (-1 = do not compute lake height segmentation)
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'STD_HEIGHT_MAX', float, val_default=-1.0, logger=logger)
-            logger.debug('OK - STD_HEIGHT_MAX = ' + str(self.cfg.get('CONFIG_PARAMS', 'STD_HEIGHT_MAX')))
-            
-            # To improve PixC golocation (=True) or not (=False)
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'IMP_GEOLOC', bool, val_default=True, logger=logger)
-            logger.debug('OK - IMP_GEOLOC = ' + str(self.cfg.get('CONFIG_PARAMS', 'IMP_GEOLOC')))
-            # Method to compute lake boundary or polygon hull
-            # 0 = convex hull 
-            # 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library
-            # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation
-            # 1.2 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track
-            # 2 = edge computed in radar geometry, then converted in ground geometry (default)
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'HULL_METHOD', float, valeurs=[0, 1.0, 1.1, 1.2, 2], val_default=2, logger=logger)
-            logger.debug('OK - HULL_METHOD = ' + str(self.cfg.get('CONFIG_PARAMS', 'HULL_METHOD')))
-            # max number of pixel for hull computation 1            
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY', int, val_default=100000, logger=logger)
-            logger.debug('OK - NB_PIX_MAX_DELAUNEY = ' + str(self.cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY')))
-            # max number of contour points for hull computation 2
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'NB_PIX_MAX_CONTOUR', int, val_default=8000, logger=logger)
-            logger.debug('OK - NB_PIX_MAX_CONTOUR = ' + str(self.cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_CONTOUR')))
-
-            # Big lakes parameters for improved geoloc
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'BIGLAKE_MODEL', str, valeurs=["polynomial", "no"], val_default="polynomial", logger=logger)
-            logger.debug('OK - BIGLAKE_MODEL = ' + str(self.cfg.get('CONFIG_PARAMS', 'BIGLAKE_MODEL')))
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'BIGLAKE_MIN_SIZE', float, val_default=50.0, logger=logger)
-            logger.debug('OK - BIGLAKE_MIN_SIZE = ' + str(self.cfg.get('CONFIG_PARAMS', 'BIGLAKE_MIN_SIZE')))
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'BIGLAKE_GRID_SPACING', float, val_default=4000, logger=logger)
-            logger.debug('OK - BIGLAKE_GRID_SPACING = ' + str(self.cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_SPACING')))
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'BIGLAKE_GRID_RES', float, val_default=8000, logger=logger)
-            logger.debug('OK - BIGLAKE_GRID_RES = ' + str(self.cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_RES')))
-            
-            # 2.2 - ID section
-            # Nb digits for counter of lakes in a tile or pass
-            self.cfg.test_var_config_file('ID', 'NB_DIGITS', str, val_default=6, logger=logger)
-            logger.debug('OK - NB_DIGITS = ' + str(self.cfg.get('ID', 'NB_DIGITS')))
-            
-            # 2.3 - FILE_INFORMATION section
+            # 5 - FILE_INFORMATION section
             # Composite Release IDentifier for LakeTile processing
             self.cfg.test_var_config_file('FILE_INFORMATION', 'CRID_LAKETILE', str, logger=logger)
             logger.debug('OK - CRID_LAKETILE = ' + str(self.cfg.get('FILE_INFORMATION', 'CRID_LAKETILE')))
@@ -411,13 +345,13 @@ class PGELakeSP():
 
         # Error managed
         except service_error.ConfigFileError:
-            message = "Error in the configuration file " + self.cfg.path_conf
+            message = "Error in the command file " + self.cfg.path_conf
             logger.error(message, exc_info=True)
             raise
             
         # Warning error not managed !
         except Exception:
-            logger.error("Something wrong happened during configuration file check!", exc_info=True)
+            logger.error("Something wrong happened during command file check!", exc_info=True)
             raise
 
         return True
@@ -439,7 +373,7 @@ class PGELakeSP():
         cond_prefix += "_%03d" % self.pass_num # Add pass number to prefix
         logger.debug("Prefix to select LakeTile_Obs products = %s" % cond_prefix)
 
-        # 3 - For each listed LakeTile_Obs shapefile, get related LakeTile_Prior, LakeTile_Unassigned, _edge and _pixcvec files if they exist
+        # 3 - For each listed LakeTile_Obs shapefile, get related LakeTile_Prior, LakeTile_Unassigned, LakeTile_Edge and LakeTile_PIXCVec files if they exist
         
         # Init variables
         laketile_root_list = []  # List of LakeTile root name
@@ -489,7 +423,7 @@ class PGELakeSP():
                     logger.debug("-> Associated LakeTile_PIXCVec file is missing: %s" % cur_laketile_pixcvec_path)
                     flag_laketile_product_complete = False
                 
-                # 3.2 - If the LakeTile product is complete, ie (_Obs, _Prior, _Unassigned, _edge, _pixcvec) files exist
+                # 3.2 - If the LakeTile product is complete, ie (_Obs, _Prior, _Unassigned, _Edge, _PIXCVec) files exist
                 if flag_laketile_product_complete:
                     logger.debug("-> LakeTile product is COMPLETE")
                     
@@ -550,12 +484,9 @@ class PGELakeSP():
         else:
             self.proc_metadata["xref_static_lake_db_file"] = ""
 
-        # Parameter file
-        if self.cfg.get("FILE_INFORMATION", "SOURCE") == "Simulation":
-            self.proc_metadata["xref_l2_hr_lake_sp_config_parameter_file"] = self.file_config
-        else:
-            self.proc_metadata["xref_l2_hr_lake_sp_config_parameter_file"] = os.path.basename(self.file_config)
-
+        # Parameter file from LakeTile processing
+        self.proc_metadata["xref_l2_hr_lake_tile_config_parameter_file"] = metadata.xpath("//swot_product/global_metadata/xref_l2_hr_lake_tile_config_parameter_file")[0].text
+        
         # 5 - Init PIXC_edge_SP and PIXCVec_SP objects by retrieving data from the LakeTile files for the continent
 
         logger.info("== Init objects for continent %s" % self.continent)
@@ -624,10 +555,10 @@ class PGELakeSP():
         # 2 - Initialize LakeSP product object
         logger.info("> 3.2 - Initialize LakeSP product object...")
         self.obj_lake = proc_lake.LakeSPProduct(self.obj_pixc_sp,
-                                                                 self.obj_pixcvec_sp,
-                                                                 self.obj_lake_db,
-                                                                 os.path.basename(self.lake_sp_filenames.lake_sp_file_obs).split(".")[0],
-                                                                 self.continent)
+                                                self.obj_pixcvec_sp,
+                                                self.obj_lake_db,
+                                                os.path.basename(self.lake_sp_filenames.lake_sp_file_obs).split(".")[0],
+                                                self.continent)
 
     def _write_output_data(self):
         """
@@ -703,8 +634,6 @@ class PGELakeSP():
             logger.info("**************************")
             logger.info("***** Run SAS LakeSP *****")
             logger.info("**************************")
-
-
                 
             logger.info("=============================")
             logger.info("== Processing continent %s ==" % self.continent)

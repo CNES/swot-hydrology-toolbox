@@ -33,8 +33,7 @@ from osgeo import ogr
 import pandas as pd
 from random import randint
 from scipy.spatial import distance, Delaunay
-from scipy.ndimage import median_filter
-from scipy import ndimage
+from scipy.ndimage.morphology import binary_erosion
 import shapely.geometry as geometry
 from shapely.geometry import Point, LineString, MultiPoint, MultiLineString, Polygon, MultiPolygon, LinearRing, GeometryCollection
 from shapely.ops import cascaded_union
@@ -523,8 +522,8 @@ def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, i
     # Split lake sar image in sub_images
     list_sub_img_to_process = split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max)
     if len(list_sub_img_to_process) > 1:
-        logger.info("Lake image with %d pixels is splitted in %d sub images of less than %d pixels" % (len(in_range), 
-                    len(list_sub_img_to_process), nb_pix_max))
+        logger.info("Lake image with %d pixels is splitted in %d sub images of less than %d pixels" % (len(in_range),
+                                                                                                       len(list_sub_img_to_process), nb_pix_max))
 
     multi_poly = ogr.Geometry(ogr.wkbMultiPolygon)
 
@@ -538,7 +537,10 @@ def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, i
         else :
             multi_poly.AddGeometry(sub_poly)
 
-    poly = multi_poly.UnionCascaded()
+    if not multi_poly.IsEmpty():
+        poly = multi_poly.UnionCascaded()
+    else :
+        poly = multi_poly
 
     return poly
 
@@ -570,22 +572,15 @@ def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat):
     logger.info("Processing image with size %d x %d, with %d water pixels" %(lake_img.shape[0], lake_img.shape[1], np.sum(lake_img)))
 
     # 3 - Filter isolated pixels
-    # Filter majority voting to remove lonely pixels in range
-    struct_horizontal = np.array([[0, 0, 0],
-                                  [1, 1, 1],
-                                  [0, 0, 0]])
-    lake_img_h=median_filter(lake_img, footprint=struct_horizontal)
-
-    # Filter majority voting to remove lonely pixels in azimuth
-    struct_vertical = np.array([[0, 1, 0],
-                                [0, 1, 0],
-                                [0, 1, 0]])
-    lake_img_v=median_filter(lake_img, footprint=struct_vertical)
-
-    lake_img = np.logical_and(lake_img_h,lake_img_v).astype('int')
+    # Make a erosion to check that a contour can be computed
+    lake_erosion = binary_erosion(lake_img, structure=np.ones((2,2))).astype(lake_img.dtype)
 
     # 4 - Compute boundaries (there might be more than one if there are islands in lake)
-    lake_contours = find_contours(lake_img, 0.99999999999)
+    if np.sum(lake_erosion) == 0 :
+        logger.warning("Current lake pixc no not contain a valid polygon")
+        lake_contours = []
+    else :
+        lake_contours = find_contours(lake_img, 0.99999999999)
 
     # 5 - Round contour range and azimuth coordinates to units, since they are indices in input parameters
     # Removing duplicate points from lake contour

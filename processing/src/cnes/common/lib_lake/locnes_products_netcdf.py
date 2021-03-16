@@ -358,7 +358,7 @@ class PixcvecProduct(NetcdfProduct):
         super().__init__(os.path.join(os.path.dirname( __file__ ), "xml/pixcvec.xml"),
                           in_inprod_metadata=in_laketile_pixcvec_metadata,
                           in_proc_metadata=in_proc_metadata)
-            
+
 
 #######################################
                 

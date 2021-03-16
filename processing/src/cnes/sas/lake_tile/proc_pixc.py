@@ -36,6 +36,7 @@ import cnes.common.service_config_file as service_config_file
 
 import cnes.common.lib.my_netcdf_file as my_nc
 import cnes.common.lib.my_tools as my_tools
+import cnes.common.lib.my_segmentation as my_segmentation
 import cnes.common.lib.my_variables as my_var
 import cnes.common.lib_lake.locnes_products_netcdf as nc_file
 
@@ -120,6 +121,8 @@ class PixelCloud(object):
             - nadir_tvp_qual / 1D array of byte: quality flag
         - From processing
             - tile_poly / ogr.Polygon: polygon of the PixC tile
+            - az_0_line / ogr.Linstring: line with azmith = 0
+            - az_max_line / ogr.Linstring: line with azmith = az_max
             - continent / string: continent covered by the tile (if global var CONTINENT_FILE exists)
             - selected_index / 1D-array of int: indices from original 1D-arrays of not rejected pixels with specified classification indices
             - nb_selected / int: number of selected pixels (=selected_index.size)
@@ -245,6 +248,8 @@ class PixelCloud(object):
         self.nb_pix_range = 0  # Number of pixels in range dimension
         self.nb_pix_azimuth = 0  # Number of pixels in azimuth dimension
         self.tile_poly = None  # Polygon representing the PIXC tile
+        self.az_0_line = None # Line with azimuth = 0
+        self.az_max_line  = None # Line with azimuth = az_max
         self.continent = None  # Continent covered by the tile
         self.selected_index = None  # Indices of selected pixels
         self.nb_selected = 0  # Number of selected pixels
@@ -285,7 +290,6 @@ class PixelCloud(object):
         flag_water = self.cfg.get("CONFIG_PARAMS", "FLAG_WATER")
         flag_dark = self.cfg.get("CONFIG_PARAMS", "FLAG_DARK")
         use_fractional_inundation = self.cfg.get("CONFIG_PARAMS", "USE_FRACTIONAL_INUNDATION")
-
         
         tmp_print = "Keep pixels with classification flags ="
         if flag_water != "":
@@ -332,7 +336,21 @@ class PixelCloud(object):
                                                    float(pixc_reader.get_att_value("inner_first_latitude")))
         self.tile_poly = ogr.Geometry(ogr.wkbPolygon)
         self.tile_poly.AddGeometry(ring)
-        
+
+        # Build line with azimuth = 0
+        self.az_0_line = ogr.Geometry(ogr.wkbLineString)
+        self.az_0_line.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.get_att_value("inner_first_longitude"))),
+                                                   float(pixc_reader.get_att_value("inner_first_latitude")))
+        self.az_0_line.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.get_att_value("outer_first_longitude"))),
+                                                   float(pixc_reader.get_att_value("outer_first_latitude")))
+
+        # Build line with azimuth max
+        self.az_max_line = ogr.Geometry(ogr.wkbLineString)
+        self.az_max_line.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.get_att_value("inner_last_longitude"))),
+                                                   float(pixc_reader.get_att_value("inner_last_latitude")))
+        self.az_max_line.AddPoint(my_tools.convert_to_m180_180(float(pixc_reader.get_att_value("outer_last_longitude"))),
+                                                   float(pixc_reader.get_att_value("outer_last_latitude")))
+
         # 4 - Retrieve high level variables
         # 4.1 - Classification flag
         self.origin_classif = pixc_reader.get_var_value("classification", in_group=pixc_group)
@@ -372,18 +390,13 @@ class PixelCloud(object):
                 tmp_classif[nan_idx] = 100 
             
         # 5.3 - Build list of classification flags to keep
-        tmp_flags = ""
+        list_classif_flags = set()
         if flag_water != "":
-            tmp_flags += flag_water.replace('"','')  # Water flags
+            list_classif_flags.update(flag_water.split(";"))
         if flag_dark != "":
-            if tmp_flags != "":
-                tmp_flags += ";"
-            tmp_flags += flag_dark.replace('"','')  # Dark water flags
-            
-        # 5.4 - Get list of classification flags
-        list_classif_flags = tmp_flags.split(";")
+            list_classif_flags.update(flag_dark.split(";"))
         
-        # 5.5 - Get list of selected indices
+        # 5.4 - Get list of selected indices
         self.selected_index = None  # Init wanted indices vector
         for classif_flag in list_classif_flags:
             v_ind = np.where(tmp_classif == int(classif_flag))[0]
@@ -406,8 +419,12 @@ class PixelCloud(object):
             
             # Classification flags
             self.classif = self.origin_classif[self.selected_index]
-            # Simulate classification of only full water pixels
+            # Simulate classification of edge + full water pixels
+            # All PIXC are set to INTERIOR_WATER
+            # LAND_EDGE + WATER_EDGE PIXC are set to WATER_EDGE
             self.classif_full_water = np.zeros(np.shape(self.classif)) + my_var.CLASSIF_INTERIOR_WATER
+            self.classif_full_water[self.classif == my_var.CLASSIF_LAND_EDGE] = my_var.CLASSIF_WATER_EDGE
+            self.classif_full_water[self.classif == my_var.CLASSIF_WATER_EDGE] = my_var.CLASSIF_WATER_EDGE
             # Keep only classification of water pixels (ie remove dark water flags)
             self.classif_without_dw = np.copy(self.classif)
             self.classif_without_dw[self.classif == my_var.CLASSIF_LAND_NEAR_DARK_WATER] = 0
@@ -519,7 +536,6 @@ class PixelCloud(object):
             tmp_nadir_time = pixc_reader.get_var_value("time", in_group=sensor_group)  # Read nadir_time values
             f = interpolate.interp1d(tmp_nadir_time, range(len(tmp_nadir_time)))  # Interpolator
             nadir_index = (np.rint(f(illumination_time))).astype(int)  # Link between PixC and nadir pixels
-            
             # Nadir time
             self.nadir_time = tmp_nadir_time[nadir_index]
             # Nadir time TAI
@@ -614,33 +630,51 @@ class PixelCloud(object):
         # For each label : check if only one lake is in each label and relabels if necessary
 
         # 4.0. Check if lake segmentation following height needs to be run
-        std_height_max = cfg.getfloat('CONFIG_PARAMS', 'STD_HEIGHT_MAX')
-        # If STD_HEIGHT_MAX is -1, function unactivated
-        if std_height_max == -1.0:
+        seg_method = cfg.getint('CONFIG_PARAMS', 'SEGMENTATION_METHOD')
+        min_object_size = cfg.getfloat('CONFIG_PARAMS', 'MIN_SIZE') * 1e6
+
+        # If SEGMENTATION_METHOD is 0, function unactivated
+        if seg_method == 0:
             logger.info("Lake segmentation following height unactivated")
-        # 4.1. If STD_HEIGHT_MAX not -1, relabel lake following segmentation height
+        # 4.1. If SEGMENTATION_METHOD not 0, relabel lake following segmentation height
         else :
-            labels_tmp = np.zeros(self.labels.shape)
 
-            for label in np.unique(self.labels):
+            labels_tmp = np.zeros(self.labels.shape, dtype=self.labels.dtype)
+            labels, count = np.unique(self.labels, return_counts=True)
+
+            for i, label in enumerate(labels):
                 idx = np.where(self.labels == label)
+                subset_pixel_area = self.pixel_area[idx]
 
-                min_rg = min(self.range_index[idx])
-                min_az = min(self.azimuth_index[idx])
+                if np.sum(subset_pixel_area) > min_object_size:
+                    min_rg = min(self.range_index[idx])
+                    min_az = min(self.azimuth_index[idx])
+                    subset_range = self.range_index[idx] - min_rg
+                    subset_azimuth = self.azimuth_index[idx] - min_az
+                    subset_corrected_height = self.corrected_height[idx]
 
-                relabel_obj = my_tools.relabel_lake_using_segmentation_heigth(self.range_index[idx] - min_rg,
-                                                                              self.azimuth_index[idx] - min_az,
-                                                                              self.height[idx], std_height_max)
+                    relabel_obj = my_segmentation.relabel_lake_using_segmentation_heigth(subset_range, subset_azimuth, subset_corrected_height,
+                                                                                         subset_pixel_area, min_object_size, seg_method)
 
-                labels_tmp[self.labels == label] = np.max(labels_tmp) + relabel_obj
+                    labels_tmp[self.labels == label] = np.max(labels_tmp) + relabel_obj
+                else :
+                    labels_tmp[self.labels == label] = np.max(labels_tmp) + 1
 
             self.labels = labels_tmp
-
         self.nb_obj = np.unique(self.labels).size
 
-    def compute_obj_inside_tile(self):
+    def compute_obj_inside_tile(self, az_0_geom, az_max_geom, az_0_and_max_geom):
         """
-        Separate labels of lakes and unknown objects entirely inside the tile, from labels of objects at top or bottom of the tile
+        Separate labels of lakes and unknown objects entirely inside the tile, from labels of objects at top or bottom of the tile.
+        Objects intersecting PLD lakes located at the edge of the tile are not considered as 'inside the tile'.
+
+        :param az_0_geom: MultiPolygon composed of geometries from PLD intersecting line azimuth = 0
+        :type az_0_geom: ogr Geometry MultiPolygon
+        :param az_max_geom:  MultiPolygon composed of geometries from PLD intersecting line azimuth = azimuth max
+        :type az_max_geom: ogr Geometry MultiPolygon
+        :param az_0_and_max_geom:  MultiPolygon composed of geometries from PLD intersecting line azimuth = 0 and azimuth = azimuth max
+        :type az_0_and_max_geom: ogr Geometry MultiPolygon
+
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("- start -")
@@ -656,25 +690,46 @@ class PixelCloud(object):
         # 3 - Identify objects at azimuth = 0 and azimuth = max
         self.labels_at_both_edges = np.intersect1d(labels_at_az_0, labels_at_az_max)
         self.nb_obj_at_both_edges = self.labels_at_both_edges.size
-        logger.info("> %d labels at bottom (az=0) AND top (az=%d) of the tile" % (self.nb_obj_at_both_edges, self.nb_pix_azimuth))
-        for ind in np.arange(self.nb_obj_at_both_edges):
-            logger.debug("%d" % self.labels_at_both_edges[ind])
 
         # 4 - Identify labels...
         # 4.1 - Only at azimuth = 0
         self.labels_at_bottom_edge = np.setdiff1d(labels_at_az_0, self.labels_at_both_edges)
-        self.nb_obj_at_bottom_edge = self.labels_at_bottom_edge.size
-        logger.info("> %d labels at bottom of the tile (az=0)" % self.nb_obj_at_bottom_edge)
-        for ind in np.arange(self.nb_obj_at_bottom_edge):
-            logger.debug("%d" % self.labels_at_bottom_edge[ind])
         # 4.2 - Only at azimuth = max
         self.labels_at_top_edge = np.setdiff1d(labels_at_az_max, self.labels_at_both_edges)
+
+        # 5 - Identify labels of objects intersecting az_0_geom, az_max_geom, az_0_and_max_geom
+        for l in np.unique(self.labels):
+            idx = np.where(self.labels == l)
+
+            bb_geom = my_tools.get_bounding_box(np.min(self.latitude[idx]), np.max(self.latitude[idx]),
+                                                np.min(self.longitude[idx]), np.max(self.longitude[idx]))
+
+            if bb_geom.Intersects(az_0_and_max_geom):
+                if l not in self.labels_at_both_edges:
+                    self.labels_at_both_edges = np.append(self.labels_at_both_edges, l)
+            elif bb_geom.Intersects(az_max_geom):
+                if l not in self.labels_at_top_edge:
+                    self.labels_at_top_edge = np.append(self.labels_at_top_edge, l)
+            elif bb_geom.Intersects(az_0_geom):
+                if l not in self.labels_at_bottom_edge:
+                    self.labels_at_bottom_edge = np.append(self.labels_at_bottom_edge, l)
+
+        self.nb_obj_at_both_edges = self.labels_at_both_edges.size
+        logger.info("> %d labels at bottom (az=0) AND top (az=%d) of the tile" % (self.nb_obj_at_both_edges, self.nb_pix_azimuth))
+        for ind in np.arange(self.nb_obj_at_both_edges):
+            logger.debug("%d" % self.labels_at_both_edges[ind])
+
         self.nb_obj_at_top_edge = self.labels_at_top_edge.size
         logger.info("> %d labels at top of the tile (az=%d)" % (self.nb_obj_at_top_edge, self.nb_pix_azimuth))
         for ind in np.arange(self.nb_obj_at_top_edge):
             logger.debug("%d" % self.labels_at_top_edge[ind])
 
-        # 5 - Get labels of objects entirely inside the tile
+        self.nb_obj_at_bottom_edge = self.labels_at_bottom_edge.size
+        logger.info("> %d labels at bottom of the tile (az=0)" % self.nb_obj_at_bottom_edge)
+        for ind in np.arange(self.nb_obj_at_bottom_edge):
+            logger.debug("%d" % self.labels_at_bottom_edge[ind])
+
+        # 6 - Get labels of objects entirely inside the tile
         self.labels_inside = np.arange(self.nb_obj) + 1  # Initialisation
         if self.nb_obj_at_bottom_edge != 0:
             self.labels_inside = np.setdiff1d(self.labels_inside, self.labels_at_bottom_edge)  # Delete labels at bottom
@@ -820,7 +875,9 @@ class PixelCloud(object):
         if len(not_nan_idx) == 0:
             logger.warning("All pixels have corrected_height=NaN => output height is set to NaN")
             out_height = np.nan
-            
+            out_height_std = np.nan
+            out_height_unc = np.nan
+
         else:            
             nb_pixc = len(in_pixc_index)
             
@@ -844,7 +901,7 @@ class PixelCloud(object):
         
         return out_height, out_height_std, out_height_unc
 
-    def compute_area_with_uncertainties(self, in_pixc_index, method='composite'):
+    def compute_area_with_uncertainties(self, in_pixc_index, method='composite', flag_all=True):
         """
         Caller of JPL aggregate.py/area_with_uncert function 
         which computes the aggregation of PIXC area over a feature, with corresponding uncertainty
@@ -854,6 +911,8 @@ class PixelCloud(object):
         :type in_pixc_index: 1D-array of int
         :param method: type of aggregator ('weight', 'uniform', or 'median')
         :type method: string
+        :param flag_all: if True (default), compute all areas and uncertainties; else, compute only total water area and uncertainty
+        :type flag_all: boolean
         
         :return: out_area = total water area (=water + dark water pixels)
         :rtype: out_area = float
@@ -902,17 +961,23 @@ class PixelCloud(object):
                     land_edge_klass=my_var.CLASSIF_LAND_EDGE,
                     method=method)
             
-            # 2 - Aggregate PIXC area and uncertainty considering only water PIXC (ie detected water)
-            # Call external function common with RiverObs
-            out_area_detct, out_area_detct_unc, area_detct_pcnt_uncert = jpl_aggregate.area_with_uncert(
-                    self.pixel_area, self.water_frac, self.water_frac_uncert,
-                    self.darea_dheight, self.classif_without_dw, self.false_detection_rate,
-                    self.missed_detection_rate, selected_pixc_idx,
-                    Pca=0.9, Pw=0.5, Ptf=0.5, ref_dem_std=10,
-                    interior_water_klass=my_var.CLASSIF_INTERIOR_WATER,
-                    water_edge_klass=my_var.CLASSIF_WATER_EDGE,
-                    land_edge_klass=my_var.CLASSIF_LAND_EDGE,
-                    method=method)
+            if flag_all:
+            
+                # 2 - Aggregate PIXC area and uncertainty considering only water PIXC (ie detected water)
+                # Call external function common with RiverObs
+                out_area_detct, out_area_detct_unc, area_detct_pcnt_uncert = jpl_aggregate.area_with_uncert(
+                        self.pixel_area, self.water_frac, self.water_frac_uncert,
+                        self.darea_dheight, self.classif_without_dw, self.false_detection_rate,
+                        self.missed_detection_rate, selected_pixc_idx,
+                        Pca=0.9, Pw=0.5, Ptf=0.5, ref_dem_std=10,
+                        interior_water_klass=my_var.CLASSIF_INTERIOR_WATER,
+                        water_edge_klass=my_var.CLASSIF_WATER_EDGE,
+                        land_edge_klass=my_var.CLASSIF_LAND_EDGE,
+                        method=method)
+                
+            else:
+                out_area_detct = np.nan
+                out_area_detct_unc = np.nan
         
         return out_area, out_area_unc, out_area_detct, out_area_detct_unc
     
