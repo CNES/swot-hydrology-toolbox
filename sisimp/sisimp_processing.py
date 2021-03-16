@@ -228,6 +228,12 @@ class Processing(object):
                     
                 elif self.my_attributes.height_model == "reference_height":
                     self.my_attributes.height_name = read_parameter(parameters, "Height shp attribute name", "HEIGHT", str)
+                    self.my_attributes.height_ref_multitemp = read_parameter(parameters, "Height ref multitemp", False, bool)
+                    
+                    if self.my_attributes.height_ref_multitemp:
+                        self.my_attributes.height_model_a = read_parameter(parameters, "Constant height model A", my_var.HEIGHT_MODEL_A, float)
+                        self.my_attributes.height_model_t0 = read_parameter(parameters, "Constant height model t0", my_var.HEIGHT_MODEL_t0, float)
+                        self.my_attributes.height_model_period = read_parameter(parameters, "Constant height model period", my_var.HEIGHT_MODEL_PERIOD, float)
                     
                 elif self.my_attributes.height_model == "reference_file":  # True height file
                     self.my_attributes.trueheight_file = os.path.expandvars(parameters.getValue("True height file"))
@@ -365,8 +371,10 @@ class Processing(object):
             my_api.printInfo("[sisimp_processing] >>> CYCLE %03d and ORBIT %03d <<<" % (cycle_number, pass_number))
             my_api.printInfo("########################################################")
             my_api.printInfo("")
+            
             # 1 - Read orbit file
             my_attributes = sisimp_fct.read_orbit(orbit_file, cycle_number, my_attributes)
+            
             my_api.printInfo("")
             # 2 - Init SISIMP filenames object
             my_attributes.sisimp_filenames = my_names.sisimpFilenames(my_attributes.out_dir,

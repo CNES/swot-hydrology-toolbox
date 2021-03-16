@@ -183,6 +183,7 @@ def compute_pixels_in_water(IN_fshp_reproj, IN_attributes):
     # 1 - Read the reprojected shapefile
     layer, da_shapefile = my_shp.open_shp(IN_fshp_reproj)
 
+    
     # Create a GDAL raster in memory
     nx = len(IN_attributes.lon)
     ny = IN_attributes.nb_pix_range
@@ -394,18 +395,30 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             #~ indice = np.logical_and(np.isin(r, lac.pixels[0]), np.isin(az, lac.pixels[1]))
             def merge(a,b):
                 return a*100000+b
+            # [range, azimuth] coordinate for a given lake
             titi = merge(lac.pixels[0], lac.pixels[1])
+            # [range, azimuth] coordinate for every water (+ buffer land) pixels of the simulated area
             toto = merge(r, az)
+            # Indices for water pixels which are inside the given lake
             indice = np.isin(toto,titi)
+            # Tree to given closest pixel and distance for a point to the lake pixels
             tree = KDTree(np.column_stack((lac.pixels[0], lac.pixels[1])))
-            indice_water = np.array([r[np.where(tree.query(np.column_stack((r, az)))[0] < 5*np.sqrt(2))[0]],\
-                            az[np.where(tree.query(np.column_stack((r, az)))[0] < 5*np.sqrt(2))[0]]])
-
+            # distance, indices for each pixel to the water (+buffer land) pixels
+            tree_output = tree.query(np.column_stack((r, az)))
+    
+            indice_water = np.array([r[np.where(tree_output[0] < 5*np.sqrt(2))[0]],\
+                            az[np.where(tree_output[0] < 5*np.sqrt(2))[0]]])
+ 
             lon, lat = math_fct.lonlat_from_azy(az, ri, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
-        
             indice_water_f = np.isin(toto, merge(indice_water[0],indice_water[1]))
-     
-            elevation_tab[indice_water_f] = lac.hmean
+                       
+            # Same method everywhere now
+            if IN_attributes.height_model == "reference_file":
+                elevation_tab[indice_water_f] = lac.compute_h(lat[indice_water_f], lon[indice_water_f])          
+            else:
+                # ~ elevation_tab[indice_water_f] = lac.hmean
+                elevation_tab[indice_water_f] = lac.compute_h(lat[indice_water_f], lon[indice_water_f])
+
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
 
     # 3 - Build cross-track distance array
@@ -838,7 +851,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
         geom = polygon_index.GetGeometryRef()
         
         if geom is not None:  # Test geom.IsValid() not necessary
-
             # 4.2 - Create the output polygon in radar projection
             # 4.2.1 - Init output geometry
             geom_out = ogr.Geometry(ogr.wkbPolygon)
@@ -868,7 +880,6 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     continue  # ignore polygons completely outside the swath
 
                 points = np.transpose(np.array(ring.GetPoints()))
-
                 lon, lat = points[0], points[1]
 
                 x_c, y_c, zone_number, zone_letter = utm.from_latlon(lat[0], lon[0])
@@ -890,12 +901,11 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 lon = lon * DEG2RAD
                 lat = lat * DEG2RAD
 
-
                 if IN_attributes.height_model is None:
                     lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
 
                 if IN_attributes.height_model == 'reference_height':
-                    lac = Reference_height_Lac(ind+1, polygon_index, layerDefn, IN_attributes, id_lake)
+                    lac = Reference_height_Lac(ind+1, polygon_index, layerDefn, IN_attributes, lat, IN_cycle_number, id_lake)
 
                 if IN_attributes.height_model == 'gaussian':
                     if area > IN_attributes.height_model_min_area:
@@ -918,6 +928,7 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                         lac = Constant_Lac(ind+1, IN_attributes, lat, IN_cycle_number, id_lake)
 
                 lac.set_hmean(np.mean(lac.compute_h(lat* RAD2DEG, lon* RAD2DEG)))
+                
                 # ~ try:
                     # ~ lac.h_ref=float(polygon_index.GetField(str(IN_attributes.height_name)))
                     # ~ if lac.h_ref==None:
@@ -979,9 +990,13 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     lac.set_hmean(np.mean(lac.compute_h(lat*RAD2DEG, lon*RAD2DEG)))
                     az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
 
+                elif IN_attributes.height_model=='reference_file':
+                    h = lac.compute_h(lat*RAD2DEG, lon*RAD2DEG)
+                    az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=h)
+
                 else:
                     az, r = azr_from_lonlat(lon, lat, IN_attributes, heau=lac.hmean)
-                    
+
                 range_tab = np.concatenate((range_tab, r), -1)
                 
                 npoints = len(az)
@@ -990,16 +1005,17 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                     continue  # Ignore polygons crossing the swath
 
                 for p in range(npoints):  # no fonction ring.SetPoints()
-                    ring.SetPoint(p, az[p], r[p])
-                #ring.Intersection(swath_polygon)
+                    azp = az[p]
+                    rp = r[p]
+                    ring.SetPoint(p, azp, rp)
+                    # ~ if azp < 10e7 and azp >= 0 and rp < 10e7 and rp >= 0:
+                        # ~ ring.SetPoint(p, azp, rp)
                 ring.CloseRings()
 
                 add_ring = True
                 # Add the reprojected ring to the output geometry
                 geom_out.AddGeometry(ring)
             
-            #geom_out=geom_out.Intersection(swath_polygon)
-
             # 4.2.4 - Add Output geometry
             if add_ring:
 
@@ -1022,17 +1038,16 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
                 #~ # Not used, commented to improve speed
                 if IN_attributes.height_model == 'reference_height':
                     feature_out.SetField(str("HEIGHT"), lac.height)
-
                 # Add the output feature to the output layer
                 layerout.CreateFeature(feature_out)
                 liste_lac.append(lac)
                 indmax += 1
 
     dataout.Destroy()
-
+    
     safe_flag_layover = False
     if (safe_flag_layover) and (IN_attributes.height_model == 'reference_height'):
-        liste_lac = intersect(OUT_filename, OUT_filename, indmax, IN_attributes) + liste_lac
+        liste_lac = intersect(OUT_filename, OUT_filename, indmax, IN_attributes, lat, IN_cycle_number) + liste_lac
 
     IN_attributes.liste_lacs = liste_lac
 
@@ -1127,7 +1142,9 @@ def azr_from_lonlat(IN_lon, IN_lat, IN_attributes, heau=0.):
     psi = math_fct.linear_extrap(lat0, IN_attributes.lat_init, IN_attributes.heading_init)
     y = du * np.cos(psi)  # eq (3)
     OUT_azcoord = (math_fct.linear_extrap(lat0, IN_attributes.lat_init, np.arange(len(IN_attributes.lat_init))))
-    nb_points = 50
+    
+    # from 50 to 500 to remove strange bug
+    nb_points = 500
     gamma = np.zeros([len(IN_lat), nb_points])
     beta = np.zeros([len(IN_lat), nb_points])
   
@@ -1194,7 +1211,7 @@ def all_linear_rings(geom):
             yield geom.GetGeometryRef(line_index)
 
 
-def intersect(input, output, indmax, IN_attributes, overwrite=False):
+def intersect(input, output, indmax, IN_attributes, lat, IN_cycle_number, overwrite=False):
 
     # Function to modify polygon shapefile in radar geometry in order to detect overlapped polygons
     # Only intersection between 2 polygons are considered, not multi
@@ -1259,7 +1276,7 @@ def intersect(input, output, indmax, IN_attributes, overwrite=False):
                             out_feat.SetField(str("HEIGHT"), h)
 
                             out_lyr.CreateFeature(out_feat)
-                            lac = Reference_height_Lac(indmax + 1, intersection, defn, IN_attributes)
+                            lac = Reference_height_Lac(indmax + 1, intersection, defn, IN_attributes, lat, IN_cycle_number)
                             lac.height = h
                             lac.set_hmean(np.mean(lac.compute_h()))
                             liste_lac.append(lac)
@@ -1284,7 +1301,7 @@ def intersect(input, output, indmax, IN_attributes, overwrite=False):
                                     out_feat.SetField(str("IND_LAC"), indmax + 1)
                                     out_feat.SetField(str("HEIGHT"), h)
                                     out_lyr.CreateFeature(out_feat)
-                                    lac = Reference_height_Lac(indmax + 1, i, defn, IN_attributes)
+                                    lac = Reference_height_Lac(indmax + 1, i, defn, IN_attributes, lat, IN_cycle_number)
                                     lac.height = h
                                     lac.set_hmean(np.mean(lac.compute_h()))
                                     liste_lac.append(lac)
@@ -1345,9 +1362,9 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
         # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
     # ~ if IN_attributes.height_model == 'polynomial':
         # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-    # ~ if IN_attributes.height_model == 'reference_file':
-        # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-        
+
+    elif IN_attributes.height_model == 'reference_file':
+        near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
     else:
         hmean = IN_attributes.height_model_a + IN_attributes.height_model_a * \
         np.sin(2*np.pi * (np.mean(IN_attributes.orbit_time) + cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period

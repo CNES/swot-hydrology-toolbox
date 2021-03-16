@@ -51,12 +51,12 @@ def generate_2d_profile_gaussian(dlat, latmin, latmax, dlon, lonmin, lonmax, hei
         Ny = int(ly+10)           
  
     ### zero-padding not seems to improve computation time, TBC
-    #~ nx_pad = 2**(int(np.log2(Nx - 1)) + 1)
-    #~ ny_pad = 2**(int(np.log2(Ny - 1)) + 1)
-    ###    
+    nx_pad = 2**(int(np.log2(Nx - 1)) + 1)
+    ny_pad = 2**(int(np.log2(Ny - 1)) + 1)
+    # ~ ###    
     
-    nx_pad = Nx
-    ny_pad = Ny
+    # ~ nx_pad = Nx
+    # ~ ny_pad = Ny
          
     if seed is not None:
         np.random.seed(int(seed))
