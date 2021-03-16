@@ -27,7 +27,7 @@ Output directory = <output_directory>
 
 [DATABASES]
 # OPTIION 1 : SQLITE lake database containing  : lake_table, lake_influence_table, basin_table
-LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20200309_PLD/PLD_EU.sqlite
+LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/PLD
 
 # OPTION 2 : SHP lake database
 # Prior lake database
