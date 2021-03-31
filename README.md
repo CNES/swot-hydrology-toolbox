@@ -32,17 +32,17 @@ Note that both algorithms and products are still under development and will be u
 ## Associated RiverObs version
 develop branch
 
-commit 3964e3749908ba88a7f1586c7939dc9dcef21a9e
-Author: Alex Fore <Alexander.Fore@jpl.nasa.gov>
-Date:   Thu Jun 18 12:37:22 2020 -0700
+commit 1c13a9fc2f2bdc257db84a3ee51194f6bf6dec46 Author: Cassie Stuurman cassie.stuurman@jpl.nasa.gov Date: Mon Nov 23 19:19:21 2020 -0800
 
-    PDD updates
+updated batch validation tool for compatibility with plot reach
 
-River database SWORD v5 available here:
-http://gaia.geosci.unc.edu/SWORD/SWORD_v05.zip
-Don't forget to modify parameter_river.rdf:
-reach_db_path (-) = /work/ALT/swot/swotpub/BD/BD_rivers/SWORD_v05/Reaches_Nodes/netcdf
+River database SWORD v6 available here:
+http://gaia.geosci.unc.edu/SWORD/SWORD_v06.zip
 
+Don't forget to modify parameter_river.rdf
+reach_db_path (-) = /work/ALT/swot/swotpub/BD/BD_rivers/SWORD_v06/Reaches_Nodes/netcdf
+
+You can also try to use a more recent RiverObs version, but don't forget to use the associated SWORD version.
 
 ## Caveats
 Although the large-scale simulator included in the toolbox provides fairly representative statistical errors, several simplifications or approximations are made:
