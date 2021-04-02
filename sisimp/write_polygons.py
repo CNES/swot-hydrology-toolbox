@@ -33,6 +33,7 @@ from lib.my_lacs import Constant_Lac, Reference_height_Lac, Gaussian_Lac, Polyno
 from lib.my_variables import RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
 from lib.roll_module import Roll_module
 from lib.tropo_module import Tropo_module
+import lib.true_height_model as true_height_model
 
 from inversion_algo import inversionCore
 
@@ -416,7 +417,6 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             if IN_attributes.height_model == "reference_file":
                 elevation_tab[indice_water_f] = lac.compute_h(lat[indice_water_f], lon[indice_water_f])          
             else:
-                # ~ elevation_tab[indice_water_f] = lac.hmean
                 elevation_tab[indice_water_f] = lac.compute_h(lat[indice_water_f], lon[indice_water_f])
 
             elevation_tab[indice] = lac.compute_h(lat[indice], lon[indice])
@@ -461,15 +461,18 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     ri_pixels = IN_attributes.near_range + r_pixels * IN_attributes.range_sampling
     Hi_pixels = IN_attributes.alt[np.arange(0, len(IN_water_pixels[0])-1)]
     
+   # Compute 2d grid with angle[azimuth, range] in order to compute noise over a radar grid
+   # Simplification for height computation (incidence angle not very sentitive to height used)
     for az_ind in range(len(IN_water_pixels[0])-1):
         lon_pixels, lat_pixels = math_fct.lonlat_from_azy(np.ones(len(ri_pixels), dtype=np.int)*az_ind, ri_pixels, IN_attributes, IN_swath, IN_unit="deg", h=lac.hmean)
-        elevation_az = lac.compute_h(lat_pixels, lon_pixels)
         Hi_pixels = IN_attributes.alt[az_ind]
-        angles_az = np.arccos((ri_pixels**2 + (GEN_APPROX_RAD_EARTH+Hi_pixels)**2 - (GEN_APPROX_RAD_EARTH+elevation_az)**2)/(2*ri_pixels*(GEN_APPROX_RAD_EARTH+Hi_pixels)))
+        angles_az = np.arccos((ri_pixels**2 + (GEN_APPROX_RAD_EARTH+Hi_pixels)**2 - (GEN_APPROX_RAD_EARTH+IN_attributes.hmean)**2)/(2*ri_pixels*(GEN_APPROX_RAD_EARTH+Hi_pixels)))
         angles_az[np.isnan(angles_az)]=0.
         for r_ind in range(len(angles_az)-1):
             angles_pixels[r_ind][az_ind]=angles_az[r_ind]
-
+        
+            
+    
     delta_h, phase_noise_std, dh_dphi = math_fct.calc_delta_h(IN_water_pixels, angles_pixels, angles, IN_attributes.noise_height, IN_attributes.height_bias_std, IN_attributes.sensor_wavelength, IN_attributes.baseline, IN_attributes.near_range, seed=noise_seed)
 
     # Apply convolution filter to 
@@ -791,6 +794,16 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
     # 1 - Make swath polygons
     swath_polygon = make_swath_polygon(IN_swath, IN_attributes)
 
+    lat_swath = []
+    lon_swath = []
+    for i in swath_polygon:
+        for k in range(0, i.GetPointCount()):
+            pt = i.GetPoint(k)
+            lat_swath.append(pt[1])
+            lon_swath.append(pt[0])
+    IN_attributes.latmin_swath, IN_attributes.latmax_swath = min(lat_swath), max(lat_swath)
+    IN_attributes.lonmin_swath, IN_attributes.lonmax_swath = min(lon_swath), max(lon_swath)
+    
     # 2 - Select water bodies polygons in the swath
     layer, da_shapefile = my_shp.open_shp(IN_filename, swath_polygon)
 
@@ -1050,7 +1063,8 @@ def reproject_shapefile(IN_filename, IN_swath, IN_driver, IN_attributes, IN_cycl
         liste_lac = intersect(OUT_filename, OUT_filename, indmax, IN_attributes, lat, IN_cycle_number) + liste_lac
 
     IN_attributes.liste_lacs = liste_lac
-
+    IN_attributes.hmean = hmean
+    
     return OUT_filename, IN_attributes, swath_polygon
                 
 
@@ -1357,14 +1371,20 @@ def compute_near_range(IN_attributes, layer, cycle_number=0):
         else:
             near_range = 0
             
-        
-    # ~ if IN_attributes.height_model == 'gaussian':
-        # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-    # ~ if IN_attributes.height_model == 'polynomial':
-        # ~ near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
-
     elif IN_attributes.height_model == 'reference_file':
-        near_range = np.mean(np.sqrt((IN_attributes.alt + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
+        
+        true_height_model_inst = true_height_model.TrueHeightModel(IN_attributes.trueheight_file, np.zeros(1), np.zeros(1), verbose=False)
+        true_height_model_inst.read_netcdf_trueheight(true_height_model_inst.th_filename, true_height_model_inst.th_attr['lon'], 
+                                        true_height_model_inst.th_attr['lat'], true_height_model_inst.th_attr['height'])
+                
+        ind = np.where((true_height_model_inst.th_lat.data > IN_attributes.latmin_swath) & (true_height_model_inst.th_lat.data < IN_attributes.latmax_swath) &\
+              (true_height_model_inst.th_lon.data > IN_attributes.lonmin_swath) & (true_height_model_inst.th_lon.data < IN_attributes.lonmax_swath))
+        
+        if len(ind[0]) != 0:
+            hmean = np.mean(true_height_model_inst.th_height[ind])
+            
+        print('h_mean =' , hmean)
+        near_range = np.mean(np.sqrt((IN_attributes.alt - hmean + (IN_attributes.nr_cross_track ** 2) / (2 * GEN_APPROX_RAD_EARTH)) ** 2 + IN_attributes.nr_cross_track ** 2))
     else:
         hmean = IN_attributes.height_model_a + IN_attributes.height_model_a * \
         np.sin(2*np.pi * (np.mean(IN_attributes.orbit_time) + cycle_number * IN_attributes.cycle_duration) - IN_attributes.height_model_t0) / IN_attributes.height_model_period
