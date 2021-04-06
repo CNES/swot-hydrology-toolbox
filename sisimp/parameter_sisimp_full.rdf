@@ -76,6 +76,8 @@ Constant height model period (days) = 365.25
 !### Option 2 - Height is given from a specific attribute in the shapefile of water bodies
 !Height model = reference_height
 !Height shp attribute name = ref_height     !Name of the attribute (default=HEIGHT)
+!Height ref multitemp = True
+
 
 !### Option 3 - Height is given in a NetCDF file
 !Height model = reference_file

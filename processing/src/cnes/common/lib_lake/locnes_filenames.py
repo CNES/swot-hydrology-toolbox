@@ -185,20 +185,23 @@ class LakeTileFilenames(object):
     Manage LakeTile product filenames
     """
     
-    def __init__(self, in_pixc_file, in_pixc_vec_river_file, in_out_dir):
+    def __init__(self, in_pixc_file, in_pixc_vec_river_file, in_out_dir, flag_inc=True):
         """
         Constructor of LakeTile filenames
 
-        :param IN_pixc_file: PIXC file full path
-        :type IN_pixc_file: string
-        :param IN_pixc_vec_river_file: PIXCVecRiver file full path
-        :type IN_pixc_vec_river_file: string
-        :param IN_out_dir: output directory
-        :type IN_out_dir: string
+        :param in_pixc_file: PIXC file full path
+        :type in_pixc_file: string
+        :param in_pixc_vec_river_file: PIXCVecRiver file full path
+        :type in_pixc_vec_river_file: string
+        :param in_out_dir: output directory
+        :type in_out_dir: string
+        :param flag_inc: flag to increment output file counter if True (default); else=False
+        :type flag_inc: boolean
 
         Variables of the object:
             - pixc_vec_river_file / string: PIXCVecRiver full path
             - out_dir / string: output directory
+            - flag_inc_file_counter / boolean: True to increment output file counter
             - product_counter / int: product counter
             - crid_laketile / string: CRID
             - cycle_num / int: cycle number
@@ -220,6 +223,7 @@ class LakeTileFilenames(object):
         pixc_file = in_pixc_file  # PIXC file full path
         self.pixc_vec_river_file = in_pixc_vec_river_file  # PIXCVecRiver full path
         self.out_dir = in_out_dir  # Output directory
+        self.flag_inc_file_counter = flag_inc  # Flag to increment file counter
         self.product_counter = 1  # Product counter
         # Get CRID from configuration file
         try:
@@ -301,12 +305,13 @@ class LakeTileFilenames(object):
                                              self.crid_laketile, self.product_counter, LAKE_TILE_SHP_SUFFIX)
         self.lake_tile_shp_file_obs = os.path.join(self.out_dir, filename)
 
-        # Test existence and modify self.product_counter if needed
-        while os.path.exists(self.lake_tile_shp_file_obs):
-            self.product_counter += 1
-            filename = LAKE_TILE_PATTERN["obs"] % (self.cycle_num, self.pass_num, self.tile_ref, self.start_date, self.stop_date, \
-                                                    self.crid_laketile, self.product_counter, LAKE_TILE_SHP_SUFFIX)
-            self.lake_tile_shp_file_obs = os.path.join(self.out_dir, filename)
+        # Test existence and modify self.product_counter if wanted and needed
+        if self.flag_inc_file_counter:
+            while os.path.exists(self.lake_tile_shp_file_obs):
+                self.product_counter += 1
+                filename = LAKE_TILE_PATTERN["obs"] % (self.cycle_num, self.pass_num, self.tile_ref, self.start_date, self.stop_date, \
+                                                        self.crid_laketile, self.product_counter, LAKE_TILE_SHP_SUFFIX)
+                self.lake_tile_shp_file_obs = os.path.join(self.out_dir, filename)
             
         # 2 - Full path of shapefile of PLD-oriented product
         self.lake_tile_shp_file_prior = self.lake_tile_shp_file_obs.replace(LAKE_TILE_PREFIX["obs"], LAKE_TILE_PREFIX["prior"])
@@ -318,31 +323,19 @@ class LakeTileFilenames(object):
         """
         Compute LakeTile_edge full path
         """
-        logger = logging.getLogger(self.__class__.__name__)
         
         filename = LAKE_TILE_PATTERN["edge"] % (self.cycle_num, self.pass_num, self.tile_ref, self.start_date, self.stop_date, \
                                             self.crid_laketile, self.product_counter, LAKE_TILE_EDGE_SUFFIX)
         self.lake_tile_edge_file = os.path.join(self.out_dir, filename)
 
-        # Filename must not exist
-        if os.path.exists(self.lake_tile_edge_file):
-            message = "ERROR = %s already exists" % self.lake_tile_edge_file
-            raise service_error.SASLakeTileError(message, logger)
-
     def compute_lake_tile_filename_pixcvec(self):
         """
         Compute LakeTile_pixcvec full path
         """
-        logger = logging.getLogger(self.__class__.__name__)
         
         filename = LAKE_TILE_PATTERN["pixcvec"] % (self.cycle_num, self.pass_num, self.tile_ref, self.start_date, self.stop_date, \
                                                 self.crid_laketile, self.product_counter, LAKE_TILE_PIXCVEC_SUFFIX)
         self.lake_tile_pixcvec_file = os.path.join(self.out_dir, filename)
-
-        # Filename must not exist
-        if os.path.exists(self.lake_tile_pixcvec_file):
-            message = "ERROR = %s already exists" % self.lake_tile_pixcvec_file
-            raise service_error.SASLakeTileError(message, logger)
 
     #----------------------------------
 
@@ -396,7 +389,7 @@ class LakeSPFilenames(object):
     Manage LakeSP product filenames
     """
     
-    def __init__(self, in_lake_tile_file_list, in_continent, in_out_dir):
+    def __init__(self, in_lake_tile_file_list, in_continent, in_out_dir, flag_inc=True):
         """
         Constructor of LakeSP filenames
 
@@ -406,10 +399,13 @@ class LakeSPFilenames(object):
         :type in_continent: string
         :param in_out_dir: output directory
         :type in_out_dir: string
+        :param flag_inc: flag to increment output file counter if True (default); else=False
+        :type flag_inc: boolean
 
         Variables of the object:
             - lake_tile_file_list / string: list of LakeTile_shp files full path
             - out_dir / string: output directory
+            - flag_inc_file_counter / boolean: True to increment output file counter
             - product_counter / int: product counter
             - crid_lakesp / string: CRID
             - cycle_num / int: cycle number
@@ -429,6 +425,7 @@ class LakeSPFilenames(object):
         # 1 - Init variables
         self.lake_tile_file_list = in_lake_tile_file_list  # List of LakeTile_shp files full path
         self.out_dir = in_out_dir  # Output directory
+        self.flag_inc_file_counter = flag_inc  # Flag to increment file counter
         self.product_counter = 1  # Product counter
         # Get CRID from configuration file
         self.crid_lakesp = cfg.get("FILE_INFORMATION", "CRID_LAKESP")
@@ -514,16 +511,17 @@ class LakeSPFilenames(object):
                                                   self.product_counter)
         self.lake_sp_file_obs = os.path.join(self.out_dir, filename)
 
-        # Test existence and modify self.product_counter if needed
-        while os.path.exists(self.lake_sp_file_obs):
-            self.product_counter += 1
-            if self.continent is "":
-                filename = LAKE_SP_PATTERN_NO_CONT["obs"] % (self.cycle_num, self.pass_num, self.start_date, self.stop_date, self.crid_lakesp, \
-                                                              self.product_counter)
-            else:
-                filename = LAKE_SP_PATTERN["obs"] % (self.cycle_num, self.pass_num, self.continent, self.start_date, self.stop_date, self.crid_lakesp, \
-                                                      self.product_counter)
-            self.lake_sp_file_obs = os.path.join(self.out_dir, filename)
+        # Test existence and modify self.product_counter if wanted and needed
+        if self.flag_inc_file_counter:
+            while os.path.exists(self.lake_sp_file_obs):
+                self.product_counter += 1
+                if self.continent is "":
+                    filename = LAKE_SP_PATTERN_NO_CONT["obs"] % (self.cycle_num, self.pass_num, self.start_date, self.stop_date, self.crid_lakesp, \
+                                                                  self.product_counter)
+                else:
+                    filename = LAKE_SP_PATTERN["obs"] % (self.cycle_num, self.pass_num, self.continent, self.start_date, self.stop_date, self.crid_lakesp, \
+                                                          self.product_counter)
+                self.lake_sp_file_obs = os.path.join(self.out_dir, filename)
             
         # 2 - Full path of shapefile of PLD-oriented product
         self.lake_sp_file_prior = self.lake_sp_file_obs.replace(LAKE_SP_PREFIX["obs"], LAKE_SP_PREFIX["prior"])

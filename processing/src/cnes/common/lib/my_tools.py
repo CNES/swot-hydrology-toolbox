@@ -30,22 +30,15 @@ import logging
 import math
 import numpy as np
 import os
+
 from osgeo import osr, ogr
 import pyproj
-from scipy.ndimage.measurements import label
 from shapely.ops import transform
-from skimage.morphology import square
-from sklearn.cluster import KMeans
 
-import skimage
-if skimage.__version__ >= "0.11":
-    from skimage.filters import median as median_filter
-else:
-    from skimage.filter.rank import median as median_filter
 from scipy.spatial import distance
+from scipy.ndimage.measurements import label
 
 import cnes.common.service_error as service_error
-
 import cnes.common.lib.my_variables as my_var
 
 
@@ -443,103 +436,23 @@ def label_region(in_bin_mat):
 
     return out_m_label_regions, out_nb_obj
 
+def get_1d_from_2d(img, in_x, in_y):
 
-def relabel_lake_using_segmentation_heigth(in_x, in_y, in_height, in_std_height_max):
-    """
-    This function main interest is to determine the number of lakes inside a subset of PixC in radar geometry.
-    In most of the cases, only one lake is located in the given subset, but in some case of different lakes can
-    be gather inside one because of radar geometric distortions or in the case a of a dam.
+    vect = np.zeros(in_x.shape)
+    nb_pts = in_x.size
 
-    Steps :
-
-     1. Creates a 2D height matrix from X and Y 1D vectors
-     2. Unsupervised heigth classification to determine number a classes to get an STD over each classe lower than STD_HEIGHT_MAX
-     3. Smooth result using a 2D median filter
-     4. Return labels
-
-    :param in_x: X indices of "1" pixels
-    :type in_x: 1D vector of int
-    :param in_y: Y indices of "1" pixels
-    :type in_y: 1D vector of int
-    :param in_height: height of pixels
-    :type in_height: 1D vector of float
-    :param in_std_height_max: maximal standard deviation of height inside a lake
-    :type in_std_height_max: float
-
-    :return: labels recomputed over 1 of several lakes
-    :rtype: 1D vector of int
-    """
-    # Get instance of service config file
-    logger = logging.getLogger("my_tools")
-    logger.debug("- start -")
-
-    # 0 - Deal with exceptions
-    # 0.1 - Input vectors size must be the same
-    if (in_x.size != in_y.size) or (in_x.size != in_height.size):
-        raise ValueError("relabel_lake_using_segmentation_heigth(in_x, in_y, in_height) : in_x and in_y must be the same size ;" + \
-                         "currently : in_x = %d and in_y = %d" % (in_x.size, in_y.size))
-    else:
-        nb_pts = in_x.size
-
-    # 1 - Compute height matrix
-    # 1.1 - Init heigth image
-    logger.debug("Building heigth matrix")
-    height_img = np.zeros((np.max(in_y) + 1, np.max(in_x) + 1))
-    message = "> Height matrix size = (X=%d , Y=%d)" % (np.max(in_y.size) + 1, np.max(in_x.size) + 1)
-    logger.debug(message)
-
-    # 1.2 - Put height for every pixels defined by the input vectors
     for ind in range(nb_pts):
-        height_img[in_y[ind], in_x[ind]] = in_height[ind]
+        vect[ind] = img[in_y[ind], in_x[ind]]
+    return vect
 
-    logger.debug("K-means processing")
+def get_2d_from_1d(vect, in_x, in_y):
 
-    # 2 - Unsupervised clustering to determine number of classes
-    std_heigth = np.std(in_height)
-    nb_classes = 1
+    img = np.zeros((np.max(in_y) + 1, np.max(in_x) + 1))
+    nb_pts = in_x.size
+    for ind in range(nb_pts):
+        img[in_y[ind], in_x[ind]] = vect[ind]
 
-    # 2.1 - Cas with only one class
-    if std_heigth < in_std_height_max:  # If only one lake is in the given pixc subset
-        retour = np.ones(nb_pts)  # Return one unique label for all pixc
-    else:
-        # 2.2 - Init a k-means classifier
-        kmeans_classif = KMeans()
-        while std_heigth > in_std_height_max:
-
-            nb_classes += 1
-
-            # 2.3 - Cluster height over nb_classes classes
-            kmeans_classif = KMeans(n_clusters=nb_classes)
-            kmeans_classif.fit(in_height.reshape(-1, 1))  # Turn line into column for in_height
-
-            # 2.3 - Compute heigth std inside each class
-            std_heigth = np.max([np.std(in_height[np.where(kmeans_classif.labels_ == curLabel)]) for curLabel in np.unique(kmeans_classif.labels_)])
-
-            # If number of classes upper than 10 => stop iteration
-            if nb_classes > 10:
-                break
-
-        message = "NB classes : %d, max std : %f " % (nb_classes, std_heigth)
-        logger.debug(message)
-
-        # 3 - Format output vector
-
-        # 3.1 - Build a labeled matrix
-        labeled_img = np.zeros(height_img.shape).astype('int')
-        for ind in range(nb_pts):
-            labeled_img[in_y[ind], in_x[ind]] = int(kmeans_classif.labels_[ind])
-
-        # 3.2 - Median filter on a 3x3 window to smooth output
-        labeled_img_filted = median_filter(labeled_img.astype('uint8'), square(2).astype('uint8'))
-
-        # 3.3 - Init and fill output label array
-        out_labels = np.zeros(in_height.shape)
-        for ind in range(nb_pts):
-            out_labels[ind] = labeled_img_filted[in_y[ind], in_x[ind]] + 1
-
-        retour = out_labels
-
-    return retour
+    return img
 
 
 #######################################
@@ -576,128 +489,49 @@ def convert_2d_mat_in_1d_vec(in_x, in_y, in_mat):
 #######################################
 
 
-def compute_mean_2sigma(in_v_val, in_nan=None):
+def compute_mean_2sigma(in_v_val):
     """
     Compute the mean of the input values, after remove of non-sense values, i.e. below or above the median +/- 2*standard deviation
-    If set, remove NaN values from the computation
+    NaN values are removed from the computation
 
     :param in_v_val: vector of values for which the mean is computed
     :type in_v_val: 1D-array of float
-    :param in_nan: value to consider as NaN (default=None)
-    :type in_nan: depends on the initial vector
 
-    :return: the mean value (None if no finite value)
+    :return: out_mean = the mean value (numpy.nan if no finite value)
     :rtype: float
     """
     logger = logging.getLogger("my_tools")
-
-    retour = None  # Init retour to None
-    flag_ok = True  # Flag to compute the sum
-    v_val = in_v_val  # Vector on which compute the sum
     
-    # 0 - Consider only non-NaN values
-    if in_nan is not None:
-        not_nan_idx = np.where(v_val < in_nan)[0]
-        if len(not_nan_idx) == 0:
-            flag_ok = False
-            retour = None
-        else:
-            v_val = in_v_val[not_nan_idx]
-
-    if flag_ok:
+    # 1 - Retrieve all values != numpy.nan
+    not_nan_idx = np.where(np.isfinite(in_v_val))[0]
+    
+    if len(not_nan_idx) == 0:
+        logger.warning("No finite value in the input array => return NaN")
+        out_mean = np.nan
         
-        # 1 - Compute statistical values over this vector
-        # 1.1 - Median
-        med = np.median(v_val)
-        # 1.2 - Standard deviation
-        std = np.std(v_val)
-        # 1.3 - Nb values
-        nb_val = v_val.size
-
-        # 2 - Remove indices with value out of 2 sigma
-
-        # 2.1 - Lower than mean - 2 sigma
-        idx_lower = np.where(v_val < med-2*std)[0]
-        v_indices = np.delete(np.arange(nb_val), idx_lower)
-        # 2.2 - Higher than mean + 2 sigma
-        idx_higher = np.where(v_val[v_indices] > med+2*std)[0]
+    else:
+        
+        # 2 - Compute statistical values over the input vector
+        # 2.1 - Median
+        med = np.nanmedian(in_v_val)
+        # 2.2 - Standard deviation
+        std = np.nanstd(in_v_val)
+        
+        # 3 - Remove indices with value out of 2 sigma
+        # 3.1 - Lower than mean - 2 sigma
+        idx_lower = np.where(in_v_val[not_nan_idx] < med-2*std)[0]
+        v_indices = np.delete(not_nan_idx, idx_lower)
+        # 3.2 - Higher than mean + 2 sigma
+        idx_higher = np.where(in_v_val[v_indices] > med+2*std)[0]
         v_indices = np.delete(v_indices, idx_higher)
 
-        message = "%d / %d pixels used for mean computation" % (v_indices.size, nb_val)
+        message = "%d / %d pixels used for mean computation (med=%.3f and std=%.3f)" % (v_indices.size, len(in_v_val), med, std)
         logger.debug(message)
 
-        # 3 - Return the mean of clean vector
-        retour = np.mean(v_val[v_indices])
+        # 3 - Compute the mean of clean array
+        out_mean = np.mean(in_v_val[v_indices])
 
-    return retour
-
-
-def compute_std(in_v_val, in_nan=None):
-    """
-    Compute the standard deviation of the input values
-    If set, remove NaN values from the computation
-
-    :param in_v_val: vector of values for which the standard deviation is computed
-    :type in_v_val: 1D-array of float
-    :param in_nan: value to consider as NaN (default=None)
-    :type in_nan: depends on the initial vector
-
-    :return: the mean value (None if no finite value)
-    :rtype: float
-    """
-
-    retour = None  # Init retour to None
-    flag_ok = True  # Flag to compute the sum
-    v_val = in_v_val  # Vector on which compute the sum
-    
-    # Consider only non-NaN values
-    if in_nan is not None:
-        not_nan_idx = np.where(v_val < in_nan)[0]
-        if len(not_nan_idx) == 0:
-            flag_ok = False
-            retour = None
-        else:
-            v_val = in_v_val[not_nan_idx]
-
-    # Return the standard deviation of the clean vector elements
-    if flag_ok:
-        retour = np.std(v_val)
-        
-    return retour
-
-
-def compute_sum(in_v_val, in_nan=None):
-    """
-    Compute the sum of the input values
-    If set, remove NaN values from the computation
-
-    :param in_v_val: vector of values for which the sum is computed
-    :type in_v_val: 1D-array of float
-    :param in_nan: value to consider as NaN (default=None)
-    :type in_nan: depends on the initial vector
-
-    :return: the mean value (None if no finite value)
-    :rtype: float
-    """
-    
-    retour = None  # Init retour to None
-    flag_ok = True  # Flag to compute the sum
-    v_val = in_v_val  # Vector on which compute the sum
-    
-    # Consider only non-NaN values
-    if in_nan is not None:
-        not_nan_idx = np.where(v_val < in_nan)[0]
-        if len(not_nan_idx) == 0:
-            flag_ok = False
-            retour = None
-        else:
-            v_val = in_v_val[not_nan_idx]
-
-    # Return the sum of the clean vector elements
-    if flag_ok:
-        retour = np.sum(v_val)
-        
-    return retour
+    return out_mean
 
 
 #######################################
@@ -761,7 +595,7 @@ def compute_dist(in_lon1, in_lat1, in_lon2, in_lat2):
     lon2 = deg2rad(in_lon2)
     lat2 = deg2rad(in_lat2)
 
-    # 1 - Distance angulaire en radians
+    # 2 - Distance angulaire en radians
     s12 = np.arccos(np.sin(lat1)*np.sin(lat2) + np.cos(lat1)*np.cos(lat2)*np.cos(lon2-lon1))
 
     return s12 * my_var.GEN_APPROX_RAD_EARTH
@@ -981,3 +815,52 @@ def get_layer_fields_name_and_type(in_layer):
         out_list_type[field_name] = field_type
         
     return out_list_type
+
+
+def are_pixels_aligned(in_x, in_y):
+    """
+    Check if pixels with coordinates in_x and in_y are aligned
+    
+    :param in_x: list or array of x coordinates
+    :type in_x: list or array of integers 
+    :param in_y: list or array of y coordinates
+    :type in_y: list or array of integers
+
+    :return: True if pixels are aligned, False if not.
+    :rtype: bool
+    """
+    
+    set_x = set(in_x)
+    set_y = set(in_y)
+    
+    if len(set_x) == 1 or len(set_y) == 1:
+        return True
+    else:
+        return False
+
+
+def get_bounding_box(lat_min, lat_max, lon_min, lon_max):
+    """
+    Compute bounding box
+
+    :param lat_min: latitude min
+    :type lat_min: float
+    :param lat_max: latitude max
+    :type lat_max: float
+    :param lon_min: longitude min
+    :type lon_min: float
+    :param lon_max: longitude max
+
+    :return: Polygon with coordinates given in input
+    :type : OGR Geometry Polygon
+    """
+    ring = ogr.Geometry(ogr.wkbLinearRing)
+    ring.AddPoint(lon_min, lat_max)
+    ring.AddPoint(lon_max, lat_max)
+    ring.AddPoint(lon_max, lat_min)
+    ring.AddPoint(lon_min, lat_min)
+    ring.CloseRings()
+
+    bb_geom = ogr.Geometry(ogr.wkbPolygon)
+    bb_geom.AddGeometry(ring)
+    return bb_geom

@@ -134,8 +134,8 @@
       <string name="/@xref_static_lake_db_file" shape="Scalar" width="0">
         <annotation description="Name of static lake a priori database file used to generate data in product."/>
       </string>
-      <string name="/@xref_l2_hr_lake_sp_config_parameter_file" shape="Scalar" width="0">
-        <annotation description="Name of PGE_L2_HR_LakeSP configuration parameters file."/>
+      <string name="/@xref_l2_hr_lake_tile_config_parameter_file" shape="Scalar" width="0">
+        <annotation description="Name of PGE_L2_HR_LakeTile configuration parameters file."/>
       </string>
       <real name="/@ellipsoid_semi_major_axis" shape="Scalar" width="64">
         <annotation description="Semi-major axis of reference ellipsoid in meters."/>

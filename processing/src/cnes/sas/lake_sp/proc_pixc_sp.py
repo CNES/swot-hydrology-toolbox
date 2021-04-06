@@ -33,6 +33,7 @@ from osgeo import ogr
 
 import cnes.common.lib.my_netcdf_file as my_nc
 import cnes.common.lib.my_tools as my_tools
+import cnes.common.lib.my_segmentation as my_segmentation
 import cnes.common.lib.my_variables as my_var
 
 import cnes.common.service_config_file as service_config_file
@@ -232,11 +233,20 @@ class PixCEdge(object):
         # 5.1 - ellipsoid_semi_major_axis
         if self.pixc_edge_l.pixc_metadata["ellipsoid_semi_major_axis"] == self.pixc_edge_r.pixc_metadata["ellipsoid_semi_major_axis"]:
             self.pixc_metadata["ellipsoid_semi_major_axis"] =  self.pixc_edge_l.pixc_metadata["ellipsoid_semi_major_axis"]
+        elif self.pixc_edge_l.pixc_metadata["ellipsoid_semi_major_axis"] == "": # if one swath is processed
+            self.pixc_metadata["ellipsoid_semi_major_axis"] = self.pixc_edge_r.pixc_metadata["ellipsoid_semi_major_axis"]
+        elif self.pixc_edge_r.pixc_metadata["ellipsoid_semi_major_axis"] == "": # if one swath is processed
+            self.pixc_metadata["ellipsoid_semi_major_axis"] = self.pixc_edge_l.pixc_metadata["ellipsoid_semi_major_axis"]
         else:
             logger.error("Ellipsoid semi major axis for left and right half-swaths are not the same")
+
         # 5.2 - ellipsoid_flattening
         if self.pixc_edge_l.pixc_metadata["ellipsoid_flattening"] == self.pixc_edge_r.pixc_metadata["ellipsoid_flattening"]:
             self.pixc_metadata["ellipsoid_flattening"] =  self.pixc_edge_l.pixc_metadata["ellipsoid_flattening"]
+        elif self.pixc_edge_l.pixc_metadata["ellipsoid_flattening"] == "":  # if one swath is processed
+            self.pixc_metadata["ellipsoid_flattening"] = self.pixc_edge_r.pixc_metadata["ellipsoid_flattening"]
+        elif self.pixc_edge_r.pixc_metadata["ellipsoid_flattening"] == "":  # if one swath is processed
+            self.pixc_metadata["ellipsoid_flattening"] = self.pixc_edge_l.pixc_metadata["ellipsoid_flattening"]
         else:
             logger.error("Ellipsoid flattening for swath left and right are not the same")
     
@@ -591,7 +601,7 @@ class PixCEdgeSwath(object):
         if not self.continent in current_continent:
             # If cur_continent do not belong to the EDGE SP product, do not add pixc info
             logger.error("Input LakeTile_edge %s file do not correspond to the same continent %s" % (in_lake_tile_edge_filename, self.continent))
-            retour = None, None, None
+            retour = None, None, None, None, None
 
         else:
     
@@ -718,8 +728,13 @@ class PixCEdgeSwath(object):
                 # 7.2 - Add variables from PIXC/pixel_cloud
                 tmp_classif = pixc_edge_reader.get_var_value("classification")
                 self.classif = np.concatenate((self.classif, tmp_classif))
-                # Simulate classification of only full water pixels
-                self.classif_full_water = np.concatenate((self.classif_full_water, np.zeros(out_nb_pix) + my_var.CLASSIF_INTERIOR_WATER))
+                # Simulate classification of edge + full water pixels
+                # All PIXC are set to INTERIOR_WATER
+                # LAND_EDGE + WATER_EDGE PIXC are set to WATER_EDGE
+                tmp_classif_full_water = np.zeros(out_nb_pix) + my_var.CLASSIF_INTERIOR_WATER
+                tmp_classif_full_water[tmp_classif == my_var.CLASSIF_LAND_EDGE] = my_var.CLASSIF_WATER_EDGE
+                tmp_classif_full_water[tmp_classif == my_var.CLASSIF_WATER_EDGE] = my_var.CLASSIF_WATER_EDGE
+                self.classif_full_water = np.concatenate((self.classif_full_water, tmp_classif_full_water))
                 # Keep only classification of water pixels (ie remove dark water flags)
                 tmp_classif_without_dw = np.copy(tmp_classif)
                 tmp_classif_without_dw[tmp_classif == my_var.CLASSIF_LAND_NEAR_DARK_WATER] = 0
@@ -853,6 +868,7 @@ class PixCEdgeSwath(object):
         """
         This function gives new labels to entities gathered at tile edges.
         """
+        cfg = service_config_file.get_instance()
         logger = logging.getLogger(self.__class__.__name__)
         
         # 1 - Deal with all edges
@@ -902,6 +918,45 @@ class PixCEdgeSwath(object):
                 # 2.5 - Update global labels
                 for idx in range(old_labels.size):
                     self.labels[tile_idx[np.where(self.edge_label[tile_idx] == old_labels[idx])]] = new_labels[idx]
+
+        self.labels = self.labels.astype('int')
+        # 3 - Relabel Lake Using Segmentation Heigth
+        # For each label : check if only one lake is in each label and relabels if necessary
+
+        # 4.0. Check if lake segmentation following height needs to be run
+        seg_method = cfg.getint('CONFIG_PARAMS', 'SEGMENTATION_METHOD')
+        min_object_size = cfg.getfloat('CONFIG_PARAMS', 'MIN_SIZE') * 1e6
+
+        # If SEGMENTATION_METHOD is 0, function unactivated
+        if seg_method == 0:
+            logger.info("Lake segmentation following height unactivated")
+        # 4.1. If SEGMENTATION_METHOD not 0, relabel lake following segmentation height
+        else:
+
+            labels_tmp = np.zeros(self.labels.shape, dtype=self.labels.dtype)
+            labels, count = np.unique(self.labels, return_counts=True)
+
+            for i, label in enumerate(labels):
+                idx = np.where(self.labels == label)
+                subset_pixel_area = self.pixel_area[idx]
+
+                if np.sum(subset_pixel_area) > min_object_size:
+                    min_rg = min(self.get_range_of_lake(idx))
+                    min_az = min(self.get_azimuth_of_lake(idx))
+                    subset_range = self.get_range_of_lake(idx) - min_rg
+                    subset_azimuth = self.get_azimuth_of_lake(idx) - min_az
+                    subset_height = self.height[idx]
+
+                    relabel_obj = my_segmentation.relabel_lake_using_segmentation_heigth(subset_range, subset_azimuth,
+                                                                                         subset_height, subset_pixel_area,
+                                                                                         min_object_size, seg_method)
+
+                    labels_tmp[self.labels == label] = np.max(labels_tmp) + relabel_obj
+                else:
+                    labels_tmp[self.labels == label] = np.max(labels_tmp) + 1
+
+            self.labels = labels_tmp
+
 
     # ----------------------------------------
 

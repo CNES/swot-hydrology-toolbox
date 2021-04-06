@@ -439,27 +439,6 @@ class PixcvecRiver(object):
         pixc_main.variables[varname][:] = array
         pixc_main.close()
 
-    # def set_variable(self, varname, array):
-    #     # 1 - Open PixcvecRiver cloud file in adding mode
-    #     pixc_reader = my_nc.MyNcWriter(self.pixc_main_file)
-    #     pixc_reader.fill_variable(varname,array)
-    #     # pixc_main = pixc_reader.content
-    #     # pixc_main.variables[varname][:] = array
-    #     pixc_reader.close()
-
-
-        #
-        # # load netCDF file
-        # netcdf = my_netcdf_file.MyNcWriter(improved_outpath)
-        # # add group
-        # groupe = netcdf.add_group("improved_big_lake")
-        # # add dimension
-        # netcdf.add_dimension('record', improved_height.size, in_group=groupe)
-        # # add variable
-        # netcdf.add_variable('height', numpy.float, 'record', in_group=groupe)
-        # netcdf.fill_variable('height', improved_height, in_group=groupe)
-        # netcdf.close()
-
     def set_index_file(self, lat_corr, lon_corr, height_corr, pixc_index):
         # 1 - Open PixcvecRiver cloud file in adding mode
         pixc_reader = my_nc.MyNcReader(self.pixc_main_file, mode='a')

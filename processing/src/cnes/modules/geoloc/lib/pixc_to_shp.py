@@ -81,7 +81,7 @@ if __name__ == "__main__":
     parser.add_argument("lat", help="Name of the latitude variable", type=str)
     parser.add_argument("lon", help="Name of the longitude variable", type=str)
     parser.add_argument('-v','--variables', nargs='+', help='List of variables', required=True)
-    parser.add_argument('-g', '--group', help="Optional netcdf group", required=False)
+    parser.add_argument('-g', '--group', help="Optional netcdf group", required=False, default=None)
     args = parser.parse_args()
 
     pixc_to_shp(args.input, args.output, args.lat, args.lon, args.variables, group_name=args.group, progress=True)

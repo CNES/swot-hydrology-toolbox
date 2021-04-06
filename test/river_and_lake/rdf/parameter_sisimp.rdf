@@ -39,7 +39,6 @@ Land water flag = 2
 Land flag = 1
 Land noise factor = 10.
 
-
 !Dark water seed = 12345678
 
 !### Error parameters
@@ -77,4 +76,4 @@ Height shp attribute name = ref_height     !Name of the attribute (default=HEIGH
 
 !### Option 3 - Height is given in a NetCDF file
 !Height model = reference_file
-!True height file = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/data/true_height_model_river_and_lake.nc
+!True height file = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/data/river_and_lake_reference_file.nc

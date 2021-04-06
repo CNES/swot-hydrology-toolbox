@@ -33,6 +33,7 @@ from osgeo import ogr
 import pandas as pd
 from random import randint
 from scipy.spatial import distance, Delaunay
+from scipy.ndimage.morphology import binary_erosion
 import shapely.geometry as geometry
 from shapely.geometry import Point, LineString, MultiPoint, MultiLineString, Polygon, MultiPolygon, LinearRing, GeometryCollection
 from shapely.ops import cascaded_union
@@ -83,7 +84,11 @@ def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix
         
     elif hull_method == 1.1:  # 1.1 - CONCAV HULL - Delaunay triangulation 
         logger.debug("Hull computation method : Delauney triangulation")
-        retour = get_concave_hull_from_basic_triangulation(in_v_long, in_v_lat, in_range, in_nb_pix_range)
+        retour = get_concave_hull_from_basic_triangulation(in_v_long, in_v_lat)
+
+    elif hull_method == 1.2:  # 1.1 - CONCAV HULL - Delaunay triangulation with alpha parameter varying along range
+        logger.debug("Hull computation method : Delauney triangulation with alpha parameter varying along range")
+        retour = get_concave_hull_from_triangulation_enhanced(in_v_long, in_v_lat, in_range, in_nb_pix_range)
 
     elif hull_method == 2:  # 2 - CONCAV HULL - Radar vectorisation method
         logger.debug("Hull computation method : radar vectorization (default)")
@@ -93,7 +98,9 @@ def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix
         message = "Concave hull computation method not understood"
         raise service_error.ProcessingError(message, logger)
 
-    if retour.GetGeometryName() not in ["POLYGON", "MULTIPOLYGON"]:
+    if retour is None:
+        retour = ogr.Geometry(ogr.wkbPolygon)
+    elif retour.GetGeometryName() not in ["POLYGON", "MULTIPOLYGON"]:
         retour = ogr.Geometry(ogr.wkbPolygon)
     return retour
 	
@@ -157,7 +164,7 @@ def get_convex_hull(in_v_long, in_v_lat):
 #######################################
 
 
-def get_concave_hull_from_basic_triangulation(in_v_long, in_v_lat, in_range, in_nb_pix_range):
+def get_concave_hull_from_basic_triangulation(in_v_long, in_v_lat):
     """
     Compute the concave hull of a set of points using classifcal Delauney triangulation.
 
@@ -165,10 +172,6 @@ def get_concave_hull_from_basic_triangulation(in_v_long, in_v_lat, in_range, in_
     :type in_v_long: 1D-array of float
     :param in_v_lat: latitudes of points for which to compute the hull
     :type in_v_lat: 1D-array of float
-    :param in_range: range of points for which to compute the hull
-    :type in_range: 1D-array of int
-    :param in_nb_pix_range: maximal number of pixel in range
-    :type in_nb_pix_range: int
 
     :return the hull of the input set of points
     :rtype: OGRMultiPolygon
@@ -189,12 +192,7 @@ def get_concave_hull_from_basic_triangulation(in_v_long, in_v_lat, in_range, in_
             "The number of pixel of the lake is reduced to %d" % (nb_pix_max_delauney))
         in_v_long = in_v_long[id_selected]
         in_v_lat = in_v_lat[id_selected]
-        in_range = in_range[id_selected]
-        alpha_ratio = nb_pix_max_delauney/nb_pix
         nb_pix = in_v_long.size
-        logger.debug("alpha_ratio : " + str(alpha_ratio))
-    else:
-        alpha_ratio = 1.
         
     # =======================================================================================
 
@@ -205,12 +203,7 @@ def get_concave_hull_from_basic_triangulation(in_v_long, in_v_lat, in_range, in_
     coords[:, 0], coords[:, 1], utm_epsg_code = my_tools.get_utm_coords_from_lonlat(in_v_long, in_v_lat)
 
     # 1.3 - Compute alpha shape
-    hull_method = cfg.getfloat("CONFIG_PARAMS", "HULL_METHOD")
-    if hull_method == 1.1:  # Without alpha parameter
-        concave_hull_utm = get_concav_hull_bis(coords)
-    else:  # With alpha parameter
-        alpha = alpha_ratio*( 0.03 + 0.01 * in_range / in_nb_pix_range)  # alpha parameter ranges from 0.03 to 0.04 following the range index
-        concave_hull_utm = alpha_shape(coords, alpha)
+    concave_hull_utm = get_concav_hull(coords)
 
     # 1.4 - Transform concave hull polygon into geographical coordinates
     concave_hull = my_tools.get_lon_lat_polygon_from_utm(concave_hull_utm, utm_epsg_code)
@@ -219,97 +212,7 @@ def get_concave_hull_from_basic_triangulation(in_v_long, in_v_lat, in_range, in_
     return ogr.CreateGeometryFromWkb(concave_hull.wkb)
 
 
-def alpha_shape(in_coords, in_alpha):
-    """
-    Compute the alpha shape (concave hull) of a set of points.
-    
-    :param in_coords: set of points coordinates
-    :type in_coords: 2D-array of size (nb_pixels, 2=lon/lat)
-    :param in_alpha: alpha value to influence the gooeyness of the border. Smaller numbers don't fall inward as much as larger numbers. Too large, and you lose everything!
-    :type in_alpha: 1D-array of int
-    
-    :return: Shapely.MultiPolygons which is the hull of the input set of points
-    
-    Retrieved from http://blog.thehumangeo.com/2014/05/12/drawing-boundaries-in-python/
-    """
-    
-    # Number of points
-    nb_pts = in_coords.shape[0]
-
-    # 0 - Particular case of nb points <= 3: return convex hull
-    if nb_pts <= 3:
-        # 0.1 - Init Shapely set of pointsn and Aggregate coordinates to the set of points
-        points = [geometry.point.Point(in_coords[indp, 0], in_coords[indp, 1], 0) for indp in np.arange(nb_pts)]
-        # 0.2 - Return convex hull
-        retour = geometry.MultiPoint(list(points)).convex_hull
-    else:
-        # 1 - Compute Delaunay triangulation
-        tri = Delaunay(in_coords)  
-        # tri = specific object with attributes (cf. https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.spatial.Delaunay.html)
-
-        # 2 - Select triangles following it's shape
-        # 2.1 - Compute CircumRatio for each triangle
-        circum_r = [get_circum_ratio(in_coords[ia], in_coords[ib], in_coords[ic]) for ia, ib, ic in tri.vertices]
-
-        # 2.2 - Compute mean alpha parameter for each triangle
-        mean_alpha = [1.0 / np.mean([in_alpha[ia], in_alpha[ib], in_alpha[ic]]) for ia, ib, ic in tri.vertices]
-
-        # 2.3 - Select triangles
-        triangles_selected = np.where(np.array(circum_r) < mean_alpha)
-
-        # 2.4 - Compute a list of shapely polygon correpsonding to selected triangles
-        list_triangle = [geometry.Polygon([(in_coords[ia][0], in_coords[ia][1]), (in_coords[ib][0], in_coords[ib][1]),
-                                           (in_coords[ic][0], in_coords[ic][1])]) for ia, ib, ic in tri.vertices[triangles_selected]]
-
-        # 3 - Union of selected triangles
-        triangle_union = cascaded_union(list_triangle)
-
-        retour = triangle_union
-    return retour
-
-
-def get_circum_ratio(pa, pb, pc):
-    """
-    Compute the circumscribing circle radius of a triangle. The triangle is given by its corner coordinates pa, pb, pc.
-    
-    :param pa: geographical coordinates of pa
-    :type pa: tuple of float (lon, lat)
-    :param pb: geographical coordinates of pb
-    :type pb: tuple of float (lon, lat)
-    :param pc: geographical coordinates of pc
-    :type pc: tuple of float (lon, lat)
-    
-    :return: circumscribing circle radius of the triangle
-    :rtype: float
-    """
-    
-    # Lengths of sides of triangle
-    a = math.sqrt((pa[0] - pb[0]) ** 2 + (pa[1] - pb[1]) ** 2)
-    b = math.sqrt((pb[0] - pc[0]) ** 2 + (pb[1] - pc[1]) ** 2)
-    c = math.sqrt((pc[0] - pa[0]) ** 2 + (pc[1] - pa[1]) ** 2)
-
-    # Semiperimeter of triangle
-    s = (a + b + c) / 2.0
-
-    # Area of triangle by Heron's formula
-    try:
-        area = math.sqrt(s * (s - a) * (s - b) * (s - c))
-    except ValueError:
-        circum_r = 1
-    else:
-        # Circumscribing circle radius
-        if area != 0:
-            circum_r = a * b * c / (4.0 * area)
-        else:
-            circum_r = 0
-
-    return circum_r
-
-
-#######################################
-
-
-def get_concav_hull_bis(in_coords):
+def get_concav_hull(in_coords):
     """
     Compute the Delaunay triangulation and return the concave hull of cloud point in_coords
 
@@ -415,6 +318,154 @@ def get_max_segment(pa, pb, pc):
 
 #######################################
 
+def get_concave_hull_from_triangulation_enhanced(in_v_long, in_v_lat, in_range, in_nb_pix_range):
+    """
+    Compute the concave hull of a set of points using classifcal Delauney triangulation, taking in account the position in range in alpha parameter
+
+    :param in_v_long: longitudes of points for which to compute the hull
+    :type in_v_long: 1D-array of float
+    :param in_v_lat: latitudes of points for which to compute the hull
+    :type in_v_lat: 1D-array of float
+    :param in_range: range of points for which to compute the hull
+    :type in_range: 1D-array of int
+    :param in_nb_pix_range: maximal number of pixel in range
+    :type in_nb_pix_range: int
+
+    :return the hull of the input set of points
+    :rtype: OGRMultiPolygon
+    """
+    # Get instance of service config file
+    cfg = service_config_file.get_instance()
+
+    logger = logging.getLogger("my_hull")
+
+    nb_pix = in_v_long.size
+    # ============================ HULL COMPUTATION FOR BIG LAKES ===========================
+    # ============================  TO CHANGE AS SOON AS POSSIBLE ===========================
+    # if the lake contains more than 500 000 pixels, the number of pixel is restricted to 500 000. Pixels are randomly selected.
+    nb_pix_max_delauney = cfg.getint("CONFIG_PARAMS", "NB_PIX_MAX_DELAUNEY")
+    if nb_pix > nb_pix_max_delauney:
+        id_selected = np.random.randint(nb_pix, size=int(nb_pix_max_delauney))
+        logger.warning(
+            "The number of pixel of the lake is reduced to %d" % (nb_pix_max_delauney))
+        in_v_long = in_v_long[id_selected]
+        in_v_lat = in_v_lat[id_selected]
+        in_range = in_range[id_selected]
+        alpha_ratio = nb_pix_max_delauney / nb_pix
+        nb_pix = in_v_long.size
+        logger.debug("alpha_ratio : " + str(alpha_ratio))
+    else:
+        alpha_ratio = 1.
+
+    # =======================================================================================
+
+    # 1.1 - Gather coordinates in a 2D-array
+    coords = np.zeros((nb_pix, 2))
+
+    # 1.2 - Transform geographical coordinates into utm coordinates
+    coords[:, 0], coords[:, 1], utm_epsg_code = my_tools.get_utm_coords_from_lonlat(in_v_long, in_v_lat)
+
+    # 1.3 - Compute alpha shape
+    alpha = alpha_ratio * (0.03 + 0.01 * in_range / in_nb_pix_range)  # alpha parameter ranges from 0.03 to 0.04 following the range index
+    concave_hull_utm = get_concav_hull_enhanced(coords, alpha)
+
+    # 1.4 - Transform concave hull polygon into geographical coordinates
+    concave_hull = my_tools.get_lon_lat_polygon_from_utm(concave_hull_utm, utm_epsg_code)
+
+    # 1.5 - Convert Shapely geometry to OGRPolygon or OGRMultiPolygon
+    return ogr.CreateGeometryFromWkb(concave_hull.wkb)
+
+
+def get_concav_hull_enhanced(in_coords, in_alpha):
+    """
+    Compute the alpha shape (concave hull) of a set of points, with alpha parameter in_alpha
+
+    :param in_coords: set of points coordinates
+    :type in_coords: 2D-array of size (nb_pixels, 2=lon/lat)
+    :param in_alpha: alpha value to influence the gooeyness of the border. Smaller numbers don't fall inward as much as larger numbers. Too large, and you lose everything!
+    :type in_alpha: 1D-array of int
+
+    :return: Shapely.MultiPolygons which is the hull of the input set of points
+
+    Retrieved from http://blog.thehumangeo.com/2014/05/12/drawing-boundaries-in-python/
+    """
+
+    # Number of points
+    nb_pts = in_coords.shape[0]
+
+    # 0 - Particular case of nb points <= 3: return convex hull
+    if nb_pts <= 3:
+        # 0.1 - Init Shapely set of pointsn and Aggregate coordinates to the set of points
+        points = [geometry.point.Point(in_coords[indp, 0], in_coords[indp, 1], 0) for indp in np.arange(nb_pts)]
+        # 0.2 - Return convex hull
+        retour = geometry.MultiPoint(list(points)).convex_hull
+    else:
+        # 1 - Compute Delaunay triangulation
+        tri = Delaunay(in_coords)
+        # tri = specific object with attributes (cf. https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.spatial.Delaunay.html)
+
+        # 2 - Select triangles following it's shape
+        # 2.1 - Compute CircumRatio for each triangle
+        circum_r = [get_circum_ratio(in_coords[ia], in_coords[ib], in_coords[ic]) for ia, ib, ic in tri.vertices]
+
+        # 2.2 - Compute mean alpha parameter for each triangle
+        mean_alpha = [1.0 / np.mean([in_alpha[ia], in_alpha[ib], in_alpha[ic]]) for ia, ib, ic in tri.vertices]
+
+        # 2.3 - Select triangles
+        triangles_selected = np.where(np.array(circum_r) < mean_alpha)
+
+        # 2.4 - Compute a list of shapely polygon correpsonding to selected triangles
+        list_triangle = [geometry.Polygon([(in_coords[ia][0], in_coords[ia][1]), (in_coords[ib][0], in_coords[ib][1]),
+                                           (in_coords[ic][0], in_coords[ic][1])]) for ia, ib, ic in
+                         tri.vertices[triangles_selected]]
+
+        # 3 - Union of selected triangles
+        triangle_union = cascaded_union(list_triangle)
+
+        retour = triangle_union
+    return retour
+
+
+def get_circum_ratio(pa, pb, pc):
+    """
+    Compute the circumscribing circle radius of a triangle. The triangle is given by its corner coordinates pa, pb, pc.
+
+    :param pa: geographical coordinates of pa
+    :type pa: tuple of float (lon, lat)
+    :param pb: geographical coordinates of pb
+    :type pb: tuple of float (lon, lat)
+    :param pc: geographical coordinates of pc
+    :type pc: tuple of float (lon, lat)
+
+    :return: circumscribing circle radius of the triangle
+    :rtype: float
+    """
+
+    # Lengths of sides of triangle
+    a = math.sqrt((pa[0] - pb[0]) ** 2 + (pa[1] - pb[1]) ** 2)
+    b = math.sqrt((pb[0] - pc[0]) ** 2 + (pb[1] - pc[1]) ** 2)
+    c = math.sqrt((pc[0] - pa[0]) ** 2 + (pc[1] - pa[1]) ** 2)
+
+    # Semiperimeter of triangle
+    s = (a + b + c) / 2.0
+
+    # Area of triangle by Heron's formula
+    try:
+        area = math.sqrt(s * (s - a) * (s - b) * (s - c))
+    except ValueError:
+        circum_r = 1
+    else:
+        # Circumscribing circle radius
+        if area != 0:
+            circum_r = a * b * c / (4.0 * area)
+        else:
+            circum_r = 0
+
+    return circum_r
+
+#######################################
+
+
 def split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max=1e4):
     """
     Split input image into list of sub-images, with 10 000 pixel maximum.
@@ -432,7 +483,6 @@ def split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max=1e4):
     :rtype: list of tulple(in_range, in_azimuth, in_v_long, in_v_lat)
     """
 
-    retour = [(in_range, in_azimuth, in_v_long, in_v_lat)]
     if len(in_range) > nb_pix_max:
         margin = 10
         if np.max(in_range) - np.min(in_range) > np.max(in_azimuth) - np.min(in_azimuth):
@@ -472,8 +522,8 @@ def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, i
     # Split lake sar image in sub_images
     list_sub_img_to_process = split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max)
     if len(list_sub_img_to_process) > 1:
-        logger.info("Lake image with %d pixels is splitted in %d sub images of less than %d pixels" % (len(in_range), 
-                    len(list_sub_img_to_process), nb_pix_max))
+        logger.info("Lake image with %d pixels is splitted in %d sub images of less than %d pixels" % (len(in_range),
+                                                                                                       len(list_sub_img_to_process), nb_pix_max))
 
     multi_poly = ogr.Geometry(ogr.wkbMultiPolygon)
 
@@ -487,7 +537,10 @@ def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, i
         else :
             multi_poly.AddGeometry(sub_poly)
 
-    poly = multi_poly.UnionCascaded()
+    if not multi_poly.IsEmpty():
+        poly = multi_poly.UnionCascaded()
+    else :
+        poly = multi_poly
 
     return poly
 
@@ -508,10 +561,6 @@ def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat):
     :rtype: OGRMultiPolygon
     """
     # Get instance of service config file
-    cfg = service_config_file.get_instance()
-    # get param nb_pix_max_contour
-    nb_pix_max_contour = cfg.getint("CONFIG_PARAMS", "NB_PIX_MAX_CONTOUR")
-
     logger = logging.getLogger("my_hull")
 
     # 1 - Get relative range and azimuth (1st pixel = 1)
@@ -520,26 +569,31 @@ def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat):
 
     # 2 - Get image (1 pixel around lake)
     lake_img = my_tools.compute_bin_mat(np.max(lake_x) + 2, np.max(lake_y) + 2, lake_x, lake_y, verbose = False)
-
     logger.info("Processing image with size %d x %d, with %d water pixels" %(lake_img.shape[0], lake_img.shape[1], np.sum(lake_img)))
 
+    # 3 - Filter isolated pixels
+    # Make a erosion to check that a contour can be computed
+    lake_erosion = binary_erosion(lake_img, structure=np.ones((2,2))).astype(lake_img.dtype)
 
-    # 3 - Compute boundaries (there might be more than one if there are islands in lake)
-    lake_contours = find_contours(lake_img, 0.99999999999)
+    # 4 - Compute boundaries (there might be more than one if there are islands in lake)
+    if np.sum(lake_erosion) == 0 :
+        logger.warning("Current lake pixc no not contain a valid polygon")
+        lake_contours = []
+    else :
+        lake_contours = find_contours(lake_img, 0.99999999999)
 
-    # 4 - Round contour range and azimuth coordinates to units, since they are indices in input parameters
+    # 5 - Round contour range and azimuth coordinates to units, since they are indices in input parameters
     # Removing duplicate points from lake contour
     lake_contour_int = []
 
     for contour in lake_contours:
         contour_points = []
 
-        [contour_points.append(tuple(np.round(coords, 0))) for coords in contour if
-         tuple(np.round(coords, 0)) not in contour_points]
+        [contour_points.append(tuple(np.round(coords, 0))) for coords in contour if tuple(np.round(coords, 0)) not in contour_points]
 
         lake_contour_int.append(contour_points)
 
-    # 5 - Convert (azimuth, range) contour into polygon
+    # 6 - Convert (azimuth, range) contour into polygon
     logger.debug("Inital polygon contains 1 external ring and %d holes rings " % (len(lake_contour_int) - 1))
 
     # multi_ring_list contains every ring composing the polygon, the first ring contains exterior coordinates, 
@@ -548,14 +602,10 @@ def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat):
 
     for contour in lake_contour_int:  # Loop over contours
         logger.debug("Building new ring with %d points " % (len(contour)))
-        # ============================ HULL COMPUTATION FOR BIG LAKES ===========================
-        # ============================  TO CHANGE AS SOON AS POSSIBLE ===========================
+
         # if the lake contour contains more than 8 000 pixels, the number of pixel is restricted to 8 000..
-        if len(contour) > nb_pix_max_contour:
-            logger.warning("Number of contour points is reduced to %d points" % (nb_pix_max_contour))
-            id_selected_points = np.round(np.linspace(0, len(contour) - 1, nb_pix_max_contour), 0).astype('int')
-            contour = [contour[idx] for idx in id_selected_points]
-        # =======================================================================================
+        if len(contour) > 8000:
+            logger.warning("Current contour contains %d points ... can be time consuming" % len(contour))
 
         list_of_points = []
 
