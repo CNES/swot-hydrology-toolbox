@@ -448,7 +448,7 @@ class Processing(object):
 
     def run_multiprocessing(self):
         """Main process, computations are done here"""
-        n_cores = int(mp.cpu_count() / 2)
+        n_cores = mp.cpu_count()
         my_api.printInfo("")
         my_api.printInfo("")
         my_api.printInfo("[sisimp_processing] MULTIPROCESSING on %d cores ..." %(n_cores))
