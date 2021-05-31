@@ -56,7 +56,7 @@ def l2pixc_to_rivertile(pixc_file, out_riverobs_file, out_pixc_vector_file, rdf_
     # (excluding strings)
     for key in config.keys():
         if key in ['geolocation_method', 'reach_db_path', 'height_agg_method',
-                   'area_agg_method']:
+                   'area_agg_method', 'slope_method']:
             continue
         config[key] = ast.literal_eval(config[key])
 
@@ -88,8 +88,6 @@ def l2pixc_to_rivertile(pixc_file, out_riverobs_file, out_pixc_vector_file, rdf_
         l2pixc_to_rivertile.match_pixc_idx()
         LOGGER.info("3.3 - [RiverObs] Estimate.L2PixcToRiverTile.do_improved_geolocation()")
         l2pixc_to_rivertile.do_improved_geolocation()
-        LOGGER.info("3.4 - [RiverObs] Estimate.L2PixcToRiverTile.flag_lakes_pixc()")
-        l2pixc_to_rivertile.flag_lakes_pixc()
 
     except Exception as exception:
         LOGGER.error(
@@ -99,17 +97,12 @@ def l2pixc_to_rivertile(pixc_file, out_riverobs_file, out_pixc_vector_file, rdf_
     LOGGER.info("4 - [RiverObs] build_products()")
     l2pixc_to_rivertile.build_products()
     LOGGER.info("- end -")
+            
 
-    # rewrite index file to make it look like an SDS one
-    LOGGER.info("5 - [RiverObs] Generate PIXCVecRiver file")
-    LOGGER.info("> L2PIXCVector.from_ncfile(%s).to_ncfile(%s)" % (l2pixc_to_rivertile.index_file, l2pixc_to_rivertile.index_file))
-    L2PIXCVector.from_ncfile(l2pixc_to_rivertile.index_file
-                             ).to_ncfile(l2pixc_to_rivertile.index_file)
-    LOGGER.info("- end -")
-
-    LOGGER.info("6 - [RiverObs] Generate output files")
+    LOGGER.info("5 - [RiverObs] Generate output files")
     LOGGER.info("> Estimate.L2PixcToRiverTile.rivertile_product.to_ncfile(%s)" % out_riverobs_file)
     l2pixc_to_rivertile.rivertile_product.to_ncfile(out_riverobs_file)
+    
     if shpbasedir is not None:
         if not os.path.isdir(shpbasedir):
             os.mkdir(shpbasedir)
