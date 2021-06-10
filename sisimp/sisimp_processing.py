@@ -385,16 +385,16 @@ class Processing(object):
             ## loop over tile
 
             tile_values, tile_list = tiling.get_tiles_from_orbit(my_attributes, pass_number)
-
-            pre_tiling = True
-            if pre_tiling:
-                tropo = tropo_module.Tropo_module(my_attributes.tropo_model, 0, my_attributes.nb_pix_range, 0,
+            tropo = tropo_module.Tropo_module(my_attributes.tropo_model, 0, my_attributes.nb_pix_range, 0,
                                                   len(tile_values), \
                                                   my_attributes.tropo_error_stdv, my_attributes.tropo_error_mean,
                                                   my_attributes.tropo_error_correlation, \
                                                   my_attributes.tropo_error_map_file)
-                tropo.generate_tropo_field_over_pass(min(my_attributes.lat))
+            tropo.generate_tropo_field_over_pass(min(my_attributes.lat))
 
+
+            pre_tiling = True
+            if pre_tiling:
                 for tile_number in tile_list:
                     time = my_timer.Timer()
                     time.start()
@@ -427,12 +427,13 @@ class Processing(object):
                 # 3 - Process right swath
 
                 my_attributes.tile_number = 0
-
-                my_attributes = sisimp_fct.make_pixel_cloud("Right", cycle_number, pass_number, my_attributes)
+                my_attributes.tropo_map_rg_az = tropo.tropo_map_rg_az
+                
+                my_attributes = sisimp_fct.make_pixel_cloud("Right", cycle_number, pass_number, my_attributes, my_attributes.tile_number)
                 my_api.printInfo("")
 
                 # 4 - Process left swath
-                my_attributes = sisimp_fct.make_pixel_cloud("Left", cycle_number, pass_number, my_attributes)
+                my_attributes = sisimp_fct.make_pixel_cloud("Left", cycle_number, pass_number, my_attributes, my_attributes.tile_number)
                 my_api.printInfo("")
 
                 # 5 - Write swath polygons shapefile
