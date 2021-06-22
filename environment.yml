@@ -29,6 +29,9 @@ dependencies:
   - sphinx
   - numpydoc
   - rtree
+  - cgal
+  - rasterio
+  - libiconv
   - pip:
     - mahotas
     - utm
