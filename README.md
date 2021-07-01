@@ -32,15 +32,21 @@ Note that both algorithms and products are still under development and will be u
 ## Associated RiverObs version
 develop branch
 
-commit 1c13a9fc2f2bdc257db84a3ee51194f6bf6dec46 Author: Cassie Stuurman cassie.stuurman@jpl.nasa.gov Date: Mon Nov 23 19:19:21 2020 -0800
+commit 3895abe8e7a5f3b224efd80b939889083c72364f
+Merge: 87e7c02 ed226f6
+Author: Cassie Stuurman <cassie.stuurman@jpl.nasa.gov>
+Date:   Tue Apr 6 12:29:09 2021 -0700
+
+Merge branch 'develop' of https://github-fn.jpl.nasa.gov/SWOTAlgorithmFN/RiverObs into develop
+
 
 updated batch validation tool for compatibility with plot reach
 
-River database SWORD v6 available here:
-http://gaia.geosci.unc.edu/SWORD/SWORD_v06.zip
+River database SWORD v8 available here:
+http://gaia.geosci.unc.edu/SWORD/SWORD_v08.zip
 
 Don't forget to modify parameter_river.rdf
-reach_db_path (-) = /work/ALT/swot/swotpub/BD/BD_rivers/SWORD_v06/Reaches_Nodes/netcdf
+reach_db_path (-) = /work/ALT/swot/swotpub/BD/BD_rivers/SWORD_v08/Reaches_Nodes/netcdf
 
 You can also try to use a more recent RiverObs version, but don't forget to use the associated SWORD version.
 
