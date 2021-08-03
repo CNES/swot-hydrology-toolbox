@@ -254,7 +254,7 @@
           <annotation description="NetCDF-4 conventions adopted in this group. This attribute should be set to CF-1.7 to indicate that the group is compliant with the Climate and Forecast NetCDF conventions."/>
         </string>
         <string name="/@title" shape="Scalar" width="0">
-          <annotation description="Level 2 KaRIn High Rate Water Mask Pixel Clould Data Product"/>
+          <annotation description="Level 2 KaRIn High Rate Water Mask Pixel Cloud Data Product"/>
         </string>
         <string name="/@institution" shape="Scalar" width="0">
           <annotation description="Name of producing agency."/>
