@@ -52,6 +52,8 @@ class l2_hr_pixc(object):
         :type IN_phase_noise_std: 1D-array of float        
         :param IN_crosstrack: crosstrack distance from nadir track
         :type IN_crosstrack: 1D-array of float
+        :param IN_water_frac: water fraction
+        :type IN_water_frac: 1D-array of float
             
         :param IN_nadir_time: time tags for each nadir points ; provided as UTC seconds since begin of current cycle
         :type IN_nadir_time: 1D-array of float
@@ -92,7 +94,7 @@ class l2_hr_pixc(object):
         :type IN_near_range: float
         :param IN_tile_coords: tile coordinates (inner_first, inner_last, outer_first, outer_last), inner_first=(lon, lat)
         :type IN_tile_coords: tuple of tuple of float
-            
+
         + nb_water_pix(int) : number of water pixels, i.e. pixels in azimuth_index, ..., crosstrack vectors
         + nb_nadir_pix(int) : number of pixels on the nadir track, i.e. pixels in time, ..., near_range vectors
         + pattern(str): filename pattern
@@ -103,6 +105,7 @@ class l2_hr_pixc(object):
         self.range_index = IN_range_index
         self.classification = IN_classification
         self.pixel_area = IN_pixel_area
+        self.water_frac = IN_water_frac
         self.latitude = IN_latitude
         self.longitude = IN_longitude
         self.height = IN_height
@@ -258,6 +261,7 @@ class l2_hr_pixc(object):
         #--------------------
         pixel_cloud_vars_val['cross_track'] = self.crosstrack
         pixel_cloud_vars_val['pixel_area'] = self.pixel_area
+        pixel_cloud_vars_val['water_frac'] = self.water_frac
         pixel_cloud_vars_val['inc'] = np.zeros(self.nb_water_pix)
         #--------------------
         pixel_cloud_vars_val['phase_noise_std'] = self.phase_noise_std
@@ -406,6 +410,10 @@ class l2_hr_pixc(object):
         tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
         outLayer.CreateField(tmpField)
+        tmpField = ogr.FieldDefn(str('water_frac'), ogr.OFTReal)  # Water fraction
+        tmpField.SetWidth(15)
+        tmpField.SetPrecision(6)
+        outLayer.CreateField(tmpField)
         tmpField = ogr.FieldDefn(str('lat'), ogr.OFTReal)  # Latitude
         tmpField.SetWidth(15)
         tmpField.SetPrecision(6)
@@ -446,8 +454,8 @@ class l2_hr_pixc(object):
         outLayerDefn = outLayer.GetLayerDefn()
         
         # 2 - On traite point par point
-        for az_ind, range_index, classif, pixel_area, lat, lng, height, crosstrack, phase_noise_std, dlat_dphi, dlon_dphi, dh_dphi, sigma0 in zip(self.azimuth_index, self.range_index, self.classification, \
-        self.pixel_area, self.latitude, self.longitude, self.height, self.crosstrack, self.phase_noise_std, self.dlat_dphi, self.dlon_dphi, self.dh_dphi, self.sigma0):
+        for az_ind, range_index, classif, pixel_area, water_frac, lat, lng, height, crosstrack, phase_noise_std, dlat_dphi, dlon_dphi, dh_dphi, sigma0 in zip(self.azimuth_index, self.range_index, self.classification, \
+        self.pixel_area, self.water_frac, self.latitude, self.longitude, self.height, self.crosstrack, self.phase_noise_std, self.dlat_dphi, self.dlon_dphi, self.dh_dphi, self.sigma0):
             # 2.1 - On cree l'objet dans le format de la couche de sortie
             outFeature = ogr.Feature(outLayerDefn)
             # 2.2 - On lui assigne le point
@@ -460,6 +468,7 @@ class l2_hr_pixc(object):
             outFeature.SetField(str('r_index'), float(range_index))
             outFeature.SetField(str('classif'), float(classif))
             outFeature.SetField(str('pix_area'), float(pixel_area))
+            outFeature.SetField(str('water_frac'), float(water_frac))
             outFeature.SetField(str('lat'), float(lat))
             outFeature.SetField(str('long'), float(lng))
             outFeature.SetField(str('height'), float(height))
