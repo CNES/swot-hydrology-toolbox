@@ -434,8 +434,9 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
     if IN_swath.upper()[0] == 'L':
         y = -y
     
+    # ~ fact = np.sqrt(GEN_APPROX_RAD_EARTH/(GEN_APPROX_RAD_EARTH+Hi))
+    pixel_area =  IN_attributes.azimuth_spacing * IN_attributes.range_sampling / np.sin(angles+np.abs(y)/GEN_APPROX_RAD_EARTH)  # Pixel area
     
-    pixel_area = IN_attributes.azimuth_spacing * IN_attributes.range_sampling / np.sin(angles)  # Pixel area
     # pixel_area calcul
     # ~ # Don't understand this part ??
     # ~ ind_lw = np.where(classification_tab==2)

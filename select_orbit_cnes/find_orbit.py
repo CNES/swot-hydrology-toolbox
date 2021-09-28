@@ -22,9 +22,8 @@ from ressources.utils.inversion_algo import inversionCore
 import ressources.utils.vincenty_direct_formula as vincenty
 from ressources.utils import my_api
 
+from lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE, GEN_APPROX_RAD_EARTH
 
-GEN_RAD_EARTH = 6378137.0
-GEN_RAD_EARTH_POLE = 6356752.31425
 
 RECORD_MARGIN = 2  # Margin between 2 orbit points
 SWATH_MARGIN = 0  # Margin (in meters) to add at the end of the swath
@@ -102,6 +101,7 @@ class findOrbit(object):
                 data_orbit = Dataset(os.path.join(os.path.expandvars(in_orbit_directory), orbit_file))
                 lat = data_orbit.variables['latitude'][:]
                 lon = data_orbit.variables['longitude'][:]
+                alt = data_orbit.variables['altitude'][:]
                 out_cycle_duration = data_orbit.getncattr('repeat_cycle_period')
 
                 if not self.is_ref_poly_in_orbit(polygon_ref, lon, lat):
@@ -128,6 +128,7 @@ class findOrbit(object):
                     my_api.printInfo("> Orbit file = %s" % orbit_file)
                     
                     # Data sampling
+                    # ~ nb_sampling_points = int((1/np.sqrt(GEN_APPROX_RAD_EARTH/(GEN_APPROX_RAD_EARTH+(alt[index_over_dem[0]]+alt[index_over_dem[1]])/2.)))*vincenty.dist_vincenty(lat[index_over_dem[0]], lon[index_over_dem[0]], lat[index_over_dem[-1]], lon[index_over_dem[-1]])/in_azimuth_spacing)
                     nb_sampling_points = int(vincenty.dist_vincenty(lat[index_over_dem[0]], lon[index_over_dem[0]], lat[index_over_dem[-1]], lon[index_over_dem[-1]])/in_azimuth_spacing)
                     my_api.printInfo("  Number of sampling points = %d" % nb_sampling_points)
 
@@ -167,7 +168,7 @@ class findOrbit(object):
                         outVar[:] = give_output(output_scale)
                     
                     # Creating x, y and z variables
-                    x, y, z = inversionCore.convert_llh2ecef(output_orbit_file.variables['latitude'][:], output_orbit_file.variables['longitude'][:], output_orbit_file.variables['altitude'][:], GEN_RAD_EARTH, GEN_RAD_EARTH_POLE)
+                    x, y, z = inversionCore.convert_llh2ecef(output_orbit_file.variables['latitude'][:], output_orbit_file.variables['longitude'][:], output_orbit_file.variables['altitude'][:], GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
                     outVar = output_orbit_file.createVariable('x', np.float64, 'record')
                     outVar[:] = x[:]
                     outVar = output_orbit_file.createVariable('y', np.float64, 'record')
