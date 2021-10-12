@@ -192,3 +192,26 @@ The needed input for the overall chain include:
 * A river database in shapefile format (e.g. GRWL)
 * A lake database in shapefile format
 * Various configuration files (examples provided)
+
+
+The difference step are described below : 
+
+The WIKI section contains a more details description of the simulation steps and the associated parameters.
+
+### PIXC simulation by Large Scale Simulator
+```bash
+% python $SWOT_HYDROLOGY_TOOLBOX/select_orbit_cnes/select_orbit_cnes.py rdf/parameter_orbit.rdf output/orbit
+% python $SWOT_HYDROLOGY_TOOLBOX/sisimp/proc_sisimp.py rdf/parameter_sisimp.rdf
+```
+
+### River processing
+```bash
+% python $SWOT_HYDROLOGY_TOOLBOX/scripts/l2pixc_to_rivertile.py output/simu output/river rdf/parameter_river.rdf
+```
+
+### LakeTile and LakeSP processing
+```bash
+% python $SWOT_HYDROLOGY_TOOLBOX/scripts/rivertile_to_laketile.py output/river output/laketile rdf/parameter_lak
+etile.cfg -output_dir_lakesp output/lakesp
+```
+
