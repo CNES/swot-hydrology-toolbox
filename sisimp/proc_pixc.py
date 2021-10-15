@@ -190,8 +190,8 @@ class l2_hr_pixc(object):
         
         tmp_metadata['time_granule_start'] = self.computeDate(self.nadir_time[0])
         tmp_metadata['time_granule_end'] = self.computeDate(self.nadir_time[-1])
-        tmp_metadata['time_coverage_start'] = self.computeDate(self.computeTime_UTC(min(self.illumination_time)))
-        tmp_metadata['time_coverage_end'] = self.computeDate(self.computeTime_UTC(max(self.illumination_time)))
+        tmp_metadata['time_coverage_start'] = self.computeDate(min(self.illumination_time))
+        tmp_metadata['time_coverage_end'] = self.computeDate(max(self.illumination_time))
         tmp_metadata['geospatial_lon_min'] = min([self.inner_first[0], self.inner_last[0], self.outer_first[0], self.outer_last[0]])
         tmp_metadata['geospatial_lon_max'] = max([self.inner_first[0], self.inner_last[0], self.outer_first[0], self.outer_last[0]])
         tmp_metadata['geospatial_lat_min'] = min([self.inner_first[1], self.inner_last[1], self.outer_first[1], self.outer_last[1]])
@@ -578,7 +578,7 @@ class l2_hr_pixc(object):
         date_in_sec = datetime(int(tmp_time_split[0]), int(tmp_time_split[1]), int(tmp_time_split[2])) + timedelta(seconds=IN_sec_from_start)
         
         # Format
-        out_date_time = "%sZ" % datetime.strftime(date_in_sec, '%Y-%m-%d %H:%M:%S.%f')
+        out_date_time = "%sZ" % datetime.strftime(date_in_sec, '%Y-%m-%dT%H:%M:%S.%f')
         return out_date_time
         
     def computeTime_UTC(self, IN_sec_from_start):
