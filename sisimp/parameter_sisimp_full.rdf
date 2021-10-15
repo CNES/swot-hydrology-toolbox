@@ -35,7 +35,7 @@ Geolocalisation improvement = no !yes (no cross-track noise applied) or no
 
 !### Dark water
 Dark water = yes
-Dark water flag = 24
+Dark water flag = 5
 Dark water percentage = 5
 Dark water detected percentage = 90
 Dark water detected noise factor = 4
