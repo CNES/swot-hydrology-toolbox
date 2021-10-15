@@ -108,15 +108,21 @@ class l2_hr_pixc_vec_river(object):
         
         # 3 - Update global attributes
         tmp_metadata = {}
+        
         tmp_metadata['cycle_number'] = int(self.cycle_num)
         tmp_metadata['pass_number'] = int(self.pass_num)
         tmp_metadata['tile_number'] = int(self.tile_ref[0:-1])
         tmp_metadata['swath_side'] = self.tile_ref[-1]
         tmp_metadata['tile_name'] = "%03d_%03d%s" % (np.int(self.pass_num), int(self.tile_ref[0:-1]), self.tile_ref[-1])
-        tmp_metadata['interferogram_size_range'] = self.nb_pix_range 
-        tmp_metadata['interferogram_size_azimuth'] = self.nb_pix_azimuth
-        tmp_metadata['start_time'] = self.computeDate(self.start_time)
-        tmp_metadata['stop_time'] = self.computeDate(self.stop_time)
+        
+        tmp_metadata['time_granule_start'] = self.computeDate(self.start_time)
+        tmp_metadata['time_granule_end'] = self.computeDate(self.stop_time)
+        tmp_metadata['time_coverage_start'] = self.computeDate(self.start_time)
+        tmp_metadata['time_coverage_end'] = self.computeDate(self.stop_time)
+        tmp_metadata['geospatial_lon_min'] = min([self.inner_first[0], self.inner_last[0], self.outer_first[0], self.outer_last[0]])
+        tmp_metadata['geospatial_lon_max'] = max([self.inner_first[0], self.inner_last[0], self.outer_first[0], self.outer_last[0]])
+        tmp_metadata['geospatial_lat_min'] = min([self.inner_first[1], self.inner_last[1], self.outer_first[1], self.outer_last[1]])
+        tmp_metadata['geospatial_lat_max'] = max([self.inner_first[1], self.inner_last[1], self.outer_first[1], self.outer_last[1]])
         tmp_metadata["inner_first_longitude"] = self.inner_first[0]
         tmp_metadata["inner_first_latitude"] = self.inner_first[1]
         tmp_metadata["inner_last_longitude"] = self.inner_last[0]
@@ -125,6 +131,10 @@ class l2_hr_pixc_vec_river(object):
         tmp_metadata["outer_first_latitude"] = self.outer_first[1]
         tmp_metadata["outer_last_longitude"] = self.outer_last[0]
         tmp_metadata["outer_last_latitude"] = self.outer_last[1]
+        
+        tmp_metadata['interferogram_size_range'] = self.nb_pix_range 
+        tmp_metadata['interferogram_size_azimuth'] = self.nb_pix_azimuth
+        
         nc_writer.set_metadata_val(tmp_metadata)
         
         # 4 - Update dimension

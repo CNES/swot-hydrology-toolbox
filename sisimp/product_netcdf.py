@@ -107,7 +107,10 @@ class NetCDFProduct(object):
                 if cur_shape_name.endswith("_shape"):
                     self.list_shapes[cur_shape_name] = {}
                     for element_niv2 in element_niv1:
-                        self.list_shapes[cur_shape_name][element_niv2.get("name")] = int(element_niv2.get("extent"))
+                        # On ne garde que le nom de la dimension; /group_name/dim_name => dim_name
+                        #self.list_shapes[cur_shape_name][element_niv2.get("name")] = int(element_niv2.get("extent"))
+                        name_to_keep = element_niv2.get("name").split("/")[-1]
+                        self.list_shapes[cur_shape_name][name_to_keep] = int(element_niv2.get("extent"))
                         
         # 3 - Scan variables and metadata
         level_nodes = root[0][0]
@@ -379,12 +382,19 @@ class PixcProduct(NetCDFProduct):
         # 2 - Update general metadata specific to PIXC file
         tmp_metadata = {}
         tmp_metadata['Conventions'] = 'CF-1.7'
+        tmp_metadata['title'] = 'Level 2 KaRIn High Rate Water Mask Pixel Cloud Data Product'
         tmp_metadata['institution'] = 'CNES'
         tmp_metadata['source'] = 'Large scale simulator'
         tmp_metadata['history'] = "%s : Creation" % datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        tmp_metadata['platform'] = "SWOT"
         tmp_metadata['references'] = 'https://github.com/CNES/swot-hydrology-toolbox'
         tmp_metadata['reference_document'] = 'JPL D-56411 - Initial release - February 11, 2019'
         tmp_metadata['contact'] = 'damien.desroches[at]cnes.fr ; claire.pottier[at]cnes.fr'
+        tmp_metadata['short_name'] = "L2_HR_PIXC"
+        tmp_metadata['crid'] = "Dx0000"
+        tmp_metadata['product_version'] = "Revision A"
+        tmp_metadata['pge_name'] = "PGE_L2_HR_PIXC"
+        tmp_metadata['pge_version'] = ""
         tmp_metadata['wavelength'] = 0.008385803020979
         tmp_metadata['polarization'] = ""
         tmp_metadata['transmit_antenna'] = ""
@@ -393,14 +403,20 @@ class PixcProduct(NetCDFProduct):
         tmp_metadata['slc_range_resolution'] = "None"
         tmp_metadata['slc_first_line_index_in_tvp'] = ""
         tmp_metadata['slc_last_line_index_in_tvp'] = ""
-        tmp_metadata['xref_input_l1b_hr_slc_file'] = "None"
-        tmp_metadata['xref_input_static_karin_cal_file'] = "None"
-        tmp_metadata['xref_input_ref_dem_file'] = "None"
-        tmp_metadata['xref_input_water_mask_file'] = ""
-        tmp_metadata['xref_input_static_geophys_files'] = "None"
-        tmp_metadata['xref_input_dynamic_geophys_files'] = "None"
-        tmp_metadata['xref_input_int_lr_xover_cal_file'] = "None"
-        tmp_metadata['xref_l2_hr_pixc_config_parameters_file'] = ""
+        tmp_metadata['kmsf_to_dop_roll'] = ""
+        tmp_metadata['kmsf_to_dop_pitch'] = ""
+        tmp_metadata['kmsf_to_dop_yaw'] = ""
+        tmp_metadata['xref_l1b_hr_slc_file'] = "None"
+        tmp_metadata['xref_int_lr_xover_cal_file'] = "None"
+        tmp_metadata['xref_statickarincal_files'] = "None"
+        tmp_metadata['xref_param_l2_hr_pixc_file'] = ""
+        tmp_metadata['xref_refdem_file'] = "None"
+        tmp_metadata['xref_watermask_files'] = ""
+        tmp_metadata['xref_reforbittrack_files'] = "None"
+        tmp_metadata['xref_meteorological_files'] = "None"
+        tmp_metadata['xref_gim_files'] = "None"
+        tmp_metadata['xref_pole_location_file'] = "None"
+        tmp_metadata['xref_geco_database_version'] = "None"
         tmp_metadata['ellipsoid_semi_major_axis'] = ""
         tmp_metadata['ellipsoid_flattening'] = ""
         self.set_metadata_val(tmp_metadata)
@@ -431,16 +447,23 @@ class PixcVecRiverProduct(NetCDFProduct):
         # 2 - Update general metadata specific to PIXC file
         tmp_metadata = {}
         tmp_metadata['Conventions'] = 'CF-1.7'
+        tmp_metadata['title'] = 'Level 2 KaRIn high rate pixel cloud vector river product'
         tmp_metadata['institution'] = 'CNES'
         tmp_metadata['source'] = 'Large scale simulator'
         tmp_metadata['history'] = "%s : Creation" % datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        tmp_metadata['platform'] = "SWOT"
         tmp_metadata['references'] = 'https://github.com/CNES/swot-hydrology-toolbox'
         tmp_metadata['reference_document'] = 'JPL D-56415 - Initial release - February 02, 2020'
         tmp_metadata['contact'] = 'damien.desroches[at]cnes.fr ; claire.pottier[at]cnes.fr'
+        tmp_metadata['short_name'] = "L2_HR_PIXCVecRiver"
+        tmp_metadata['crid'] = "Dx0000"
+        tmp_metadata['product_version'] = "Revision A"
+        tmp_metadata['pge_name'] = "PGE_L2_HR_RiverTile"
+        tmp_metadata['pge_version'] = ""
         tmp_metadata['near_range'] = ""
         tmp_metadata['nominal_slant_range_spacing'] = ""
-        tmp_metadata['xref_input_l2_hr_pixc_files'] = "None"
-        tmp_metadata['xref_static_river_db_file'] = "None"
+        tmp_metadata['xref_l2_hr_pixc_files'] = "None"
+        tmp_metadata['xref_prior_river_db_file'] = "None"
         tmp_metadata['ellipsoid_semi_major_axis'] = ""
         tmp_metadata['ellipsoid_flattening'] = ""
         self.set_metadata_val(tmp_metadata)
