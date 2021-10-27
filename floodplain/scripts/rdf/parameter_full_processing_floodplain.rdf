@@ -1,0 +1,36 @@
+# Pixc list (1 space blank between each file)
+pixc file list = /work/ALT/swot/swotpub/SWOT_Simulator_data/tests_validation_locnes/LT6/LT6_Cas_Comassa/2_sisimp/SWOT_L2_HR_PIXC_*.nc
+# PixcVec list (1 space blank between each file)
+pixcvec file list = /work/ALT/swot/swotpub/SWOT_Simulator_data/tests_validation_locnes/LT6/LT6_Cas_Comassa/8_lake_sp/SWOT_L2_HR_PIXCVec_*.nc
+# Output directoy
+output_directory = /work/ALT/swot/swotdev/desrochesd/floodplain/run/Comassa/output
+
+latitude min = 42.
+latitude max = 43.
+longitude min = 1.
+longitude max = 2.
+
+tile_name = 42N001E
+first_date_name = 20210512T072103
+last_date_name = 20230603T075103
+
+# Threading option -> choose "dask" or "multiprocessing" or "None"
+threading option = multiprocessing
+cross track min value = 5000
+
+method_extract = intersection
+
+alpha = 5000000
+smoothing_factor = 0.001
+
+mode = latlon
+!resolution = 0.000277777    ! in degree for latlon mode
+resolution = 0.0000277777    ! in degree for latlon mode
+
+method_raster = idw  !  idw (car not compatible now)
+plot = yes
+
+# Specific mandatory argument for idw method
+number_of_neighbors_considered = 10
+
+

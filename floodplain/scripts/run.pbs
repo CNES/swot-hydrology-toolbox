@@ -1,0 +1,17 @@
+#!/bin/bash
+# Directives PBS
+#PBS -N simu_floodplain
+#PBS -l select=1:ncpus=24:mem=120000mb:os=rh7
+#PBS -l walltime=72:00:00
+
+cd /work/ALT/swot/swotdev/desrochesd/floodplain
+source env.sh
+cd /work/ALT/swot/swotdev/desrochesd/floodplain/scripts
+
+python process_floodplain.py rdf/parameter_full_processing_floodplain.rdf
+
+#or 
+
+#python process_floodplain.py rdf/parameter_floodplain.rdf
+#python process_extract_area.py rdf/parameter_extract_area.rdf
+#python process_raster.py rdf/parameter_raster.rdf

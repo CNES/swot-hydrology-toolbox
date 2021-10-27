@@ -1,0 +1,12 @@
+# input filename
+input_file = /work/ALT/swot/swotpub/SWOT_Simulator_data/input_data/large_scale_sim_scene/leman_lake_5m.shp
+
+# prefix output filename
+output_filename = output_change_water/test
+
+# List all the heights variation and expansion factor associated (leave a blank between each value)
+height_change = 5. 6.
+water_expansion_factor = 0.01 0.015
+
+# Name for height attribute
+height_attribute_name = ref_height

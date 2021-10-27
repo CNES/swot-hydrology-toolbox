@@ -1,0 +1,6 @@
+input_file = /work/ALT/swot/swotdev/desrochesd/floodplain/run/Comassa/output/SWOT_L2_HR_FPDEM_polygon.shp
+output_file = /work/ALT/swot/swotdev/desrochesd/floodplain/run/Comassa/output/SWOT_L2_HR_FPDEM_extract_area.shp
+method_extract = intersection
+
+alpha = 5000000
+smoothing_factor = 0.001
