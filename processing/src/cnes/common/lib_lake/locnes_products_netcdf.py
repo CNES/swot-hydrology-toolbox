@@ -8,6 +8,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -34,7 +36,7 @@ import cnes.common.lib_lake.locnes_product_general as my_prod
 
 class NetcdfProduct(my_prod.LocnesProduct):
     """
-    Deal with some of SWOT NetCDF products: LakeTile_pixcvec, LakeTile_edge and PIXCVec
+    Deal with some of SWOT NetCDF products: LakeTile_PIXCVec, LakeTile_Edge and PIXCVec
     """
     
     def __init__(self, in_xml_file, in_inprod_metadata=None, in_proc_metadata=None):
@@ -119,7 +121,7 @@ class NetcdfProduct(my_prod.LocnesProduct):
                     annotation = element[0]
                     self.global_metadata[tmp_metadata]["description"] = annotation.get("description")
                     # Init value
-                    if tmp_metadata in ["title", "platform", "reference_document"]:
+                    if tmp_metadata in ["title", "short_name", "product_file_id", "platform", "reference_document", "pge_name"]:
                         self.global_metadata[tmp_metadata]["value"] = self.global_metadata[tmp_metadata]["description"]
                     else:
                         if self.global_metadata[tmp_metadata]["type"] == "string":
@@ -170,16 +172,17 @@ class NetcdfProduct(my_prod.LocnesProduct):
                             self.attribute_metadata[cur_variable][key] = value
                     elif key == "flag_values":
                         try:
-                            self.attribute_metadata[cur_variable][key] = np.array(value.split(" ")).astype(self.attribute_metadata[cur_variable]["dtype"])
+                            self.attribute_metadata[cur_variable][key] = \
+                                    np.array(value.split(" ")).astype(self.attribute_metadata[cur_variable]["dtype"])
                         except:
                             self.attribute_metadata[cur_variable][key] = value
                     else:
                         try:
                             if "signed" in self.attribute_metadata[cur_variable].keys():
                                 self.attribute_metadata[cur_variable][key] = convert_str_to_dtype(value, 
-                                                                                                   self.attribute_metadata[cur_variable]["type"],
-                                                                                                   self.attribute_metadata[cur_variable]["width"],
-                                                                                                   signed=self.attribute_metadata[cur_variable]["signed"])
+                                                                                             self.attribute_metadata[cur_variable]["type"],
+                                                                                             self.attribute_metadata[cur_variable]["width"],
+                                                                                             signed=self.attribute_metadata[cur_variable]["signed"])
                             else:
                                 self.attribute_metadata[cur_variable][key] = convert_str_to_dtype(value, 
                                                                                                    self.attribute_metadata[cur_variable]["type"],
@@ -219,6 +222,7 @@ class NetcdfProduct(my_prod.LocnesProduct):
         # 2 - Write variables
         if in_size == 0:
             logger.info("Empty NetCDF file generated")
+            self.write_variables(nc_writer, in_variables, flag_fill=False)
         else:
             self.write_variables(nc_writer, in_variables)
         
@@ -228,7 +232,7 @@ class NetcdfProduct(my_prod.LocnesProduct):
         # Close file
         nc_writer.close()
         
-    def write_variables(self, in_nc_writer, in_attributes_value):
+    def write_variables(self, in_nc_writer, in_attributes_value, flag_fill=True):
         """
         Write NetCDF variables listed in input
         
@@ -236,6 +240,8 @@ class NetcdfProduct(my_prod.LocnesProduct):
         :type in_nc_writer: my_netcdf_file.MyNcWriter
         :param in_attributes_value: dictionary with key=attribute name and value=attribute value
         :type in_attributes_value: OrderedDict
+        :param flag_fill: =True to fill variables with attribute values; =False otherwise
+        :type flag_fill: boolean
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.debug("- start -")
@@ -256,7 +262,8 @@ class NetcdfProduct(my_prod.LocnesProduct):
                         tmp_var_metadata[tmp_key] = tmp_value                
                 in_nc_writer.add_variable(key, self.attribute_metadata[key]["dtype"], tmp_tuple_dims, in_attributes=tmp_var_metadata)
                 # Fill variable
-                in_nc_writer.fill_variable(key, value)
+                if flag_fill:
+                    in_nc_writer.fill_variable(key, value)
             else:
                 logger.debug("Variable %s key is not known in the product" % key)
     
@@ -272,8 +279,8 @@ class NetcdfProduct(my_prod.LocnesProduct):
         
         for name, att_dict in self.global_metadata.items():
             
-            if att_dict["value"] == "None":
-                in_nc_writer.add_global_attribute(name, "")
+            if (att_dict["value"] == "") or (att_dict["value"] == "None"):
+                in_nc_writer.add_global_attribute(name, "None")
                 
             else:
                 if "signed" in att_dict.keys():
@@ -392,10 +399,10 @@ def convert_str_to_dtype(in_str_number, in_type_name, in_width, signed=True):
         
         if signed:
             if in_width == 8:
-                #out_number = np.int8(tmp_number)
+                #comment out_number = np.int8(tmp_number)
                 out_number = np.byte(tmp_number)
             elif in_width == 16:
-                #out_number = np.int16(tmp_number)
+                #comment out_number = np.int16(tmp_number)
                 out_number = np.short(tmp_number)
             elif in_width == 64:
                 out_number = np.int64(tmp_number)
@@ -404,10 +411,10 @@ def convert_str_to_dtype(in_str_number, in_type_name, in_width, signed=True):
                 
         else:
             if in_width == 8:
-                #out_number = np.uint8(tmp_number)
+                #comment out_number = np.uint8(tmp_number)
                 out_number = np.ubyte(tmp_number)
             elif in_width == 16:
-                #out_number = np.uint16(tmp_number)
+                #comment out_number = np.uint16(tmp_number)
                 out_number = np.ushort(tmp_number)
             elif in_width == 64:
                 out_number = np.uint64(tmp_number)
@@ -454,10 +461,10 @@ def convert_type_xml_to_dtype(in_type_name, in_width, signed=True):
         
         if signed:
             if in_width == 8:
-                #out_dtype = np.int8
+                #comment out_dtype = np.int8
                 out_dtype = np.byte
             elif in_width == 16:
-                #out_dtype = np.int16
+                #comment out_dtype = np.int16
                 out_dtype = np.short
             elif in_width == 64:
                 out_dtype = np.int64
@@ -466,10 +473,10 @@ def convert_type_xml_to_dtype(in_type_name, in_width, signed=True):
                 
         else:
             if in_width == 8:
-                #out_dtype = np.uint8
+                #comment out_dtype = np.uint8
                 out_dtype = np.ubyte
             elif in_width == 16:
-                #out_dtype = np.uint16
+                #comment out_dtype = np.uint16
                 out_dtype = np.ushort
             elif in_width == 64:
                 out_dtype = np.uint64

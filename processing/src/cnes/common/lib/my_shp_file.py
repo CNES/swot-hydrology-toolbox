@@ -8,6 +8,7 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -67,21 +68,76 @@ def write_mem_layer_as_shp(in_mem_layer, in_shp_filename):
 #######################################
 
 
-def merge_mem_layer_with_shp(in_list_shp, in_layer, in_cur_continent):
+def merge_shp(in_list_shp, flag_add_nogeom_feat=False):
+    """
+    This function merges shapefiles listed in in_list_shp (typically sub-basin LakeAvg shp into basin-level LakeAvg).
+    All polygons in all shapefiles are copied in a memory layer. All fields are copied.
+
+    :param in_list_shp: list of shapefiles full path
+    :type in_list_shp: list of string
+    :param flag_add_nogeom_feat: =True to add features with no geometry in the output layer, =False otherwise (default)
+    :type flag_add_nogeom_feat: boolean
+    
+    :return out_data_source: data source of output layer
+    :rtype out_data_source: OGRdata_source
+    :return out_layer: output memory layer
+    :rtype out_layer: OGRlayer
+    """
+    logger = logging.getLogger("my_shp_file")
+    logger.debug("== merge_shp ==")
+    
+    nb_shp = len(in_list_shp)
+    logger.debug("%d shapefiles to merge into a single one" % nb_shp)
+
+    # 1 - Create memory data source
+    mem_driver = ogr.GetDriverByName(str('MEMORY'))  # Memory driver
+    out_data_source = mem_driver.CreateDataSource('memData')
+    
+    # 2 - Copy first shapefile to memory layer
+    # 2.1 - Open input datasource
+    shp_driver = ogr.GetDriverByName(str('ESRI Shapefile'))  # Driver for shapefiles
+    data_source_1 = shp_driver.Open(in_list_shp[0], 0)  # Open in reading mode
+    layer_1 = data_source_1.GetLayer()  # Get the layer
+    # 2.2 - Copy layer to memory
+    logger.debug("> Copy layer %s (%d features) to memory" % (os.path.basename(in_list_shp[0]), layer_1.GetFeatureCount()))
+    out_layer = out_data_source.CopyLayer(layer_1, str('tmp'))
+
+    # 3 - For each other input shapefile
+    if nb_shp > 1:
+        for cur_shp in in_list_shp[1:]:
+    
+            # 3.1 - Open the shapefile and get layer
+            shp_driver = ogr.GetDriverByName(str('ESRI Shapefile'))  # Shapefile driver
+            cur_data_source = shp_driver.Open(cur_shp, 0)  # Open in reading mode
+            cur_layer = cur_data_source.GetLayer()  # Get the layer
+            logger.debug("> Adding %s (%d features) to memory layer" % (os.path.basename(cur_shp), cur_layer.GetFeatureCount()))
+    
+            # 3.2 - Merge layer into output layer
+            out_data_source, out_layer = merge_2_layers(out_layer, cur_layer, flag_add_nogeom_feat=flag_add_nogeom_feat)
+    
+            # 3.3 - Close layer
+            cur_data_source.Destroy()
+
+    return out_data_source, out_layer
+
+
+def merge_mem_layer_with_shp(in_list_shp, in_layer, in_continent_id=None, flag_add_nogeom_feat=False):
     """
     This function merges shapefiles listed in in_list_shp with the layer in_layer (typically LakeTile shp with LakeSP memory layer).
-    All polygons in all shapefiles are copied in the current layer. All fields are copied.
+    All polygons in all shapefiles are copied in the output memory layer. All fields are copied.
 
     :param in_list_shp: list of shapefiles full path
     :type in_list_shp: list of string
     :param in_layer: layer in which to merge all objects
     :type in_layer: OGRlayer
-    :param in_cur_continent: current continent code
-    :type in_cur_continent: string
+    :param in_continent_id: 2-letter identifier of the processed continent
+    :type in_continent_id: string
+    :param flag_add_nogeom_feat: =True to add features with no geometry in the output layer, =False otherwise (default)
+    :type flag_add_nogeom_feat: boolean
     
     :return out_data_source: data source of output layer
     :rtype out_data_source: OGRdata_source
-    :return out_layer: output layer
+    :return out_layer: output memory layer
     :rtype out_layer: OGRlayer
     """
     logger = logging.getLogger("my_shp_file")
@@ -104,7 +160,8 @@ def merge_mem_layer_with_shp(in_list_shp, in_layer, in_cur_continent):
         cur_layer = cur_data_source.GetLayer()  # Get the layer
 
         # 3.2 - Merge layer into output layer
-        out_data_source, out_layer = merge_2_layers(out_layer, cur_layer, in_cur_continent)
+        out_data_source, out_layer = merge_2_layers(out_layer, cur_layer, in_continent_id=in_continent_id, 
+                                                    flag_add_nogeom_feat=flag_add_nogeom_feat)
 
         # 3.3 - Close layer
         cur_data_source.Destroy()
@@ -112,7 +169,7 @@ def merge_mem_layer_with_shp(in_list_shp, in_layer, in_cur_continent):
     return out_data_source, out_layer
 
 
-def merge_2_layers(in_layer1, in_layer2, in_cur_continent):
+def merge_2_layers(in_layer1, in_layer2, in_continent_id=None, flag_add_nogeom_feat=False):
     """
     Merge 2 memory layers
     
@@ -120,8 +177,10 @@ def merge_2_layers(in_layer1, in_layer2, in_cur_continent):
     :type in_layer1: OGRlayer
     :param in_layer2: second layer
     :type in_layer2: OGRlayer
-    :param in_cur_continent: current continent code
-    :type in_cur_continent: string
+    :param in_continent_id: 2-letter identifier of the processed continent
+    :type in_continent_id: string
+    :param flag_add_nogeom_feat: =True to add features with no geometry in the output layer, =False otherwise (default)
+    :type flag_add_nogeom_feat: boolean
     
     :return out_data_source: data source of output layer
     :rtype out_data_source: OGRdata_source
@@ -146,20 +205,16 @@ def merge_2_layers(in_layer1, in_layer2, in_cur_continent):
         raise service_error.ProcessingError(message, logger)
 
     # 3 - Retrieve only features corresponding to the specified continent code
-    continent_pfaf_id = lake_db.compute_basin_id_from_continent(in_cur_continent)
-    if in_cur_continent:
-        logger.debug("Filter layer by continent %s " % str(in_cur_continent))
-        # Retrieve list of fields in the layer
-        list_fields = set()
-        for ind in range(layer_defn1.GetFieldCount()):
-            list_fields.add(layer_defn1.GetFieldDefn(ind).GetName())
+    if in_continent_id:
+        logger.debug("Filter layer by continent %s " % str(in_continent_id))
         # Find attribute filter depending on the list of fields
-        if "lake_id" in list_fields:
+        continent_pfaf_id = lake_db.compute_continent_code(in_continent_id)
+        if "lake_id" in fields_name_1:
             cond = "lake_id like '" + continent_pfaf_id + "%' or obs_id like '" + continent_pfaf_id + "%'"  # Case of _Obs and _Prior layers
             # Run filter
             in_layer1.SetAttributeFilter(cond)
             in_layer2.SetAttributeFilter(cond)
-        elif "obs_id" in list_fields:
+        elif "obs_id" in fields_name_1:
             cond = "obs_id like '" + continent_pfaf_id + "%'"  # Case of _Unassigned layer
             # Run filter
             in_layer1.SetAttributeFilter(cond)
@@ -191,10 +246,13 @@ def merge_2_layers(in_layer1, in_layer2, in_cur_continent):
     in_layer1.Update(in_layer2, out_layer)
     
     # 9 - Add not observed features (due to use of Update function, cf. above)
-    if in_cur_continent and "lake_id" in list_fields:
+    if flag_add_nogeom_feat:
         for cur_layer in [in_layer1, in_layer2]:
             # 9.1 - Retrieve features without a geometry
-            cur_layer.SetAttributeFilter("obs_id = 'no_data'")
+            if "obs_id" in fields_name_1:
+                cur_layer.SetAttributeFilter("obs_id = 'no_data'")
+            elif "pass_kept" in fields_name_1:
+                cur_layer.SetAttributeFilter("pass_kept = 'no_data'")
             # 9.2 - Add them to output layer
             for cur_feature in cur_layer:
                 out_layer.CreateFeature(cur_feature)

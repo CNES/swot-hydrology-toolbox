@@ -8,6 +8,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -102,12 +104,13 @@ class PixelCloud(object):
             - load_tide_fes / 1D array of float: load tide height (FES2014)
             - load_tide_got / 1D array of float: load tide height (GOT4.10)
             - pole_tide / 1D array of float: pole tide height
-            - pixc_qual / 1D-array of byte: status flag
+            - classification_qual / 1D-array of byte: status flag
             - wavelength / float: wavelength corresponding to the effective radar carrier frequency 
             - looks_to_efflooks / float: ratio between the number of actual samples and the effective number of independent samples
-               during spatial averaging over a large 2-D area
+            during spatial averaging over a large 2-D area
         - From tvp group in L2_HR_PIXC file
             - nadir_time[_tai] / 1D-array of float: observation UTC [TAI] time of each nadir pixel (= variable named time[tai] in L2_HR_PIXC file)
+            - nadir_time_all / 1D-array of float: observation UTC time at nadir corresponding to all PIXC (= variable named time in L2_HR_PIXC file)
             - nadir_longitude / 1D-array of float: longitude of each nadir pixel (= variable named longitude in L2_HR_PIXC file)
             - nadir_latitude / 1D-array of float: latitude of each nadir pixel (= variable named latitude in L2_HR_PIXC file)   
             - nadir_[x|y|z] / 1D-array of float: [x|y|z] cartesian coordinates of each nadir pixel (= variables named [x|y|z] in L2_HR_PIXC file)
@@ -134,7 +137,7 @@ class PixelCloud(object):
             - height_std_pix / 1D-array of float: height std
             - corrected_height / 1D-array of float: height corrected from geoid and other tide corrections
             - labels / 1D-array of int: labelled regions associated to each PixC water pixel; pixels of this vector correspond one-to-one 
-              to the pixels of data from L2_HR_PIXC and L2_HR_PIXC_VEC_RIVER
+              to the pixels of data from L2_HR_PIXC and L2_HR_PIXCVecRiver
             - nb_obj / int : number of separate entities in the PixC tile
             - labels_inside / 1D-array of int: label of objects entirely inside the tile
             - nb_obj_inside / int : number of these objects
@@ -191,10 +194,11 @@ class PixelCloud(object):
         self.load_tide_fes = None
         self.load_tide_got = None
         self.pole_tide = None
-        self.pixc_qual = None
+        self.classification_qual = None
         self.wavelength = -9999.0
         self.looks_to_efflooks = -9999.0
         self.nadir_time = None
+        self.nadir_time_all = None
         self.nadir_time_tai = None
         self.nadir_longitude = None
         self.nadir_latitude = None
@@ -215,11 +219,14 @@ class PixelCloud(object):
         
         # Init dictionary of PIXC metadata
         self.pixc_metadata = {}
+        self.pixc_metadata["source"] = ""
         self.pixc_metadata["cycle_number"] = -9999
         self.pixc_metadata["pass_number"] = -9999
         self.pixc_metadata["tile_number"] = -9999
         self.pixc_metadata["swath_side"] = ""
         self.pixc_metadata["tile_name"] = ""
+        self.pixc_metadata["time_granule_start"] = ""
+        self.pixc_metadata["time_granule_end"] = ""
         self.pixc_metadata["time_coverage_start"] = ""
         self.pixc_metadata["time_coverage_end"] = ""
         self.pixc_metadata["geospatial_lon_min"] = -9999
@@ -234,7 +241,8 @@ class PixelCloud(object):
         self.pixc_metadata["outer_first_longitude"] = -9999.0
         self.pixc_metadata["outer_last_latitude"] = -9999.0
         self.pixc_metadata["outer_last_longitude"] = -9999.0
-        self.pixc_metadata["continent"] = ""
+        self.pixc_metadata["continent_id"] = ""
+        self.pixc_metadata["continent_code"] = ""
         self.pixc_metadata["wavelength"] = -9999.0
         self.pixc_metadata["near_range"] = -9999.0
         self.pixc_metadata["nominal_slant_range_spacing"] = -9999.0
@@ -250,7 +258,8 @@ class PixelCloud(object):
         self.tile_poly = None  # Polygon representing the PIXC tile
         self.az_0_line = None # Line with azimuth = 0
         self.az_max_line  = None # Line with azimuth = az_max
-        self.continent = None  # Continent covered by the tile
+        self.continent_id = None  # 2-letter identifier of the continent covered by the tile
+        self.continent_code = None  # 1-digit code of the continent covered by the tile
         self.selected_index = None  # Indices of selected pixels
         self.nb_selected = 0  # Number of selected pixels
         self.nb_water_pix = 0  # Number of water pixels
@@ -305,12 +314,12 @@ class PixelCloud(object):
         
         # 2 - Retrieve needed global attributes
         pixc_keys = pixc_reader.get_list_att()
-        for key, value in self.pixc_metadata.items():
+        for key in self.pixc_metadata.keys():
             if key in pixc_keys:
                 self.pixc_metadata[key] = pixc_reader.get_att_value(key)
         # pixel_cloud attributes
         pixc_keys = pixc_reader.get_list_att(in_group=pixc_group)
-        for key, value in self.pixc_metadata.items():
+        for key in self.pixc_metadata.keys():
             if key in pixc_keys:
                 self.pixc_metadata[key] = pixc_reader.get_att_value(key, in_group=pixc_group)
                     
@@ -364,6 +373,8 @@ class PixelCloud(object):
         origin_latitude = pixc_reader.get_var_value("latitude", in_group=pixc_group)
         # 4.6 - Height
         origin_height = pixc_reader.get_var_value("height", in_group=pixc_group)
+        # 4.7 - Illumination time
+        origin_illumination_time = pixc_reader.get_var_value("illumination_time", in_group=pixc_group)
                 
         # 5 - Get indices corresponding to input classification flags
         logger.info("There are %d pixels in the input PIXC" % len(origin_longitude))
@@ -498,7 +509,7 @@ class PixelCloud(object):
             self.darea_dheight = pixc_reader.get_var_value("darea_dheight", in_group=pixc_group)[self.selected_index]
             
             # Time of illumination of each pixel
-            illumination_time = pixc_reader.get_var_value("illumination_time", in_group=pixc_group)[self.selected_index]
+            illumination_time = origin_illumination_time[self.selected_index]
             # Number of medium looks
             self.eff_num_medium_looks = pixc_reader.get_var_value("eff_num_medium_looks", in_group=pixc_group)[self.selected_index]
             
@@ -528,16 +539,29 @@ class PixelCloud(object):
             self.pole_tide = pixc_reader.get_var_value("pole_tide", in_group=pixc_group)[self.selected_index]
             
             # Quality flag
-            self.pixc_qual = pixc_reader.get_var_value("pixc_qual", in_group=pixc_group)[self.selected_index]
+            # TODO: remove the try/except syntax where pixc_qual replaced by classification_qual in all simulators
+            try:
+                self.classification_qual = pixc_reader.get_var_value("classification_qual", in_group=pixc_group)[self.selected_index]
+            except:
+                logger.warning("Remaining use of pixc_qual instead of classification_qual variable in PIXC product")
+                self.classification_qual = pixc_reader.get_var_value("pixc_qual", in_group=pixc_group)[self.selected_index]
 
             # 6.2 - In TVP group
             
             # Interpolate nadir_time wrt illumination time
             tmp_nadir_time = pixc_reader.get_var_value("time", in_group=sensor_group)  # Read nadir_time values
-            f = interpolate.interp1d(tmp_nadir_time, range(len(tmp_nadir_time)))  # Interpolator
-            nadir_index = (np.rint(f(illumination_time))).astype(int)  # Link between PixC and nadir pixels
+   
+            if len(tmp_nadir_time) > 1:
+                f = interpolate.interp1d(tmp_nadir_time, range(len(tmp_nadir_time)))  # Interpolator
+                nadir_index = (np.rint(f(illumination_time))).astype(int)  # Link between PixC and nadir pixels
+                nadir_index_all = (np.rint(f(origin_illumination_time))).astype(int)  # Link between all PixC and nadir pixels
+            else:
+                nadir_index = np.zeros(len(illumination_time), dtype=int)
+                nadir_index_all = np.zeros(len(origin_illumination_time), dtype=int)
+                
             # Nadir time
             self.nadir_time = tmp_nadir_time[nadir_index]
+            self.nadir_time_all = tmp_nadir_time[nadir_index_all]
             # Nadir time TAI
             self.nadir_time_tai = pixc_reader.get_var_value("time_tai", in_group=sensor_group)[nadir_index]
             # Nadir longitude
@@ -843,7 +867,8 @@ class PixelCloud(object):
             else:
                 logger.warning("There are %d/%d pixels having height=NaN => aggregate height only over these" % (nb_pixc-nb_not_nan, nb_pixc))
                 # Call JPL function
-                out_height, weight_norm = jpl_aggregate.height_only(self.height, in_pixc_index[not_nan_idx], height_std=self.height_std_pix, method=method)        
+                out_height, weight_norm = jpl_aggregate.height_only(self.height, in_pixc_index[not_nan_idx], height_std=self.height_std_pix,
+                                                                    method=method)
         
         return out_height
     
@@ -891,7 +916,8 @@ class PixelCloud(object):
                     method=method)
                 
             else:
-                logger.warning("There are %d/%d pixels having corrected_height=NaN => aggregate height only over these" % (nb_pixc-nb_not_nan, nb_pixc))
+                logger.warning("There are %d/%d pixels having corrected_height=NaN => aggregate height only over these" 
+                               % (nb_pixc-nb_not_nan, nb_pixc))
                 # Call JPL function
                 out_height, out_height_std, out_height_unc, lat_unc, lon_unc = jpl_aggregate.height_with_uncerts(
                     self.corrected_height, in_pixc_index[not_nan_idx], self.eff_num_rare_looks, self.eff_num_medium_looks,
@@ -946,7 +972,8 @@ class PixelCloud(object):
                 logger.debug("There are NO pixels having corrected_height=NaN => aggregate area over all pixels")
                 selected_pixc_idx = in_pixc_index
             else:
-                logger.warning("There are %d/%d pixels having corrected_height=NaN => aggregate height only over these" % (nb_pixc-nb_not_nan, nb_pixc))
+                logger.warning("There are %d/%d pixels having corrected_height=NaN => aggregate height only over these" 
+                               % (nb_pixc-nb_not_nan, nb_pixc))
                 selected_pixc_idx = in_pixc_index[not_nan_idx]
 
             # 1 - Aggregate PIXC area and uncertainty considering all PIXC (ie water + dark water)
@@ -1021,9 +1048,23 @@ class PixelCloud(object):
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("Output L2_HR_LakeTile_edge NetCDF file = %s" % in_filename)
         
+        # 0.1 - Save pixc_metadata dict
+        tmp_pixc_metadata = self.pixc_metadata.copy()
+        tmp_pixc_metadata.pop("time_coverage_start")
+        tmp_pixc_metadata.pop("time_coverage_end")
+        # 0.2 - Estimate time_coverage_start and time_coverage_end
+        time_str_dict = dict()
+        if self.nb_edge_pix != 0:
+            nadir_time_edge_pixels = self.nadir_time[self.edge_index]
+            time_str_dict["time_coverage_start"] = my_tools.convert_utc_to_str(min(nadir_time_edge_pixels), in_format=2)
+            time_str_dict["time_coverage_end"] = my_tools.convert_utc_to_str(max(nadir_time_edge_pixels), in_format=2)
+        else:
+            time_str_dict["time_coverage_start"] = "None"
+            time_str_dict["time_coverage_end"] = "None"
+        
         # 1 - Init product
-        edge_file = nc_file.LakeTileEdgeProduct(in_pixc_metadata=self.pixc_metadata, 
-                                                in_proc_metadata=in_proc_metadata)
+        edge_file = nc_file.LakeTileEdgeProduct(in_pixc_metadata=tmp_pixc_metadata, 
+                                                in_proc_metadata={**in_proc_metadata, **time_str_dict})
 
         # 2 - Form dictionary with variables to write
         vars_to_write = {}
@@ -1066,7 +1107,7 @@ class PixelCloud(object):
             vars_to_write["load_tide_fes"] = self.load_tide_fes[self.edge_index]
             vars_to_write["load_tide_got"] = self.load_tide_got[self.edge_index]
             vars_to_write["pole_tide"] = self.pole_tide[self.edge_index]
-            vars_to_write["pixc_qual"] = self.pixc_qual[self.edge_index]
+            vars_to_write["classification_qual"] = self.classification_qual[self.edge_index]
             vars_to_write["nadir_time"] = self.nadir_time[self.edge_index]
             vars_to_write["nadir_time_tai"] = self.nadir_time_tai[self.edge_index]
             vars_to_write["nadir_longitude"] = self.nadir_longitude[self.edge_index]

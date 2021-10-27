@@ -8,6 +8,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -257,10 +259,10 @@ class MyNcReader(object):
         # 4 - Multiplication by the scale factor if it exists
         try:
             scale_factor = cur_content.variables[in_name].scale_factor
-            logger.info("Apply scale_factor={} for variable {}" % (scale_factor, in_name))
+            logger.debug("Apply scale_factor={} for variable {}" % (scale_factor, in_name))
             out_data *= scale_factor
         except:
-            logger.info("No scale_factor for variable %s" % in_name)
+            logger.debug("No scale_factor for variable %s" % in_name)
             
         # 5 - Replace invalid values with numpy.nan
         if type_out_data.startswith("float") or type_out_data.startswith("double"):

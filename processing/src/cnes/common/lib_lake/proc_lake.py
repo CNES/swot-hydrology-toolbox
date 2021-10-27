@@ -8,6 +8,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -50,7 +52,7 @@ class LakeProduct(object):
     Manage LakeTile and LakeSP products
     """
     
-    def __init__(self, in_product_type, in_obj_pixc, in_obj_pixc_vec, in_obj_lake_db, in_layer_name):
+    def __init__(self, in_product_type, in_obj_pixc, in_obj_pixcvec, in_obj_lake_db, in_layer_name):
         """
         Constructor
 
@@ -58,8 +60,8 @@ class LakeProduct(object):
         :type in_product_type: string
         :param in_obj_pixc: pixel cloud from which to compute lake products
         :type in_obj_pixc: proc_pixc.PixelCloud or proc_pixc_sp.PixelCloudSP object
-        :param in_obj_pixc_vec: pixel cloud complementary file from which to compute lake products
-        :type in_obj_pixc_vec: proc_pixc_vec.PixelCloudVec or proc_pixc_vec_sp.PixelCloudVecSP object
+        :param in_obj_pixcvec: pixel cloud complementary file from which to compute lake products
+        :type in_obj_pixcvec: proc_pixc_vec.PixelCloudVec or proc_pixc_vec_sp.PixelCloudVecSP object
         :param in_obj_lake_db: lake database
         :type in_obj_lake_db: lake_db.lakeDb_shp or lake_db.lakeDb_sqlite
         :param in_layer_name: name for lake product layer
@@ -69,7 +71,7 @@ class LakeProduct(object):
             - cfg / service_config_file.cfg: instance of LOCNES configuration file
             - product_type / string: type of product among "SP"=LakeSP and "TILE"=LakeTile
             - obj_pixc / proc_pixc.PixelCloud or proc_pixc_sp.PixelCloud: pixel cloud from which to compute lake products
-            - obj_pixc_vec / proc_pixc_vec.PixelCloudVec or proc_pixc_vec_sp.PixelCloudVec: extra info for pixel cloud
+            - obj_pixcvec / proc_pixc_vec.PixelCloudVec or proc_pixc_vec_sp.PixelCloudVec: extra info for pixel cloud
             - obj_lake_db / lake_db.lakeDb_shp or lake_db.lakeDb_sqlite: lake database
             - content_obs / LakeSPShpProduct: container of the lake "obs" product
             - content_prior / LakeSPShpProduct: container of the lake "prior" product
@@ -92,7 +94,7 @@ class LakeProduct(object):
         # Pixel cloud object
         self.obj_pixc = in_obj_pixc
         # Pixel cloud complementary file object
-        self.obj_pixc_vec = in_obj_pixc_vec
+        self.obj_pixcvec = in_obj_pixcvec
         # Lake database object
         self.obj_lake_db = in_obj_lake_db
         
@@ -108,7 +110,7 @@ class LakeProduct(object):
         self.lakeid_uniq = set()  # List of uniq prior identifiers linked to all observed objects
         # Dictionnary to store parameters for global comparison between _Obs and _Prior lake products
         self.compare_stats = {}
-        self.compare_stats_params = ["delta_s_l", "delta_s_q", "area_total", "area_detct"]
+        self.compare_stats_params = ["area_total", "area_detct"]
         for key in ["obs", "prior"]:
             self.compare_stats[key] = {}
             for param in self.compare_stats_params:
@@ -200,7 +202,8 @@ class LakeProduct(object):
             obj_area_total /= 10**6  # Conversion in km2
             
             # 3.2 - Detected area (=only water)
-            obj_area_detected = np.nansum(self.obj_pixc.pixel_area[pix_index[select_water_dark_pixels(classif, in_flag_water=True, in_flag_dark=False)]])
+            obj_area_detected = np.nansum(self.obj_pixc.pixel_area[pix_index[select_water_dark_pixels(classif, in_flag_water=True, \
+                                          in_flag_dark=False)]])
             # In m2
             obj_area_detected /= 10**6  # Conversion in km2
             
@@ -264,8 +267,8 @@ class LakeProduct(object):
                 cpt_obj += 1
 
             else:
-                logger.info("> Detected area of object %d is too small (= %.2f km2; total area = %.2f km2 \
-                             with %d pixels)"%(label, obj_area_detected, obj_area_total, obj_nb_pix))
+                logger.info("> Detected area of object %d is too small (= %.3f km2; total area = %.3f km2 with %d pixels)" 
+                                % (label, obj_area_detected, obj_area_total, obj_nb_pix))
                 cpt_too_small += 1  # Increase counter of too small objects
 
         logger.info("> %d objects not processed because too small" % cpt_too_small)
@@ -331,20 +334,27 @@ class LakeProduct(object):
                     # 6.4 - Retrieve PIXCVec indices corresponding to prior feature
                     # NB: use of selected_index to convert PIXCVec indices to PIXC indices reference
                     if self.product_type == "SP":
-                        pixc_index = np.where(self.obj_pixc_vec.lake_id == obj_plake.lake_id.encode())[0]
+                        pixc_index = np.where(self.obj_pixcvec.lake_id == obj_plake.lake_id.encode())[0]
                     else:
-                        pixc_index = np.where(self.obj_pixc_vec.lake_id[self.obj_pixc.selected_index] == obj_plake.lake_id.encode())[0]
+                        pixc_index = np.where(self.obj_pixcvec.lake_id[self.obj_pixc.selected_index] == obj_plake.lake_id.encode())[0]
                 
                     # 6.5 - Compute observed geometry and common attributes of PLD feature
                     prior_geom, prior_attributes = self.form_prior_feature(obj_plake, pixc_index)
                     
-                    if obj_plake.ok_to_compute_stocc:
-                        # 6.6 - Compute storage change for this PLD lake and all observed lakes overlapping it
-                        storage_change_values = self.compute_storage_change(obj_plake, pixc_index, prior_attributes)                     
-                        # 6.7 - Add prior feature to _Prior layer
-                        self.content_prior.add_feature(prior_geom, {**prior_attributes, **pld_attributes, **storage_change_values})
+                    if obj_plake.ok_to_compute_stocc and (prior_attributes["partial_f"] == 0):
+                        # 6.6 - Compute direct storage change for this PLD lake and all observed lakes overlapping it
+                        direct_storage_change_values = self.compute_direct_storage_change(obj_plake, pixc_index, prior_attributes)    
+                        # 6.7 - Compute incremental storage change for this PLD lake and all observed lakes overlapping it
+                        incremental_storage_change_values = self.compute_incremental_storage_change(obj_plake, pixc_index, prior_attributes)                   
+                        # 6.8 - Add prior feature to _Prior layer
+                        self.content_prior.add_feature(prior_geom, {**prior_attributes, **pld_attributes, **direct_storage_change_values, **incremental_storage_change_values})
                     else:
-                        logger.debug("Not able to compute storage change")
+                        msg = "Not able to compute storage change"
+                        if not obj_plake.ok_to_compute_stocc:
+                            msg += "; parameters not available in lake DB"
+                        if prior_attributes["partial_f"] > 1:
+                            msg += "; lake is partially observed"
+                        logger.debug(msg)
                         # 6.7 - Add prior feature to _Prior layer
                         self.content_prior.add_feature(prior_geom, {**prior_attributes, **pld_attributes})
                 
@@ -489,24 +499,26 @@ class LakeProduct(object):
         feature_geom = self.build_obs_boundary(in_indices, in_lon, in_lat)
         
         # 2 - Compute common attributes
-        feature_attributes = self.compute_common_attributes(in_indices, in_classif_dict=in_classif)
+        feature_attributes = self.compute_common_attributes(feature_geom, in_indices, in_classif_dict=in_classif)
         
         # 3 - Link to PLD
         lake_id, overlap, out_pixcvec_lakeid = self.link_obs_geom_to_pld_geom(feature_geom, in_lon, in_lat)
         feature_attributes["lake_id"] = lake_id
         feature_attributes["overlap"] = overlap
+        feature_attributes["n_overlap"] = len(overlap.split(";"))
+        feature_attributes["reach_id"] = None
         
-        # 4.1 - Compute 3 digits of basin identifier (CBB)
+        # 4.1 - Compute 3 digits of basin code (CBB)
         if lake_id != "no_data":
-            lake_basin_id = lake_id[0:3]
+            lake_basin_code = lake_id[0:3]
         else:
-            lake_basin_id = str(self.obj_lake_db.link_poly_to_basin(feature_geom)[0]).rjust(3, str('0'))
+            lake_basin_code = str(self.obj_lake_db.link_poly_to_basin(feature_geom)[0]).rjust(3, str('0'))
         # 4.2 - Form obs_id
         if self.product_type == "TILE":  # "TILE" case: only add cpt_obj
             tile_ref = str(self.obj_pixc.pixc_metadata["tile_number"]).rjust(3, str('0')) + str(self.obj_pixc.pixc_metadata["swath_side"])
         else:  # "SP" case: add main tile info
             tile_ref = self.obj_pixc.get_majority_pixels_tile_ref(int(in_number))
-        feature_attributes["obs_id"] = "%s%s%s" % (lake_basin_id, tile_ref, in_number)
+        feature_attributes["obs_id"] = "%s%s%s" % (lake_basin_code, tile_ref, in_number)
         
         # 5 - Add feature to layer, if it exists
         logger.debug("obs_id = %s / lake_id = %s" % (str(feature_attributes["obs_id"]), lake_id))
@@ -567,26 +579,28 @@ class LakeProduct(object):
         logger = logging.getLogger(self.__class__.__name__)
         logger.debug("Deal with PLD lake = {}".format(in_obj_plake.lake_id))
         
+        # 1 - Build feature boundary
+        out_geom, list_obs_id, list_overlap = self.build_prior_boundary(in_obj_plake, in_pixc_index)
+        
         # 2 - Compute common attributes
-        out_attributes = self.compute_common_attributes(in_pixc_index)
+        out_attributes = self.compute_common_attributes(out_geom, in_pixc_index)
         # Save for comparison
         for param in self.compare_stats_params:
             if (param in out_attributes.keys()) and (out_attributes[param] is not None):
                 self.compare_stats["prior"][param] += out_attributes[param]
         
-        # 3 - Build feature boundary
-        out_geom, list_obs_id, list_overlap = self.build_prior_boundary(in_obj_plake, in_pixc_index)
-        
-        # 4 - Add identifiers and overlap values
+        # 3 - Add identifiers and overlap values
         out_attributes["lake_id"] = in_obj_plake.lake_id
         if list_obs_id:
             out_attributes["obs_id"] = ';'.join(list_obs_id)
         else:
             out_attributes["obs_id"] = "no_data"
-        if list_obs_id:
+        if list_overlap:
             out_attributes["overlap"] = ';'.join(list_overlap)
+            out_attributes["n_overlap"] = len(list_overlap)
         else:
             out_attributes["overlap"] = "no_data"
+            out_attributes["n_overlap"] = 0
         
         return out_geom, out_attributes
     
@@ -640,8 +654,8 @@ class LakeProduct(object):
                 if influence_area_poly is None:
                     tmp_pixcvec_index = self.get_pixcvec_index_from_pixc_index(in_pixc_index)
                     tmp_geom = self.build_obs_boundary(in_pixc_index, 
-                                                       self.obj_pixc_vec.longitude_vectorproc[tmp_pixcvec_index],
-                                                       self.obj_pixc_vec.latitude_vectorproc[tmp_pixcvec_index])
+                                                       self.obj_pixcvec.longitude_vectorproc[tmp_pixcvec_index],
+                                                       self.obj_pixcvec.latitude_vectorproc[tmp_pixcvec_index])
                     
                 else:
                     tmp_geom = cur_geom.Intersection(influence_area_poly)
@@ -652,7 +666,8 @@ class LakeProduct(object):
             if geom_inter is not None:
                 area_inter = my_tools.get_area(geom_inter)
                 out_list_overlap.append(str(round(area_inter/area_pld*100.)))
-                logger.debug("PLD lake area = {} m2 - PLD/obs intersection area = {} m2 - overlap = {}%".format(area_pld, area_inter, out_list_overlap[0]))
+                logger.debug("PLD lake area = {} m2 - PLD/obs intersection area = {} m2 - overlap = {}%".format(area_pld, area_inter, \
+                             out_list_overlap[0]))
         
         # Case with N obs <-> 1 PLD lake
         else:
@@ -687,12 +702,12 @@ class LakeProduct(object):
                 
                     if influence_area_poly is None:
                         in_pixcvec_index = self.get_pixcvec_index_from_pixc_index(in_pixc_index)
-                        obsid_over_in_lakeid = self.obj_pixc_vec.obs_id[in_pixcvec_index]
+                        obsid_over_in_lakeid = self.obj_pixcvec.obs_id[in_pixcvec_index]
                         tmp_pixc_index = in_pixc_index[np.where(obsid_over_in_lakeid == cur_obs_id.encode())]
                         tmp_pixcvec_index = self.get_pixcvec_index_from_pixc_index(tmp_pixc_index)
                         obs_poly = self.build_obs_boundary(tmp_pixc_index, 
-                                                           self.obj_pixc_vec.longitude_vectorproc[tmp_pixcvec_index],
-                                                           self.obj_pixc_vec.latitude_vectorproc[tmp_pixcvec_index])
+                                                           self.obj_pixcvec.longitude_vectorproc[tmp_pixcvec_index],
+                                                           self.obj_pixcvec.latitude_vectorproc[tmp_pixcvec_index])
                         
                     else:
                         obs_poly = cur_geom.Intersection(influence_area_poly)
@@ -704,9 +719,11 @@ class LakeProduct(object):
                     area_inter = my_tools.get_area(geom_inter)
                     tmp_overlap = str(round(area_inter/area_pld*100.))
                     tmp_list_overlap.append(tmp_overlap)
-                    logger.debug("PLD lake area = {} m2 - PLD/obs intersection area = {} m2 - overlap = {}%".format(area_pld, area_inter, tmp_overlap))
+                    logger.debug("PLD lake area = {} m2 - PLD/obs intersection area = {} m2 - overlap = {}%".format(area_pld, area_inter, \
+                                 tmp_overlap))
                 else :
-                    logger.warning("PLD lakeid %s geometrie do not intersects observed geometry %s " %(str(in_obj_plake.lake_id), str(tmp_list_obs_id)))
+                    logger.warning("PLD lakeid %s geometrie do not intersects observed geometry %s " %(str(in_obj_plake.lake_id), \
+                                                                                                       str(tmp_list_obs_id)))
                 # Add current geometry to output geometry
                 tmp_geom = tmp_geom.Union(obs_poly)
 
@@ -720,11 +737,13 @@ class LakeProduct(object):
         
         return out_geom, out_list_obs_id, out_list_overlap
                 
-    def compute_common_attributes(self, in_pixc_index, in_classif_dict=None):
+    def compute_common_attributes(self, in_geom, in_pixc_index, in_classif_dict=None):
         """
         Computes common attributes from PIXC related to the current feature.
         This subset of pixel cloud include pixels for which self.obj_pixc.labels=in_label
 
+        :param in_geom: geometry of the current feature
+        :type in_geom: ogr.MultiPolygon
         :param in_pixc_index: list of indices of PIXC defining the current feature
         :type in_pixc_index: 1D-array of int
         :param in_classif_dict: dictionary of indices of pixels of in_indices corresponding to categories "water" and "dark"
@@ -757,7 +776,11 @@ class LakeProduct(object):
         
         # Area and uncertainty
         area_total, area_total_unc, area_detct, area_detct_unc = self.obj_pixc.compute_area_with_uncertainties(in_pixc_index, method='composite')
-        out_attributes["area_total"] = value_or_none(area_total / 10**6)
+        area_method = self.cfg.get("CONFIG_PARAMS", "AREA_METHOD")
+        if area_method == "polygon":
+            out_attributes["area_total"] = my_tools.get_area(in_geom) / 10**6
+        else:
+            out_attributes["area_total"] = value_or_none(area_total / 10**6)
         out_attributes["area_tot_u"] = value_or_none(area_total_unc / 10**6)
         out_attributes["area_detct"] = value_or_none(area_detct / 10**6)
         out_attributes["area_det_u"] = value_or_none(area_detct_unc / 10**6)
@@ -811,32 +834,32 @@ class LakeProduct(object):
         # ==========================
         
         # Geoid model height
-        out_attributes["geoid_hght"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.geoid[in_pixc_index]))
+        out_attributes["geoid_hght"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.geoid[in_pixc_index], name="geoid_hght"))
         # Earth tide
-        out_attributes["solid_tide"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.solid_earth_tide[in_pixc_index]))
+        out_attributes["solid_tide"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.solid_earth_tide[in_pixc_index], name="solid_tide"))
         # Pole tide
-        out_attributes["pole_tide"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.pole_tide[in_pixc_index]))
+        out_attributes["pole_tide"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.pole_tide[in_pixc_index], name="pole_tide"))
         # Load tide
-        out_attributes["load_tidef"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_fes[in_pixc_index]))
-        out_attributes["load_tideg"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_got[in_pixc_index]))
+        out_attributes["load_tidef"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_fes[in_pixc_index], name="load_tidef"))
+        out_attributes["load_tideg"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.load_tide_got[in_pixc_index], name="load_tideg"))
         
         # =================================
         # 5 - Geophysical range corrections
         # =================================
         
         # Dry tropo corr
-        out_attributes["dry_trop_c"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.model_dry_tropo_cor[in_pixc_index]))
+        out_attributes["dry_trop_c"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.model_dry_tropo_cor[in_pixc_index], name="dry_trop_c"))
         # Wet tropo corr
-        out_attributes["wet_trop_c"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.model_wet_tropo_cor[in_pixc_index]))
+        out_attributes["wet_trop_c"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.model_wet_tropo_cor[in_pixc_index], name="wet_trop_c"))
         # Iono corr
-        out_attributes["iono_c"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.iono_cor_gim_ka[in_pixc_index]))
+        out_attributes["iono_c"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.iono_cor_gim_ka[in_pixc_index], name="iono_c"))
         
         # ==========================
         # 6 - Instrument corrections
         # ==========================
         
         # KaRIn correction from crossover cal processing evaluated for lake
-        out_attributes["xovr_cal_c"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.height_cor_xover[in_pixc_index]))
+        out_attributes["xovr_cal_c"] = value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.height_cor_xover[in_pixc_index], name="xovr_cal_c"))
         
         return out_attributes
 
@@ -887,19 +910,19 @@ class LakeProduct(object):
     
     def set_pld_attributes(self, in_pld_infos):
         """
-        Set p_ attributes to prior values to current PLD lake 
-        and for all obs features linked to current PLD lake (i.e. currently selected in the _Obs layer)
+        Set p_ attributes of all obs features linked to current PLD lake (i.e. currently selected in the _Obs layer)
+        to prior values of current PLD lake 
         
-        :param in_pld_infos: values of p_ attributes to populate
+        :param in_pld_infos: values of available p_ attributes
         :type in_pld_infos: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.debug("- start -")
         
         for obs_lake in self.content_obs.layer:
-            # Set attributes related to PLD lake
-            for key, value in in_pld_infos.items():
-                obs_lake.SetField(str(key), value)
+            # Set needed attributes related to PLD lake
+            for key in my_var.PLD_FIELD_TO_KEEP_IN_OBS:
+                obs_lake.SetField(str(key), in_pld_infos[str(key)])
             # Rewrite obs feature with updated attributes
             self.content_obs.layer.SetFeature(obs_lake)
     
@@ -933,12 +956,88 @@ class LakeProduct(object):
     # ------------------------------------------------
     # Functions specific to storage change computation
     # ------------------------------------------------
-
-    def compute_storage_change(self, in_obj_plake, in_pixc_index, in_prior_attributes):
+    
+    def compute_direct_storage_change(self, in_obj_plake, in_pixc_index, in_prior_attributes):
         """
+        Head function for storage change computation with the DIRECT approach
+        Run specific child function depending on the STOCC_INPUT config parameter
+        
+        :param in_obj_plake: PLD lake object
+        :type in_obj_plake: lake_db.PriorLake
+        :param in_pixc_index: indices of PIXC related to PLD lake
+        :type in_pixc_index: Numpy 1D-array of int
+        :return: in_prior_attributes = attributes of prior feature related to PLD lake
+        :rtype: in_prior_attributes = dict
+        
+        :return: out_storage_values = storage change values related to current PLD lake
+        :rtype: out_storage_values = dict
+        """
+        
+        # 1 - Retrieve config parameter for choice of input data for storage change computation
+        stocc_input = self.cfg.get("CONFIG_PARAMS", "STOCC_INPUT")
+        
+        # 2 - Run specific function depending on its value
+        if stocc_input == "obs":
+            out_storage_values = self.compute_direct_storage_change_obs(in_obj_plake, in_pixc_index, in_prior_attributes)
+        else:
+            out_storage_values = self.compute_direct_storage_change_pld(in_obj_plake, in_prior_attributes)
+            
+        return out_storage_values
+    
+    def compute_direct_storage_change_pld(self, in_obj_plake, in_prior_attributes):
+        """
+        Compute storage change precisely from WSE and area average over the PLD lake
+        With this method, storage change is not set to related observed features
+        
+        :param in_obj_plake: PLD lake object
+        :type in_obj_plake: lake_db.PriorLake
+        :return: in_prior_attributes = attributes of prior feature related to PLD lake
+        :rtype: in_prior_attributes = dict
+        
+        :return: out_storage_values = storage change values related to current PLD lake
+        :rtype: out_storage_values = dict
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.debug("- start -")
+        
+        # 0 - Init output
+        out_storage_values = dict()
+        out_storage_values["ds1_l"] = my_var.FV_REAL
+        out_storage_values["ds1_l_u"] = my_var.FV_REAL
+        out_storage_values["ds1_q"] = my_var.FV_REAL
+        out_storage_values["ds1_q_u"] = my_var.FV_REAL
+        
+        # 1 - Build dictionary going in input of storage change function
+        list_obs = dict()
+        list_obs["pld"] = dict()
+        list_obs["pld"]["area"] = in_prior_attributes["area_total"]
+        list_obs["pld"]["area_u"] = in_prior_attributes["area_tot_u"]
+        list_obs["pld"]["wse"] = in_prior_attributes["wse"]
+        list_obs["pld"]["wse_u"] = in_prior_attributes["wse_u"]
+        # Test if extreme values
+        for key in ["area", "wse"]:
+            if (list_obs["pld"][key] is None) or (not np.isfinite(list_obs["pld"][key])) or (list_obs["pld"][key] < -9e11):
+                logger.debug("Lake has {}={} => storage change not computed".format(key, list_obs["pld"][key]))
+                list_obs = None
+                break
+        if list_obs is not None:
+            for key in ["area_u", "wse_u"]:
+                if (list_obs["pld"][key] is None) or (not np.isfinite(list_obs["pld"][key])) or (list_obs["pld"][key] < -9e11):
+                    key2 = key.replace("_u", "")
+                    logger.debug("Lake has {}={} => {} set to {}={}".format(key, list_obs["pld"][key], key, key2, list_obs["pld"][key2]))
+                    list_obs["pld"][key] = list_obs["pld"][key2]
+            
+        # 2 - Compute storage change for PLD lake
+        out_storage_values["ds1_l"], out_storage_values["ds1_l_u"], out_storage_values["ds1_q"], out_storage_values["ds1_q_u"] = \
+            in_obj_plake.run_stocc(list_obs)
+        
+        return out_storage_values
+
+    def compute_direct_storage_change_obs(self, in_obj_plake, in_pixc_index, in_prior_attributes):
+        """
+        Compute storage change precisely from WSE and area of all observed features linked the the PLD lake
         Set storage change values for all observed features linked to current PLD lake
-        and return them
-        NB: these observed objects have been selected in the _Obs layer before the use of this function
+        NB: these observed features have been selected in the _Obs layer before the use of this function
 
         Envisionned cases:
             - 1 prior lake <=> 1 observed lake
@@ -960,16 +1059,16 @@ class LakeProduct(object):
         
         # 0 - Init output
         out_storage_values = dict()
-        out_storage_values["delta_s_l"] = my_var.FV_REAL
-        out_storage_values["ds_l_u"] = my_var.FV_REAL
-        out_storage_values["delta_s_q"] = my_var.FV_REAL
-        out_storage_values["ds_q_u"] = my_var.FV_REAL
+        out_storage_values["ds1_l"] = my_var.FV_REAL
+        out_storage_values["ds1_l_u"] = my_var.FV_REAL
+        out_storage_values["ds1_q"] = my_var.FV_REAL
+        out_storage_values["ds1_q_u"] = my_var.FV_REAL
         
         # Nb of observed lakes related to in_obj_plake
         nb_obs_lake = self.content_obs.layer.GetFeatureCount()
         logger.debug("Case PLD lake -> %d obs lakes" % nb_obs_lake)
         
-        # 1 - Build dictionary going in intput of storage change function
+        # 1 - Build dictionary going in input of storage change function
         
         # 1.0 - Compute prior overlap coefficients
         prior_overlap = dict()
@@ -999,21 +1098,22 @@ class LakeProduct(object):
                 else:
                     # Case multi obs <-> PLD lakes associations
                     logger.debug("> sub-case multi obs <-> PLD lakes associations")
-                    list_obs[obs_id]["area"], list_obs[obs_id]["area_u"], tmp1, tmp2 = self.obj_pixc.compute_area_with_uncertainties(in_pixc_index, flag_all=False)
+                    list_obs[obs_id]["area"], list_obs[obs_id]["area_u"], tmp1, tmp2 = \
+                        self.obj_pixc.compute_area_with_uncertainties(in_pixc_index, flag_all=False)
                     list_obs[obs_id]["wse"], list_obs[obs_id]["wse_u"], tmp1 = self.obj_pixc.compute_height_with_uncertainties(in_pixc_index)
                     
                 # Retrieve storage change previous values
                 list_obs[obs_id]["lake_id"] = obs_lake.GetField(str("lake_id")).split(";")
                 list_obs[obs_id]["overlap"] = np.array(obs_lake.GetField(str("overlap")).split(";"), dtype="float")
-                list_obs[obs_id]["delta_s_l"] = float(obs_lake.GetField(str("delta_s_l")))
-                list_obs[obs_id]["ds_l_u"] = float(obs_lake.GetField(str("ds_l_u")))
-                list_obs[obs_id]["delta_s_q"] = float(obs_lake.GetField(str("delta_s_q")))
-                list_obs[obs_id]["ds_q_u"] = float(obs_lake.GetField(str("ds_q_u")))
-                if list_obs[obs_id]["delta_s_l"] < -9e11:
-                    list_obs[obs_id]["delta_s_l"] = 0.0
-                    list_obs[obs_id]["ds_l_u"] = 0.0
-                    list_obs[obs_id]["delta_s_q"] = 0.0
-                    list_obs[obs_id]["ds_q_u"] = 0.0
+                list_obs[obs_id]["ds1_l"] = float(obs_lake.GetField(str("ds1_l")))
+                list_obs[obs_id]["ds1_l_u"] = float(obs_lake.GetField(str("ds1_l_u")))
+                list_obs[obs_id]["ds1_q"] = float(obs_lake.GetField(str("ds1_q")))
+                list_obs[obs_id]["ds1_q_u"] = float(obs_lake.GetField(str("ds1_q_u")))
+                if list_obs[obs_id]["ds1_l"] < -9e11:
+                    list_obs[obs_id]["ds1_l"] = 0.0
+                    list_obs[obs_id]["ds1_l_u"] = 0.0
+                    list_obs[obs_id]["ds1_q"] = 0.0
+                    list_obs[obs_id]["ds1_q_u"] = 0.0
                 
             else:
                 # Case the observed lake is related to only 1 prior lake
@@ -1023,17 +1123,35 @@ class LakeProduct(object):
                 list_obs[obs_id]["wse"] = float(obs_lake.GetField(str("wse")))
                 list_obs[obs_id]["wse_u"] = float(obs_lake.GetField(str("wse_u")))
             
-            # 1.4 - Compute alpha coefficient from prior overlap attribute
+            # 1.3 - Compute alpha coefficient from prior overlap attribute
             if nb_obs_lake == 1:
                 list_obs[obs_id]["alpha"] = 1.0
             else:
                 list_obs[obs_id]["alpha"] = prior_overlap[obs_id]
+                
+            # 1.4 - Test if extreme values
+            flag_ok = True
+            for key in ["area", "wse"]:
+                if (list_obs[obs_id][key] is None) or (not np.isfinite(list_obs[obs_id][key])) or (list_obs[obs_id][key] < -9e11):
+                    logger.debug("Lake with obs_id={} has {}={} => removed from storage change computation".format(obs_id, key,\
+                                                                                                                   list_obs[obs_id][key]))
+                    del list_obs[obs_id]
+                    flag_ok = False
+                    break
+            if flag_ok:
+                for key in ["area_u", "wse_u"]:
+                    if (list_obs[obs_id][key] is None) or (not np.isfinite(list_obs[obs_id][key])) or (list_obs[obs_id][key] < -9e11):
+                        key2 = key.replace("_u", "")
+                        logger.debug("Lake with obs_id={} has {}={} => {} set to {}={}".format(obs_id, key, list_obs[obs_id][key], key, \
+                                                                                                               key2, list_obs[obs_id][key2]))
+                        list_obs[obs_id][key] = list_obs[obs_id][key2]
             
         # Reset reading
         self.content_obs.layer.ResetReading()
             
         # 2 - Compute storage change for PLD lake
-        out_storage_values["delta_s_l"], out_storage_values["ds_l_u"], out_storage_values["delta_s_q"], out_storage_values["ds_q_u"] = in_obj_plake.run_stocc(list_obs) 
+        out_storage_values["ds1_l"], out_storage_values["ds1_l_u"], out_storage_values["ds1_q"], out_storage_values["ds1_q_u"] = \
+            in_obj_plake.run_stocc(list_obs)
                 
         # 3 - Compute storage change for observed features and set values
         for obs_lake in self.content_obs.layer:
@@ -1048,33 +1166,47 @@ class LakeProduct(object):
                     if lakeid == in_obj_plake.lake_id:
                         coeff = list_obs[obs_id]["overlap"][indi] / np.sum(list_obs[obs_id]["overlap"])
                         break
-                obs_lake.SetField(str("delta_s_l"), list_obs[obs_id]["delta_s_l"] + out_storage_values["delta_s_l"]*list_obs[obs_id]["alpha"])
-                obs_lake.SetField(str("ds_l_u"), list_obs[obs_id]["ds_l_u"] + out_storage_values["ds_l_u"]*coeff*list_obs[obs_id]["alpha"])
-                obs_lake.SetField(str("delta_s_q"), list_obs[obs_id]["delta_s_q"] + out_storage_values["delta_s_q"]*list_obs[obs_id]["alpha"])
-                obs_lake.SetField(str("ds_q_u"), list_obs[obs_id]["ds_q_u"] + out_storage_values["ds_q_u"]*coeff*list_obs[obs_id]["alpha"])
+                obs_lake.SetField(str("ds1_l"), list_obs[obs_id]["ds1_l"] + out_storage_values["ds1_l"]*list_obs[obs_id]["alpha"])
+                obs_lake.SetField(str("ds1_l_u"), list_obs[obs_id]["ds1_l_u"] + out_storage_values["ds1_l_u"]*coeff*list_obs[obs_id]["alpha"])
+                obs_lake.SetField(str("ds1_q"), list_obs[obs_id]["ds1_q"] + out_storage_values["ds1_q"]*list_obs[obs_id]["alpha"])
+                obs_lake.SetField(str("ds1_q_u"), list_obs[obs_id]["ds1_q_u"] + out_storage_values["ds1_q_u"]*coeff*list_obs[obs_id]["alpha"])
             else:
                 # Case the observed lake is related to only 1 prior lake
-                obs_lake.SetField(str("delta_s_l"), out_storage_values["delta_s_l"]*list_obs[obs_id]["alpha"])
-                obs_lake.SetField(str("ds_l_u"), out_storage_values["ds_l_u"]*list_obs[obs_id]["alpha"])
-                obs_lake.SetField(str("delta_s_q"), out_storage_values["delta_s_q"]*list_obs[obs_id]["alpha"])
-                obs_lake.SetField(str("ds_q_u"), out_storage_values["ds_q_u"]*list_obs[obs_id]["alpha"])
+                obs_lake.SetField(str("ds1_l"), out_storage_values["ds1_l"]*list_obs[obs_id]["alpha"])
+                obs_lake.SetField(str("ds1_l_u"), out_storage_values["ds1_l_u"]*list_obs[obs_id]["alpha"])
+                obs_lake.SetField(str("ds1_q"), out_storage_values["ds1_q"]*list_obs[obs_id]["alpha"])
+                obs_lake.SetField(str("ds1_q_u"), out_storage_values["ds1_q_u"]*list_obs[obs_id]["alpha"])
             
             # 3.3 - Rewrite feature with storage change values
             self.content_obs.layer.SetFeature(obs_lake)
             
         # Reset reading
         self.content_obs.layer.ResetReading()
-            
-        # 4 - Add values to statistics dictionary
-        if out_storage_values["delta_s_l"] < my_var.FV_REAL:
-            self.compare_stats["obs"]["delta_s_l"] += out_storage_values["delta_s_l"]
-        if out_storage_values["delta_s_q"] < my_var.FV_REAL:
-            self.compare_stats["obs"]["delta_s_q"] += out_storage_values["delta_s_q"]
-        if out_storage_values["delta_s_l"] < my_var.FV_REAL:
-            self.compare_stats["prior"]["delta_s_l"] += out_storage_values["delta_s_l"]
-        if out_storage_values["delta_s_q"] < my_var.FV_REAL:
-            self.compare_stats["prior"]["delta_s_q"] += out_storage_values["delta_s_q"]
         
+        return out_storage_values
+    
+    def compute_incremental_storage_change(self, in_obj_plake, in_pixc_index, in_prior_attributes):
+        """
+        Compute storage change computation with the INCREMENTAL approach
+        
+        :param in_obj_plake: PLD lake object
+        :type in_obj_plake: lake_db.PriorLake
+        :param in_pixc_index: indices of PIXC related to PLD lake
+        :type in_pixc_index: Numpy 1D-array of int
+        :return: in_prior_attributes = attributes of prior feature related to PLD lake
+        :rtype: in_prior_attributes = dict
+        
+        :return: out_storage_values = storage change values related to current PLD lake
+        :rtype: out_storage_values = dict
+        """
+        
+        # 0 - Init output
+        out_storage_values = dict()
+        out_storage_values["ds2_l"] = my_var.FV_REAL
+        out_storage_values["ds2_l_u"] = my_var.FV_REAL
+        out_storage_values["ds2_q"] = my_var.FV_REAL
+        out_storage_values["ds2_q_u"] = my_var.FV_REAL
+            
         return out_storage_values
 
     # ----------------------------------------
@@ -1117,9 +1249,9 @@ class LakeProduct(object):
         pixcvec_index = self.get_pixcvec_index_from_pixc_index(in_pix_index)
             
         # 2 - Save the improved values
-        self.obj_pixc_vec.longitude_vectorproc[pixcvec_index] = in_lon
-        self.obj_pixc_vec.latitude_vectorproc[pixcvec_index] = in_lat
-        self.obj_pixc_vec.height_vectorproc[pixcvec_index] = in_height
+        self.obj_pixcvec.longitude_vectorproc[pixcvec_index] = in_lon
+        self.obj_pixcvec.latitude_vectorproc[pixcvec_index] = in_lat
+        self.obj_pixcvec.height_vectorproc[pixcvec_index] = in_height
     
     def update_pixcvec_with_ids(self, in_pix_index, in_obs_id, in_pixcvec_lakeid):
         """
@@ -1137,8 +1269,8 @@ class LakeProduct(object):
         pixcvec_index = self.get_pixcvec_index_from_pixc_index(in_pix_index)
             
         # 2 - Update identifiers
-        self.obj_pixc_vec.obs_id[pixcvec_index] = in_obs_id
-        self.obj_pixc_vec.lake_id[pixcvec_index] = in_pixcvec_lakeid
+        self.obj_pixcvec.obs_id[pixcvec_index] = in_obs_id
+        self.obj_pixcvec.lake_id[pixcvec_index] = in_pixcvec_lakeid
 
     # ----------------------------------------
 
@@ -1219,7 +1351,7 @@ class LakeTileProduct(LakeProduct):
     class LakeTileProduct
     Manage LakeTile products, as a child class of main LakeProduct class
     """
-    def __init__(self, in_obj_pixc, in_obj_pixc_vec, in_obj_lake_db, in_layer_name):
+    def __init__(self, in_obj_pixc, in_obj_pixcvec, in_obj_lake_db, in_layer_name):
         """
         Constructor
         """
@@ -1227,12 +1359,15 @@ class LakeTileProduct(LakeProduct):
         logger.info("- start -")
         
         # 1 - Init LakeProduct class
-        super().__init__("TILE", in_obj_pixc, in_obj_pixc_vec, in_obj_lake_db, in_layer_name)
+        super().__init__("TILE", in_obj_pixc, in_obj_pixcvec, in_obj_lake_db, in_layer_name)
 
         # 2 - Find continent associated to tile
-        continent = self.obj_lake_db.link_poly_to_continent(self.obj_pixc.tile_poly)
-        self.obj_pixc.pixc_metadata["continent"] = continent
-        self.obj_pixc_vec.pixcvec_metadata["continent"] = continent
+        continent_id_list, continent_code_list, basin_code_list = self.obj_lake_db.link_poly_to_continent_and_basin(self.obj_pixc.tile_poly)
+        self.obj_pixc.pixc_metadata["continent_id"] = continent_id_list
+        self.obj_pixc.pixc_metadata["continent_code"] = continent_code_list
+        self.obj_pixc.pixc_metadata["basin_code"] = basin_code_list
+        self.obj_pixcvec.pixcvec_metadata["continent_id"] = continent_id_list
+        self.obj_pixcvec.pixcvec_metadata["continent_code"] = continent_code_list
 
     # ----------------------------------------
     
@@ -1255,13 +1390,29 @@ class LakeTileProduct(LakeProduct):
         # 2 - Write them in the output shapefile
         my_shp.write_mem_layer_as_shp(self.content_obs.layer, in_filename)
         
-        # 3 - Write XML metadatafile for shapefile
+        # 3 - Estimate time_coverage_start and time_coverage_end
+        self.content_obs.layer.ResetReading()
+        time_utc_values = []
+        for feature in self.content_obs.layer:
+            time_utc_feat = feature.GetField("time")
+            if time_utc_feat > 0.0:
+                time_utc_values.append(time_utc_feat)
+        self.content_obs.layer.ResetReading()
+        time_str_dict = dict()
+        if len(time_utc_values) > 0:
+            time_str_dict["time_coverage_start"] = my_tools.convert_utc_to_str(min(time_utc_values), in_format=2)
+            time_str_dict["time_coverage_end"] = my_tools.convert_utc_to_str(max(time_utc_values), in_format=2)
+        else:
+            time_str_dict["time_coverage_start"] = "None"
+            time_str_dict["time_coverage_end"] = "None"
+        
+        # 4 - Write XML metadatafile for shapefile
         logger.debug("Writing associated metadata file = %s.xml" % in_filename)
         self.content_obs.update_and_write_metadata("%s.xml" % in_filename, 
                                                      in_inprod_metadata=self.obj_pixc.pixc_metadata,
-                                                     in_proc_metadata=in_proc_metadata)
+                                                     in_proc_metadata={**in_proc_metadata, **time_str_dict})
         
-        # 4 - Remove filter over memory layer
+        # 5 - Remove filter over memory layer
         self.content_obs.layer.SetAttributeFilter(None)
     
     def write_prior_file(self, in_filename, in_proc_metadata):
@@ -1279,11 +1430,27 @@ class LakeTileProduct(LakeProduct):
         # 1 - Write them in the output shapefile
         my_shp.write_mem_layer_as_shp(self.content_prior.layer, in_filename)
         
-        # 2 - Write XML metadatafile for shapefile
+        # 2 - Estimate time_coverage_start and time_coverage_end
+        self.content_prior.layer.ResetReading()
+        time_utc_values = []
+        for feature in self.content_prior.layer:
+            time_utc_feat = feature.GetField("time")
+            if time_utc_feat > 0.0:
+                time_utc_values.append(time_utc_feat)
+        self.content_prior.layer.ResetReading()
+        time_str_dict = dict()
+        if len(time_utc_values) > 0:
+            time_str_dict["time_coverage_start"] = my_tools.convert_utc_to_str(min(time_utc_values), in_format=2)
+            time_str_dict["time_coverage_end"] = my_tools.convert_utc_to_str(max(time_utc_values), in_format=2)
+        else:
+            time_str_dict["time_coverage_start"] = "None"
+            time_str_dict["time_coverage_end"] = "None"
+        
+        # 3 - Write XML metadatafile for shapefile
         logger.debug("Writing associated metadata file = %s.xml" % in_filename)
         self.content_prior.update_and_write_metadata("%s.xml" % in_filename, 
                                                      in_inprod_metadata=self.obj_pixc.pixc_metadata,
-                                                     in_proc_metadata=in_proc_metadata)
+                                                     in_proc_metadata={**in_proc_metadata, **time_str_dict})
     
     def write_unknown_file(self, in_filename, in_proc_metadata):
         """
@@ -1304,17 +1471,31 @@ class LakeTileProduct(LakeProduct):
         self.content_obs.layer.SetAttributeFilter("lake_id = 'no_data'")
         
         # 3 - Write them in the output shapefile
+        time_utc_values = []
         for cur_feature in self.content_obs.layer:
             cur_att = {}
             for att_name in tmp_content_unknown.attribute_metadata.keys():
                 cur_att[att_name] = cur_feature.GetField(str(att_name))
             tmp_content_unknown.add_feature(cur_feature.GetGeometryRef(), cur_att)
+            # Store time_str
+            if cur_att["time"] > 0.0:
+                time_utc_values.append(cur_att["time"])
+        self.content_obs.layer.ResetReading()
+            
+        # 4 - Estimate time_coverage_start and time_coverage_end
+        time_str_dict = dict()
+        if len(time_utc_values) > 0:
+            time_str_dict["time_coverage_start"] = my_tools.convert_utc_to_str(min(time_utc_values), in_format=2)
+            time_str_dict["time_coverage_end"] = my_tools.convert_utc_to_str(max(time_utc_values), in_format=2)
+        else:
+            time_str_dict["time_coverage_start"] = "None"
+            time_str_dict["time_coverage_end"] = "None"
         
-        # 4 - Write XML metadatafile for shapefile
+        # 5 - Write XML metadatafile for shapefile
         logger.debug("Writing associated metadata file = %s.xml" % in_filename)
         tmp_content_unknown.update_and_write_metadata("%s.xml" % in_filename, 
                                                       in_inprod_metadata=self.obj_pixc.pixc_metadata,
-                                                      in_proc_metadata=in_proc_metadata)
+                                                      in_proc_metadata={**in_proc_metadata, **time_str_dict})
         
         # 5 - Close shapefile
         tmp_content_unknown.free()
@@ -1331,7 +1512,7 @@ class LakeSPProduct(object):
     class LakeSPProduct
     Manage LakeSP products, as a class composed of 2 LakeProduct objects, one for each swath
     """
-    def __init__(self, in_obj_pixc_sp, in_obj_pixcvec_sp, in_obj_lake_db, in_layer_name_root, in_continent):
+    def __init__(self, in_obj_pixc_sp, in_obj_pixcvec_sp, in_obj_lake_db, in_layer_name_root, in_continent_id):
         """
         Constructor
 
@@ -1343,13 +1524,13 @@ class LakeSPProduct(object):
         :type in_obj_lake_db: lake_db.lakeDb_shp or lake_db.lakeDb_sqlite
         :param in_layer_name_root: root for the name of right and left lake product layers
         :type in_layer_name_root: string
-        :param in_continent: continent code
-        :type in_continent: string
+        :param in_continent_id: 2-letter continent identifier
+        :type in_continent_id: string
 
         Variables of the object:
             - swath_r / LakeProduct: lake product of right swath
             - swath_l / LakeProduct: lake product of left swath
-            - continent / string: continent covered by the LakeSP product
+            - continent_id / string: 2-letter identifier of continent covered by the LakeSP product
             
         """
         logger = logging.getLogger(self.__class__.__name__)
@@ -1372,7 +1553,7 @@ class LakeSPProduct(object):
                                    in_layer_name_root + "_L")
         
         # 3 - Others
-        self.continent = in_continent  # Continent
+        self.continent_id = in_continent_id  # Continent
         
     def free_memory(self):
         """
@@ -1407,27 +1588,47 @@ class LakeSPProduct(object):
         self.swath_l.content_obs.layer.SetAttributeFilter("lake_id != 'no_data'")
         
         # 2 - Merge right and left swath SP layers into 1 single layer
-        dataSource_sp1, layer_sp = my_shp.merge_2_layers(self.swath_r.content_obs.layer, self.swath_l.content_obs.layer, self.continent)
+        data_source_sp1, layer_sp = my_shp.merge_2_layers(self.swath_r.content_obs.layer, 
+                                                          self.swath_l.content_obs.layer, 
+                                                          in_continent_id=self.continent_id)
         
         # 3 - Merge obtained layer with LakeTile_Obs shapefiles
-        dataSource_sp2, layer_sp = my_shp.merge_mem_layer_with_shp(in_list_laketile_obs_files, layer_sp, self.continent)
+        data_source_sp2, layer_sp = my_shp.merge_mem_layer_with_shp(in_list_laketile_obs_files, 
+                                                                    layer_sp, 
+                                                                    in_continent_id=self.continent_id)
         
         # 4 - Write the obtained layer in the output shapefile
         my_shp.write_mem_layer_as_shp(layer_sp, in_filename)
         
-        # 5 - Write XML metadatafile for shapefile
+        # 5 - Estimate time_coverage_start and time_coverage_end
+        layer_sp.ResetReading()
+        time_utc_values = []
+        for feature in layer_sp:
+            time_utc_feat = feature.GetField("time")
+            if time_utc_feat > 0.0:
+                time_utc_values.append(time_utc_feat)
+        layer_sp.ResetReading()
+        time_str_dict = dict()
+        if len(time_utc_values) > 0:
+            time_str_dict["time_coverage_start"] = my_tools.convert_utc_to_str(min(time_utc_values), in_format=2)
+            time_str_dict["time_coverage_end"] = my_tools.convert_utc_to_str(max(time_utc_values), in_format=2)
+        else:
+            time_str_dict["time_coverage_start"] = "None"
+            time_str_dict["time_coverage_end"] = "None"
+        
+        # 6 - Write XML metadatafile for shapefile
         logger.debug("Writing associated metadata file = %s.xml" % in_filename)
         self.swath_r.content_obs.update_and_write_metadata("%s.xml" % in_filename, 
                                                            in_inprod_metadata=in_pixc_metadata,
-                                                           in_proc_metadata=in_proc_metadata)
+                                                           in_proc_metadata={**in_proc_metadata, **time_str_dict})
         
-        # 6 - Remove filter over memory layer
+        # 7 - Remove filter over memory layer
         self.swath_r.content_obs.layer.SetAttributeFilter(None)
         self.swath_l.content_obs.layer.SetAttributeFilter(None)
 
-        # 7 - Close temporary dataSources
-        dataSource_sp1.Destroy()
-        dataSource_sp2.Destroy()
+        # 8 - Close temporary dataSources
+        data_source_sp1.Destroy()
+        data_source_sp2.Destroy()
     
     def write_prior_file(self, in_filename, in_pixc_metadata, in_proc_metadata, in_list_laketile_prior_files):
         """
@@ -1447,23 +1648,45 @@ class LakeSPProduct(object):
         logger.info("- start -")
         
         # 1 - Merge right and left swath SP layers into 1 single layer
-        dataSource_sp1, layer_sp = my_shp.merge_2_layers(self.swath_r.content_prior.layer, self.swath_l.content_prior.layer, self.continent)
+        data_source_sp1, layer_sp = my_shp.merge_2_layers(self.swath_r.content_prior.layer, 
+                                                          self.swath_l.content_prior.layer, 
+                                                          in_continent_id=self.continent_id,
+                                                          flag_add_nogeom_feat=True)
         
         # 2 - Merge obtained layer with LakeTile_Prior shapefiles
-        dataSource_sp2, layer_sp = my_shp.merge_mem_layer_with_shp(in_list_laketile_prior_files, layer_sp, self.continent)
+        data_source_sp2, layer_sp = my_shp.merge_mem_layer_with_shp(in_list_laketile_prior_files, 
+                                                                    layer_sp, 
+                                                                    in_continent_id=self.continent_id,
+                                                                    flag_add_nogeom_feat=True)
         
         # 3 - Write the obtained layer in the output shapefile
         my_shp.write_mem_layer_as_shp(layer_sp, in_filename)
         
-        # 4 - Write XML metadatafile for shapefile
+        # 4 - Estimate time_coverage_start and time_coverage_end
+        layer_sp.ResetReading()
+        time_utc_values = []
+        for feature in layer_sp:
+            time_utc_feat = feature.GetField("time")
+            if time_utc_feat > 0.0:
+                time_utc_values.append(time_utc_feat)
+        layer_sp.ResetReading()
+        time_str_dict = dict()
+        if len(time_utc_values) > 0:
+            time_str_dict["time_coverage_start"] = my_tools.convert_utc_to_str(min(time_utc_values), in_format=2)
+            time_str_dict["time_coverage_end"] = my_tools.convert_utc_to_str(max(time_utc_values), in_format=2)
+        else:
+            time_str_dict["time_coverage_start"] = "None"
+            time_str_dict["time_coverage_end"] = "None"
+        
+        # 5 - Write XML metadatafile for shapefile
         logger.debug("Writing associated metadata file = %s.xml" % in_filename)
         self.swath_r.content_prior.update_and_write_metadata("%s.xml" % in_filename,
                                                              in_inprod_metadata=in_pixc_metadata,
-                                                             in_proc_metadata=in_proc_metadata)
+                                                             in_proc_metadata={**in_proc_metadata, **time_str_dict})
 
-        # 5 - Close temporary dataSources
-        dataSource_sp1.Destroy()
-        dataSource_sp2.Destroy()
+        # 6 - Close temporary dataSources
+        data_source_sp1.Destroy()
+        data_source_sp2.Destroy()
     
     def write_unknown_file(self, in_filename, in_pixc_metadata, in_proc_metadata, in_list_laketile_unknown_files):
         """
@@ -1503,25 +1726,43 @@ class LakeSPProduct(object):
             tmp_content_unknown.add_feature(cur_feature.GetGeometryRef(), cur_att)
         
         # 4 - Merge obtained layer with LakeTile_Unassigned shapefiles
-        dataSource_sp2, layer_sp = my_shp.merge_mem_layer_with_shp(in_list_laketile_unknown_files, tmp_content_unknown.layer, self.continent)
+        data_source_sp2, layer_sp = my_shp.merge_mem_layer_with_shp(in_list_laketile_unknown_files, 
+                                                                    tmp_content_unknown.layer, 
+                                                                    in_continent_id=self.continent_id)
         
         # 5 - Write the obtained layer in the output shapefile
         my_shp.write_mem_layer_as_shp(layer_sp, in_filename)
         
-        # 6 - Write XML metadatafile for shapefile
+        # 6 - Estimate time_coverage_start and time_coverage_end
+        layer_sp.ResetReading()
+        time_utc_values = []
+        for feature in layer_sp:
+            time_utc_feat = feature.GetField("time")
+            if time_utc_feat > 0.0:
+                time_utc_values.append(time_utc_feat)
+        layer_sp.ResetReading()
+        time_str_dict = dict()
+        if len(time_utc_values) > 0:
+            time_str_dict["time_coverage_start"] = my_tools.convert_utc_to_str(min(time_utc_values), in_format=2)
+            time_str_dict["time_coverage_end"] = my_tools.convert_utc_to_str(max(time_utc_values), in_format=2)
+        else:
+            time_str_dict["time_coverage_start"] = "None"
+            time_str_dict["time_coverage_end"] = "None"
+        
+        # 7 - Write XML metadatafile for shapefile
         logger.debug("Writing associated metadata file = %s.xml" % in_filename)
         tmp_content_unknown.update_and_write_metadata("%s.xml" % in_filename, 
                                                       in_inprod_metadata=in_pixc_metadata,
-                                                      in_proc_metadata=in_proc_metadata)
+                                                      in_proc_metadata={**in_proc_metadata, **time_str_dict})
         
-        # 7 - Remove filter over memory layer
+        # 8 - Remove filter over memory layer
         self.swath_r.content_obs.layer.SetAttributeFilter(None)
         self.swath_l.content_obs.layer.SetAttributeFilter(None)
         
-        # 6 - Close temporary dataSources
+        # 9 - Close temporary dataSources
         tmp_content_unknown.free()
-        dataSource_sp2.Destroy()
-
+        data_source_sp2.Destroy()
+    
 
 #######################################
 

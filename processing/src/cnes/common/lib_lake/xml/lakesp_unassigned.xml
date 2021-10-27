@@ -6,7 +6,13 @@
         <annotation description="Esri conventions as given in 'ESRI Shapefile Technical Description, an ESRI White Paper, July 1998' http://www.esri.com/library/whitepapers/pdfs/shapefile.pdf"/>
       </string>
       <string name="title">
-        <annotation description="Level 2 KaRIn high rate lake single pass vector product – Unassigned"/>
+        <annotation description="Level 2 KaRIn high rate lake single pass vector product"/>
+      </string>
+      <string name="short_name">
+        <annotation description="L2_HR_LakeSP"/>
+      </string>
+      <string name="product_file_id">
+        <annotation description="Unassigned"/>
       </string>
       <string name="institution">
         <annotation description="Name of producing agency."/>
@@ -26,6 +32,18 @@
       <string name="reference_document">
         <annotation description="SWOT-TN-CDM-0673-CNES"/>
       </string>
+      <string name="product_version">
+        <annotation description="Version identifier of this data file"/>
+      </string>
+      <string name="crid">
+        <annotation description="Composite release identifier (CRID) of the data system used to generate this file"/>
+      </string>
+      <string name="pge_name">
+        <annotation description="PGE_L2_HR_LakeSP"/>
+      </string>
+      <string name="pge_version">
+        <annotation description="Version identifier of the product generation executable (PGE) that created this file"/>
+      </string>
       <string name="contact">
         <annotation description="Contact information for producer of product. (e.g., 'ops@jpl.nasa.gov')."/>
       </string>
@@ -35,8 +53,20 @@
       <short name="pass_number">
         <annotation description="Pass number of the product."/>
       </short>
-      <string name="continent">
-        <annotation description="Continent the product belongs to"/>
+      <string name="continent_id">
+        <annotation description="Two-letter continent identifier of the product granule."/>
+      </string>
+      <string name="continent_code">
+        <annotation description="One-digit (C) continent code of the product granule."/>
+      </string>
+      <string name="basin_code">
+        <annotation description="Three-digit (CBB) code (from HydroBASINS) of the basins covered by the product granule, separated by a semi-column."/>
+      </string>
+      <string name="time_granule_start">
+        <annotation description="Nominal starting UTC time of product granule. Format is: YYYY-MM-DDThh:mm:ss.ssssssZ"/>
+      </string>
+      <string name="time_granule_end">
+        <annotation description="Nominal ending UTC time of product granule. Format is: YYYY-MM-DDThh:mm:ss.ssssssZ"/>
       </string>
       <string name="time_coverage_start">
         <annotation description="UTC time of first measurement. Format is: YYYY-MM-DDThh:mm:ss.ssssssZ"/>
@@ -80,17 +110,17 @@
       <double name="right_last_latitude">
         <annotation description="Nominal swath corner latitude for the last range line and right edge of the swath (degrees_north)"/>
       </double>
-      <string name="xref_input_l2_hr_pixc_files">
-        <annotation description="List of water mask pixel cloud files used to generate data in product."/>
+      <string name="xref_l2_hr_pixc_files">
+        <annotation description="Names of input Level 2 high rate water mask pixel cloud files."/>
       </string>
-      <string name="xref_input_l2_hr_lake_tile_files">
-        <annotation description="List of LakeTile products used to generate data in product."/>
+      <string name="xref_l2_hr_laketile_files">
+        <annotation description="Names of input Level 2 high rate lake tile files."/>
       </string>
-      <string name="xref_static_lake_db_file">
-        <annotation description="Name of static lake a priori database file used to generate data in product."/>
+      <string name="xref_prior_lake_db_file">
+        <annotation description="Name of input prior lake database file."/>
       </string>
-      <string name="xref_l2_hr_lake_tile_config_parameter_file">
-        <annotation description="Name of PGE_L2_HR_LakeTile configuration parameters file."/>
+      <string name="xref_param_l2_hr_laketile_file">
+        <annotation description="Name of input Level 2 high rate lake tile processor configuration parameters file."/>
       </string>
     </global_metadata>
     <attribute_metadata>
@@ -116,7 +146,7 @@
         <annotation fill_value="-999999999999" long_name="random-only uncertainty in the height water surface elevation" units="m" valid_min="0" valid_max="100" tag_basic_expert="Expert" comment="Random-only component in the lake water surface elevation, including uncertainties of corrections and references, and variation about the fit."/>
       </float>
       <float name="wse_std" width="17" precision="3">
-        <annotation fill_value="-999999999999" long_name="standard deviation of pixels wse" units="m" valid_min="-1000" valid_max="100000" tag_basic_expert="Basic" comment="Standard deviation of the water surface elevation of all the pixels composing the lake. Note that this value is therefore with respect to the provided model of the geoid (geoid_hght attribute) whereas the height of pixels is given with respect to the ellipsoid. This parameter is computed only for large lakes (&gt; 5000ha)."/>
+        <annotation fill_value="-999999999999" long_name="standard deviation of pixels wse" units="m" valid_min="-1000" valid_max="100000" tag_basic_expert="Basic" comment="Standard deviation of the water surface elevation of all the pixels composing the lake. Note that this value is therefore with respect to the provided model of the geoid (geoid_hght attribute) whereas the height of pixels is given with respect to the ellipsoid."/>
       </float>
       <float name="area_total" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="total water area with estimate of dark water" units="km^2" valid_min="0" valid_max="200000" tag_basic_expert="Basic" comment="Total estimated area, including dark water that was not detected as water in the SWOT observation but identified through the use of a prior water likelihood map."/>
@@ -167,7 +197,7 @@
         <annotation fill_value="-999999999999" long_name="geocentric load tide height (GOT)" source="GOT4.10c (Ray, 2013)" institution="GSFC" units="m" valid_min="-0.2" valid_max="0.2" tag_basic_expert="Expert" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth’s crust."/>
       </float>
       <float name="pole_tide" width="20" precision="6">
-        <annotation fill_value="-999999999999" long_name="height of pole tide" units="m" source="Wahr (1985) and Desai et al. (2015)" valid_min="-0.2" valid_max="0.2" tag_basic_expert="Expert" comment="Geocentric pole tide height. The sum total of the contribution from the solid-Earth (body) pole tide height and the load pole tide height (i.e., the effect of the ocean pole tide loading of the Earth’s crust).."/>
+        <annotation fill_value="-999999999999" long_name="height of pole tide" units="m" source="Wahr (1985) and Desai et al. (2015)" valid_min="-0.2" valid_max="0.2" tag_basic_expert="Expert" comment="Geocentric pole tide height. The sum total of the contribution from the solid-Earth (body) pole tide height and the load pole tide height (i.e., the effect of the ocean pole tide loading of the Earth’s crust)."/>
       </float>
       <float name="dry_trop_c" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="dry tropospheric vertical correction to WSE" source="European Centre for Medium-Range Weather Forecasting" institution="ECMWF" units="m" valid_min="-3" valid_max="-1.5" tag_basic_expert="Expert" comment="Equivalent vertical correction due to dry troposphere delay. Adding the reported correction to the reported lake WSE results in the uncorrected lake WSE."/>

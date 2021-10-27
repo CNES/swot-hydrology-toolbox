@@ -8,6 +8,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -279,17 +281,20 @@ def convert_sec_2_time(in_time, txt_format=1):
     return retour
 
 
-def convert_utc_to_str(in_utc_time):
+def convert_utc_to_str(in_utc_time, in_format=3):
     """
     Convert UTC time to appropriate string format
 
     :param in_utc_time: date_time in seconds from 01/01/2000 00:00:00
     :type in_utc_time: float
+    :param in_format: string format option 0 (default)="YYYY-MM-DD hh:mm:ss.ssssssZ" 1="YYYY-MM-DD hh:mm:ss"
+                                            2="YYYY-MM-DDThh:mm:ss.ssssssZ" 3="YYYY-MM-DDThh:mm:ss"
+    :type in_format: int
 
     :return: UTC time from 01/01/2000 00:00:00 as a string
     :rtype: string
     """
-    return swot_timeformat(datetime.datetime(2000, 1, 1) + datetime.timedelta(seconds=in_utc_time), in_format=3)
+    return swot_timeformat(datetime.datetime(2000, 1, 1) + datetime.timedelta(seconds=in_utc_time), in_format=in_format)
 
 
 #######################################
@@ -437,6 +442,19 @@ def label_region(in_bin_mat):
     return out_m_label_regions, out_nb_obj
 
 def get_1d_from_2d(img, in_x, in_y):
+    """
+    Converts a 2D matrix [ in_x[ind], in_y[ind] ] in a 1D vector [ind]
+
+    :param img: 2D array
+    :type img: 2D array of values (int, float, ...)
+    :param in_x: column indices of points of in_mat to return
+    :type in_x: 1D array
+    :param in_y: row indices of points of in_mat to return
+    :type in_y: 1D array
+
+    :return: a 1D vector, each value at "ind" being the value of img[ in_x[ind], in_y[ind] ]
+    :rtype: 1D matrix of values (int, float, ...)
+    """
 
     vect = np.zeros(in_x.shape)
     nb_pts = in_x.size
@@ -446,7 +464,19 @@ def get_1d_from_2d(img, in_x, in_y):
     return vect
 
 def get_2d_from_1d(vect, in_x, in_y):
+    """
+    Converts a 1D vector [ind], in_y[ind] in a 2D matrix [ in_x[ind] ]
 
+    :param vect: 2D array
+    :type vect: 2D array of values (int, float, ...)
+    :param in_x: column indices of points of in_mat to return
+    :type in_x: 1D array
+    :param in_y: row indices of points of in_mat to return
+    :type in_y: 1D array
+
+    :return: a 2D matrix, each value at "img[ in_x[ind], in_y[ind] ]" being the value of "vect[ind]"
+    :rtype: 2D matrix of values (int, float, ...)
+    """
     img = np.zeros((np.max(in_y) + 1, np.max(in_x) + 1))
     nb_pts = in_x.size
     for ind in range(nb_pts):
@@ -489,13 +519,15 @@ def convert_2d_mat_in_1d_vec(in_x, in_y, in_mat):
 #######################################
 
 
-def compute_mean_2sigma(in_v_val):
+def compute_mean_2sigma(in_v_val, name=None):
     """
     Compute the mean of the input values, after remove of non-sense values, i.e. below or above the median +/- 2*standard deviation
     NaN values are removed from the computation
 
     :param in_v_val: vector of values for which the mean is computed
     :type in_v_val: 1D-array of float
+    :param name: name to write in warning message if necessary
+    :type name: string
 
     :return: out_mean = the mean value (numpy.nan if no finite value)
     :rtype: float
@@ -506,7 +538,11 @@ def compute_mean_2sigma(in_v_val):
     not_nan_idx = np.where(np.isfinite(in_v_val))[0]
     
     if len(not_nan_idx) == 0:
-        logger.warning("No finite value in the input array => return NaN")
+        if name is None:
+            msg = "No finite value in the input array => return NaN"
+        else:
+            msg = "No finite value in the input array [%s] => return NaN" % name
+        logger.warning(msg)
         out_mean = np.nan
         
     else:
@@ -525,7 +561,10 @@ def compute_mean_2sigma(in_v_val):
         idx_higher = np.where(in_v_val[v_indices] > med+2*std)[0]
         v_indices = np.delete(v_indices, idx_higher)
 
-        message = "%d / %d pixels used for mean computation (med=%.3f and std=%.3f)" % (v_indices.size, len(in_v_val), med, std)
+        if name is None:
+            message = "%d / %d pixels used for mean computation (med=%.3f and std=%.3f)" % (v_indices.size, len(in_v_val), med, std)
+        else:
+            message = "%d / %d pixels used for mean computation of [%s] (med=%.3f and std=%.3f)" % (v_indices.size, len(in_v_val), name, med, std)
         logger.debug(message)
 
         # 3 - Compute the mean of clean array
@@ -621,7 +660,7 @@ def get_utm_epsg_code(lon, lat):
     if lat >= 0:
         epsg = '326' + utm_band
     else:
-        epsg = '326' + utm_band
+        epsg = '327' + utm_band
     return epsg
 
 
@@ -829,14 +868,19 @@ def are_pixels_aligned(in_x, in_y):
     :return: True if pixels are aligned, False if not.
     :rtype: bool
     """
-    
+
+    #returned result
+    result = None
     set_x = set(in_x)
     set_y = set(in_y)
+
     
     if len(set_x) == 1 or len(set_y) == 1:
-        return True
+        result=True
     else:
-        return False
+        result=False
+
+    return result
 
 
 def get_bounding_box(lat_min, lat_max, lon_min, lon_max):

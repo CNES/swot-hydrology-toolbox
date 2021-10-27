@@ -8,6 +8,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -56,7 +58,7 @@ class PixelCloudVec(object):
         Variables of the object:
             - From L2_HR_PIXCVecRiver:
                 - river_index / 1D-array of int: indices of river pixels within PIXC arrays (= variable named pixc_index in L2_HR_PIXCVecRiver only)
-            - From both L2_HR_PIXCVecRiver and LakeTile_pixcvec:
+            - From both L2_HR_PIXCVecRiver and LakeTile_PIXCVec:
                 - range_index / 1D-array of int: range indices of water pixels (= variable named range_index in L2_HR_PIXCVecRiver 
                   and LakeTile_pixcvec)
                 - azimuth_index / 1D-array of int: azimuth indices of water pixels (= variable named azimuth_index in L2_HR_PIXCVecRiver 
@@ -76,6 +78,7 @@ class PixelCloudVec(object):
                 - pixcvec_metadata / dict: dictionary of PIXCVec file metadata
             - From L2_HR_PIXC:
                 - continent / string: continent covered by the tile (if global var CONTINENT_FILE exists)
+                - nadir_time / 1D-array of float: UTC time of all pixels 
             - From processing:
                 - nb_water_pix / int: number of water pixels
                 - lake_id / 1D-array of char(10): identifier from the lake database (= variable named lake_id in LakeTile_pixcvec)
@@ -114,12 +117,16 @@ class PixelCloudVec(object):
             
         # Init dictionary of PIXCVec metadata
         self.pixcvec_metadata = {}
+        self.pixcvec_metadata["source"] = ""
         self.pixcvec_metadata["cycle_number"] = -9999
         self.pixcvec_metadata["pass_number"] = -9999
         self.pixcvec_metadata["tile_number"] = -9999
         self.pixcvec_metadata["swath_side"] = ""
         self.pixcvec_metadata["tile_name"] = ""
-        self.pixcvec_metadata["continent"] = ""
+        self.pixcvec_metadata["continent_id"] = ""
+        self.pixcvec_metadata["continent_code"] = ""
+        self.pixcvec_metadata["time_granule_start"] = ""
+        self.pixcvec_metadata["time_granule_end"] = ""
         self.pixcvec_metadata["time_coverage_start"] = ""
         self.pixcvec_metadata["time_coverage_end"] = ""
         self.pixcvec_metadata["geospatial_lon_min"] = -9999.0
@@ -134,15 +141,16 @@ class PixelCloudVec(object):
         self.pixcvec_metadata["outer_first_longitude"] = -9999.0
         self.pixcvec_metadata["outer_last_latitude"] = -9999.0
         self.pixcvec_metadata["outer_last_longitude"] = -9999.0
-        self.pixcvec_metadata["xref_input_l2_hr_pixc_file"] = ""
-        self.pixcvec_metadata["xref_input_l2_hr_pixc_vec_river_file"] = ""
-        self.pixcvec_metadata["xref_static_river_db_file"] = ""
-        self.pixcvec_metadata["xref_static_lake_db_file"] = ""
+        self.pixcvec_metadata["xref_l2_hr_pixc_file"] = ""
+        self.pixcvec_metadata["xref_l2_hr_pixcvecriver_file"] = ""
+        self.pixcvec_metadata["xref_prior_river_db_file"] = ""
+        self.pixcvec_metadata["xref_prior_lake_db_file"] = ""
+        self.pixcvec_metadata["xref_param_l2_hr_laketile_file"] = ""
         self.pixcvec_metadata["ellipsoid_semi_major_axis"] = -9999.0
         self.pixcvec_metadata["ellipsoid_flattening"] = -9999.0
         
         # Variables specific to processing
-        self.continent = None
+        self.continent_id = None
         # Specific to LakeTile processing
         if self.product_type == "TILE":
             self.nb_river_pix = 0  # Number of river pixels (used for TILE processing)
@@ -163,7 +171,7 @@ class PixelCloudVec(object):
         if self.product_type == "TILE":
             logger.info("L2_HR_PIXCVecRiver file = %s", in_pixcvec_file)
         elif self.product_type == "SP":
-            logger.info("LakeTile_pixcvec file = %s", in_pixcvec_file)
+            logger.info("LakeTile_PIXCVec file = %s", in_pixcvec_file)
         else:
             message = "Product type %s unknown; should be TILE or SP"
             logger.error(message, exc_info=True)
@@ -177,7 +185,7 @@ class PixelCloudVec(object):
             
         # 3 - Retrieve needed global attributes
         pixcvec_keys = pixcvec_reader.get_list_att()
-        for key, value in self.pixcvec_metadata.items():
+        for key in self.pixcvec_metadata.keys():
             if key in pixcvec_keys:
                 self.pixcvec_metadata[key] = pixcvec_reader.get_att_value(key)
         
@@ -275,7 +283,7 @@ class PixelCloudVec(object):
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("- start -")
         
-        # 1 - Azimuth and range indices arrays, number of water pixels
+        # 1 - Init azimuth and range indices arrays, and number of water pixels
         self.range_index = in_obj_pixc.origin_range_index
         self.azimuth_index = in_obj_pixc.origin_azimuth_index
         self.nb_water_pix = len(self.azimuth_index)
@@ -326,6 +334,7 @@ class PixelCloudVec(object):
             tmp_node_id[self.river_index] = self.node_id
             tmp_ice_clim_f[self.river_index] = self.ice_clim_f
             tmp_ice_dyn_f[self.river_index] = self.ice_dyn_f
+            tmp_ice_dyn_f[self.river_index] = self.ice_dyn_f
             
         # 4 - Save arrays
         self.longitude_vectorproc = tmp_longitude_vectorproc
@@ -346,7 +355,43 @@ class PixelCloudVec(object):
         
     # ----------------------------------------
     
-    def write_file(self, in_filename, in_proc_metadata, in_pixc_metadata=None):
+    def update_metadata(self, in_obj_pixc):
+        """
+        Update PIXCVec global metadata with global attributes of PIXC file
+        
+        :param in_obj_pixc: PIXC object
+        :type in_obj_pixc: lake_tile.proc_pixc
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        
+        if self.product_type != "TILE":
+            message = "Product type should be TILE"
+            logger.error(message, exc_info=True)
+            raise
+        
+        # 1 - Copy attributes from PIXC 
+        pixc_keys = in_obj_pixc.pixc_metadata.keys()
+        for key in self.pixcvec_metadata.keys():
+            if key in pixc_keys:
+                self.pixcvec_metadata[key] = in_obj_pixc.pixc_metadata[key]
+                
+        # 2 - Update time_coverage
+        # 2.1 - Retrieve indices of pixels having finite longitude and latitude
+        tmp_idx = np.where(self.longitude_vectorproc < my_var.FV_DOUBLE)[0]
+        tmp_idx2 = np.where(self.latitude_vectorproc[tmp_idx] < my_var.FV_DOUBLE)[0]
+        self.indices_improved_pixels = tmp_idx[tmp_idx2]
+        # 2.2 - Estimate time_coverage_start and time_coverage_end
+        if len(self.indices_improved_pixels) > 0:
+            nadir_time_improved_pixels = in_obj_pixc.nadir_time_all[self.indices_improved_pixels]
+            self.pixcvec_metadata["time_coverage_start"] = my_tools.convert_utc_to_str(min(nadir_time_improved_pixels), in_format=2)
+            self.pixcvec_metadata["time_coverage_end"] = my_tools.convert_utc_to_str(max(nadir_time_improved_pixels), in_format=2)
+        else:
+            self.pixcvec_metadata["time_coverage_start"] = ""
+            self.pixcvec_metadata["time_coverage_end"] = ""
+        
+    # ----------------------------------------
+    
+    def write_file(self, in_filename, in_proc_metadata):
         """
         Write the pixel cloud vector attribute product (L2_HR_PIXCVec product)
         Update with PIXC metadata if needed.
@@ -355,8 +400,6 @@ class PixelCloudVec(object):
         :type in_filename: string
         :param in_proc_metadata: processing metadata
         :type in_proc_metadata: dict
-        :param in_pixc_metadata: PIXC metadata (optional)
-        :type in_pixc_metadata: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
         if self.product_type == "TILE":
@@ -364,15 +407,7 @@ class PixelCloudVec(object):
         else:
             logger.info("Writing output L2_HR_PIXCVec NetCDF file = %s", in_filename)
             
-        # 0 - Update metadata with PIXC metadata if needed
-        if in_pixc_metadata is not None:
-            list_att = ["time_coverage_start", "time_coverage_end", "geospatial_lon_min", 
-                        "geospatial_lon_max", "geospatial_lat_min", "geospatial_lat_max"]
-            list_att_empty = ["", "", -9999.0, -9999.0, -9999.0, -9999.0]
-            for inda, cur_att in enumerate(list_att):
-                if self.pixcvec_metadata[cur_att] == list_att_empty[inda]:
-                    if cur_att in in_pixc_metadata.keys():
-                        self.pixcvec_metadata[cur_att] = in_pixc_metadata[cur_att]
+        # 0 - Compute geospatial_lon|lat_min|max if not done
         if self.pixcvec_metadata["geospatial_lon_min"] == -9999.0:
             self.pixcvec_metadata["geospatial_lon_min"] = min(self.pixcvec_metadata["inner_first_longitude"],
                                                               self.pixcvec_metadata["inner_last_longitude"],
@@ -459,43 +494,45 @@ class PixelCloudVec(object):
         out_layer.CreateField(ogr.FieldDefn(str('ice_dyn_f'), ogr.OFTInteger))
         out_layer_defn = out_layer.GetLayerDefn()
         
-        # 2 - Retrieve indices of pixels having finite longitude and latitude
-        tmp_idx = np.where(self.longitude_vectorproc < my_var.FV_DOUBLE)[0]
-        tmp_idx2 = np.where(self.latitude_vectorproc[tmp_idx] < my_var.FV_DOUBLE)[0]
-        indices_to_write = tmp_idx[tmp_idx2]
+        if self.nb_water_pix != 0:
+    
+            # 2 - Conversions of fill values
+            tmp_height2 = my_tools.convert_fillvalue(self.height_vectorproc)
+            tmp_reach_id = self.reach_id.astype('U')
+            tmp_node_id = self.node_id.astype('U')
+            tmp_lake_id = self.lake_id.astype('U')
+            tmp_obs_id = self.obs_id.astype('U')
+            tmp_ice_clim_f = my_tools.convert_fillvalue(self.ice_clim_f)
+            tmp_ice_dyn_f = my_tools.convert_fillvalue(self.ice_dyn_f)
+            # 2.1 - Retrieve indices of pixels having finite longitude and latitude
+            if self.product_type == "SP":
+                tmp_idx = np.where(self.longitude_vectorproc < my_var.FV_DOUBLE)[0]
+                tmp_idx2 = np.where(self.latitude_vectorproc[tmp_idx] < my_var.FV_DOUBLE)[0]
+                self.indices_improved_pixels = tmp_idx[tmp_idx2]
+            
+            for indp in self.indices_improved_pixels:
+                # 3.1 - Create feature
+                out_feature = ogr.Feature(out_layer_defn)
+                # 3.2 - Set point with improved geoloc as geometry
+                point = ogr.Geometry(ogr.wkbPoint)
+                point.AddPoint(self.longitude_vectorproc[indp], self.latitude_vectorproc[indp])
+                out_feature.SetGeometry(point)
+                # 3.3 - Set attributes
+                out_feature.SetField(str('az_index'), int(self.azimuth_index[indp]))
+                out_feature.SetField(str('r_index'), int(self.range_index[indp]))
+                if self.product_type == "TILE":
+                    out_feature.SetField(str('classif'), int(in_obj_pixc.origin_classif[indp]))
+                out_feature.SetField(str('height2'), float(tmp_height2[indp]))
+                out_feature.SetField(str('reach_id'), str(tmp_reach_id[indp]))
+                out_feature.SetField(str('node_id'), str(tmp_node_id[indp]))
+                out_feature.SetField(str('lake_id'), str(tmp_lake_id[indp]))
+                out_feature.SetField(str('obs_id'), str(tmp_obs_id[indp]))
+                out_feature.SetField(str('ice_clim_f'), int(tmp_ice_clim_f[indp]))
+                out_feature.SetField(str('ice_dyn_f'), int(tmp_ice_dyn_f[indp]))
+                # 3.4 - On ajoute l'objet dans la couche de sortie
+                out_layer.CreateFeature(out_feature)
 
-        # 3 - Conversions of fill values
-        tmp_height2 = my_tools.convert_fillvalue(self.height_vectorproc)
-        tmp_reach_id = self.reach_id.astype('U')
-        tmp_node_id = self.node_id.astype('U')
-        tmp_lake_id = self.lake_id.astype('U')
-        tmp_obs_id = self.obs_id.astype('U')
-        tmp_ice_clim_f = my_tools.convert_fillvalue(self.ice_clim_f)
-        tmp_ice_dyn_f = my_tools.convert_fillvalue(self.ice_dyn_f)
-        
-        for indp in indices_to_write:
-            # 4.1 - Create feature
-            out_feature = ogr.Feature(out_layer_defn)
-            # 4.2 - Set point with improved geoloc as geometry
-            point = ogr.Geometry(ogr.wkbPoint)
-            point.AddPoint(self.longitude_vectorproc[indp], self.latitude_vectorproc[indp])
-            out_feature.SetGeometry(point)
-            # 4.3 - Set attributes
-            out_feature.SetField(str('az_index'), int(self.azimuth_index[indp]))
-            out_feature.SetField(str('r_index'), int(self.range_index[indp]))
-            if self.product_type == "TILE":
-                out_feature.SetField(str('classif'), int(in_obj_pixc.origin_classif[indp]))
-            out_feature.SetField(str('height2'), float(tmp_height2[indp]))
-            out_feature.SetField(str('reach_id'), str(tmp_reach_id[indp]))
-            out_feature.SetField(str('node_id'), str(tmp_node_id[indp]))
-            out_feature.SetField(str('lake_id'), str(tmp_lake_id[indp]))
-            out_feature.SetField(str('obs_id'), str(tmp_obs_id[indp]))
-            out_feature.SetField(str('ice_clim_f'), int(tmp_ice_clim_f[indp]))
-            out_feature.SetField(str('ice_dyn_f'), int(tmp_ice_dyn_f[indp]))
-            # 4.4 - On ajoute l'objet dans la couche de sortie
-            out_layer.CreateFeature(out_feature)
-
-        # 5 - Destroy the data sources to free resources
+        # 4 - Destroy the data sources to free resources
         out_data_source.Destroy()
 
 

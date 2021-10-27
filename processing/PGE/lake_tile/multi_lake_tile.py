@@ -9,6 +9,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -56,7 +58,7 @@ class MultiLakeTile(object):
         # Directories
         self.param_file = in_params["param_file"]  # Parameter file
         self.pixc_dir = in_params["pixc_dir"]  # PIXC files directory
-        self.pixc_vec_river_dir = in_params["pixc_vec_river_dir"]  # PIXCVecRiver files directory
+        self.pixcvec_river_dir = in_params["pixcvec_river_dir"]  # PIXCVecRiver files directory
         self.output_dir = in_params["output_dir"]  # Output directory
 
         # BDLac and basins file
@@ -81,15 +83,16 @@ class MultiLakeTile(object):
         self.log_console_level = in_params["logconsolelevel"]
         
         # File information
+        self.institution = in_params["institution"]
+        self.references = in_params["references"]
+        self.product_version = in_params["product_version"]
         self.crid = in_params["crid"]
-        self.producer = in_params["producer"]
-        self.source = in_params["source"]
-        self.software_version = in_params["software_version"]
+        self.pge_version = in_params["pge_version"]
         self.contact = in_params["contact"]
 
         # List of input files
         self.list_pixc = []  # PIXC files
-        self.list_pixc_vec_river = []  # PIXCVecRiver
+        self.list_pixcvec_river = []  # PIXCVecRiver
         self.nb_input = 0  # Nb of input files
         self.cmd_file_path_list = [] # list of command files
 
@@ -109,8 +112,8 @@ class MultiLakeTile(object):
         print("[multiLakeTileProcessing]   INPUT DIR for PIXC files = %s" % self.pixc_dir)
         my_tools.test_dir(self.pixc_dir)
         # 1.3 - PIXCVecRiver directory
-        print("[multiLakeTileProcessing]   INPUT DIR for PIXCVecRiver files = %s" % self.pixc_vec_river_dir)
-        my_tools.test_dir(self.pixc_vec_river_dir)
+        print("[multiLakeTileProcessing]   INPUT DIR for PIXCVecRiver files = %s" % self.pixcvec_river_dir)
+        my_tools.test_dir(self.pixcvec_river_dir)
         # 1.4 - Output directory
         print("[multiLakeTileProcessing]   OUTPUT DIR = %s" % self.output_dir)
         my_tools.test_dir(self.output_dir)
@@ -143,50 +146,55 @@ class MultiLakeTile(object):
         tmp_list = os.listdir(self.pixc_dir)
 
         # 2.3 - For each listed file, get related PIXCVecRiver files if they exist
-        cur_pixc_vec_river = None
+        cur_pixcvec_river = None
         for cur_item in tmp_list:
 
             # Test if file meets the condition
             if cur_item.startswith(cond_prefix) and cur_item.endswith(pixc_suffix):  # Test if it's a wanted PIXC file
 
                 # Associated PIXCVecRiver file name
-                cur_pixc_vec_river = cur_item.replace(pixc_prefix, pixcvec_river_prefix)
+                cur_pixcvec_river = cur_item.replace(pixc_prefix, pixcvec_river_prefix)
 
                 # If associated PIXCVecRiver file exists, add pair of filenames
-                if os.path.exists(os.path.join(self.pixc_vec_river_dir, cur_pixc_vec_river)):
+                if os.path.exists(os.path.join(self.pixcvec_river_dir, cur_pixcvec_river)):
                     self.list_pixc.append(cur_item)
-                    self.list_pixc_vec_river.append(cur_pixc_vec_river)
+                    self.list_pixcvec_river.append(cur_pixcvec_river)
                     self.nb_input += 1
 
         print("[multiLakeTileProcessing]   --> %d tile(s) to deal with" % self.nb_input)
         print("")
 
         for indf in range(self.nb_input):  # Deal with all selected files
-            print("[multiLakeTileProcessing]  Writing command files %d / %d" %(indf, self.nb_input))
-            print("")
-
+            print("[multiLakeTileProcessing]  Writing command files %d / %d" % (indf+1, self.nb_input))
             cmd_file_path = self.create_cmd_file(indf)
             self.cmd_file_path_list.append(cmd_file_path)
-
+            print("")
 
     def run_processing(self, cmd_file = None):
         """
         Process SAS_L2_HR_LakeTile for each input tile
         """
+
         print("")
         print("")
+        print("[multiLakeTileProcessing] PROCESSING...")
+        print("")
+        print("")
+        
         timer_proc = my_timer.Timer()
         timer_proc.start()  # Init timer
+        
         if not cmd_file:
             for indf, cmd_file in enumerate(self.cmd_file_path_list) :
-                print(
-                    "****************************************************************************************************************")
-                print("***** Dealing with command file %d / %d *****" % (indf, len(self.cmd_file_path_list)))
-                print(
-                    "****************************************************************************************************************")
+                print("")
+                print("")
+                print("***********************************************")
+                print("***** Dealing with command file %d / %d *****" % (indf+1, len(self.cmd_file_path_list)))
+                print("***********************************************")
                 print("")
                 print("")
 
+                # 1 - Init
                 my_lake_tile = pge_lake_tile.PGELakeTile(cmd_file)
 
                 # 2 - Run
@@ -196,11 +204,11 @@ class MultiLakeTile(object):
                 my_lake_tile.stop()
 
         else :
-            print(
-                "****************************************************************************************************************")
-            print("***** Dealing with command file %s *****" % (cmd_file))
-            print(
-                "****************************************************************************************************************")
+            print("")
+            print("")
+            print("***********************************************")
+            print("***** Dealing with command file %s *****" % cmd_file)
+            print("***********************************************")
             print("")
             print("")
 
@@ -213,7 +221,6 @@ class MultiLakeTile(object):
             # 3 - Stop
             my_lake_tile.stop()
 
-        print("****************************************************************************************************************")
         print("")
         print("")
         print(timer_proc.stop())  # Print tile process duration
@@ -227,10 +234,8 @@ class MultiLakeTile(object):
             print('Running map')
             print("[multiLakeTileProcessing] PROCESSING...")
             tmp_result = pool.map(self.run_processing, self.cmd_file_path_list)
-
             pool.close()
             pool.join()
-
 
     def create_cmd_file(self, indf):
         """
@@ -286,7 +291,7 @@ class MultiLakeTile(object):
             writer_command_file.write("param_file = " + os.path.join(sys.path[0], "lake_tile_param.cfg") + "\n")
 
         writer_command_file.write("PIXC file = " + pixc_file + "\n")
-        writer_command_file.write("PIXCVecRiver file = " + os.path.join(self.pixc_vec_river_dir, self.list_pixc_vec_river[indf]) + "\n")
+        writer_command_file.write("PIXCVecRiver file = " + os.path.join(self.pixcvec_river_dir, self.list_pixcvec_river[indf]) + "\n")
         writer_command_file.write("Output directory = " + self.output_dir + "\n\n")
         
         # 5.2 - Fill DATABASES section
@@ -321,15 +326,17 @@ class MultiLakeTile(object):
 
         # 5.6 - Fill FILE_INFORMATION section
         writer_command_file.write("[FILE_INFORMATION]\n")
+        writer_command_file.write("# Name of producing agency\n")    
+        writer_command_file.write("INSTITUTION = " + self.institution + "\n")
+        writer_command_file.write("# Version number of software generating product\n")    
+        writer_command_file.write("REFERENCES = " + self.references + "\n") 
+        writer_command_file.write("# Product version\n")    
+        writer_command_file.write("PRODUCT_VERSION = " + self.product_version + "\n")
         writer_command_file.write("# Composite Release IDentifier for LakeTile processing\n")        
         writer_command_file.write("CRID = " + self.crid + "\n")
-        writer_command_file.write("# Producer\n")
-        writer_command_file.write("PRODUCER = " + self.producer + "\n")
-        writer_command_file.write("# Method of production of the original data\n")        
-        writer_command_file.write("SOURCE = " + self.source + "\n")
-        writer_command_file.write("# Software version\n")        
-        writer_command_file.write("SOFTWARE_VERSION = " + self.software_version + "\n")
-        writer_command_file.write("# Contact\n\n")        
+        writer_command_file.write("# Version identifier of the product generation executable (PGE)\n")    
+        writer_command_file.write("PGE_VERSION = " + self.pge_version + "\n")
+        writer_command_file.write("# Contact\n")        
         writer_command_file.write("CONTACT = " + self.contact + "\n\n")
         
         # 5.7 - Close command file
@@ -368,10 +375,11 @@ def read_command_file(in_filename):
     out_params["logfilelevel"] = "DEBUG"
     out_params["logConsole"] = True
     out_params["logconsolelevel"] = "DEBUG"
+    out_params["institution"] = "CNES"
+    out_params["references"] = "0.0"
+    out_params["product_version"] = "0.0"
     out_params["crid"] = "Dx0000"
-    out_params["producer"] = "CNES"
-    out_params["source"] = "Simulation"
-    out_params["software_version"] = "0.0"
+    out_params["pge_version"] = "0.0"
     out_params["contact"] = "test@cnes.fr"
 
     # 1 - Read parameter file
@@ -383,7 +391,7 @@ def read_command_file(in_filename):
     if "param_file" in list_paths:
         out_params["param_file"] = config.get("PATHS", "param_file")
     out_params["pixc_dir"] = config.get("PATHS", "PIXC directory")
-    out_params["pixc_vec_river_dir"] = config.get("PATHS", "PIXCVecRiver directory")
+    out_params["pixcvec_river_dir"] = config.get("PATHS", "PIXCVecRiver directory")
     out_params["output_dir"] = config.get("PATHS", "Output directory")
     
     # 3 - Retrieve DATABASES
@@ -438,14 +446,16 @@ def read_command_file(in_filename):
     # 7 - Retrieve FILE_INFORMATION
     if "FILE_INFORMATION" in config.sections():
         list_options = config.options("FILE_INFORMATION")
+        if "institution" in list_options:
+            out_params["institution"] = config.get("FILE_INFORMATION", "INSTITUTION")
+        if "references" in list_options:
+            out_params["references"] = config.get("FILE_INFORMATION", "REFERENCES")
+        if "product_version" in list_options:
+            out_params["product_version"] = config.get("FILE_INFORMATION", "PRODUCT_VERSION")
         if "crid" in list_options:
             out_params["crid"] = config.get("FILE_INFORMATION", "CRID")
-        if "producer" in list_options:
-            out_params["producer"] = config.get("FILE_INFORMATION", "PRODUCER")
-        if "source" in list_options:
-            out_params["source"] = config.get("FILE_INFORMATION", "SOURCE")
-        if "software_version" in list_options:
-            out_params["software_version"] = config.get("FILE_INFORMATION", "SOFTWARE_VERSION")
+        if "pge_version" in list_options:
+            out_params["pge_version"] = config.get("FILE_INFORMATION", "PGE_VERSION")
         if "contact" in list_options:
             out_params["contact"] = config.get("FILE_INFORMATION", "CONTACT")
 

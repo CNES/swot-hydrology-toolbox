@@ -1,3 +1,14 @@
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: my_segmentation.py
     :synopsis: handle height-segmentation computation
@@ -75,10 +86,13 @@ def relabel_lake_using_segmentation_heigth(in_x, in_y, in_height, in_pix_area, m
 
     logger.debug("Number of pixels : %d ; area %d ; Min - Max height: %f - %f" %(nb_pts, int(area), np.min(in_height), np.max(in_height)))
 
+    # split lake if contains more than 5 pixels or area >= 2*min_size
+    compute_labels = True
+
     # if area < 2*min_size or contains less than 5 pixels, lake will not be split.
     if area < 2 * min_size or nb_pts < 5 :
         out_labels = np.ones((nb_pts), dtype='int')
-        return out_labels
+        compute_labels = False
 
     elif height_segmentation_method == 1 :
         logger.debug("Lake segmentation method = Felzenszwalb")
@@ -206,31 +220,32 @@ def relabel_lake_using_segmentation_heigth(in_x, in_y, in_height, in_pix_area, m
     else :
         raise service_error.ProcessingError("Lake segmentation method %d unknown" % height_segmentation_method, logger)
 
-    # filter labels to keep only lables with area > min_area
-    out_labels = filter_image_by_region_size(in_x, in_y, out_labels, in_pix_area, min_size)
-    # reorder labels to have labels from 1 to N in decreasing number of pixels.
-    out_labels = reorder_labels(out_labels)
+    if(compute_labels):
+        # filter labels to keep only labels with area > min_area
+        out_labels = filter_image_by_region_size(in_x, in_y, out_labels, in_pix_area, min_size)
+        # reorder labels to have labels from 1 to N in decreasing number of pixels.
+        out_labels = reorder_labels(out_labels)
 
-    labels, counts = np.unique(out_labels, return_counts=True)
-    if len(labels) > 1 :
-        logger.debug("Current lake contains %d sublakes" %(len(labels)))
-        for i, label in enumerate(labels):
-            std = np.std(in_height[np.where(out_labels == label)])
-            mean = np.mean(in_height[np.where(out_labels == label)])
-            logger.debug("Sublakes %d contains %d pixels with mean_height %f and std_height %f" % (label, counts[i], mean, std))
+        labels, counts = np.unique(out_labels, return_counts=True)
+        if len(labels) > 1 :
+            logger.debug("Current lake contains %d sublakes" %(len(labels)))
+            for i, label in enumerate(labels):
+                std = np.std(in_height[np.where(out_labels == label)])
+                mean = np.mean(in_height[np.where(out_labels == label)])
+                logger.debug("Sublakes %d contains %d pixels with mean_height %f and std_height %f" % (label, counts[i], mean, std))
 
-    # # =================================================================================================================
-    # # TO REMOVE WHEN TESTS ARE OK
-    # if np.unique(out_labels).size > 1:
-    #
-    #     fig_path = "/work/ALT/swot/swothr/users/cazalsc/Issue_70/Illustrations/figure_%d_pix.png" % (nb_pts)
-    #     i=1
-    #
-    #     while os.path.exists(fig_path):
-    #         fig_path.replace('.png', '_%d.png' %i)
-    #         i+=1
-    #     plot_height_and_segementation(in_height, out_labels, in_x, in_y, fig_path, cMap, norm)
-    # # =================================================================================================================
+        # # =================================================================================================================
+        # # TO REMOVE WHEN TESTS ARE OK
+        # if np.unique(out_labels).size > 1:
+        #
+        #     fig_path = "/work/ALT/swot/swothr/users/cazalsc/Issue_70/Illustrations/figure_%d_pix.png" % (nb_pts)
+        #     i=1
+        #
+        #     while os.path.exists(fig_path):
+        #         fig_path.replace('.png', '_%d.png' %i)
+        #         i+=1
+        #     plot_height_and_segementation(in_height, out_labels, in_x, in_y, fig_path, cMap, norm)
+        # # =================================================================================================================
 
     return out_labels
 
@@ -272,7 +287,8 @@ def get_2d_from_1d(in_values, in_x, in_y):
     """
 
     if (in_x.size != in_y.size) or (in_x.size != in_values.size):
-        raise ValueError("in_values, in_x and in_y must be the same size but are : in_values = %d in_x = %d and in_y = %d" % (in_values.size, in_x.size, in_y.size))
+        raise ValueError("in_values, in_x and in_y must be the same size but are : in_values = %d in_x = %d and in_y = %d" \
+                         % (in_values.size, in_x.size, in_y.size))
     nb_pts = in_x.size
 
     out_img = np.zeros((np.max(in_y) + 1, np.max(in_x) + 1), dtype=in_values.dtype)
@@ -284,7 +300,8 @@ def get_2d_from_1d(in_values, in_x, in_y):
 
 def split_labels_by_region(in_x, in_y, in_labels):
     """
-    This function checks that each unique label of in_labels corresponds to one single separate entity. It it is not the case, a new label is affected to separate entities
+    This function checks that each unique label of in_labels corresponds to one single separate entity.
+    It it is not the case, a new label is affected to separate entities
     :param in_x: X indices of "1" pixels
     :type in_x: 1D vector of int
     :param in_y: Y indices of "1" pixels
@@ -415,16 +432,20 @@ def get_sub_img(in_labels_img, in_x, in_y):
     size_x, size_y = in_labels_img.shape
 
     min_x = np.min(in_x) - 1
-    if min_x <0 : min_x = 0
+    if min_x <0:
+        min_x = 0
 
     max_x = np.max(in_x) + 2
-    if max_x>size_x : max_x = size_x
+    if max_x>size_x:
+        max_x = size_x
 
     min_y = np.min(in_y) - 1
-    if min_y <0 : min_y = 0
+    if min_y <0:
+        min_y = 0
 
     max_y = np.max(in_y) + 2
-    if max_y>size_y : max_y = size_y
+    if max_y>size_y:
+        max_y = size_y
 
     return in_labels_img[min_x:max_x, min_y:max_y]
 
@@ -458,7 +479,7 @@ def replace_label_with_maj_neighbor_value(in_labels_img, in_label):
     else :
         maj_val = neighbors_values
 
-    if maj_val.size == 0 :
+    if maj_val.size == 0:
         logger.warning("Error in my_segementation : lake is not splitted")
         maj_val = 1
     in_labels_img[(idx_x, idx_y)] = maj_val
@@ -506,7 +527,8 @@ def filter_image_by_region_size(in_x, in_y, in_labels, in_pix_area, min_size):
     label_too_small = []
     major_value_exists = False
     for nl in new_labels :
-        if nl == 0 : continue
+        if nl == 0:
+            continue
         idx = np.where(relabels_img == nl)
         area = np.sum(pix_area_img[idx])
 

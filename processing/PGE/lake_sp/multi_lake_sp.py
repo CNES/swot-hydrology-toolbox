@@ -9,6 +9,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -32,7 +34,6 @@ import configparser as cfg
 import datetime
 from lxml import etree as ET
 import os
-import sys
 import multiprocessing as mp
 
 import cnes.common.lib.my_tools as my_tools
@@ -84,11 +85,12 @@ class MultiLakeSP(object):
         self.log_console_level = in_params["logconsolelevel"]
         
         # File information
+        self.institution = in_params["institution"]
+        self.references = in_params["references"]
+        self.product_version = in_params["product_version"]
         self.crid_laketile = in_params["crid_laketile"]
         self.crid_lakesp = in_params["crid_lakesp"]
-        self.producer = in_params["producer"]
-        self.source = in_params["source"]
-        self.software_version = in_params["software_version"]
+        self.pge_version = in_params["pge_version"]
         self.contact = in_params["contact"]
 
         # List of input files
@@ -149,45 +151,51 @@ class MultiLakeSP(object):
 
                 # Get continent from LakeTile_shp metadata file (ie .shp.xml)
                 metadata = ET.parse(os.path.join(self.laketile_dir, cur_item + ".xml"))
-                # Retrieve continent
-                cur_continent_txt = metadata.xpath("//swot_product/global_metadata/continent")[0].text
-                if not cur_continent_txt:
+                # Retrieve continent_id
+                cur_continent_id_txt = metadata.xpath("//swot_product/global_metadata/continent_id")[0].text
+                if not cur_continent_id_txt:
                     self.cycle_pass_set.add((cycle_num, pass_num, ""))
                 else :
-                    for continent in cur_continent_txt.split(";"):
-                        self.cycle_pass_set.add((cycle_num, pass_num, continent))
+                    for continent_id in cur_continent_id_txt.split(";"):
+                        self.cycle_pass_set.add((cycle_num, pass_num, continent_id))
 
         print("[multiLakeSPProcessing]   --> %d cycle and continental pass to deal with" % len(self.cycle_pass_set))
-        for (cycle_num, pass_num, continent) in self.cycle_pass_set:
-            print("[multiLakeSPProcessing]  cycle %s pass %s continent %s" % (cycle_num, pass_num, continent))
+        for (cycle_num, pass_num, continent_id) in self.cycle_pass_set:
+            print("[multiLakeSPProcessing]  cycle %s pass %s continent_id %s" % (cycle_num, pass_num, continent_id))
         print("")
 
         print("[multiLakeSPProcessing]  Writing command files")
-        for (cycle_num, pass_num, continent) in self.cycle_pass_set:
-            print("[multiLakeSPProcessing]  Writing command files for cycle %s orbit %s and continent %s" %(cycle_num, pass_num, continent))
-            print("")
-
-            cmd_file = self.create_cmd_file(cycle_num, pass_num, continent)
+        for (cycle_num, pass_num, continent_id) in self.cycle_pass_set:
+            print("[multiLakeSPProcessing]  Writing command files for cycle %s orbit %s and continent_id %s" %(cycle_num, pass_num, continent_id))
+            cmd_file = self.create_cmd_file(cycle_num, pass_num, continent_id)
             self.cmd_file_path_list.append(cmd_file)
+            print("")
 
     def run_processing(self, cmd_file = None):
         """
         Process SAS_L2_HR_LakeSP for each input tile
         """
+
         print("")
         print("")
+        print("[multiLakeSPProcessing] PROCESSING...")
+        print("")
+        print("")
+        
         timer_proc = my_timer.Timer()
         timer_proc.start()  # Init timer
+        
         if not cmd_file:
             for indf, cmd_file in enumerate(self.cmd_file_path_list):
-                print(
-                    "****************************************************************************************************************")
-                print("***** Dealing with command file %d / %d *****" % (indf, len(self.cmd_file_path_list)))
-                print(
-                    "****************************************************************************************************************")
+                print("")
+                print("")
+                print("***********************************************")
+                print("***** Dealing with command file %d / %d *****" % (indf+1, len(self.cmd_file_path_list)))
+                print("***********************************************")
                 print("")
                 print("")
 
+                # 1 - Init
                 my_lake_sp = pge_lake_sp.PGELakeSP(cmd_file)
 
                 # 2 - Run
@@ -197,13 +205,15 @@ class MultiLakeSP(object):
                 my_lake_sp.stop()
 
         else:
-            print(
-                "****************************************************************************************************************")
-            print("***** Dealing with command file %s *****" % (cmd_file))
-            print(
-                "****************************************************************************************************************")
             print("")
             print("")
+            print("***********************************************")
+            print("***** Dealing with command file %s *****" % cmd_file)
+            print("***********************************************")
+            print("")
+            print("")
+
+            # 1 - Init
             my_lake_sp = pge_lake_sp.PGELakeSP(cmd_file)
 
             # 2 - Run
@@ -211,38 +221,24 @@ class MultiLakeSP(object):
 
             # 3 - Stop
             my_lake_sp.stop()
-
-            print(
-                "****************************************************************************************************************")
-            print("")
-            print("")
+            
+        print("")
         print("")
         print(timer_proc.stop())  # Print tile process duration
         print("")
         print("")
-
-        print("")
-        print("")
-        print("[multiLakeSPProcessing] PROCESSING...")
-        print("")
-        print("")
-
-        timer_proc = my_timer.Timer()
-
-
 
     def run_multiprocessing(self):
         n_cores = int(mp.cpu_count())
         pool = mp.Pool(n_cores)
         with pool:
             print('Running map')
-            print("[multiLakeTileProcessing] PROCESSING...")
+            print("[multiLakeSPProcessing] PROCESSING...")
             tmp_result = pool.map(self.run_processing, self.cmd_file_path_list)
-
             pool.close()
             pool.join()
 
-    def create_cmd_file(self, cycle_num, pass_num, continent):
+    def create_cmd_file(self, cycle_num, pass_num, continent_id):
         """
         Create command file for PGE_L2_HR_LakeSP for each input cycle and pass
         
@@ -250,7 +246,7 @@ class MultiLakeSP(object):
         :type cycle_num: int
         :param pass_num: pass number
         :type pass_num: int
-        :param continent: continent code (AF, EU, etc.)
+        :param continent_id: 2-letter continent identifier (AF, EU, etc.)
         :type continent: string
         
         :return: out_cmd_file = command file full path
@@ -260,21 +256,21 @@ class MultiLakeSP(object):
         # 1.1 - Init error log filename (without date because it is computed in pge_lake_sp.py)
         if self.error_file is None:
             error_file = os.path.join(self.output_dir, "ErrorFile_" + str(cycle_num) + "_" +
-                                    str(pass_num)  + "_" + str(continent) + ".log")
+                                    str(pass_num)  + "_" + str(continent_id) + ".log")
         else:
-            error_file = os.path.splitext(self.error_file)[0] + "_" + str(cycle_num) + "_" + str(pass_num)  + "_" + str(continent) +  os.path.splitext(self.error_file)[1]
+            error_file = os.path.splitext(self.error_file)[0] + "_" + str(cycle_num) + "_" + str(pass_num)  + "_" + str(continent_id) +  os.path.splitext(self.error_file)[1]
         print("Error log file : " + error_file)
         
         # 1.2 - Init log filename
         if self.log_file is None:
             log_file = os.path.join(self.output_dir, "LogFile_" + str(cycle_num) + "_" +
-                                    str(pass_num)  + "_" + str(continent) + ".log")
+                                    str(pass_num)  + "_" + str(continent_id) + ".log")
         else:
-            log_file = os.path.splitext(self.log_file)[0] + "_" + str(cycle_num) + "_" + str(pass_num)  + "_" + str(continent) + os.path.splitext(self.log_file)[1]
+            log_file = os.path.splitext(self.log_file)[0] + "_" + str(cycle_num) + "_" + str(pass_num)  + "_" + str(continent_id) + os.path.splitext(self.log_file)[1]
         print("Log file : " + log_file)
 
         # 2 - Init command filename
-        cmd_filename = "lake_sp_command_" + str(cycle_num) + "_" + str(pass_num)  + "_" + str(continent) + ".cfg"
+        cmd_filename = "lake_sp_command_" + str(cycle_num) + "_" + str(pass_num)  + "_" + str(continent_id) + ".cfg"
         out_cmd_file = os.path.join(self.output_dir, cmd_filename)
         
         # 3 - Write command variables in command file
@@ -300,7 +296,7 @@ class MultiLakeSP(object):
         writer_command_file.write("[TILES_INFOS]\n")
         writer_command_file.write("Cycle number = " + str(cycle_num) +"\n")
         writer_command_file.write("Pass number = " + str(pass_num) +"\n")
-        writer_command_file.write("Continent = " + str(continent) +"\n")
+        writer_command_file.write("Continent identifier = " + str(continent_id) +"\n")
         writer_command_file.write("\n")
         
         # 3.4 - Fill OPTIONS section
@@ -327,17 +323,19 @@ class MultiLakeSP(object):
 
         # 3.6 - Fill FILE_INFORMATION section
         writer_command_file.write("[FILE_INFORMATION]\n")
+        writer_command_file.write("# Name of producing agency\n")    
+        writer_command_file.write("INSTITUTION = " + self.institution + "\n")
+        writer_command_file.write("# Version number of software generating product\n")    
+        writer_command_file.write("REFERENCES = " + self.references + "\n") 
+        writer_command_file.write("# Product version\n")    
+        writer_command_file.write("PRODUCT_VERSION = " + self.product_version + "\n")
         writer_command_file.write("# Composite Release IDentifier for LakeTile processing\n")        
         writer_command_file.write("CRID_LAKETILE = " + self.crid_laketile + "\n")
         writer_command_file.write("# Composite Release IDentifier for LakeSP processing\n")        
         writer_command_file.write("CRID_LAKESP = " + self.crid_lakesp + "\n")
-        writer_command_file.write("# Producer\n")
-        writer_command_file.write("PRODUCER = " + self.producer + "\n")
-        writer_command_file.write("# Method of production of the original data\n")        
-        writer_command_file.write("SOURCE = " + self.source + "\n")
-        writer_command_file.write("# Software version\n")        
-        writer_command_file.write("SOFTWARE_VERSION = " + self.software_version + "\n")
-        writer_command_file.write("# Contact\n\n")        
+        writer_command_file.write("# Version identifier of the product generation executable (PGE)\n")    
+        writer_command_file.write("PGE_VERSION = " + self.pge_version + "\n")
+        writer_command_file.write("# Contact\n")        
         writer_command_file.write("CONTACT = " + self.contact + "\n\n")
         
         # 3.7 - Close command file
@@ -376,11 +374,12 @@ def read_command_file(in_filename):
     out_params["logfilelevel"] = "DEBUG"
     out_params["logConsole"] = True
     out_params["logconsolelevel"] = "DEBUG"
+    out_params["institution"] = "CNES"
+    out_params["references"] = "0.0"
+    out_params["product_version"] = "0.0"
     out_params["crid_laketile"] = "Dx0000"
     out_params["crid_lakesp"] = "Dx0000"
-    out_params["producer"] = "CNES"
-    out_params["source"] = "Simulation"
-    out_params["software_version"] = "0.0"
+    out_params["pge_version"] = "0.0"
     out_params["contact"] = "test@cnes.fr"
 
     # 1 - Read parameter file
@@ -438,16 +437,18 @@ def read_command_file(in_filename):
     # 7 - Retrieve FILE_INFORMATION
     if "FILE_INFORMATION" in config.sections():
         list_options = config.options("FILE_INFORMATION")
+        if "institution" in list_options:
+            out_params["institution"] = config.get("FILE_INFORMATION", "INSTITUTION")
+        if "references" in list_options:
+            out_params["references"] = config.get("FILE_INFORMATION", "REFERENCES")
+        if "product_version" in list_options:
+            out_params["product_version"] = config.get("FILE_INFORMATION", "PRODUCT_VERSION")
         if "crid_laketile" in list_options:
             out_params["crid_laketile"] = config.get("FILE_INFORMATION", "CRID_LAKETILE")
         if "crid_lakesp" in list_options:
             out_params["crid_lakesp"] = config.get("FILE_INFORMATION", "CRID_LAKESP")
-        if "producer" in list_options:
-            out_params["producer"] = config.get("FILE_INFORMATION", "PRODUCER")
-        if "source" in list_options:
-            out_params["source"] = config.get("FILE_INFORMATION", "SOURCE")
-        if "software_version" in list_options:
-            out_params["software_version"] = config.get("FILE_INFORMATION", "SOFTWARE_VERSION")
+        if "pge_version" in list_options:
+            out_params["pge_version"] = config.get("FILE_INFORMATION", "PGE_VERSION")
         if "contact" in list_options:
             out_params["contact"] = config.get("FILE_INFORMATION", "CONTACT")
 

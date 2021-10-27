@@ -8,6 +8,8 @@
 # ======================================================
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -82,10 +84,13 @@ class ServiceConfigFile(RawConfigParser):
             :return: message
             :rtype: string
         """
+        string_result = None
         if self.path_conf is None:
-            return "Configuration file initialized empty"
+            string_result = "Configuration file initialized empty"
         else:
-            return "Configuration file : " + self.path_conf
+            string_result = "Configuration file : " + self.path_conf
+
+        return string_result
 
     def test_var_config_file(self, section, variable, var_type, valeurs="",
                              val_default=None, valid_min=None, valid_max=None,
