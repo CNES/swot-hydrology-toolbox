@@ -61,7 +61,7 @@
         <string name="/@history" shape="Scalar" width="0">
           <annotation description="UTC time when file generated. Format is: 'YYYY-MM-DD hh:mm:ss : Creation'"/>
         </string>
-        <string name="/@mission_name" shape="Scalar" width="0">
+        <string name="/@platform" shape="Scalar" width="0">
           <annotation description="SWOT"/>
         </string>
         <string name="/@references" shape="Scalar" width="0">
@@ -83,51 +83,84 @@
           <annotation description="Tile number in the pass of the product granule."/>
         </integer>
         <string name="/@swath_side" shape="Scalar" width="0">
-          <annotation description="'L' or 'R' to indicate left and right swath,respectively."/>
+          <annotation description="'L' or 'R' to indicate left and right swath, respectively."/>
         </string>
         <string name="/@tile_name" shape="Scalar" width="0">
           <annotation description="Tile name using format PPP_TTTS, where PPP is a 3 digit pass number with leading zeros, TTT is a 3 digit tile number within the pass, and S is a character 'L' or 'R' for the left and right swath, respectively."/>
         </string>
+        <string name="/@short_name" shape="Scalar" width="0">
+          <annotation description="L2_HR_PIXCVecRiver"/>
+        </string>
+        <string name="/@crid" shape="Scalar" width="0">
+          <annotation description="Composite release identifier (CRID) of the data system used to generate this file"/>
+        </string>
+        <string name="/@product_version" shape="Scalar" width="0">
+          <annotation description="Version identifier of this data file"/>
+        </string>
+        <string name="/@pge_name" shape="Scalar" width="0">
+          <annotation description="Name of the product generation executable (PGE) that created this file"/>
+        </string>
+        <string name="/@pge_version" shape="Scalar" width="0">
+          <annotation description="Version identifier of the product generation executable (PGE) that created this file"/>
+        </string>
+        <string name="/@time_granule_start" shape="Scalar" width="0">
+          <annotation description="Nominal starting UTC time of product granule. Format is: YYYY-MM-DDThh:mm:ss.ssssssZ"/>
+        </string>
+        <string name="/@time_granule_end" shape="Scalar" width="0">
+          <annotation description="Nominal ending UTC time of product granule. Format is: YYYY-MM-DDThh:mm:ss.ssssssZ"/>
+        </string>
+        <string name="/@time_coverage_start" shape="Scalar" width="0">
+          <annotation description="UTC time of first measurement. Format is: YYYY-MM-DDThh:mm:ss.ssssssZ"/>
+        </string>
+        <string name="/@time_coverage_end" shape="Scalar" width="0">
+          <annotation description="UTC time of last measurement. Format is: YYYY-MM-DDThh:mm:ss.ssssssZ"/>
+        </string>
+        <real name="/@geospatial_lon_min" shape="Scalar" width="64">
+          <annotation description="Westernmost longitude (deg) of granule bounding box"/>
+        </real>
+        <real name="/@geospatial_lon_max" shape="Scalar" width="64">
+          <annotation description="Easternmost longitude (deg) of granule bounding box"/>
+        </real>
+        <real name="/@geospatial_lat_min" shape="Scalar" width="64">
+          <annotation description="Southernmost latitude (deg) of granule bounding box"/>
+        </real>
+        <real name="/@geospatial_lat_max" shape="Scalar" width="64">
+          <annotation description="Northernmost latitude (deg) of granule bounding box"/>
+        </real>
+        <real name="/@inner_first_longitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner longitude for the first range line and inner part of the swath (degrees_east)"/>
+        </real>
+        <real name="/@inner_first_latitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner latitude for the first range line and inner part of the swath (degrees_north)"/>
+        </real>
+        <real name="/@inner_last_longitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner longitude for the last range line and inner part of the swath (degrees_east)"/>
+        </real>
+        <real name="/@inner_last_latitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner latitude for the last range line and inner part of the swath (degrees_north)"/>
+        </real>
+        <real name="/@outer_first_longitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner longitude for the first range line and outer part of the swath (degrees_east)"/>
+        </real>
+        <real name="/@outer_first_latitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner latitude for the first range line and outer part of the swath (degrees_north)"/>
+        </real>
+        <real name="/@outer_last_longitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner longitude for the last range line and outer part of the swath (degrees_east)"/>
+        </real>
+        <real name="/@outer_last_latitude" shape="Scalar" width="64">
+          <annotation description="Nominal swath corner latitude for the last range line and outer part of the swath (degrees_north)"/>
+        </real>
         <real name="/@near_range" shape="Scalar" width="64">
           <annotation description="The slant range (m) for the first image pixel."/>
         </real>
         <real name="/@nominal_slant_range_spacing" shape="Scalar" width="64">
           <annotation description="The range spacing (m) corresponding to the 200 MHz sampling frequency"/>
         </real>
-        <string name="/@start_time" shape="Scalar" width="0">
-          <annotation description="UTC time of first measurement. Format is: YYYY-MM-DD hh:mm:ss.ssssssZ"/>
-        </string>
-        <string name="/@stop_time" shape="Scalar" width="0">
-          <annotation description="UTC time of last measurement. Format is: YYYY-MM-DD hh:mm:ss.ssssssZ"/>
-        </string>
-        <string name="/@inner_first_latitude" shape="Scalar" width="0">
-          <annotation description="Nominal swath corner latitude (degrees_north) for the first range line and inner part of the swath"/>
-        </string>
-        <real name="/@inner_first_longitude" shape="Scalar" width="32">
-          <annotation description="Nominal swath corner longitude (degrees_east) for the first range line and inner part of the swath"/>
-        </real>
-        <real name="/@inner_last_latitude" shape="Scalar" width="32">
-          <annotation description="Nominal swath corner latitude (degrees_north)  for the last range line and inner part of the swath"/>
-        </real>
-        <real name="/@inner_last_longitude" shape="Scalar" width="32">
-          <annotation description="Nominal swath corner longitude (degrees_east) for the last range line and inner part of the swath"/>
-        </real>
-        <real name="/@outer_first_latitude" shape="Scalar" width="32">
-          <annotation description="Nominal swath corner latitude (degrees_north) for the first range line and outer part of the swath"/>
-        </real>
-        <real name="/@outer_first_longitude" shape="Scalar" width="32">
-          <annotation description="Nominal swath corner longitude (degrees_east) for the first range line and outer part of the swath"/>
-        </real>
-        <real name="/@outer_last_latitude" shape="Scalar" width="32">
-          <annotation description="Nominal swath corner latitude (degrees_north) for the last range line and outer part of the swath"/>
-        </real>
-        <real name="/@outer_last_longitude" shape="Scalar" width="32">
-          <annotation description="Nominal swath corner longitude (degrees_east) for the last range line and outer part of the swath"/>
-        </real>
-        <string name="/@xref_input_l2_hr_pixc_files" shape="Scalar" width="0">
+        <string name="/@xref_l2_hr_pixc_files" shape="Scalar" width="0">
           <annotation description="List of water mask pixel cloud files used to generate data in product."/>
         </string>
-        <string name="/@xref_static_river_db_file" shape="Scalar" width="0">
+        <string name="/@xref_prior_river_db_file" shape="Scalar" width="0">
           <annotation description="Name of static river a priori database file used to generate data in product."/>
         </string>
         <real name="/@ellipsoid_semi_major_axis" shape="Scalar" width="64">
@@ -138,7 +171,8 @@
         </real>
       </nodes>
     </science>
-    <shape name="Scalar" order="irrelevant"/>    <shape name="nodes_shape" order="slowest...fastest">
+    <shape name="Scalar" order="irrelevant"/>    
+	<shape name="nodes_shape" order="slowest...fastest">
       <dimension extent="0" name="nodes"/>
     </shape>
     <shape name="reaches_shape" order="slowest...fastest">

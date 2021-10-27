@@ -181,15 +181,17 @@ class l2_hr_pixc(object):
         
         # 2 - Update global attributes
         tmp_metadata = {}
+        
         tmp_metadata['cycle_number'] = np.short(self.cycle_num)
         tmp_metadata['pass_number'] = np.short(self.pass_num)
         tmp_metadata['tile_number'] = np.short(self.tile_ref[0:-1])
         tmp_metadata['swath_side'] = self.tile_ref[-1]
         tmp_metadata['tile_name'] = "%03d_%03d%s" % (np.int(self.pass_num), int(self.tile_ref[0:-1]), self.tile_ref[-1])
-        tmp_metadata['near_range'] = np.min(self.near_range)  # TODO: improve
-        tmp_metadata['nominal_slant_range_spacing'] = self.range_spacing
-        tmp_metadata['time_coverage_start'] = self.computeDate(self.nadir_time[0])
-        tmp_metadata['time_coverage_end'] = self.computeDate(self.nadir_time[-1])
+        
+        tmp_metadata['time_granule_start'] = self.computeDate(self.nadir_time[0])
+        tmp_metadata['time_granule_end'] = self.computeDate(self.nadir_time[-1])
+        tmp_metadata['time_coverage_start'] = self.computeDate(min(self.illumination_time))
+        tmp_metadata['time_coverage_end'] = self.computeDate(max(self.illumination_time))
         tmp_metadata['geospatial_lon_min'] = min([self.inner_first[0], self.inner_last[0], self.outer_first[0], self.outer_last[0]])
         tmp_metadata['geospatial_lon_max'] = max([self.inner_first[0], self.inner_last[0], self.outer_first[0], self.outer_last[0]])
         tmp_metadata['geospatial_lat_min'] = min([self.inner_first[1], self.inner_last[1], self.outer_first[1], self.outer_last[1]])
@@ -203,6 +205,8 @@ class l2_hr_pixc(object):
         tmp_metadata["outer_last_longitude"] = self.outer_last[0]
         tmp_metadata["outer_last_latitude"] = self.outer_last[1]
         
+        tmp_metadata['near_range'] = np.min(self.near_range)  # TODO: improve
+        tmp_metadata['nominal_slant_range_spacing'] = self.range_spacing
         tmp_metadata["polarization"] = "V"
         tmp_metadata["transmit_antenna"] = "plus_y"
         tmp_metadata["processing_beamwidth"] = 0.000873
@@ -210,8 +214,8 @@ class l2_hr_pixc(object):
         tmp_metadata["slc_first_line_index_in_tvp"] = 0
         tmp_metadata["slc_last_line_index_in_tvp"] = len(self.nadir_time)
         
-        tmp_metadata["xref_input_water_mask_file"] = self.shapefile_path+".shp"
-        tmp_metadata["xref_l2_hr_pixc_config_parameters_file"] = self.param_file
+        tmp_metadata["xref_watermask_files"] = self.shapefile_path+".shp"
+        tmp_metadata["xref_param_l2_hr_pixc_file"] = self.param_file
         
         tmp_metadata["ellipsoid_semi_major_axis"] = GEN_APPROX_RAD_EARTH
         tmp_metadata["ellipsoid_flattening"] = 0.
@@ -231,6 +235,7 @@ class l2_hr_pixc(object):
   
         # Update group dimension
         nc_writer.set_dim_val("points", self.nb_water_pix)
+        nc_writer.set_dim_val("num_pixc_lines", self.nb_pix_azimuth)
         
         # Create dictionary with value of variables
         pixel_cloud_vars_val = {}
@@ -277,12 +282,12 @@ class l2_hr_pixc(object):
         pixel_cloud_vars_val['illumination_time_tai'] = self.computeTime_TAI(self.illumination_time)
         pixel_cloud_vars_val['eff_num_medium_looks'] = np.full(self.nb_water_pix, 36)
         pixel_cloud_vars_val['sig0'] = self.sigma0
+        pixel_cloud_vars_val['sig0_uncert'] = np.zeros(self.nb_water_pix)
         pixel_cloud_vars_val['phase_unwrapping_region'] = np.zeros(self.nb_water_pix)
         #--------------------
         pixel_cloud_vars_val['instrument_range_cor'] = np.zeros(self.nb_water_pix)
         pixel_cloud_vars_val['instrument_phase_cor'] = np.zeros(self.nb_water_pix)
         pixel_cloud_vars_val['instrument_baseline_cor'] = np.zeros(self.nb_water_pix)
-        pixel_cloud_vars_val['instrument_attitude_cor'] = np.zeros(self.nb_water_pix)
         #--------------------
         pixel_cloud_vars_val['model_dry_tropo_cor'] = np.zeros(self.nb_water_pix)
         pixel_cloud_vars_val['model_wet_tropo_cor'] = np.zeros(self.nb_water_pix)
@@ -295,7 +300,12 @@ class l2_hr_pixc(object):
         pixel_cloud_vars_val['load_tide_got'] = np.zeros(self.nb_water_pix)
         pixel_cloud_vars_val['pole_tide'] = np.zeros(self.nb_water_pix)
         #--------------------
-        pixel_cloud_vars_val['pixc_qual'] = np.zeros(self.nb_water_pix)
+        pixel_cloud_vars_val['ancillary_surface_classification_flag'] = np.zeros(self.nb_water_pix)
+        pixel_cloud_vars_val['interferogram_qual'] = np.zeros(self.nb_water_pix)
+        pixel_cloud_vars_val['classification_qual'] = np.zeros(self.nb_water_pix)
+        pixel_cloud_vars_val['geolocation_qual'] = np.zeros(self.nb_water_pix)
+        pixel_cloud_vars_val['sig0_qual'] = np.zeros(self.nb_water_pix)
+        pixel_cloud_vars_val['pixc_line_qual'] = np.zeros(self.nb_pix_azimuth)
         
         # ===============
         # == Group TVP ==
@@ -568,7 +578,7 @@ class l2_hr_pixc(object):
         date_in_sec = datetime(int(tmp_time_split[0]), int(tmp_time_split[1]), int(tmp_time_split[2])) + timedelta(seconds=IN_sec_from_start)
         
         # Format
-        out_date_time = "%sZ" % datetime.strftime(date_in_sec, '%Y-%m-%d %H:%M:%S.%f')
+        out_date_time = "%sZ" % datetime.strftime(date_in_sec, '%Y-%m-%dT%H:%M:%S.%f')
         return out_date_time
         
     def computeTime_UTC(self, IN_sec_from_start):
