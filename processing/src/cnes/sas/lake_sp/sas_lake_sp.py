@@ -9,6 +9,7 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -62,7 +63,6 @@ class SASLakeSP(object):
         self.obj_lake = in_obj_lake  # LakeSP object
 
     def run_preprocessing(self):
-
         """
         Process LakeSP pre-processing = nothing to do
         """

@@ -8,6 +8,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -79,19 +81,32 @@ LAKE_SP_PREFIX = {}
 LAKE_SP_PREFIX["obs"] = LAKE_SP_PREFIX_BASE + "Obs_"
 LAKE_SP_PREFIX["prior"] = LAKE_SP_PREFIX_BASE + "Prior_"
 LAKE_SP_PREFIX["unknown"] = LAKE_SP_PREFIX_BASE + "Unassigned_"
+LAKE_SP_SHP_SUFFIX = ".shp"
+# LakeSP filename with %03d=cycle number %03d=pass number %s=continent %s=begin date %s=end date %s=CRID %s=counter
+LAKE_TILE_PATTERN_BASE = LAKE_TILE_PREFIX_BASE + "%03d_%03d_%s_%s_%s_%s_%02d" + LAKE_SP_SHP_SUFFIX
 LAKE_SP_PATTERN = {}
+LAKE_SP_PATTERN_PRINT = {}
 LAKE_SP_PATTERN_NO_CONT = {}
 for key, value in LAKE_SP_PREFIX.items():
     # LakeSP filename with %03d=cycle number %03d=pass number %s=continent %s=begin date %s=end date %s=CRID %s=counter
-    LAKE_SP_PATTERN[key] = value + "%03d_%03d_%s_%s_%s_%s_%02d.shp"
+    LAKE_SP_PATTERN[key] = value + "%03d_%03d_%s_%s_%s_%s_%02d" + LAKE_SP_SHP_SUFFIX
+    LAKE_SP_PATTERN_PRINT[key] = value + "%s<CycleID>_<PassID>_<ContinentID>_<RangeBeginDateTime>_<RangeEndingDateTime>_<CRID>_<ProductCounter>"
     # LakeSP filename without continent info with %03d=cycle number %03d=pass number %s=begin date %s=end date %s=CRID %s=counter
-    LAKE_SP_PATTERN_NO_CONT[key] = value + "%03d_%03d_%s_%s_%s_%02d.shp"
+    LAKE_SP_PATTERN_NO_CONT[key] = value + "%03d_%03d_%s_%s_%s_%02d" + LAKE_SP_SHP_SUFFIX
+# Indices when LAKE_TILE_*_PATTERN.split("_"); None if value not in filename
+LAKE_SP_PATTERN_IND = {"cycle": 5, "pass": 6, "continent": 7, "start_date": 8, "stop_date": 9, "crid": 10, "counter": 11}
 
 # 5 - PIXCVec
 PIXCVEC_PREFIX = "SWOT_L2_HR_PIXCVec_"
 PIXCVEC_SUFFIX = ".nc"
 # PIXCVec filename with %03d=cycle number %03d=pass number %s=tile ref %s=begin date %s=end date %s=CRID %s=counter
 PIXCVEC_PATTERN = PIXCVEC_PREFIX + "%03d_%03d_%s_%s_%s_%s_%02d" + PIXCVEC_SUFFIX
+
+# 6 - LakeAvg
+LAKE_AVG_PREFIX = "SWOT_L2_HR_LakeAvg_"
+LAKE_AVG_SUFFIX = ".shp"
+# LakeAvg filename with %03d=cycle number %s=continent %s=basin idenfier %s=begin date %s=end date %s=CRID %s=counter
+LAKE_AVG_PATTERN = LAKE_AVG_PREFIX + "%03d_%s_%s_%s_%s_%s_%02d" + LAKE_AVG_SUFFIX
 
 
 #######################################
@@ -136,9 +151,20 @@ def get_info_from_filename(in_filename, in_type):
             if os.path.basename(in_filename).startswith(prefix):
                 flag_ok = True
         if not flag_ok:
-            message = "Filename %s doesn't match with any LakeTile pattern %s" % (os.path.basename(in_filename), ", ".join(LAKE_TILE_PATTERN_PRINT.values()))
+            message = "Filename %s doesn't match with any LakeTile pattern %s" % (os.path.basename(in_filename), \
+                                                                                  ", ".join(LAKE_TILE_PATTERN_PRINT.values()))
             raise service_error.SASLakeTileError(message, logger)
         pattern = LAKE_TILE_PATTERN_IND
+    elif in_type == "LakeSP":
+        flag_ok = False
+        for prefix in LAKE_SP_PREFIX.values():
+            if os.path.basename(in_filename).startswith(prefix):
+                flag_ok = True
+        if not flag_ok:
+            message = "Filename %s doesn't match with any LakeSP pattern %s" % (os.path.basename(in_filename), \
+                                                                                  ", ".join(LAKE_SP_PATTERN_PRINT.values()))
+            raise service_error.SASLakeTileError(message, logger)
+        pattern = LAKE_SP_PATTERN_IND
     else:
         message = "Type %s unknown ; should be PIXC, PIXCVecRiver or LakeTile" % in_type
         raise service_error.SASLakeTileError(message, logger)
@@ -185,21 +211,21 @@ class LakeTileFilenames(object):
     Manage LakeTile product filenames
     """
     
-    def __init__(self, in_pixc_file, in_pixc_vec_river_file, in_out_dir, flag_inc=True):
+    def __init__(self, in_pixc_file, in_pixcvec_river_file, in_out_dir, flag_inc=True):
         """
         Constructor of LakeTile filenames
 
         :param in_pixc_file: PIXC file full path
         :type in_pixc_file: string
-        :param in_pixc_vec_river_file: PIXCVecRiver file full path
-        :type in_pixc_vec_river_file: string
+        :param in_pixcvec_river_file: PIXCVecRiver file full path
+        :type in_pixcvec_river_file: string
         :param in_out_dir: output directory
         :type in_out_dir: string
         :param flag_inc: flag to increment output file counter if True (default); else=False
         :type flag_inc: boolean
 
         Variables of the object:
-            - pixc_vec_river_file / string: PIXCVecRiver full path
+            - pixcvec_river_file / string: PIXCVecRiver full path
             - out_dir / string: output directory
             - flag_inc_file_counter / boolean: True to increment output file counter
             - product_counter / int: product counter
@@ -221,7 +247,7 @@ class LakeTileFilenames(object):
 
         # 1 - Init variables
         pixc_file = in_pixc_file  # PIXC file full path
-        self.pixc_vec_river_file = in_pixc_vec_river_file  # PIXCVecRiver full path
+        self.pixcvec_river_file = in_pixcvec_river_file  # PIXCVecRiver full path
         self.out_dir = in_out_dir  # Output directory
         self.flag_inc_file_counter = flag_inc  # Flag to increment file counter
         self.product_counter = 1  # Product counter
@@ -280,10 +306,10 @@ class LakeTileFilenames(object):
         tmp_ok = self.test_pixcvec_river_filename()
         if tmp_ok:
             logger.info("PIXCVecRiver basename %s is compatible with PIXC basename %s",
-                        os.path.basename(self.pixc_vec_river_file), os.path.basename(pixc_file))
+                        os.path.basename(self.pixcvec_river_file), os.path.basename(pixc_file))
         else:
             logger.info("WARNING: PIXCVecRiver basename %s IS NOT compatible with PIXC basename %s (cf. above)",
-                        os.path.basename(self.pixc_vec_river_file), os.path.basename(pixc_file))
+                        os.path.basename(self.pixcvec_river_file), os.path.basename(pixc_file))
 
         # 4 - Compute output filenames
         self.compute_lake_tile_filename_shp()  # LakeTile_shp filenames
@@ -352,7 +378,7 @@ class LakeTileFilenames(object):
         out_ok = True
 
         # 1 - Retrieve info from PIXCVecRiver filename
-        tmp_dict = get_info_from_filename(self.pixc_vec_river_file, "PIXCVecRiver")
+        tmp_dict = get_info_from_filename(self.pixcvec_river_file, "PIXCVecRiver")
         if len(tmp_dict) == 0:
             out_ok = False
         else:
@@ -389,14 +415,14 @@ class LakeSPFilenames(object):
     Manage LakeSP product filenames
     """
     
-    def __init__(self, in_lake_tile_file_list, in_continent, in_out_dir, flag_inc=True):
+    def __init__(self, in_lake_tile_file_list, in_continent_id, in_out_dir, flag_inc=True):
         """
         Constructor of LakeSP filenames
 
         :param in_lake_tile_file_list: list of LakeTile_shp files full path
         :type in_lake_tile_file_list: list of string
-        :param in_continent: continent concerning the LakeSP
-        :type in_continent: string
+        :param in_continent_id: 2-letter continent identifier
+        :type in_continent_id: string
         :param in_out_dir: output directory
         :type in_out_dir: string
         :param flag_inc: flag to increment output file counter if True (default); else=False
@@ -450,13 +476,13 @@ class LakeSPFilenames(object):
         else:
             self.pass_num = int(pass_num)
             logger.info("Pass number = %03d", self.pass_num)
-        # 2.3 - Continent
-        if in_continent == "":
-            self.continent = ""
+        # 2.3 - Continent identifier
+        if in_continent_id == "":
+            self.continent_id = ""
             logger.info("WARNING: no continental split")
         else:
-            self.continent = in_continent
-            logger.info("Continent = %s", self.continent)
+            self.continent_id = in_continent_id
+            logger.info("Continent identifier = %s", self.continent_id)
 
         # 3 - Retrieve start and stop dates from LakeTile_shp filenames
         self.compute_start_stop_dates()
@@ -503,11 +529,11 @@ class LakeSPFilenames(object):
         """
 
         # 1 - Full path of obs-oriented product
-        if self.continent is "":
+        if self.continent_id is "":
             filename = LAKE_SP_PATTERN_NO_CONT["obs"] % (self.cycle_num, self.pass_num, self.start_date, self.stop_date, self.crid_lakesp, \
                                                           self.product_counter)
         else:
-            filename = LAKE_SP_PATTERN["obs"] % (self.cycle_num, self.pass_num, self.continent, self.start_date, self.stop_date, self.crid_lakesp, \
+            filename = LAKE_SP_PATTERN["obs"] % (self.cycle_num, self.pass_num, self.continent_id, self.start_date, self.stop_date, self.crid_lakesp, \
                                                   self.product_counter)
         self.lake_sp_file_obs = os.path.join(self.out_dir, filename)
 
@@ -515,12 +541,12 @@ class LakeSPFilenames(object):
         if self.flag_inc_file_counter:
             while os.path.exists(self.lake_sp_file_obs):
                 self.product_counter += 1
-                if self.continent is "":
+                if self.continent_id is "":
                     filename = LAKE_SP_PATTERN_NO_CONT["obs"] % (self.cycle_num, self.pass_num, self.start_date, self.stop_date, self.crid_lakesp, \
                                                                   self.product_counter)
                 else:
-                    filename = LAKE_SP_PATTERN["obs"] % (self.cycle_num, self.pass_num, self.continent, self.start_date, self.stop_date, self.crid_lakesp, \
-                                                          self.product_counter)
+                    filename = LAKE_SP_PATTERN["obs"] % (self.cycle_num, self.pass_num, self.continent_id, self.start_date, self.stop_date, \
+                                                         self.crid_lakesp, self.product_counter)
                 self.lake_sp_file_obs = os.path.join(self.out_dir, filename)
             
         # 2 - Full path of shapefile of PLD-oriented product
@@ -541,17 +567,23 @@ def compute_pixcvec_filename(in_laketile_pixcvec_filename, in_output_dir):
     :type in_laketile_pixcvec_filename: string
     :param in_output_dir: output directory
     :type in_output_dir: string
+    
+    :return: out_filename = L2_HR_PIXCVec full path
+    :rtype: out_filename = string
     """
     # Get config file
     cfg = service_config_file.get_instance()
+    
     # Init variables
     product_counter = 1
-    # get parameters
+    # Build filename pattern
     pixcvec_pattern = PIXCVEC_PATTERN
     pixcvec_prefix = PIXCVEC_PREFIX
     pixcvec_suffix = PIXCVEC_SUFFIX
     pixcvec_pattern = pixcvec_pattern.replace("PIXCVEC_PREFIX + ", pixcvec_prefix).replace('"', '').replace(" + PIXCVEC_SUFFIX", pixcvec_suffix)
+    # Get infos from config file
     crid_lakesp = cfg.get("FILE_INFORMATION", "CRID_LAKESP")
+    flag_inc_file_counter = cfg.getboolean("OPTIONS", "Increment file counter")
     # Get infos from input LakeTile_PIXCVec filename
     tmp_dict = get_info_from_filename(in_laketile_pixcvec_filename, "LakeTile")
 
@@ -560,10 +592,65 @@ def compute_pixcvec_filename(in_laketile_pixcvec_filename, in_output_dir):
                                       tmp_dict["stop_date"], crid_lakesp, product_counter)
     out_filename = os.path.join(in_output_dir, filename)
 
-    while os.path.exists(out_filename):
-        product_counter += 1
-        filename = pixcvec_pattern % (int(tmp_dict["cycle"]), int(tmp_dict["pass"]), tmp_dict["tile_ref"], tmp_dict["start_date"], \
-                                          tmp_dict["stop_date"], crid_lakesp, product_counter)
-        out_filename = os.path.join(in_output_dir, filename)
+    # Test existence and modify self.product_counter if wanted and needed
+    if flag_inc_file_counter:
+        while os.path.exists(out_filename):
+            product_counter += 1
+            filename = pixcvec_pattern % (int(tmp_dict["cycle"]), int(tmp_dict["pass"]), tmp_dict["tile_ref"], tmp_dict["start_date"], \
+                                              tmp_dict["stop_date"], crid_lakesp, product_counter)
+            out_filename = os.path.join(in_output_dir, filename)
+
+    return out_filename
+
+
+#######################################
+    
+
+def compute_lakeavg_filename(in_output_dir, in_cycle_number, in_continent_id, in_basin_code):
+    """
+    Compute L2_HR_LakeAvg filename from cycle number and basin code
+
+    :param in_output_dir: output directory
+    :type in_output_dir: string
+    :param in_cycle_number: cycle number
+    :type in_cycle_number: int
+    :param in_continent_id: 2-letter continent identifier
+    :type in_continent_id: string
+    :param in_basin_code: 1-digit of basin code within the continent
+    :type in_basin_code: string
+    
+    :return: out_filename = L2_HR_PIXCVec full path
+    :rtype: out_filename = string
+    """
+    # Get config file
+    cfg = service_config_file.get_instance()
+    
+    # Init variables
+    product_counter = 1
+    # Build filename pattern
+    lakeavg_pattern = LAKE_AVG_PATTERN
+    lakeavg_prefix = LAKE_AVG_PREFIX
+    lakeavg_suffix = LAKE_AVG_SUFFIX
+    lakeavg_pattern = lakeavg_pattern.replace("LAKE_AVG_PREFIX + ", lakeavg_prefix).replace('"', '').replace(" + LAKE_AVG_SUFFIX", lakeavg_suffix)
+    # Get infos from config file
+    crid = cfg.get("FILE_INFORMATION", "CRID_LAKEAVG")
+    flag_inc_file_counter = cfg.getboolean("OPTIONS", "Increment file counter")
+
+    # Compute LakeAvg filename
+    start_datetime = "YYYYMMDDThhmmss"
+    stop_datetime = "YYYYMMDDThhmmss"
+    filename = lakeavg_pattern % (in_cycle_number, in_continent_id, in_basin_code, \
+                                  start_datetime, stop_datetime, \
+                                  crid, product_counter)
+    out_filename = os.path.join(in_output_dir, filename)
+
+    # Test existence and modify product_counter if wanted and needed
+    if flag_inc_file_counter:
+        while os.path.exists(out_filename):
+            product_counter += 1
+            filename = lakeavg_pattern % (in_cycle_number, in_continent_id, in_basin_code, \
+                                          start_datetime, stop_datetime, \
+                                          crid, product_counter)
+            out_filename = os.path.join(in_output_dir, filename)
 
     return out_filename

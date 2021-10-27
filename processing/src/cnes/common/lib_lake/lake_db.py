@@ -8,6 +8,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -71,6 +73,9 @@ class LakeDb(object):
         - basin_flag / boolean: flag indicating if the basin geometries are used or not
         - basin_layer / osgeo.ogr.Layer: layer of basin table in PLD
         - basin_ds / osgeo.ogr.DataSource: associated DataSource
+        - az_0_geom / osgeo.ogr.Geometry: geometries of lakes located at the bottom of tile
+        - az_max_geom / osgeo.ogr.Geometry: geometries of lakes located at the top of tile
+        - az_0_and_max_geom / osgeo.ogr.Geometry: geometries of lakes located at the top and bottom of tile
         """
         try:
             # Get instance of service config file
@@ -209,7 +214,6 @@ class LakeDb(object):
         :type: OGR Geometry Linestring
         :param in_az_max_line: Line with azimuth = azimuth max
         :type: OGR Geometry Linestring
-
         """
         if in_az_0_line:
             self.lake_layer.ResetReading()
@@ -232,7 +236,9 @@ class LakeDb(object):
                     self.az_0_and_max_geom.AddGeometry(geom)
                 else :
                     self.az_max_geom.AddGeometry(geom)
-        self.lake_layer.ResetReading()
+            self.lake_layer.ResetReading()
+
+        self.lake_layer.SetSpatialFilter(None)
 
     # ----------------------------------------
 
@@ -466,7 +472,7 @@ class LakeDb(object):
         if nb_pt_ass_kd > 0 :
             out_lakedb_id_pixcvec[unassigned_pixels] = compute_closest_polygon_with_kdtree(in_lon[unassigned_pixels], in_lat[unassigned_pixels], 
                                                                                            prior_geom_coords, list_prior_id)
-            logger.debug("%d pixels assigned using kd tree" %(nb_pt_ass_kd))
+            logger.debug("%d pixels assigned using kd tree" % nb_pt_ass_kd)
 
         return out_lakedb_id_pixcvec
 
@@ -477,7 +483,7 @@ class LakeDb(object):
         :param in_poly: polygon to link to a basin
         :type in_poly: ogr.Polygon
 
-        :return: out_basin_list = list of basin(s) associated to the input polygon
+        :return: out_basin_list = list of IDs of the basin(s) associated to the input polygon
         :rtype: list of string
         """
         logger = logging.getLogger(self.__class__.__name__)
@@ -507,9 +513,8 @@ class LakeDb(object):
                     if basin_geom.IsValid():
                         inter = in_poly.Intersection(basin_geom)
                     else :
-                        logger.warning("PLD basin table contains an invalid geometry with basin_id %s" %(basin_id))
+                        logger.warning("PLD basin table contains an invalid geometry with basin_id %s" % basin_id)
                         inter = in_poly.Intersection(basin_geom.Buffer(0))
-
                     area_intersection.append(inter.GetArea())
                     out_basin_list.append(basin_id)
                 # Sort out_basin_list by area intersection decreasing 
@@ -522,32 +527,41 @@ class LakeDb(object):
         logger.info(out_basin_list)
         return out_basin_list
 
-    def link_poly_to_continent(self, in_poly):
+    def link_poly_to_continent_and_basin(self, in_poly):
         """
-        Link a polygon to a list of continent(s) by considering intersection of both
+        Link a polygon to a list of continent(s) and basin(s) by considering intersection of both
 
-        :param in_poly: polygon to link to a continent
+        :param in_poly: polygon to link to continent(s) and basin(s)
         :type in_poly: ogr.Polygon
 
-        :return: out_continent_list = list of continent(s) associated to the input polygon
-        :rtype: list of string
+        :return: out_continent_id_list = two-letter identifier of the continent(s) associated to the input polygon, ordered by increasing continent_code
+        :rtype: string
+        :return: out_continent_code_list = 1-digit code of the continent(s) associated to the input polygon, ordered by increasing continent_code
+        :rtype: string
+        :return: out_basin_code_list = code of the basin(s) associated to the input polygon, ordered in increasing identifier
+        :rtype: string
         """
-        logger = logging.getLogger(self.__class__.__name__)
         
-        # Init output
-        out_continent_list = set()
-        
-        # Compute list of basins related to the input polygon
-        basin_list = self.link_poly_to_basin(in_poly)
+        # 1 - Compute code of the basins related to the input polygon
+        basin_code_list = sorted(self.link_poly_to_basin(in_poly))
+        out_basin_code_list = ';'.join(basin_code_list)
 
-        # Compute list of continents
-        for basin_id in basin_list:
-            continent = compute_continent_from_basin_id(basin_id)
-            if continent:
-                out_continent_list.add(continent)
-
-        logger.info(';'.join(out_continent_list))
-        return ';'.join(out_continent_list)
+        # 2 - Compute lists of continents
+        # 2.1 - Compute continent code
+        continent_code_list = set()
+        for basin_code in basin_code_list:
+            continent_code_list.add(basin_code[0])
+        continent_code_list_sorted = sorted(continent_code_list)
+        out_continent_code_list = ';'.join(continent_code_list_sorted)
+        # 2.2 - Compute continent identifier
+        continent_id_list = set()
+        for continent_code in continent_code_list_sorted:
+            continent_id = compute_continent_id_from_basin_code(continent_code)
+            if continent_id:
+                continent_id_list.add(continent_id)
+        out_continent_id_list = ';'.join(continent_id_list)
+                
+        return out_continent_id_list, out_continent_code_list, out_basin_code_list
     
     
 #######################################
@@ -558,14 +572,20 @@ class LakeDbShp(LakeDb):
     This class heritates from the main class to manage PLD in shapefile format
     """
 
-    def __init__(self, in_lakedb_filename, in_poly=None, in_az_0_line = None, in_az_max_line=None):
+    def __init__(self, in_lakedb_filename, 
+                 in_poly=None, in_az_0_line=None, in_az_max_line=None):
         """
         Constructor
 
         :param in_lakedb_filename: full path of PLD
         :type in_lakedb_filename: string
+        
         :param in_poly: polygon to spatially select lakes from DB
         :type in_poly: ogr.Polygon
+        :param in_az_0_line: line delineating the bottom of the tile
+        :type in_az_0_line: osgeo.ogr.LineString
+        :param in_az_max_line: line delineating the top of the tile
+        :type in_az_max_line: osgeo.ogr.LineString
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("Lake DB in SHAPEFILE format = %s", in_lakedb_filename)
@@ -577,7 +597,7 @@ class LakeDbShp(LakeDb):
         self.db_format = "shp"
 
         # 3 - Open database
-        self.open_db(in_lakedb_filename, in_poly)
+        self.open_db(in_lakedb_filename, in_poly=in_poly)
 
         # 4 - Init fields name and type
         self.init_fields_name_and_type()
@@ -588,12 +608,11 @@ class LakeDbShp(LakeDb):
         # 6 - Build border geometry
         self.build_border_geometry(in_az_0_line, in_az_max_line)
 
-
     # ----------------------------------------
 
     def open_db(self, in_lakedb_filename, in_poly=None):
         """
-        Open PLD, optionnally spatially select polygons, and copy lake_layer to memory
+        Open PLD, optionnally spatially select polygons or with attribute lake_id, and copy lake_layer to memory
 
         :param in_lakedb_filename: full path of PLD
         :type in_lakedb_filename: string
@@ -651,14 +670,24 @@ class LakeDbSqlite(LakeDb):
     This class heritates from the main class to manage PLD in SQLite format
     """
 
-    def __init__(self, in_lakedb_filename, in_poly=None, in_az_0_line =None, in_az_max_line=None):
+    def __init__(self, in_lakedb_filename, 
+                 in_poly=None, in_az_0_line=None, in_az_max_line=None,
+                 in_basin_id=None):
         """
         Constructor
 
         :param in_lakedb_filename: full path of PLD
         :type in_lakedb_filename: string
+        
         :param in_poly: polygon to spatially select lakes from DB
         :type in_poly: ogr.Polygon
+        :param in_az_0_line: line delineating the bottom of the tile
+        :type in_az_0_line: osgeo.ogr.LineString
+        :param in_az_max_line: line delineating the top of the tile
+        :type in_az_max_line: osgeo.ogr.LineString
+            
+        :param in_basin_id: basin identifier to select lakes from DB having lake_id starting with in_basin_id
+        :type in_basin_id: string
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("Lake DB in SQLITE format = %s", in_lakedb_filename)
@@ -677,21 +706,23 @@ class LakeDbSqlite(LakeDb):
                                                       self.pld_max_area, self.pld_max_area_u, \
                                                       self.pld_ref_date, self.pld_ref_ds, self.pld_storage],
                                                      ['text', 'text', 'int9', 'float', 'float', 'float', 'float', 'text', 'float', 'float'],
-                                                     in_poly=in_poly)
+                                                     in_poly=in_poly, in_basin_id=in_basin_id)
         # 3.2 - Table influence area
         self.influence_lake_flag = True  # Set flag indicating influence area table is used
         self.influence_lake_ds, self.influence_lake_layer = self.open_db(in_lakedb_filename, 
                                                                          my_var.PLD_TABLE_LAKE_INFL, 
                                                                          [self.lakedb_id_name],
                                                                          ['text'],
-                                                                         in_poly=in_poly)
+                                                                         in_poly=in_poly,
+                                                                         in_basin_id=in_basin_id)
         # 3.3 - Table basin
         self.basin_flag = True  # Set flag indicating basin table is used
         self.basin_ds, self.basin_layer = self.open_db(in_lakedb_filename, 
                                                        my_var.PLD_TABLE_BASIN, 
                                                        [self.basindb_id_name],
                                                        ['text'],
-                                                       in_poly=in_poly)
+                                                       in_poly=in_poly,
+                                                       in_basin_id=in_basin_id)
 
         # 4 - Init fields name and type
         self.init_fields_name_and_type(test_fields=False)
@@ -704,7 +735,7 @@ class LakeDbSqlite(LakeDb):
         
     # ----------------------------------------
 
-    def open_db(self, in_lakedb_filename, in_table_name, in_field_name_list, in_field_type_list=None, in_poly=None):
+    def open_db(self, in_lakedb_filename, in_table_name, in_field_name_list, in_field_type_list=None, in_poly=None, in_basin_id=None):
         """
         Open database, optionnally spatially select polygons and copy layer to memory
 
@@ -718,6 +749,8 @@ class LakeDbSqlite(LakeDb):
         :type in_field_type_list: list of str
         :param in_poly: polygon to spatially select lakes from DB
         :type in_poly: ogr.Polygon
+        :param in_basin_id: basin identifier to select lakes from DB having lake_id starting with in_basin_id
+        :type in_basin_id: string
         
         :return: out_data_source = DataSource of the specified table
         :rtype: osgeo.ogr.DataSource
@@ -756,15 +789,20 @@ class LakeDbSqlite(LakeDb):
             (lakes_nb,) = db_cursor.execute('SELECT count(*) from %s' %(in_table_name)).fetchone()
             logger.debug("%d features stored in table <%s>" % (lakes_nb, in_table_name))
 
-        # 2 - Select subset among PLD lakes using in_poly
+        # 2 - Select subset among PLD lakes using in_poly or having lake_id starting with in_basin_id
         if in_poly is not None:
             in_poly.FlattenTo2D()  # Transform 3D geometry into 2D geometry (necessary for spatialite query)
-            cmd = "SELECT %s, AsText(geometry) FROM %s WHERE MBRIntersects(GeomFromText('%s'), %s.geometry);" % (
+            cmd = "SELECT %s, AsText(geometry) FROM %s WHERE ST_Intersects(GeomFromText('%s'), %s.geometry);" % (
                 ",".join(in_field_name_list), in_table_name, in_poly.ExportToWkt(), in_table_name)
+            db_cursor.execute(cmd)
+        elif in_basin_id is not None:
+            cmd = "SELECT {}, AsText(geometry) FROM {} WHERE {} LIKE '{}%';".format(
+                ",".join(in_field_name_list), in_table_name, in_field_name_list[0], in_basin_id)
             db_cursor.execute(cmd)
         else:
             cmd = "SELECT %s, AsText(geometry) FROM %s ;" % (",".join(in_field_name_list), in_table_name)
             db_cursor.execute(cmd)
+        logger.debug(cmd)
 
         # 3 - Copy selected features to output memory layer
         for db_feature in db_cursor:
@@ -815,20 +853,27 @@ class LakeDbSqlite(LakeDb):
         
 
 #######################################
+        
 
 class LakeDbDirectory(LakeDb):
     """
-        class LakeDbDirectory
+    class LakeDbDirectory
     """
 
-    def __init__(self, in_lake_db_directory, in_poly=None, in_az_0_line=None, in_az_max_line=None):
+    def __init__(self, in_lake_db_directory, 
+                 in_poly=None, in_az_0_line=None, in_az_max_line=None):
         """
         Constructor
 
         :param in_lake_db_directory: full path of the prior lake database directory
         :type in_lake_db_directory: string
+        
         :param in_poly: polygon to spatially select lakes from DB
         :type in_poly: ogr.Polygon
+        :param in_az_0_line: line delineating the bottom of the tile
+        :type in_az_0_line: osgeo.ogr.LineString
+        :param in_az_max_line: line delineating the top of the tile
+        :type in_az_max_line: osgeo.ogr.LineString
 
         Variables of the object:
             - lake_db_id / String: Fieldname of lake id in lakedb
@@ -853,7 +898,7 @@ class LakeDbDirectory(LakeDb):
         # 3 - Get list of PLD files
         pld_path_list = get_list_of_pld_path(in_lake_db_directory)
 
-        # 4 - Open table basin
+        # 4 - Open table basin (given in all PLD files => retrieved in the 1st PLD file in the list)
         self.basin_flag = True  # Set flag indicating basin table is used
         self.basin_ds, self.basin_layer = self.open_db(pld_path_list[0],
                                                        my_var.PLD_TABLE_BASIN,
@@ -861,11 +906,11 @@ class LakeDbDirectory(LakeDb):
                                                        ['text'],
                                                        in_poly=in_poly)
 
-        # 5 - Select pld path corrponding to continents containted in self.basin_layer
-        pld_path_list = select_pld_file_from_polygon(pld_path_list, self.basin_layer)
+        # 5 - Select pld path corresponding to continents containted in self.basin_layer
+        self.pld_path_list = select_pld_file_from_polygon(pld_path_list, self.basin_layer)
 
-        # 2 - Open database
-        self.lake_ds, self.lake_layer = self.open_db_multipld(pld_path_list, my_var.PLD_TABLE_LAKE,
+        # 6 - Open database
+        self.lake_ds, self.lake_layer = self.open_db_multipld(my_var.PLD_TABLE_LAKE,
                                                      [self.lakedb_id_name, self.pld_names, self.pld_grand, \
                                                       self.pld_max_wse, self.pld_max_wse_u, \
                                                       self.pld_max_area, self.pld_max_area_u, \
@@ -873,34 +918,29 @@ class LakeDbDirectory(LakeDb):
                                                      ['text', 'text', 'int9', 'float', 'float', 'float', 'float', 'text', 'float', 'float'],
                                                      in_poly=in_poly)
 
-        # 3.2 - Table influence area
+        # 7 - Table influence area
         self.influence_lake_flag = True  # Set flag indicating influence area table is used
-        self.influence_lake_ds, self.influence_lake_layer = self.open_db_multipld(pld_path_list,
-                                                                         my_var.PLD_TABLE_LAKE_INFL,
+        self.influence_lake_ds, self.influence_lake_layer = self.open_db_multipld(my_var.PLD_TABLE_LAKE_INFL,
                                                                          [self.lakedb_id_name],
                                                                          ['text'],
                                                                          in_poly=in_poly)
 
-
-        # 4 - Init fields name and type
+        # 8 - Init fields name and type
         self.init_fields_name_and_type(test_fields=False)
 
-        # 5 - Set list of selected lake_id
+        # 9 - Set list of selected lake_id
         self.set_list_lakeid()
 
-
-        # 6 - Build border geometry
+        # 10 - Build border geometry
         self.build_border_geometry(in_az_0_line, in_az_max_line)
 
-        # ----------------------------------------
+    # ----------------------------------------
 
-    def open_db_multipld(self, pld_path_list, in_table_name, in_field_name_list, in_field_type_list=None, in_poly=None):
+    def open_db_multipld(self, in_table_name, in_field_name_list, in_field_type_list=None, in_poly=None):
 
         """
         Open several databases, optionnally spatially select polygons and copy layer to memory
 
-        :param pld_path_list: list of full path of PLD
-        :type pld_path_list: list of str
         :param in_table_name: name of table to load from DB
         :type in_table_name: str
         :param in_field_name_list: list of fieldnames to load from table, first element is the identifier
@@ -934,7 +974,7 @@ class LakeDbDirectory(LakeDb):
         # Retrieve layer definition
         lyr_defn = out_layer.GetLayerDefn()
 
-        for pld_path in pld_path_list:
+        for pld_path in self.pld_path_list:
             logger.debug("Loading fields %s of table %s from folder %s" % (
             " ".join(in_field_name_list), in_table_name, pld_path))
 
@@ -954,7 +994,7 @@ class LakeDbDirectory(LakeDb):
             # 2 - Select subset among PLD lakes using in_poly
             if in_poly is not None:
                 in_poly.FlattenTo2D()  # Transform 3D geometry into 2D geometry (necessary for spatialite query)
-                cmd = "SELECT %s, AsText(geometry) FROM %s WHERE MBRIntersects(GeomFromText('%s'), %s.geometry);" % (
+                cmd = "SELECT %s, AsText(geometry) FROM %s WHERE ST_Intersects(GeomFromText('%s'), %s.geometry);" % (
                     ",".join(in_field_name_list), in_table_name, in_poly.ExportToWkt(), in_table_name)
                 db_cursor.execute(cmd)
             else:
@@ -985,7 +1025,6 @@ class LakeDbDirectory(LakeDb):
 
         # 4 - Reset reading pointer
         out_layer.ResetReading()
-
 
         logger.info("%d features after focus over studied area" % out_layer.GetFeatureCount())
         return out_data_source, out_layer
@@ -1046,7 +1085,7 @@ class LakeDbDirectory(LakeDb):
         # 2 - Select subset among PLD lakes using in_poly
         if in_poly is not None:
             in_poly.FlattenTo2D()  # Transform 3D geometry into 2D geometry (necessary for spatialite query)
-            cmd = "SELECT %s, AsText(geometry) FROM %s WHERE MBRIntersects(GeomFromText('%s'), %s.geometry);" % (
+            cmd = "SELECT %s, AsText(geometry) FROM %s WHERE ST_Intersects(GeomFromText('%s'), %s.geometry);" % (
                 ",".join(in_field_name_list), in_table_name, in_poly.ExportToWkt(), in_table_name)
             db_cursor.execute(cmd)
         else:
@@ -1103,7 +1142,7 @@ def get_list_of_pld_path(pld_directory_path):
     return pld_path_list
 
 
-def select_pld_file_from_polygon( pld_path_list, basin_lyr):
+def select_pld_file_from_polygon(pld_path_list, basin_lyr):
     """
     Select files for pld_path_list that are related to the continents contained in basin_lyr
 
@@ -1116,7 +1155,7 @@ def select_pld_file_from_polygon( pld_path_list, basin_lyr):
     continent_set = set()
     for feat in basin_lyr :
        basin_id = feat.GetField("basin_id")
-       continent_set.add(compute_continent_from_basin_id(str(basin_id)))
+       continent_set.add(compute_continent_id_from_basin_code(str(basin_id)))
 
     basin_lyr.ResetReading()
 
@@ -1132,7 +1171,7 @@ def select_pld_file_from_polygon( pld_path_list, basin_lyr):
 
 def compute_closest_polygon_with_kdtree(in_lon, in_lat, prior_geoms, prior_id):
     """
-    Associate to each pixc_vec coordinate (in_lon, in_lat) the closest prior lake and its id
+    Associate to each PIXCVec coordinate (in_lon, in_lat) the closest prior lake and its id
 
     :param in_lon: improved longitude of PixC related to in_poly
     :type in_lon: 1D array of float
@@ -1189,10 +1228,9 @@ def compute_closest_polygon_with_kdtree(in_lon, in_lat, prior_geoms, prior_id):
     return prior_id_list[kd_tree_idx_utm]
 
 
-def compute_continent_from_basin_id(in_basin_id):
+def compute_continent_id_from_basin_code(in_basin_code):
     """
-    Compute continent from basin ID (HydroBASINS nomenclature)
-    * 0 for Ocean
+    Compute continent identifier from basin code (HydroBASINS nomenclature)
     * 1 for Africa
     * 2 for Europe
     * 3 for Siberia
@@ -1202,38 +1240,40 @@ def compute_continent_from_basin_id(in_basin_id):
     * 7 for North America
     * 8 for Arctic (North America)
     * 9 for Greenland
+    Added for technical purposes:
+    * 0 for Ocean
     * 10 for no continent
 
-    :param in_basin_id: basin identifier
-    :type in_basin_id: string
+    :param in_basin_code: basin code
+    :type in_basin_code: string
 
-    :return: 2 letters related to the continent
+    :return: 2-letter identifier of the continent
     :rtype: string
     """
 
     retour = ""
 
-    if in_basin_id == "010":
+    if in_basin_code == "010":
         retour = ""
-    elif in_basin_id == "000":
+    elif in_basin_code == "000":
         retour = "OCEAN"
-    elif in_basin_id.startswith("1"):
+    elif in_basin_code.startswith("1"):
         retour = "AF"
-    elif in_basin_id.startswith("2"):
+    elif in_basin_code.startswith("2"):
         retour = "EU"
-    elif in_basin_id.startswith("3"):
+    elif in_basin_code.startswith("3"):
         retour = "SI"
-    elif in_basin_id.startswith("4"):
+    elif in_basin_code.startswith("4"):
         retour = "AS"
-    elif in_basin_id.startswith("5"):
+    elif in_basin_code.startswith("5"):
         retour = "AU"
-    elif in_basin_id.startswith("6"):
+    elif in_basin_code.startswith("6"):
         retour = "SA"
-    elif in_basin_id.startswith("7"):
+    elif in_basin_code.startswith("7"):
         retour = "NA"
-    elif in_basin_id.startswith("8"):
+    elif in_basin_code.startswith("8"):
         retour = "AR"
-    elif in_basin_id.startswith("9"):
+    elif in_basin_code.startswith("9"):
         retour = "GR"
     else:
         retour = "xx"
@@ -1241,10 +1281,9 @@ def compute_continent_from_basin_id(in_basin_id):
     return retour
 
 
-def compute_basin_id_from_continent(in_continent):
+def compute_continent_code(in_continent_id):
     """
-    Compute continent from basin ID (HydroBASINS nomenclature)
-    * 0 for Ocean
+    Compute continent code from continent short name (HydroBASINS nomenclature)
     * 1 for Africa
     * 2 for Europe
     * 3 for Siberia
@@ -1254,37 +1293,40 @@ def compute_basin_id_from_continent(in_continent):
     * 7 for North America
     * 8 for Arctic (North America)
     * 9 for Greenland
+    Added for technical purposes:
+    * 0 for Ocean
     * 10 for no continent
 
-    :param in_continent: continent code
-    :type in_continent: string
+    :param in_continent_id: 2-letter continent identifier
+    :type in_continent_id: string
 
-    :return: pfaf_continent id
+    :return: 1-digit continent code
     :rtype: string
     """
 
     retour = ""
-    if in_continent == "OCEAN":
+    
+    if in_continent_id == "OCEAN":
         retour = "0"
-    elif in_continent == "AF":
+    elif in_continent_id == "AF":
         retour = "1"
-    elif in_continent == "EU":
+    elif in_continent_id == "EU":
         retour = "2"
-    elif in_continent == "SI":
+    elif in_continent_id == "SI":
         retour = "3"
-    elif in_continent == "AS":
+    elif in_continent_id == "AS":
         retour = "4"
-    elif in_continent == "AU":
+    elif in_continent_id == "AU":
         retour = "5"
-    elif in_continent == "SA":
+    elif in_continent_id == "SA":
         retour = "6"
-    elif in_continent == "NA":
+    elif in_continent_id == "NA":
         retour = "7"
-    elif in_continent == "AR":
+    elif in_continent_id == "AR":
         retour = "8"
-    elif in_continent == "GR":
+    elif in_continent_id == "GR":
         retour = "9"
-    elif in_continent == "":
+    elif in_continent_id == "":
         retour = "10"
     else:
         retour = ""
@@ -1345,7 +1387,7 @@ class PriorLake(object):
             if in_obj_lakedb.lakedb_id_type == "String":
                 in_obj_lakedb.lake_layer.SetAttributeFilter("%s like '%s'" % (in_obj_lakedb.lakedb_id_name, str(in_lakeid)))
             else :
-                in_obj_lakedb.lake_layer.SetAttributeFilter("%s = %s" % (self.lakedb_id_name, str(in_lakeid)))
+                in_obj_lakedb.lake_layer.SetAttributeFilter("%s = %s" % (in_obj_lakedb.lakedb_id_name, str(in_lakeid)))
             pld_lake_feat = in_obj_lakedb.lake_layer.GetNextFeature()
             
             # 2.1 - Retrieve geometry
@@ -1420,45 +1462,54 @@ class PriorLake(object):
         
         # 2.1 - Set PLD name
         if self.name is not None:
-            out_attributes["p_name"] = self.name
+            out_attributes["lake_name"] = self.name
         else:
-            out_attributes["p_name"] = my_var.FV_STRING_SHP
+            out_attributes["lake_name"] = my_var.FV_STRING_SHP
                 
         # 2.2 - Set GRanD identifier
         if self.grand is not None:
             out_attributes["p_grand_id"] = self.grand
         else:
             out_attributes["p_grand_id"] = my_var.FV_INT9_SHP
-
-        # 2.3 - Set max water surface elevation
-        if self.max_wse is not None:
-            out_attributes["p_max_wse"] = self.max_wse
-        else:
-            out_attributes["p_max_wse"] = my_var.FV_REAL
-
-        # 2.4 - Set max area
-        if self.max_area is not None:
-            out_attributes["p_max_area"] = self.max_area
-        else:
-            out_attributes["p_max_area"] = my_var.FV_REAL
-
-        # 2.5 - Set reference date
-        if self.ref_date is not None:
-            out_attributes["p_ref_date"] = self.ref_date
-        else:
-            out_attributes["p_ref_date"] = my_var.FV_STRING_SHP
-
-        # 2.6 - Set refence storage change
-        if self.ref_ds is not None:
-            out_attributes["p_ref_ds"] = self.ref_ds
-        else:
-            out_attributes["p_ref_ds"] = my_var.FV_REAL
                 
-        # 2.7 - Update maximum water storage value
+        # 2.3 - Set longitude of centroid
+        out_attributes["p_lon"] = my_var.FV_REAL
+                
+        # 2.4 - Set latitude of centroid
+        out_attributes["p_lat"] = my_var.FV_REAL
+
+        # 2.5 - Set ref water surface elevation
+        if self.max_wse is not None:
+            out_attributes["p_ref_wse"] = self.max_wse
+        else:
+            out_attributes["p_ref_wse"] = my_var.FV_REAL
+
+        # 2.6 - Set ref area
+        if self.max_area is not None:
+            out_attributes["p_ref_area"] = self.max_area
+        else:
+            out_attributes["p_ref_area"] = my_var.FV_REAL
+
+        # 2.7 - Set date t0
+        if self.ref_date is not None:
+            out_attributes["p_date_t0"] = self.ref_date
+        else:
+            out_attributes["p_date_t0"] = my_var.FV_STRING_SHP
+
+        # 2.8 - Set storage change at t0
+        if self.ref_ds is not None:
+            out_attributes["p_ds_t0"] = self.ref_ds
+        else:
+            out_attributes["p_ds_t0"] = my_var.FV_REAL
+                
+        # 2.9 - Update maximum water storage value
         if self.storage is not None:
             out_attributes["p_storage"] = self.storage
         else:
             out_attributes["p_storage"] = my_var.FV_REAL
+        
+        # 2.10 - Set reach identifier
+        out_attributes["reach_id"] = my_var.FV_STRING_SHP
             
         return out_attributes
 

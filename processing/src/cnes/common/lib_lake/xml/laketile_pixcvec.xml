@@ -39,7 +39,13 @@
         <annotation description="NetCDF-4 conventions adopted in this product. This attribute should be set to CF-1.7 to indicate that the product is compliant with the Climate and Forecast NetCDF conventions."/>
       </string>
       <string name="/@title" shape="Scalar" width="0">
-        <annotation description="Level 2 KaRIn high rate lake tile vector product - PIXCVec"/>
+        <annotation description="Level 2 KaRIn high rate lake tile vector product"/>
+      </string>
+      <string name="/@short_name" shape="Scalar" width="0">
+        <annotation description="L2_HR_LakeTile"/>
+      </string>
+      <string name="/@product_file_id" shape="Scalar" width="0">
+        <annotation description="PIXCVec"/>
       </string>
       <string name="/@institution" shape="Scalar" width="0">
         <annotation description="Name of producing agency."/>
@@ -59,6 +65,18 @@
       <string name="/@reference_document" shape="Scalar" width="0">
         <annotation description="SWOT-TN-CDM-0672-CNES"/>
       </string>
+      <string name="/@product_version" shape="Scalar" width="0">
+        <annotation description="Version identifier of this data file"/>
+      </string>
+      <string name="/@crid" shape="Scalar" width="0">
+        <annotation description="Composite release identifier (CRID) of the data system used to generate this file"/>
+      </string>
+      <string name="/@pge_name" shape="Scalar" width="0">
+        <annotation description="PGE_L2_HR_LakeTile"/>
+      </string>
+      <string name="/@pge_version" shape="Scalar" width="0">
+        <annotation description="Version identifier of the product generation executable (PGE) that created this file"/>
+      </string>
       <string name="/@contact" shape="Scalar" width="0">
         <annotation description="Contact information for producer of product. (e.g., 'ops@jpl.nasa.gov')."/>
       </string>
@@ -75,10 +93,19 @@
         <annotation description="'L' or 'R' to indicate left and right swath, respectively."/>
       </string>
       <string name="/@tile_name" shape="Scalar" width="0">
-        <annotation description="Tile name using format PPP_TTTS, where PPP is a 3 digit pass number with leading zeros, TTT is a 3 digit tile number within the pass, and S is a character 'L' or 'R' for the left and right swath, respectively."/>
+        <annotation description="Tile name using format PPP_TTTS, where PPP is a 3-digit pass number with leading zeros, TTT is a 3-digit tile number within the pass, and S is a character 'L' or 'R' for the left and right swath, respectively."/>
       </string>
-      <string name="/@continent" shape="Scalar" width="0">
-        <annotation description="Continents the product belongs to. If the tile belongs to more than one continent, all continents are listed, separated by a semi-column."/>
+      <string name="/@continent_id" shape="Scalar" width="0">
+        <annotation description="Two-letter continent identifier of the product granule."/>
+      </string>
+      <string name="/@continent_code" shape="Scalar" width="0">
+        <annotation description="One-digit (C) continent code of the product granule."/>
+      </string>
+      <string name="/@time_granule_start" shape="Scalar" width="0">
+        <annotation description="Nominal starting UTC time of product granule. Format is: YYYY-MM-DDThh:mm:ss.ssssssZ"/>
+      </string>
+      <string name="/@time_granule_end" shape="Scalar" width="0">
+        <annotation description="Nominal ending UTC time of product granule. Format is: YYYY-MM-DDThh:mm:ss.ssssssZ"/>
       </string>
       <string name="/@time_coverage_start" shape="Scalar" width="0">
         <annotation description="UTC time of first measurement. Format is: YYYY-MM-DD hh:mm:ss.ssssssZ"/>
@@ -122,20 +149,20 @@
       <real name="/@outer_last_latitude" shape="Scalar" width="64">
         <annotation description="Nominal swath corner latitude for the last range line and outer part of the swath (degrees_north)"/>
       </real>
-      <string name="/@xref_input_l2_hr_pixc_file" shape="Scalar" width="0">
-        <annotation description="Water mask pixel cloud file used to generate data in product."/>
+      <string name="/@xref_l2_hr_pixc_file" shape="Scalar" width="0">
+        <annotation description="Names of input Level 2 high rate water mask pixel cloud files."/>
       </string>
-      <string name="/@xref_input_l2_hr_pixc_vec_river_file" shape="Scalar" width="0">
-        <annotation description="Pixel cloud vector attribute river file used to generate data in product."/>
+      <string name="/@xref_l2_hr_pixcvecriver_file" shape="Scalar" width="0">
+        <annotation description="Name of input Level 2 high rate pixel cloud vector attribute river file."/>
       </string>
-      <string name="/@xref_static_river_db_file" shape="Scalar" width="0">
-        <annotation description="Name of static river a priori database file used to generate data in product."/>
+      <string name="/@xref_prior_river_db_file" shape="Scalar" width="0">
+        <annotation description="Name of input prior river database file."/>
       </string>
-      <string name="/@xref_static_lake_db_file" shape="Scalar" width="0">
-        <annotation description="Name of static lake a priori database file used to generate data in product."/>
+      <string name="/@xref_prior_lake_db_file" shape="Scalar" width="0">
+        <annotation description="Name of input prior lake database file."/>
       </string>
-      <string name="/@xref_l2_hr_lake_tile_config_parameter_file" shape="Scalar" width="0">
-        <annotation description="Name of PGE_L2_HR_LakeTile configuration parameters file."/>
+      <string name="/@xref_param_l2_hr_laketile_file" shape="Scalar" width="0">
+        <annotation description="Name of input Level 2 high rate lake tile processor configuration parameters file."/>
       </string>
       <real name="/@ellipsoid_semi_major_axis" shape="Scalar" width="64">
         <annotation description="Semi-major axis of reference ellipsoid in meters."/>

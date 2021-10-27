@@ -9,6 +9,7 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -75,12 +76,12 @@ def stocc_linear_basic(in_list_obs, in_ref_area, in_ref_area_u, in_ref_wse, in_r
         out_stoc_val /= 10**3  # Convert value in km3 (wse is in m instead of km)
             
         # Associated uncertainty
-        dV_dhi = (in_ref_area + in_list_obs[obs_id]["area"])/2.
-        dV_dhref = -dV_dhi
-        dV_dAi = (in_list_obs[obs_id]["wse"] - in_ref_wse)/2.
-        dV_dAref = dV_dAi
-        out_stoc_u = math.sqrt( (dV_dhi*in_list_obs[obs_id]["wse_u"])**2 + (dV_dhref*in_ref_wse_u)**2 + \
-                               (dV_dAi*in_list_obs[obs_id]["area_u"])**2 + (dV_dAref*in_ref_area_u)**2 )
+        dv_dhi = (in_ref_area + in_list_obs[obs_id]["area"])/2.
+        dv_dhref = -dv_dhi
+        dv_dai = (in_list_obs[obs_id]["wse"] - in_ref_wse)/2.
+        dv_daref = dv_dai
+        out_stoc_u = math.sqrt( (dv_dhi*in_list_obs[obs_id]["wse_u"])**2 + (dv_dhref*in_ref_wse_u)**2 + \
+                               (dv_dai*in_list_obs[obs_id]["area_u"])**2 + (dv_daref*in_ref_area_u)**2 )
         out_stoc_u /= 10**3  # Convert value in km3 (wse and wse_u are in m instead of km)
         
     else:
@@ -93,12 +94,12 @@ def stocc_linear_basic(in_list_obs, in_ref_area, in_ref_area_u, in_ref_wse, in_r
             out_stoc_val += (in_list_obs[obs_id]["wse"] - in_ref_wse)/2. * (in_list_obs[obs_id]["alpha"]*in_ref_area + in_list_obs[obs_id]["area"])
             
             # Associated uncertainty
-            dV_dhi = (in_list_obs[obs_id]["alpha"]*in_ref_area + in_list_obs[obs_id]["area"])/2.
-            dV_dhref = -dV_dhi
-            dV_dAi = (in_list_obs[obs_id]["wse"] - in_ref_wse)/2.
-            dV_dAref = in_list_obs[obs_id]["alpha"]*dV_dAi
-            tmp_stoc_u += (dV_dhi*in_list_obs[obs_id]["wse_u"])**2 + (dV_dhref*in_ref_wse_u)**2 + \
-                            (dV_dAi*in_list_obs[obs_id]["area_u"])**2 + (dV_dAref*in_ref_area_u)**2
+            dv_dhi = (in_list_obs[obs_id]["alpha"]*in_ref_area + in_list_obs[obs_id]["area"])/2.
+            dv_dhref = -dv_dhi
+            dv_dai = (in_list_obs[obs_id]["wse"] - in_ref_wse)/2.
+            dv_daref = in_list_obs[obs_id]["alpha"]*dv_dai
+            tmp_stoc_u += (dv_dhi*in_list_obs[obs_id]["wse_u"])**2 + (dv_dhref*in_ref_wse_u)**2 + \
+                            (dv_dai*in_list_obs[obs_id]["area_u"])**2 + (dv_daref*in_ref_area_u)**2
             
         # Convert value in km3 (wse is in m instead of km)
         out_stoc_val /= 10**3
@@ -151,16 +152,17 @@ def stocc_quadratic_basic(in_list_obs, in_ref_area, in_ref_area_u, in_ref_wse, i
         obs_id = list(in_list_obs.keys())[0]
         
         # Volume variation between both surfaces
-        out_stoc_val = (in_list_obs[obs_id]["wse"] - in_ref_wse)/3. * (in_ref_area + in_list_obs[obs_id]["area"] + math.sqrt(in_ref_area * in_list_obs[obs_id]["area"]))
+        out_stoc_val = (in_list_obs[obs_id]["wse"] - in_ref_wse)/3. * (in_ref_area + in_list_obs[obs_id]["area"] + \
+                                                                       math.sqrt(in_ref_area * in_list_obs[obs_id]["area"]))
         out_stoc_val /= 10**3  # Convert value in km3 (wse is in m instead of km)
             
         # Associated uncertainty
-        dV_dhi = (in_ref_area + in_list_obs[obs_id]["area"] + math.sqrt(in_ref_area * in_list_obs[obs_id]["area"]))/3.
-        dV_dhref = -dV_dhi
-        dV_dAi = (in_list_obs[obs_id]["wse"] - in_ref_wse)/3. * ( 1. + math.sqrt(in_ref_area/in_list_obs[obs_id]["area"])/2. )
-        dV_dAref = (in_list_obs[obs_id]["wse"] - in_ref_wse)/3. * ( 1. + math.sqrt(in_list_obs[obs_id]["area"]/in_ref_area)/2. )
-        out_stoc_u = math.sqrt( (dV_dhi*in_list_obs[obs_id]["wse_u"])**2 + (dV_dhref*in_ref_wse_u)**2 + \
-                               (dV_dAi*in_list_obs[obs_id]["area_u"])**2 + (dV_dAref*in_ref_area_u)**2 )
+        dv_dhi = (in_ref_area + in_list_obs[obs_id]["area"] + math.sqrt(in_ref_area * in_list_obs[obs_id]["area"]))/3.
+        dv_dhref = -dv_dhi
+        dv_dai = (in_list_obs[obs_id]["wse"] - in_ref_wse)/3. * ( 1. + math.sqrt(in_ref_area/in_list_obs[obs_id]["area"])/2. )
+        dv_daref = (in_list_obs[obs_id]["wse"] - in_ref_wse)/3. * ( 1. + math.sqrt(in_list_obs[obs_id]["area"]/in_ref_area)/2. )
+        out_stoc_u = math.sqrt( (dv_dhi*in_list_obs[obs_id]["wse_u"])**2 + (dv_dhref*in_ref_wse_u)**2 + \
+                               (dv_dai*in_list_obs[obs_id]["area_u"])**2 + (dv_daref*in_ref_area_u)**2 )
         out_stoc_u /= 10**3  # Convert value in km3 (wse and wse_u are in m instead of km)
         
     else:
@@ -174,12 +176,15 @@ def stocc_quadratic_basic(in_list_obs, in_ref_area, in_ref_area_u, in_ref_wse, i
                                 + math.sqrt(in_list_obs[obs_id]["alpha"]*in_ref_area * in_list_obs[obs_id]["area"]))
             
             # Associated uncertainty
-            dV_dhi = (in_list_obs[obs_id]["alpha"]*in_ref_area + in_list_obs[obs_id]["area"] + math.sqrt(in_list_obs[obs_id]["alpha"]*in_ref_area * in_list_obs[obs_id]["area"]))/3.
-            dV_dhref = -dV_dhi
-            dV_dAi = (in_list_obs[obs_id]["wse"] - in_ref_wse)/3. * ( 1. + math.sqrt(in_list_obs[obs_id]["alpha"]*in_ref_area/in_list_obs[obs_id]["area"])/2. )
-            dV_dAref = (in_list_obs[obs_id]["wse"] - in_ref_wse)/3. * ( in_list_obs[obs_id]["alpha"] + math.sqrt(in_list_obs[obs_id]["area"]/(in_list_obs[obs_id]["alpha"]*in_ref_area))/2. )
-            tmp_stoc_u += (dV_dhi*in_list_obs[obs_id]["wse_u"])**2 + (dV_dhref*in_ref_wse_u)**2 + \
-                            (dV_dAi*in_list_obs[obs_id]["area_u"])**2 + (dV_dAref*in_ref_area_u)**2
+            dv_dhi = (in_list_obs[obs_id]["alpha"]*in_ref_area + in_list_obs[obs_id]["area"] + \
+                      math.sqrt(in_list_obs[obs_id]["alpha"]*in_ref_area * in_list_obs[obs_id]["area"]))/3.
+            dv_dhref = -dv_dhi
+            dv_dai = (in_list_obs[obs_id]["wse"] - in_ref_wse)/3. * \
+                     ( 1. + math.sqrt(in_list_obs[obs_id]["alpha"]*in_ref_area/in_list_obs[obs_id]["area"])/2. )
+            dv_daref = (in_list_obs[obs_id]["wse"] - in_ref_wse)/3. * \
+                       ( in_list_obs[obs_id]["alpha"] + math.sqrt(in_list_obs[obs_id]["area"]/(in_list_obs[obs_id]["alpha"]*in_ref_area))/2. )
+            tmp_stoc_u += (dv_dhi*in_list_obs[obs_id]["wse_u"])**2 + \
+                          (dv_dhref*in_ref_wse_u)**2 + (dv_dai*in_list_obs[obs_id]["area_u"])**2 + (dv_daref*in_ref_area_u)**2
             
         # Convert value in km3 (wse is in m instead of km)
         out_stoc_val /= 10**3

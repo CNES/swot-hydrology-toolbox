@@ -27,7 +27,7 @@ Output directory = <output_directory>
 
 [DATABASES]
 # OPTIION 1 : SQLITE lake database containing  : lake_table, lake_influence_table, basin_table
-LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/PLD
+LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20200309_PLD/PLD_EU.sqlite
 
 # OPTION 2 : SHP lake database
 # Prior lake database
@@ -59,16 +59,18 @@ logConsole = <True|False>
 logconsolelevel = <DEBUG|INFO>
 
 [FILE_INFORMATION]
+# Name of producing agency
+INSTITUTION = CNES
+# Version number of software generating product
+REFERENCES = <X.Y>
+# Product version
+PRODUCT_VERSION = <Draft|Initial release|...>
 # Composite Release IDentifier for LakeTile processing
 CRID_LAKETILE = <CRID_value>
 # Composite Release IDentifier for LakeSP processing
 CRID_LAKESP = <CRID_value>
-# Producer
-PRODUCER = CNES
-# Method of production of the original data
-SOURCE = Simulation
-# Software version
-SOFTWARE_VERSION = <X.Y>
+# Version identifier of the product generation executable (PGE)
+PGE_VERSION = <X.Y>
 # Contact
 CONTACT = <xxxx@cnes.fr>
 ```

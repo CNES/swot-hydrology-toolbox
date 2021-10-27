@@ -1,3 +1,14 @@
+# -*- coding: utf-8 -*-
+#
+# ======================================================
+#
+# Project : SWOT KARIN
+#
+# ======================================================
+# HISTORIQUE
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# FIN-HISTORIQUE
+# ======================================================
 """
 .. module:: locnes_products_general.py
     :synopsis: Deals with SWOT products
@@ -11,13 +22,10 @@
    This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 """
 from collections import OrderedDict
-import datetime
 import logging
 import os
 
 import cnes.common.service_config_file as service_config_file
-
-import cnes.common.lib.my_tools as my_tools
 
 
 class LocnesProduct(object):
@@ -61,11 +69,25 @@ class LocnesProduct(object):
         self.set_from_xml(in_xml_file)
         
         # 2 - Update global metadata attributes
-        self.global_metadata["institution"]["value"] = cfg.get('FILE_INFORMATION', 'PRODUCER')
-        self.global_metadata["source"]["value"] = cfg.get('FILE_INFORMATION', 'SOURCE')
-        self.global_metadata["history"]["value"] = "%sZ: Creation" % my_tools.swot_timeformat(datetime.datetime.utcnow(), in_format=1)
-        self.global_metadata["references"]["value"] = cfg.get('FILE_INFORMATION', 'SOFTWARE_VERSION')
-        self.global_metadata["contact"]["value"] = cfg.get('FILE_INFORMATION', 'CONTACT')
+        list_fileinfo = cfg.options("FILE_INFORMATION")
+        if "institution" in list_fileinfo:
+            self.global_metadata["institution"]["value"] = cfg.get('FILE_INFORMATION', 'INSTITUTION')
+        if "references" in list_fileinfo:
+            self.global_metadata["references"]["value"] = cfg.get('FILE_INFORMATION', 'REFERENCES')
+        if "product_version" in list_fileinfo:
+            self.global_metadata["product_version"]["value"] = cfg.get('FILE_INFORMATION', 'PRODUCT_VERSION')
+        if "crid" in list_fileinfo:
+            self.global_metadata["crid"]["value"] = cfg.get("FILE_INFORMATION", "CRID")
+        if "crid_laketile" in list_fileinfo:
+            self.global_metadata["crid"]["value"] = cfg.get("FILE_INFORMATION", "CRID_LAKETILE")
+        if "crid_lakesp" in list_fileinfo:
+            self.global_metadata["crid"]["value"] = cfg.get("FILE_INFORMATION", "CRID_LAKESP")
+        if "crid_lakeavg" in list_fileinfo:
+            self.global_metadata["crid"]["value"] = cfg.get("FILE_INFORMATION", "CRID_LAKEAVG")
+        if "pge_version" in list_fileinfo:
+            self.global_metadata["pge_version"]["value"] = cfg.get('FILE_INFORMATION', 'PGE_VERSION')
+        if "contact" in list_fileinfo:
+            self.global_metadata["contact"]["value"] = cfg.get('FILE_INFORMATION', 'CONTACT')
         
         # 3.1 - Update metadata retrieved from input data product
         if in_inprod_metadata is not None:
@@ -93,7 +115,9 @@ class LocnesProduct(object):
         
         for key, value in in_metadata.items():
             if key in metadata_keys:
-                if value not in ["", "None", None]:
+                if value in ["", "None", None]:
+                    self.global_metadata[key]["value"] = "None"
+                else:
                     self.global_metadata[key]["value"] = value
             else:
                 logger.debug("%s key is not used as metadata" % key)
@@ -104,12 +128,16 @@ class LocnesProduct(object):
         """
         If LOCNES is not run in simulation environment, convert xref_[...] global metadata full path into basename
         """
-        # Get instance of service config file
-        cfg = service_config_file.get_instance()
         
-        if cfg.get("FILE_INFORMATION", "SOURCE") != "Simulation":
+        if "simu" not in self.global_metadata["source"]["value"].lower():
             for name, att_dict in self.global_metadata.items():
                 if name.startswith("xref_"):
-                    tmp_desc = os.path.basename(self.global_metadata[name]["value"])
-                    self.global_metadata[name]["value"] = tmp_desc
+                    if ";" in self.global_metadata[name]["value"]:
+                        tmp_split = self.global_metadata[name]["value"].split(";")
+                        tmp_set = set()
+                        for tmp_fullpath in tmp_split:
+                            tmp_set.add(os.path.basename(tmp_fullpath))
+                        self.global_metadata[name]["value"] = ";".join(tmp_set)
+                    else:
+                        self.global_metadata[name]["value"] = os.path.basename(self.global_metadata[name]["value"])
                     

@@ -8,6 +8,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -35,6 +37,7 @@ import cnes.common.lib.my_netcdf_file as my_nc
 import cnes.common.lib.my_tools as my_tools
 import cnes.common.lib.my_segmentation as my_segmentation
 import cnes.common.lib.my_variables as my_var
+import cnes.common.lib_lake.lake_db as lake_db
 
 import cnes.common.service_config_file as service_config_file
 
@@ -46,7 +49,7 @@ class PixCEdge(object):
     class PixCEdge
     This class is designed to process all L2_HR_LakeTile_edge files of two half-swath thought 2 PixCEdgeSwath objects
     """
-    def __init__(self, in_lake_tile_edge_path_list, in_cycle, in_pass, in_continent):
+    def __init__(self, in_lake_tile_edge_path_list, in_cycle, in_pass, in_continent_id):
         """
         Constructor: init aggregation of all LakeTile_edge files of one continent-pass
 
@@ -56,8 +59,8 @@ class PixCEdge(object):
         :type in_cycle: int
         :param in_pass_num: pass number
         :type in_pass_num: int
-        :param in_continent: continent code
-        :type in_continent: str
+        :param in_continent_id: 2-letter continent identifier
+        :type in_continent_id: string
 
         Variables of the object:
         - lake_tile_edge_path_r / list of string: list of full path to LakeTile_edge files for right half-swath
@@ -74,7 +77,7 @@ class PixCEdge(object):
         logger.info("- start -")
 
         # 1 - Init object gathering LakeTile_edge files for RIGHT half-swath
-        logger.info("== INIT *RIGHT* half-swath for continent %s with LakeTile_edge files ==" % in_continent)
+        logger.info("== INIT *RIGHT* half-swath for continent %s with LakeTile_Edge files ==" % in_continent_id)
         # 1.1 - List LakeTile_edge files
         self.lake_tile_edge_path_r = [file for file in in_lake_tile_edge_path_list if "R_20" in file]
         self.lake_tile_edge_path_r.sort()  # Sort in alphabetic order
@@ -83,10 +86,10 @@ class PixCEdge(object):
             logger.info(file)
         logger.info("===================================")
         # 1.2 - Init PIXC_edge object
-        self.pixc_edge_r = PixCEdgeSwath(in_cycle, in_pass, in_continent, "R")
+        self.pixc_edge_r = PixCEdgeSwath(in_cycle, in_pass, in_continent_id, "R")
 
         # 2 - Init object gathering LakeTile_edge files for LEFT half-swath
-        logger.info("== INIT *LEFT* half-swath for continent %s with LakeTile_edge files ==" % in_continent)
+        logger.info("== INIT *LEFT* half-swath for continent %s with LakeTile_edge files ==" % in_continent_id)
         # 2.1 - List LakeTile_edge files
         self.lake_tile_edge_path_l = [file for file in in_lake_tile_edge_path_list if "L_20" in file]
         self.lake_tile_edge_path_l.sort()  # Sort in alphabetic order
@@ -95,7 +98,7 @@ class PixCEdge(object):
             logger.info(file)
         logger.info("===================================")
         # 2.2 - Init PIXC_edge object
-        self.pixc_edge_l = PixCEdgeSwath( in_cycle, in_pass, in_continent, "L")
+        self.pixc_edge_l = PixCEdgeSwath( in_cycle, in_pass, in_continent_id, "L")
         
         # 3 - Init SP metadata
         self.pixc_metadata = {}
@@ -133,20 +136,23 @@ class PixCEdge(object):
         else:
             logger.error("Pass number for swath left and right are not the same")
         
-        # 4.3 - Continent code
-        if self.pixc_edge_l.continent == self.pixc_edge_r.continent:
-            self.pixc_metadata["continent"] =  self.pixc_edge_l.continent
+        # 4.3 - Continent identifier and code
+        if self.pixc_edge_l.continent_id == self.pixc_edge_r.continent_id:
+            self.pixc_metadata["continent_id"] =  self.pixc_edge_l.continent_id
+            self.pixc_metadata["continent_code"] =  self.pixc_edge_l.continent_code
         else:
             logger.error("Continent for swath left and right are not the same")
         
         # 4.4 - Start and stop time
-        if self.pixc_edge_l.pixc_metadata["time_coverage_start"] == "":
-            self.pixc_metadata["time_coverage_start"] = self.pixc_edge_r.pixc_metadata["time_coverage_start"]
-        elif self.pixc_edge_r.pixc_metadata["time_coverage_start"] == "":
-            self.pixc_metadata["time_coverage_start"] = self.pixc_edge_l.pixc_metadata["time_coverage_start"]
+        if self.pixc_edge_l.pixc_metadata["time_granule_start"] == "":
+            self.pixc_metadata["time_granule_start"] = self.pixc_edge_r.pixc_metadata["time_granule_start"]
+        elif self.pixc_edge_r.pixc_metadata["time_granule_start"] == "":
+            self.pixc_metadata["time_granule_start"] = self.pixc_edge_l.pixc_metadata["time_granule_start"]
         else:
-            self.pixc_metadata["time_coverage_start"] = min(self.pixc_edge_l.pixc_metadata["time_coverage_start"], self.pixc_edge_r.pixc_metadata["time_coverage_start"])
-        self.pixc_metadata["time_coverage_end"] = max(self.pixc_edge_l.pixc_metadata["time_coverage_end"], self.pixc_edge_r.pixc_metadata["time_coverage_end"])
+            self.pixc_metadata["time_granule_start"] = min(self.pixc_edge_l.pixc_metadata["time_granule_start"], 
+                                                            self.pixc_edge_r.pixc_metadata["time_granule_start"])
+        self.pixc_metadata["time_granule_end"] = max(self.pixc_edge_l.pixc_metadata["time_granule_end"], 
+                                                      self.pixc_edge_r.pixc_metadata["time_granule_end"])
         
         # 4.5 - Polygon of the swath
         self.pixc_metadata["polygon"] = str(self.tile_poly)
@@ -198,18 +204,22 @@ class PixCEdge(object):
         elif self.pixc_edge_r.pixc_metadata["geospatial_lon_min"] == -9999:
             self.pixc_metadata["geospatial_lon_min"] = self.pixc_edge_l.pixc_metadata["geospatial_lon_min"]
         else:
-            self.pixc_metadata["geospatial_lon_min"] = min(self.pixc_edge_l.pixc_metadata["geospatial_lon_min"], self.pixc_edge_r.pixc_metadata["geospatial_lon_min"])
+            self.pixc_metadata["geospatial_lon_min"] = min(self.pixc_edge_l.pixc_metadata["geospatial_lon_min"], 
+                                                           self.pixc_edge_r.pixc_metadata["geospatial_lon_min"])
         
-        self.pixc_metadata["geospatial_lon_max"] = max(self.pixc_edge_l.pixc_metadata["geospatial_lon_max"], self.pixc_edge_r.pixc_metadata["geospatial_lon_max"])
+        self.pixc_metadata["geospatial_lon_max"] = max(self.pixc_edge_l.pixc_metadata["geospatial_lon_max"], 
+                                                       self.pixc_edge_r.pixc_metadata["geospatial_lon_max"])
         
         if self.pixc_edge_l.pixc_metadata["geospatial_lat_min"] == -9999:
             self.pixc_metadata["geospatial_lat_min"] = self.pixc_edge_r.pixc_metadata["geospatial_lat_min"]
         elif self.pixc_edge_r.pixc_metadata["geospatial_lat_min"] == -9999:
             self.pixc_metadata["geospatial_lat_min"] = self.pixc_edge_l.pixc_metadata["geospatial_lat_min"]
         else:
-            self.pixc_metadata["geospatial_lat_min"] = min(self.pixc_edge_l.pixc_metadata["geospatial_lat_min"], self.pixc_edge_r.pixc_metadata["geospatial_lat_min"])
+            self.pixc_metadata["geospatial_lat_min"] = min(self.pixc_edge_l.pixc_metadata["geospatial_lat_min"], 
+                                                           self.pixc_edge_r.pixc_metadata["geospatial_lat_min"])
             
-        self.pixc_metadata["geospatial_lat_max"] = max(self.pixc_edge_l.pixc_metadata["geospatial_lat_max"], self.pixc_edge_r.pixc_metadata["geospatial_lat_max"])
+        self.pixc_metadata["geospatial_lat_max"] = max(self.pixc_edge_l.pixc_metadata["geospatial_lat_max"], 
+                                                       self.pixc_edge_r.pixc_metadata["geospatial_lat_max"])
         
         if self.pixc_metadata["geospatial_lon_min"] == -9999.0:
             self.pixc_metadata["geospatial_lon_min"] = min(self.pixc_metadata["left_first_longitude"],
@@ -262,7 +272,7 @@ class PixCEdgeSwath(object):
     at the top/bottom edges of tiles.
     """
 
-    def __init__(self, in_cycle, in_pass, in_continent, in_swath_side):
+    def __init__(self, in_cycle, in_pass, in_continent_id, in_swath_side):
         """
         Constructor: init aggregation of all LakeTile_edge files of one half-swath of a continent-pass
         
@@ -279,8 +289,8 @@ class PixCEdgeSwath(object):
         :type in_cycle: int
         :param in_pass_num: pass number
         :type in_pass_num: int
-        :param in_continent: continent code
-        :type in_continent: str
+        :param in_continent_id: 2-letter identifier of the processed continent
+        :type in_continent_id: string
         :param in_swath_side: R=Right L=Left swath side
         :type in_swath_side: string
 
@@ -355,7 +365,7 @@ class PixCEdgeSwath(object):
                 - load_tide_fes / 1D array of float: load tide height (FES2014)
                 - load_tide_got / 1D array of float: load tide height (GOT4.10)
                 - pole_tide / 1D array of float: pole tide height
-                - pixc_qual / 1D-array of byte: status flag
+                - classification_qual / 1D-array of byte: status flag
                 - wavelength / float: wavelength corresponding to the effective radar carrier frequency 
                 - looks_to_efflooks / float: ratio between the number of actual samples and the effective number of independent samples during 
                   spatial averaging over a large 2-D area
@@ -384,7 +394,8 @@ class PixCEdgeSwath(object):
         self.cycle_num = in_cycle # Cycle number
         self.pass_num = in_pass # Orbit number
         self.swath_side = in_swath_side # swath R or L
-        self.continent = in_continent
+        self.continent_id = in_continent_id
+        self.continent_code = lake_db.compute_continent_code(in_continent_id)
         
         # 2. Init LakeTile_edge variables
         # 2.1. Edge info
@@ -427,7 +438,7 @@ class PixCEdgeSwath(object):
         self.load_tide_fes = np.array(())
         self.load_tide_got = np.array(())
         self.pole_tide = np.array(())
-        self.pixc_qual = np.array(())
+        self.classification_qual = np.array(())
         self.wavelength = -9999.0
         self.looks_to_efflooks = -9999.0
         # 2.3. From PIXC/tvp group
@@ -450,11 +461,15 @@ class PixCEdgeSwath(object):
         self.nadir_sc_event_flag = np.array(())
         self.nadir_tvp_qual = np.array(())
         
-        # 3. Init dictionary of SP_edge metadata
+        # 3. Init dictionary of SP_Edge metadata
         self.pixc_metadata = {}
         self.pixc_metadata["cycle_number"] = -9999
         self.pixc_metadata["pass_number"] = -9999
-        self.pixc_metadata["continent"] = self.continent
+        self.pixc_metadata["continent_id"] = self.continent_id
+        self.pixc_metadata["continent_code"] = self.continent_code
+        self.pixc_metadata["basin_code"] = ""
+        self.pixc_metadata["time_granule_start"] = ""
+        self.pixc_metadata["time_granule_end"] = ""
         self.pixc_metadata["time_coverage_start"] = ""
         self.pixc_metadata["time_coverage_end"] = ""
         self.pixc_metadata["geospatial_lon_min"] = -9999
@@ -559,12 +574,12 @@ class PixCEdgeSwath(object):
 
     # ----------------------------------------
 
-    def load_laketile_edge_data(self, in_lake_tile_edge_filename):
+    def load_laketile_edge_data(self, in_laketile_edge_filename):
         """
         This function loads NetCDF information.
         
-        :param in_lake_tile_edge_filename: full path of the NetCDF file to load
-        :type in_lake_tile_edge_filename: string
+        :param in_laketile_edge_filename: full path of the NetCDF file to load
+        :type in_laketile_edge_filename: string
         
         :return: out_nb_pix = number of pixel loaded
         :rtype: out_nb_pix = integer
@@ -574,7 +589,7 @@ class PixCEdgeSwath(object):
         logger = logging.getLogger(self.__class__.__name__)
         
         # 1 - Open input NetCDF file in reading mode
-        pixc_edge_reader = my_nc.MyNcReader(in_lake_tile_edge_filename)
+        pixc_edge_reader = my_nc.MyNcReader(in_laketile_edge_filename)
 
         # 2 - Get and check tile references (cycle, pass, swath)
         out_tile_number = int(pixc_edge_reader.get_att_value("tile_number"))
@@ -590,17 +605,17 @@ class PixCEdgeSwath(object):
         current_swath_side = str(pixc_edge_reader.get_att_value("swath_side"))
         if current_swath_side != self.swath_side:
             logger.error("Swath of tile %s do not match with PixCEdgeSwath %s" %(current_swath_side, self.swath_side))
-        current_date = parser.parse(pixc_edge_reader.get_att_value("time_coverage_start"))
+        current_date = parser.parse(pixc_edge_reader.get_att_value("time_granule_start"))
         if not self.date:
             self.date = current_date
         # Stop the process if acquisition dates delta > 24h
         if (current_date - self.date) > datetime.timedelta(days=1) :
-            logger.error("Input LakeTile_edge file do not correspond to the same aquisition date")
+            logger.error("Input LakeTile_Edge file do not correspond to the same aquisition date")
 
-        current_continent = str(pixc_edge_reader.get_att_value("continent"))
-        if not self.continent in current_continent:
-            # If cur_continent do not belong to the EDGE SP product, do not add pixc info
-            logger.error("Input LakeTile_edge %s file do not correspond to the same continent %s" % (in_lake_tile_edge_filename, self.continent))
+        current_continent_id = str(pixc_edge_reader.get_att_value("continent_id"))
+        if not self.continent_id in current_continent_id:
+            # If cur_continent_id do not belong to the EDGE SP product, do not add pixc info
+            logger.error("Input LakeTile_Edge %s file do not correspond to the same continent %s" % (in_laketile_edge_filename, self.continent_id))
             retour = None, None, None, None, None
 
         else:
@@ -621,7 +636,7 @@ class PixCEdgeSwath(object):
             current_tile_poly.AddGeometry(ring)
 
             if not current_tile_poly.IsValid():
-                logger.warning("Polygon tile of file %s is not valid" %(in_lake_tile_edge_filename))
+                logger.warning("Polygon tile of file %s is not valid" % in_laketile_edge_filename)
             else:
                 self.tile_poly = self.tile_poly.Union(current_tile_poly)
     
@@ -631,6 +646,8 @@ class PixCEdgeSwath(object):
                 # 3.1 - Values for metadata
                 self.pixc_metadata["cycle_number"] = self.cycle_num
                 self.pixc_metadata["pass_number"] = self.pass_num
+                self.pixc_metadata["time_granule_start"] = str(pixc_edge_reader.get_att_value("time_granule_start"))
+                self.pixc_metadata["time_granule_end"] = str(pixc_edge_reader.get_att_value("time_granule_end"))
                 self.pixc_metadata["time_coverage_start"] = str(pixc_edge_reader.get_att_value("time_coverage_start"))
                 self.pixc_metadata["time_coverage_end"] = str(pixc_edge_reader.get_att_value("time_coverage_end"))
                 self.pixc_metadata["geospatial_lon_min"] = np.double(pixc_edge_reader.get_att_value("geospatial_lon_min"))
@@ -655,7 +672,8 @@ class PixCEdgeSwath(object):
                     self.pixc_metadata["right_first_latitude"] = np.double(pixc_edge_reader.get_att_value("outer_first_latitude"))
                     self.pixc_metadata["right_last_longitude"] = np.double(pixc_edge_reader.get_att_value("outer_last_longitude"))
                     self.pixc_metadata["right_last_latitude"] = np.double(pixc_edge_reader.get_att_value("outer_last_latitude"))
-                self.pixc_metadata["continent"] = self.continent
+                self.pixc_metadata["continent_id"] = self.continent_id
+                self.pixc_metadata["continent_code"] = self.continent_code
                 self.pixc_metadata["ellipsoid_semi_major_axis"] = str(pixc_edge_reader.get_att_value("ellipsoid_semi_major_axis"))
                 self.pixc_metadata["ellipsoid_flattening"] = str(pixc_edge_reader.get_att_value("ellipsoid_flattening"))
                 
@@ -672,50 +690,88 @@ class PixCEdgeSwath(object):
             out_slant_range_spacing = pixc_edge_reader.get_att_value("nominal_slant_range_spacing")
             
             # 6 - Update metadata from PixC info
-            self.pixc_metadata["time_coverage_start"] = min(self.pixc_metadata["time_coverage_start"], str(pixc_edge_reader.get_att_value("time_coverage_start")))
-            self.pixc_metadata["time_coverage_end"] = max(self.pixc_metadata["time_coverage_end"], str(pixc_edge_reader.get_att_value("time_coverage_end")))
-            self.pixc_metadata["geospatial_lon_min"] = min(self.pixc_metadata["geospatial_lon_min"], np.double(pixc_edge_reader.get_att_value("geospatial_lon_min")))
-            self.pixc_metadata["geospatial_lon_max"] = max(self.pixc_metadata["geospatial_lon_max"], np.double(pixc_edge_reader.get_att_value("geospatial_lon_max")))
-            self.pixc_metadata["geospatial_lat_min"] = min(self.pixc_metadata["geospatial_lat_min"], np.double(pixc_edge_reader.get_att_value("geospatial_lat_min")))
-            self.pixc_metadata["geospatial_lat_max"] = max(self.pixc_metadata["geospatial_lat_max"], np.double(pixc_edge_reader.get_att_value("geospatial_lat_max")))
+            self.pixc_metadata["time_coverage_start"] = min(self.pixc_metadata["time_coverage_start"], 
+                                                            str(pixc_edge_reader.get_att_value("time_coverage_start")))
+            self.pixc_metadata["time_coverage_end"] = max(self.pixc_metadata["time_coverage_end"], 
+                                                          str(pixc_edge_reader.get_att_value("time_coverage_end")))
+            self.pixc_metadata["geospatial_lon_min"] = min(self.pixc_metadata["geospatial_lon_min"], 
+                                                           np.double(pixc_edge_reader.get_att_value("geospatial_lon_min")))
+            self.pixc_metadata["geospatial_lon_max"] = max(self.pixc_metadata["geospatial_lon_max"], 
+                                                           np.double(pixc_edge_reader.get_att_value("geospatial_lon_max")))
+            self.pixc_metadata["geospatial_lat_min"] = min(self.pixc_metadata["geospatial_lat_min"], 
+                                                           np.double(pixc_edge_reader.get_att_value("geospatial_lat_min")))
+            self.pixc_metadata["geospatial_lat_max"] = max(self.pixc_metadata["geospatial_lat_max"], 
+                                                           np.double(pixc_edge_reader.get_att_value("geospatial_lat_max")))
             if self.swath_side == "L":
                 if self.pass_num%2 == 1:
-                    self.pixc_metadata["left_first_longitude"] = min(self.pixc_metadata["left_first_longitude"], np.double(pixc_edge_reader.get_att_value("outer_first_longitude")))
-                    self.pixc_metadata["left_first_latitude"] = min(self.pixc_metadata["left_first_latitude"], np.double(pixc_edge_reader.get_att_value("outer_first_latitude")))
-                    self.pixc_metadata["left_last_longitude"] = max(self.pixc_metadata["left_last_longitude"], np.double(pixc_edge_reader.get_att_value("outer_last_longitude")))
-                    self.pixc_metadata["left_last_latitude"] = max(self.pixc_metadata["left_last_latitude"], np.double(pixc_edge_reader.get_att_value("outer_last_latitude")))
-                    self.pixc_metadata["right_first_longitude"] = min(self.pixc_metadata["right_first_longitude"], np.double(pixc_edge_reader.get_att_value("inner_first_longitude")))
-                    self.pixc_metadata["right_first_latitude"] = min(self.pixc_metadata["right_first_latitude"], np.double(pixc_edge_reader.get_att_value("inner_first_latitude")))
-                    self.pixc_metadata["right_last_longitude"] = max(self.pixc_metadata["right_last_longitude"], np.double(pixc_edge_reader.get_att_value("inner_last_longitude")))
-                    self.pixc_metadata["right_last_latitude"] = max(self.pixc_metadata["right_last_latitude"], np.double(pixc_edge_reader.get_att_value("inner_last_latitude")))
+                    self.pixc_metadata["left_first_longitude"] = min(self.pixc_metadata["left_first_longitude"], 
+                                                                     np.double(pixc_edge_reader.get_att_value("outer_first_longitude")))
+                    self.pixc_metadata["left_first_latitude"] = min(self.pixc_metadata["left_first_latitude"], 
+                                                                    np.double(pixc_edge_reader.get_att_value("outer_first_latitude")))
+                    self.pixc_metadata["left_last_longitude"] = max(self.pixc_metadata["left_last_longitude"], 
+                                                                    np.double(pixc_edge_reader.get_att_value("outer_last_longitude")))
+                    self.pixc_metadata["left_last_latitude"] = max(self.pixc_metadata["left_last_latitude"], 
+                                                                   np.double(pixc_edge_reader.get_att_value("outer_last_latitude")))
+                    self.pixc_metadata["right_first_longitude"] = min(self.pixc_metadata["right_first_longitude"], 
+                                                                      np.double(pixc_edge_reader.get_att_value("inner_first_longitude")))
+                    self.pixc_metadata["right_first_latitude"] = min(self.pixc_metadata["right_first_latitude"], 
+                                                                     np.double(pixc_edge_reader.get_att_value("inner_first_latitude")))
+                    self.pixc_metadata["right_last_longitude"] = max(self.pixc_metadata["right_last_longitude"], 
+                                                                     np.double(pixc_edge_reader.get_att_value("inner_last_longitude")))
+                    self.pixc_metadata["right_last_latitude"] = max(self.pixc_metadata["right_last_latitude"], 
+                                                                    np.double(pixc_edge_reader.get_att_value("inner_last_latitude")))
                 else:
-                    self.pixc_metadata["left_first_longitude"] = min(self.pixc_metadata["left_first_longitude"], np.double(pixc_edge_reader.get_att_value("outer_first_longitude")))
-                    self.pixc_metadata["left_first_latitude"] = max(self.pixc_metadata["left_first_latitude"], np.double(pixc_edge_reader.get_att_value("outer_first_latitude")))
-                    self.pixc_metadata["left_last_longitude"] = max(self.pixc_metadata["left_last_longitude"], np.double(pixc_edge_reader.get_att_value("outer_last_longitude")))
-                    self.pixc_metadata["left_last_latitude"] = min(self.pixc_metadata["left_last_latitude"], np.double(pixc_edge_reader.get_att_value("outer_last_latitude")))
-                    self.pixc_metadata["right_first_longitude"] = min(self.pixc_metadata["right_first_longitude"], np.double(pixc_edge_reader.get_att_value("inner_first_longitude")))
-                    self.pixc_metadata["right_first_latitude"] = max(self.pixc_metadata["right_first_latitude"], np.double(pixc_edge_reader.get_att_value("inner_first_latitude")))
-                    self.pixc_metadata["right_last_longitude"] = max(self.pixc_metadata["right_last_longitude"], np.double(pixc_edge_reader.get_att_value("inner_last_longitude")))
-                    self.pixc_metadata["right_last_latitude"] = min(self.pixc_metadata["right_last_latitude"], np.double(pixc_edge_reader.get_att_value("inner_last_latitude")))
+                    self.pixc_metadata["left_first_longitude"] = min(self.pixc_metadata["left_first_longitude"], 
+                                                                     np.double(pixc_edge_reader.get_att_value("outer_first_longitude")))
+                    self.pixc_metadata["left_first_latitude"] = max(self.pixc_metadata["left_first_latitude"], 
+                                                                    np.double(pixc_edge_reader.get_att_value("outer_first_latitude")))
+                    self.pixc_metadata["left_last_longitude"] = max(self.pixc_metadata["left_last_longitude"], 
+                                                                    np.double(pixc_edge_reader.get_att_value("outer_last_longitude")))
+                    self.pixc_metadata["left_last_latitude"] = min(self.pixc_metadata["left_last_latitude"], 
+                                                                   np.double(pixc_edge_reader.get_att_value("outer_last_latitude")))
+                    self.pixc_metadata["right_first_longitude"] = min(self.pixc_metadata["right_first_longitude"], 
+                                                                      np.double(pixc_edge_reader.get_att_value("inner_first_longitude")))
+                    self.pixc_metadata["right_first_latitude"] = max(self.pixc_metadata["right_first_latitude"], 
+                                                                     np.double(pixc_edge_reader.get_att_value("inner_first_latitude")))
+                    self.pixc_metadata["right_last_longitude"] = max(self.pixc_metadata["right_last_longitude"], 
+                                                                     np.double(pixc_edge_reader.get_att_value("inner_last_longitude")))
+                    self.pixc_metadata["right_last_latitude"] = min(self.pixc_metadata["right_last_latitude"], 
+                                                                    np.double(pixc_edge_reader.get_att_value("inner_last_latitude")))
             else:
                 if self.pass_num%2 == 1:
-                    self.pixc_metadata["left_first_longitude"] = min(self.pixc_metadata["left_first_longitude"], np.double(pixc_edge_reader.get_att_value("inner_first_longitude")))
-                    self.pixc_metadata["left_first_latitude"] = min(self.pixc_metadata["left_first_latitude"], np.double(pixc_edge_reader.get_att_value("inner_first_latitude")))
-                    self.pixc_metadata["left_last_longitude"] = max(self.pixc_metadata["left_last_longitude"], np.double(pixc_edge_reader.get_att_value("inner_last_longitude")))
-                    self.pixc_metadata["left_last_latitude"] = max(self.pixc_metadata["left_last_latitude"], np.double(pixc_edge_reader.get_att_value("inner_last_latitude")))
-                    self.pixc_metadata["right_first_longitude"] = min(self.pixc_metadata["right_first_longitude"], np.double(pixc_edge_reader.get_att_value("outer_first_longitude")))
-                    self.pixc_metadata["right_first_latitude"] = min(self.pixc_metadata["right_first_latitude"], np.double(pixc_edge_reader.get_att_value("outer_first_latitude")))
-                    self.pixc_metadata["right_last_longitude"] = max(self.pixc_metadata["right_last_longitude"], np.double(pixc_edge_reader.get_att_value("outer_last_longitude")))
-                    self.pixc_metadata["right_last_latitude"] = max(self.pixc_metadata["right_last_latitude"], np.double(pixc_edge_reader.get_att_value("outer_last_latitude")))
+                    self.pixc_metadata["left_first_longitude"] = min(self.pixc_metadata["left_first_longitude"], 
+                                                                     np.double(pixc_edge_reader.get_att_value("inner_first_longitude")))
+                    self.pixc_metadata["left_first_latitude"] = min(self.pixc_metadata["left_first_latitude"], 
+                                                                    np.double(pixc_edge_reader.get_att_value("inner_first_latitude")))
+                    self.pixc_metadata["left_last_longitude"] = max(self.pixc_metadata["left_last_longitude"], 
+                                                                    np.double(pixc_edge_reader.get_att_value("inner_last_longitude")))
+                    self.pixc_metadata["left_last_latitude"] = max(self.pixc_metadata["left_last_latitude"], 
+                                                                   np.double(pixc_edge_reader.get_att_value("inner_last_latitude")))
+                    self.pixc_metadata["right_first_longitude"] = min(self.pixc_metadata["right_first_longitude"], 
+                                                                      np.double(pixc_edge_reader.get_att_value("outer_first_longitude")))
+                    self.pixc_metadata["right_first_latitude"] = min(self.pixc_metadata["right_first_latitude"], 
+                                                                     np.double(pixc_edge_reader.get_att_value("outer_first_latitude")))
+                    self.pixc_metadata["right_last_longitude"] = max(self.pixc_metadata["right_last_longitude"], 
+                                                                     np.double(pixc_edge_reader.get_att_value("outer_last_longitude")))
+                    self.pixc_metadata["right_last_latitude"] = max(self.pixc_metadata["right_last_latitude"], 
+                                                                    np.double(pixc_edge_reader.get_att_value("outer_last_latitude")))
                 else:
-                    self.pixc_metadata["left_first_longitude"] = min(self.pixc_metadata["left_first_longitude"], np.double(pixc_edge_reader.get_att_value("inner_first_longitude")))
-                    self.pixc_metadata["left_first_latitude"] = max(self.pixc_metadata["left_first_latitude"], np.double(pixc_edge_reader.get_att_value("inner_first_latitude")))
-                    self.pixc_metadata["left_last_longitude"] = max(self.pixc_metadata["left_last_longitude"], np.double(pixc_edge_reader.get_att_value("inner_last_longitude")))
-                    self.pixc_metadata["left_last_latitude"] = min(self.pixc_metadata["left_last_latitude"], np.double(pixc_edge_reader.get_att_value("inner_last_latitude")))
-                    self.pixc_metadata["right_first_longitude"] = min(self.pixc_metadata["right_first_longitude"], np.double(pixc_edge_reader.get_att_value("outer_first_longitude")))
-                    self.pixc_metadata["right_first_latitude"] = max(self.pixc_metadata["right_first_latitude"], np.double(pixc_edge_reader.get_att_value("outer_first_latitude")))
-                    self.pixc_metadata["right_last_longitude"] = max(self.pixc_metadata["right_last_longitude"], np.double(pixc_edge_reader.get_att_value("outer_last_longitude")))
-                    self.pixc_metadata["right_last_latitude"] = min(self.pixc_metadata["right_last_latitude"], np.double(pixc_edge_reader.get_att_value("outer_last_latitude")))
+                    self.pixc_metadata["left_first_longitude"] = min(self.pixc_metadata["left_first_longitude"], 
+                                                                     np.double(pixc_edge_reader.get_att_value("inner_first_longitude")))
+                    self.pixc_metadata["left_first_latitude"] = max(self.pixc_metadata["left_first_latitude"], 
+                                                                    np.double(pixc_edge_reader.get_att_value("inner_first_latitude")))
+                    self.pixc_metadata["left_last_longitude"] = max(self.pixc_metadata["left_last_longitude"], 
+                                                                    np.double(pixc_edge_reader.get_att_value("inner_last_longitude")))
+                    self.pixc_metadata["left_last_latitude"] = min(self.pixc_metadata["left_last_latitude"], 
+                                                                   np.double(pixc_edge_reader.get_att_value("inner_last_latitude")))
+                    self.pixc_metadata["right_first_longitude"] = min(self.pixc_metadata["right_first_longitude"], 
+                                                                      np.double(pixc_edge_reader.get_att_value("outer_first_longitude")))
+                    self.pixc_metadata["right_first_latitude"] = max(self.pixc_metadata["right_first_latitude"], 
+                                                                     np.double(pixc_edge_reader.get_att_value("outer_first_latitude")))
+                    self.pixc_metadata["right_last_longitude"] = max(self.pixc_metadata["right_last_longitude"], 
+                                                                     np.double(pixc_edge_reader.get_att_value("outer_last_longitude")))
+                    self.pixc_metadata["right_last_latitude"] = min(self.pixc_metadata["right_last_latitude"], 
+                                                                    np.double(pixc_edge_reader.get_att_value("outer_last_latitude")))
             
             # 7 - Update vectors if there are pixels in the current LakeTile_edge file
             if out_nb_pix > 0:
@@ -803,7 +859,7 @@ class PixCEdgeSwath(object):
                 tmp_pole_tide = pixc_edge_reader.get_var_value("pole_tide")
                 self.pole_tide = np.concatenate((self.pole_tide, tmp_pole_tide))
                 
-                self.pixc_qual = np.concatenate((self.pixc_qual, pixc_edge_reader.get_var_value("pixc_qual")))
+                self.classification_qual = np.concatenate((self.classification_qual, pixc_edge_reader.get_var_value("classification_qual")))
     
                 # 7.3 - Info of the nadir point associated to the PixC
                 self.nadir_time = np.concatenate((self.nadir_time, pixc_edge_reader.get_var_value("nadir_time")))
@@ -891,7 +947,7 @@ class PixCEdgeSwath(object):
             # compute near range variation
             delta_range = self.compute_range_variation_between_tiles(tile_num, tile_num+1)
             new_labels_subset = self.gather_edge_entities(tile_idx1, tile_idx2,  delta_range)
-            logger.debug("Range variation between tile is %d pixles" % (delta_range))
+            logger.debug("Range variation between tile is %d pixels" % (delta_range))
 
             # 1.4 - Link old labels to new ones
             self.label_matching(tile_idx1, tile_idx2, new_labels_subset)
@@ -1318,7 +1374,7 @@ class PixCEdgeSwath(object):
         unique, counts = np.unique(self.tile_index[np.where(self.edge_label == in_lake_tile_label)], return_counts = True)
 
         # 2 - Get tile ref corresponding to the max number of pixels
-        out_tile_max_pix = str(unique[np.where(counts == max(counts))][0]) + self.swath_side
+        out_tile_max_pix = str(unique[np.where(counts == max(counts))][0]).rjust(3, str('0')) + self.swath_side
 
         return out_tile_max_pix
         
@@ -1630,3 +1686,4 @@ def merge(in_result, in_key, in_value):
     :return: merged tuple of set. ex:set([a, b]), set([r])
     """
     return (in_result[0].union(set([in_key])), in_result[1].union(in_value))
+

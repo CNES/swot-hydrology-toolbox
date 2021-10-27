@@ -8,6 +8,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -16,6 +18,7 @@
     Created on 27/09/2017
 
 .. moduleauthor:: Cécile Cazals - CS
+                    Claire POTTIER - CNES DSO/SI/TR
 
 ..
    This file is part of the SWOT Hydrology Toolbox
@@ -25,22 +28,25 @@
 """
 from __future__ import absolute_import, division, print_function, unicode_literals 
 
-import os
+import logging
 import numpy as np
+import os
 
+import cnes.common.lib.my_tools as my_tools
 import cnes.common.lib_lake.locnes_filenames as my_names
 import cnes.common.lib_lake.proc_pixc_vec as proc_pixc_vec
+
 import cnes.common.service_config_file as service_config_file
 
-import logging
 
 class PixCVecSP(object):
     """
     class PixCVecSP
+    Manage L2_HR_PIXCVec product over 2 swaths
     """
-    def __init__(self, in_lake_tile_pixcvec_file_list, in_obj_pixc_edge_sp, in_lake_sp_dir, in_continent=None):
+    def __init__(self, in_lake_tile_pixcvec_file_list, in_obj_pixc_edge_sp, in_lake_sp_dir, in_continent_id=None):
         """
-        This class is designed to process L2_HR_PIXCVec product over 2 swath.
+        Constructor
 
         :param in_lake_tile_pixcvec_file_list: list of LakeTile_pixcvec files full path concerning current swath
         :type in_lake_tile_pixcvec_file_list: list of string
@@ -48,8 +54,8 @@ class PixCVecSP(object):
         :type in_obj_pixc_edge_sp: proc_pixc_sp.PixCEdgeSP
         :param in_lake_sp_dir: output LakeSP directory
         :type in_lake_sp_dir: string
-        :param in_continent: continent covered by the tile (if global var CONTINENT_FILE exists)
-        :type in_continent: string
+        :param in_continent_id: 2-letter identifier of the continent covered by the swath (if global var CONTINENT_FILE exists)
+        :type in_continent_id: string
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("- start -")
@@ -59,65 +65,51 @@ class PixCVecSP(object):
         lake_tile_pixcvec_file_path_l = [ file for file in in_lake_tile_pixcvec_file_list if "L_20" in file]
         lake_tile_pixcvec_file_path_l.sort()
 
-        self.pixcvec_r = PixCVecSwath(lake_tile_pixcvec_file_path_r, in_obj_pixc_edge_sp.pixc_edge_r, in_lake_sp_dir, in_continent)
-        self.pixcvec_l = PixCVecSwath(lake_tile_pixcvec_file_path_l, in_obj_pixc_edge_sp.pixc_edge_l, in_lake_sp_dir, in_continent)
+        self.pixcvec_r = PixCVecSwath(lake_tile_pixcvec_file_path_r, in_obj_pixc_edge_sp.pixc_edge_r, in_continent_id)
+        self.pixcvec_l = PixCVecSwath(lake_tile_pixcvec_file_path_l, in_obj_pixc_edge_sp.pixc_edge_l, in_continent_id)
+
+
+#######################################
 
 
 class PixCVecSwath(object):
     """
     class PixCVecSwath
+    Manage L2_HR_PIXCVec product over a single swath
+    All pixels involved in water regions covering more than one tile are processed here.
+    The geolocation of pixels is improved for those pixels and PIXCVec NetCDF file is updated.
     """
-    def __init__(self, in_lake_tile_pixcvec_file_list, in_obj_pixc_edge_sp, in_lake_sp_dir, in_continent):
+    def __init__(self, in_lake_tile_pixcvec_file_list, in_obj_pixc_edge_sp, in_continent_id):
         """
-        This class is designed to process L2_HR_PIXCVec product over a swath .
-        All pixels involved in entities covering more than one tile are processed here.
-        The geolocation of pixels is improved for those pixels and PIXCVec NetCDF file is updated.
-        
-        The initialization of a PixCVecSP consists in:
-         - set class attributes
-         - copy input LakeTile_pixcvec files into PIXCVec files
-
-        NP: this object is related to one swath
+        Constructor
         
         :param in_lake_tile_pixcvec_file_list: list of LakeTile_pixcvec files full path concerning current swath
         :type in_lake_tile_pixcvec_file_list: list of string
         :param in_obj_pixc_edge_sp: list of subset of PixC for edge objects current swath
         :type in_obj_pixc_edge_sp: proc_pixc_sp.PixCEdgeSP
-        :param in_lake_sp_dir: output LakeSP directory
-        :type in_lake_sp_dir: string
-        :param in_continent: continent covered by the tile (if global var CONTINENT_FILE exists)
-        :type in_continent: string
-
+        :param in_continent_id: 2-letter identifier of the continent covered by the swath (if global var CONTINENT_FILE exists)
+        :type in_continent_id: string
 
         Variables of the object:
         
-            - From LakeTile_pixcvec file
-                - longitude_vectorproc / 1D-array of float: improved longitude of water pixels (= variable named longitude_vectorproc in LakeTile_pixcvec file)
-                - latitude_vectorproc / 1D-array of float: improved latitude of water pixels (= variable named latitude_vectorproc in LakeTile_pixcvec file)
-                - height_vectorproc / 1D-array of float: improved height of water pixels (= variable named height_vectorproc in LakeTile_pixcvec file)
-                - river_lake_other_tag / 1D-array of float: tag associated to river and lake databases (= variable named river_lake_other_tag in LakeTile_pixcvec file)
-
-            - From process:
+            - All variables from LakeTile_PIXCVec file 
+            + From process:
                 - lake_tile_pixcvec_file_list / list of str : list of input LakeTile_pixcvec files
-                - pixc_vec_file_list / list of str : list of output PIXCVec files
                 - obj_pixc_edge_sp / proc_pixc_sp.PixCEdgeSP object : subset of PixC related to pixels of objects at top/bottom edge of a PixC tile (output of PGE_LakeTile)
-                - nb_water_pix / int : number of pixels to process
+                - continent_id / string : 2-letter identifier of the continent covered by the swath
         """
+        # Get instance of service config file
+        self.cfg = service_config_file.get_instance()
         logger = logging.getLogger(self.__class__.__name__)
         logger.info("- start -")
         
-        # 1 - Init variables
-        # Get instance of service config file
-        self.cfg = service_config_file.get_instance()
-        # List of LakeTile_pixcvec files concerning current swath
+        # List of LakeTile_PIXCVec files concerning current swath
         in_lake_tile_pixcvec_file_list.sort()
         self.lake_tile_pixcvec_file_list = in_lake_tile_pixcvec_file_list
-        # List of output PIXCVec files
-        self.pixc_vec_file_list = []
         # List of PixC_SP objects of current swath
         self.obj_pixc_edge_sp = in_obj_pixc_edge_sp
-        # Continent processed
-        self.continent = in_continent
+        # Continent identifier processed
+        self.continent_id = in_continent_id
 
         # Initialize PIXCVec variables to 0 or ""
         self.longitude_vectorproc = np.zeros(self.obj_pixc_edge_sp.nb_pixels, dtype=np.double)
@@ -136,96 +128,84 @@ class PixCVecSwath(object):
         self.ice_clim_f = np.zeros(self.obj_pixc_edge_sp.nb_pixels, dtype=np.uint8)
         self.ice_dyn_f = np.zeros(self.obj_pixc_edge_sp.nb_pixels, dtype=np.uint8)
 
-        # Init a list of tiles ref processed in thios class
-        self.tile_number_list = []
-
-        # 2 - List of output files computation
-        for lake_tile_pixcvec_file in self.lake_tile_pixcvec_file_list:
-            
-            # 2.1 - Compute output PIXCVec file full path
-            pixc_vec_file = my_names.compute_pixcvec_filename(lake_tile_pixcvec_file, in_lake_sp_dir)
-            
-            # 2.2 - Remove if exists
-            if os.path.exists(pixc_vec_file):
-                os.remove(pixc_vec_file)
-            
-            # 2.3 - Copy LakeTile_pixcvec file full path to PIXCVec file list
-            self.pixc_vec_file_list.append(pixc_vec_file)
-
-            # 2.3 - Extact tile number from PixC Vec file
-            tile_number = int(my_names.get_info_from_filename(lake_tile_pixcvec_file, "LakeTile")["tile_ref"][:-1])
-            self.tile_number_list.append(tile_number)
-
     # ----------------------------------------
 
-    def update_pixc_vec(self, in_write_to_shp=False, in_proc_metadata=None):
+    def update_pixcvec(self, in_output_dir, in_write_to_shp=False, in_proc_metadata=None):
         """
         This function updates PIXCVec netcdf files obtained in output of PGE_LakeTile with improved longitude, latitude, 
         height and lake_tile_id or prior_id if exists.
         
+        :param in_output_dir: full path of the output directory
+        :type in_output_dir: string
         :param in_write_to_shp: =True to also write the shapefile of the PIXCVec product (default=False)
         :type in_write_to_shp: boolean
         :param in_proc_metadata: processing metadata
         :type in_proc_metadata: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
+        
+        # Loop over LakeTile_PIXCVec input files
+        for lake_tile_pixcvec_file in self.lake_tile_pixcvec_file_list:
+            logger.info("Updating file %s" % lake_tile_pixcvec_file)
+            
+            # 1.1 - Compute output PIXCVec file full path
+            pixcvec_file = my_names.compute_pixcvec_filename(lake_tile_pixcvec_file, in_output_dir)
+            # 1.2 - Remove if exists
+            if os.path.exists(pixcvec_file):
+                os.remove(pixcvec_file)
+            
+            # 2 - Extact tile number from PixC Vec file
+            tile_number = int(my_names.get_info_from_filename(lake_tile_pixcvec_file, "LakeTile")["tile_ref"][:-1])
 
-        for tile_idx in range(len(self.tile_number_list)):  # Loop over tiles
+            # 3 - Init proc_pixc_vec.PixelCloudVec object
+            obj_pixcvec = proc_pixc_vec.PixelCloudVec("SP")
+            obj_pixcvec.set_from_pixcvec_file(lake_tile_pixcvec_file)
 
-            tile_num = self.tile_number_list[tile_idx]
+            # 4 - Get list of continent identifiers of current LakeTile_PIXCVec
+            list_continent_id = obj_pixcvec.pixcvec_metadata["continent_id"].split(";")
 
-            # 1 - Get input and output files info
-            # 1.1 - LakeTile_pixcvec path and filename
-            lake_tile_pixcvec_file = self.lake_tile_pixcvec_file_list[tile_idx]
-            logger.info("Updating file %s" %(lake_tile_pixcvec_file))
+            # 5 - Get corresponding obj_pixc_edge_sp tile_idx
+            pixc_sp_idx = np.where(self.obj_pixc_edge_sp.tile_index == tile_number)[0]
 
-            # 1.2 - Get PIXCVec associated path and filename
-            pixc_vec_file = self.pixc_vec_file_list[tile_idx]
-
-            # 2 - Init proc_pixc_vec.PixelCloudVec object
-            obj_pixc_vec = proc_pixc_vec.PixelCloudVec("SP")
-            obj_pixc_vec.set_from_pixcvec_file(lake_tile_pixcvec_file)
-            obj_pixc_vec.pixcvec_metadata["xref_l2_hr_lake_tile_config_parameter_file"] = in_proc_metadata["xref_l2_hr_lake_tile_config_parameter_file"]
-
-            # get continent list of current LakeTile_pixcvec
-            current_continent_list = obj_pixc_vec.pixcvec_metadata["continent"].split(";")
-
-            # obj_pixc_vec.setContinent(self.continent)
-
-            # 3 - Get corresponding obj_pixc_edge_sp tile_idx
-            pixc_sp_idx = np.where(self.obj_pixc_edge_sp.tile_index == tile_num)[0]
-
-            # 4 - Update PIXCVec info
+            # 6 - Update PIXCVec info
             if pixc_sp_idx.any():  # Only when pixels need to be updated
-                logger.debug("Updating %d pixels of pixc vec" %(pixc_sp_idx.size))
-                # 4.1 - Retrieve corresponding indices in PixC_SP object
-                # pixc_sp_idx = np.where(self.obj_pixc_edge_sp.tile_index == obj_pixc_edge_sp_tile_idx)[0]
+                logger.debug("Updating %d pixels of LakeTile_PIXCVec file" % pixc_sp_idx.size)
 
-                # 4.2 - Retrieve corresponding indices in original PIXC
+                # 6.1 - Retrieve corresponding indices in original PIXC
                 pixc_tile_idx = self.obj_pixc_edge_sp.edge_index[pixc_sp_idx]
 
-                # 4.3 - Update geolocation information if computed
+                # 6.2 - Update geolocation information if computed
                 if self.cfg.getboolean('CONFIG_PARAMS', 'IMP_GEOLOC'):
-                    obj_pixc_vec.longitude_vectorproc[pixc_tile_idx] = self.longitude_vectorproc[pixc_sp_idx]
-                    obj_pixc_vec.latitude_vectorproc[pixc_tile_idx] = self.latitude_vectorproc[pixc_sp_idx]
-                    obj_pixc_vec.height_vectorproc[pixc_tile_idx] = self.height_vectorproc[pixc_sp_idx]
+                    obj_pixcvec.longitude_vectorproc[pixc_tile_idx] = self.longitude_vectorproc[pixc_sp_idx]
+                    obj_pixcvec.latitude_vectorproc[pixc_tile_idx] = self.latitude_vectorproc[pixc_sp_idx]
+                    obj_pixcvec.height_vectorproc[pixc_tile_idx] = self.height_vectorproc[pixc_sp_idx]
 
-                # 4.4 - Update identifiers
-                obj_pixc_vec.lake_id[pixc_tile_idx] = self.lake_id[pixc_sp_idx]
-                obj_pixc_vec.obs_id[pixc_tile_idx] = self.obs_id[pixc_sp_idx]
+                # 6.3 - Update identifiers
+                obj_pixcvec.lake_id[pixc_tile_idx] = self.lake_id[pixc_sp_idx]
+                obj_pixcvec.obs_id[pixc_tile_idx] = self.obs_id[pixc_sp_idx]
                 
-                # 4.5 - Update ice flags
-                obj_pixc_vec.ice_clim_f[pixc_tile_idx] = self.ice_clim_f[pixc_sp_idx]
-                obj_pixc_vec.ice_dyn_f[pixc_tile_idx] = self.ice_dyn_f[pixc_sp_idx]
+                # 6.4 - Update ice flags
+                obj_pixcvec.ice_clim_f[pixc_tile_idx] = self.ice_clim_f[pixc_sp_idx]
+                obj_pixcvec.ice_dyn_f[pixc_tile_idx] = self.ice_dyn_f[pixc_sp_idx]
+                
+                # 6.5 - Update time_coverage_start and _end global attributes
+                tmp_nadir_time = self.obj_pixc_edge_sp.nadir_time[pixc_sp_idx]
+                tmp_min = my_tools.convert_utc_to_str(min(tmp_nadir_time))
+                if tmp_min < obj_pixcvec.pixcvec_metadata["time_coverage_start"]:
+                    obj_pixcvec.pixcvec_metadata["time_coverage_start"] = tmp_min
+                tmp_max = my_tools.convert_utc_to_str(max(tmp_nadir_time))
+                if tmp_max < obj_pixcvec.pixcvec_metadata["time_coverage_end"]:
+                    obj_pixcvec.pixcvec_metadata["time_coverage_end"] = tmp_max
 
             else :
-                logger.debug("Updating 0 pixels of PIXCVec")
+                logger.debug("Updating 0 pixel of LakeTile_PIXCVec file")
 
-            # write PIXCVec file only if major continent of tile corresponds to current continent processed
-            if current_continent_list[0] == self.continent :
-                # 5 - Write PIXCVec file
-                obj_pixc_vec.write_file(pixc_vec_file, None)
+            # 7 - Write PIXCVec file only if major continent of tile corresponds to current continent processed
+            if list_continent_id[0] == self.continent_id:
+                
+                # 7.1 - Write PIXCVec file
+                obj_pixcvec.write_file(pixcvec_file, None)
 
-                # 6 - Write associated shapefile if asked
+                # 7.2 - Write associated shapefile if asked
                 if in_write_to_shp:
-                    obj_pixc_vec.write_file_as_shp(pixc_vec_file.replace('.nc', '.shp'), self.obj_pixc_edge_sp)
+                    obj_pixcvec.write_file_as_shp(pixcvec_file.replace('.nc', '.shp'), self.obj_pixc_edge_sp)

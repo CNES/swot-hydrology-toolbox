@@ -9,6 +9,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -145,10 +147,13 @@ class SASLakeTile(object):
         logger.sigmsg("===========================")
         logger.sigmsg("")
         
-        # 1 - Print high level comparison between _Obs and _Prior files
-        # 1.1 - Compute stats for _Obs file
+        # 1 - Compute time_coverage_start and _end global attribute in LakeTile_PIXCVec file
+        self.obj_pixcvec.update_metadata(self.obj_pixc)
+        
+        # 2 - Print high level comparison between _Obs and _Prior files
+        # 2.1 - Compute stats for _Obs file
         self.obj_lake.compute_obs_stats()
-        # 1.2 - Print comparison
+        # 2.2 - Print comparison
         for param in self.obj_lake.compare_stats_params:
             diff = abs(self.obj_lake.compare_stats["obs"][param] - self.obj_lake.compare_stats["prior"][param])
             mean_value = (self.obj_lake.compare_stats["obs"][param] + self.obj_lake.compare_stats["prior"][param])/2.0

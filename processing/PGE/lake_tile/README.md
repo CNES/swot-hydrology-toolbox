@@ -28,7 +28,7 @@ Output directory = <output_directory>
 
 [DATABASES]
 # OPTIION 1 : SQLITE lake database containing  : lake_table, lake_influence_table, basin_table
-LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/PLD
+LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20200309_PLD/PLD_EU.sqlite
 
 # OPTION 2 : SHP lake database
 # Prior lake database
@@ -55,14 +55,16 @@ logConsole = <True|False>
 logconsolelevel = <DEBUG|INFO>
 
 [FILE_INFORMATION]
+# Name of producing agency
+INSTITUTION = CNES
+# Version number of software generating product
+REFERENCES = <X.Y>
+# Product version
+PRODUCT_VERSION = <Draft|Initial release|...>
 # Composite Release IDentifier for LakeTile processing
 CRID = <CRID_value>
-# Producer
-PRODUCER = CNES
-# Method of production of the original data
-SOURCE = Simulation
-# Software version
-SOFTWARE_VERSION = <X.Y>
+# Version identifier of the product generation executable (PGE)
+PGE_VERSION = <X.Y>
 # Contact
 CONTACT = <xxxx@cnes.fr>
 ```
@@ -75,6 +77,9 @@ They are:
 * __FLAG_DARK__ is the list of dark water flags to keep for processing (23=dark water near land edge  24=interior dark water)
 * __MIN_SIZE__ is the minimum size for a lake to generate a lake product (=polygon + attributes) for it
 * __MIN_OVERLAP__ is the minimum percentage of overlapping area to consider a PLD lake linked to an observed feature
+* __AREA_METHOD__ is the method to compute area_total attribute
+  * polygon = area_total is the area of the polygon of the water region
+  * pixc = area_total is computed using JPL aggregate function (default)
 * __SEGMENTATION_METHOD__ is the segmentation method chosen; this value is used to distinguish different lakes that may be merged in the radar geometry
   * 1 = Felzenszwalb
   * 2 = SLIC
@@ -84,7 +89,7 @@ They are:
   * 6 = hierarchical clustering
   * 7 (default) = Otsu thresholding
   * 8 = MeanShift
-* __IMP_GEOLOC__ is the flag to improve PixC golocation (=True) or not (=False)
+* __IMP_GEOLOC__ is the flag to improve PixC geolocation (=True) or not (=False)
 * __HULL_METHOD__ is the method to compute lake boundary (or polygon hull): 
   * 0 = convex hull
   * 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library 
@@ -93,6 +98,9 @@ They are:
 * __NB_PIX_MAX_DELAUNEY__ is the max number of pixels used for Delaunay triangulation (when ```HULL_METHOD = 1.1```)
 * __NB_PIX_MAX_CONTOUR__ is the maximum number of contour points (when ```HULL_METHOD = 2```)
 * __BIGLAKE_MODEL, BIGLAKE_MIN_SIZE, BIGLAKE_GRID_SPACING, BIGLAKE_GRID_RES__ are parameters specific to the processing of "big" lakes, ie. lakes with an area greater than BIGLAKE_MIN_SIZE
+* __STOCC_INPUT__ is the choice of input data to compute storage change:
+  * obs = use of WSE and area of all distinct observed-oriented features related to the PLD lake
+  * pld = averaged WSE and total area of the prior feature (default)
 * __NB_DIGITS__ are the number of digits for a counter of lakes in a tile or pass, used in the obs_id identifier of each observed lake
 
 ### Input files

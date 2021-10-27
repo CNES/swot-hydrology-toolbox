@@ -8,6 +8,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -156,6 +158,9 @@ PLD_FIELD_LAKE_MAX_AREA_U = "ref_area_u"
 PLD_FIELD_LAKE_REF_DATE = "date_t0"
 PLD_FIELD_LAKE_REF_DS = "ds_t0"
 PLD_FIELD_LAKE_STORAGE = "storage"
+
+# Prior fields to keep in _Obs shapefile
+PLD_FIELD_TO_KEEP_IN_OBS = ["lake_name", "p_grand_id"]
 
 
 ##############################

@@ -8,6 +8,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -37,10 +39,15 @@ import cnes.common.lib_lake.locnes_product_general as my_prod
 
 class ShapefileProduct(my_prod.LocnesProduct):
     """
-    Deal with SWOT Shapefile products: LakeTile_Obs, LakeTile_Unassigned, LakeSP_Obs, LakeSP_Unassigned
+    Deal with SWOT Shapefile products: 
+        - LakeTile_Obs, LakeTile_Prior, LakeTile_Unassigned
+        - LakeSP_Obs, LakeSP_Prior, LakeSP_Unassigned
+        - LakeAvg
     """
     
-    def __init__(self, in_xml_file, in_layer_name, in_filename=None, in_inprod_metadata=None, in_proc_metadata=None):
+    def __init__(self, in_xml_file, in_layer_name, in_filename=None, 
+                 in_inprod_metadata=None, in_proc_metadata=None,
+                 flag_create=True):
         """
         Constructor: set the general values
         
@@ -54,6 +61,8 @@ class ShapefileProduct(my_prod.LocnesProduct):
         :type in_inprod_metadata: dict
         :param in_proc_metadata: metadata specific to current processing
         :type in_proc_metadata: dict
+        :param flag_create: =True (default) to create a shapefile or a memory layer, =False otherwise
+        :type flag_create: boolean
         """
         logger = logging.getLogger(self.__class__.__name__)
         logger.debug("- start -")
@@ -70,7 +79,8 @@ class ShapefileProduct(my_prod.LocnesProduct):
         self.xml_tree = None  # XML tree
             
         # 3 - Create layer
-        self.create_layer(in_layer_name, ogr.wkbMultiPolygon, in_filename=in_filename)
+        if flag_create:
+            self.create_layer(in_layer_name, ogr.wkbMultiPolygon, in_filename=in_filename)
         
     def free(self):
         """
@@ -121,7 +131,7 @@ class ShapefileProduct(my_prod.LocnesProduct):
                 annotation = element[0]
                 self.global_metadata[cur_metadata]["description"] = annotation.get("description")
                 # Init value
-                if cur_metadata in ["Conventions", "title", "platform", "reference_document"]:
+                if cur_metadata in ["Conventions", "title", "short_name", "product_file_id", "platform", "reference_document", "pge_name"]:
                     self.global_metadata[cur_metadata]["value"] = self.global_metadata[cur_metadata]["description"]
                 else:
                     if self.global_metadata[cur_metadata]["type"] == "string":
@@ -276,6 +286,8 @@ class ShapefileProduct(my_prod.LocnesProduct):
         :param in_proc_metadata: metadata specific to processing
         :type in_proc_metadata: dict
         """
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.debug("- start -")
         
         # 1.1 - Update metadata retrieved from input data product
         if in_inprod_metadata is not None:
@@ -283,11 +295,14 @@ class ShapefileProduct(my_prod.LocnesProduct):
         # 1.2 - Update processing metadata
         if in_proc_metadata is not None:
             self.set_metadata_val(in_proc_metadata)
+            
+        # 2 - Update file path if necessary
+        self.fullpath_or_basename()
 
-        # 2 - Build the XML tree
+        # 3 - Build the XML tree
         self.build_xml()
         
-        # 3 - Write the .shp.xml file
+        # 4 - Write the .shp.xml file
         self.xml_tree.write(in_filename, pretty_print=True, xml_declaration=True, encoding='utf-8')
     
     def build_xml(self):
@@ -361,7 +376,7 @@ class LakeTileShpProduct(ShapefileProduct):
         
         # 2 - Init configuration parameters metadata
         self.config_metadata = OrderedDict()
-        if cfg.get("FILE_INFORMATION", "SOURCE") == "Simulation":
+        if (in_pixc_metadata is not None) and ("simu" in in_pixc_metadata["source"]["value"].lower()):
             self.config_metadata["lake_db"] = str(cfg.get('DATABASES', 'LAKE_DB'))
         else:
             self.config_metadata["lake_db"] = os.path.basename(str(cfg.get('DATABASES', 'LAKE_DB')))
@@ -370,6 +385,7 @@ class LakeTileShpProduct(ShapefileProduct):
         self.config_metadata["flag_dark"] = str(cfg.get('CONFIG_PARAMS', 'FLAG_DARK'))
         self.config_metadata["min_size"] = cfg.get('CONFIG_PARAMS', 'MIN_SIZE')
         self.config_metadata["min_overlap"] = cfg.get('CONFIG_PARAMS', 'MIN_OVERLAP')
+        self.config_metadata["area_method"] = cfg.get('CONFIG_PARAMS', 'AREA_METHOD')
         self.config_metadata["segmentation_method"] = cfg.get('CONFIG_PARAMS', 'SEGMENTATION_METHOD')
         self.config_metadata["imp_geoloc"] = cfg.get('CONFIG_PARAMS', 'IMP_GEOLOC')
         self.config_metadata["hull_method"] = cfg.get('CONFIG_PARAMS', 'HULL_METHOD')
@@ -379,6 +395,7 @@ class LakeTileShpProduct(ShapefileProduct):
         self.config_metadata["biglake_min_size"] = cfg.get('CONFIG_PARAMS', 'BIGLAKE_MIN_SIZE')
         self.config_metadata["biglake_grid_spacing"] = cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_SPACING')
         self.config_metadata["biglake_grid_res"] = cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_RES')
+        self.config_metadata["stocc_input"] = cfg.get('CONFIG_PARAMS', 'STOCC_INPUT')
         self.config_metadata["nb_digits"] = cfg.get('CONFIG_PARAMS', 'NB_DIGITS')
 
 
@@ -561,6 +578,38 @@ class LakeSPUnassignedProduct(ShapefileProduct):
 
 #######################################
         
+        
+class LakeAvgProduct(ShapefileProduct):
+    """
+    Deal with LakeAvg shapefile
+    """
+    
+    def __init__(self, in_layer_name, in_filename=None, in_proc_metadata=None, flag_create=True):
+        """
+        Constructor; specific to LakeAvg shapefile
+        
+        :param in_layer_name: name for shapefile layer        
+        :type in_layer_name: string
+        :param in_filename: full path of the shapefile for the layer; if None, create a memory layer (default)
+        :param in_filename: string   
+        :param in_proc_metadata: metadata specific to LakeAvg processing
+        :type in_proc_metadata: dict
+        :param flag_create: =True (default) to create a shapefile or a memory layer, =False otherwise
+        :type flag_create: boolean
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.info("- start -")
+        
+        # 1 - Inheritance of ShapefileProduct
+        super().__init__(os.path.join(os.path.dirname( __file__ ), "xml/lakeavg.xml"),
+                          in_layer_name, 
+                          in_filename=in_filename,
+                          in_proc_metadata=in_proc_metadata,
+                          flag_create=flag_create)
+
+
+#######################################
+        
    
 def convert_str_to_type(in_val, in_type):
     """
@@ -618,10 +667,16 @@ def check_lake_db(in_xml_tree):
     """ 
     # Get instance of service config file
     cfg = service_config_file.get_instance()
-    source = cfg.get("FILE_INFORMATION", "SOURCE")
     # Get logger
     logger = logging.getLogger("locnes_products_shapefile")
     logger.info("Compare LAKE_DB value in LakeTile XML file to value in command file")
+    
+    # Read source in the XML file
+    try:
+        source_xml = in_xml_tree.xpath("//swot_product/global_processing/source")[0].text
+    except(IndexError):  # Default is None
+        source_xml = ""
+        logger.error("NO source information in LakeTile XML file")
     
     # Read PLD filename in the XML file
     try:
@@ -638,7 +693,7 @@ def check_lake_db(in_xml_tree):
         logger.warning('LAKE_DB not filled => LakeSP product not linked to a prior lake database')
     else:
         # Compare full path or basename of PLD depending on the environment (Simulation or else)
-        if source == "Simulation":
+        if "simu" in source_xml.lower():
             tmp_compare_cfg = lake_db
             tmp_compare_xml = lake_db_xml
         else:
@@ -668,7 +723,7 @@ def check_lake_db_id(in_xml_tree):
     cfg = service_config_file.get_instance()
     # Get logger
     logger = logging.getLogger("locnes_products_shapefile")
-    logger.info("Compare LAKE_DB_ID value in LakeTile XML file to value in command file")
+    logger.debug("Compare LAKE_DB_ID value in LakeTile XML file to value in command file")
 
     # Read lake identifier in LakeTile XML file
     try:
@@ -682,7 +737,7 @@ def check_lake_db_id(in_xml_tree):
     
     #☻ Both should be the same
     if (lake_db_id is None) or (lake_db_id_xml == "None"):
-        logger.warning('LAKE_DB_ID not filled')
+        logger.debug('LAKE_DB_ID not filled')
     else:
         if (lake_db_id != lake_db_id_xml):
             message = "ERROR bad lake_db_id. In XML file: " + lake_db_id + " WHEREAS in command file: " + lake_db_id_xml
@@ -739,6 +794,13 @@ def set_config_from_xml(in_xml_tree):
         cfg.set(section, "MIN_OVERLAP", min_overlap)
         logger.debug('MIN_OVERLAP = ' + str(cfg.get('CONFIG_PARAMS', 'MIN_OVERLAP')))
         
+        # Method to compute area_total attribute
+        # polygon = area_total is the area of the polygon of the water region
+        # pixc = area_total is computed using JPL aggregate function (default)
+        area_method = in_xml_tree.xpath("//swot_product/processing_parameters/area_method")[0].text
+        cfg.set(section, "AREA_METHOD", area_method)
+        logger.debug('AREA_METHOD = ' + str(cfg.get('CONFIG_PARAMS', 'AREA_METHOD')))
+        
         # Method to compute height-segmentation
         # 1 = Felzenszwalb
         # 2 = SLIC
@@ -752,7 +814,7 @@ def set_config_from_xml(in_xml_tree):
         cfg.set(section, "SEGMENTATION_METHOD", segmentation_method)
         logger.debug('SEGMENTATION_METHOD = ' + str(cfg.get('CONFIG_PARAMS', 'SEGMENTATION_METHOD')))
             
-        # To improve PixC golocation (=True) or not (=False)
+        # To improve PixC geolocation (=True) or not (=False)
         imp_geoloc = in_xml_tree.xpath("//swot_product/processing_parameters/imp_geoloc")[0].text
         cfg.set(section, "IMP_GEOLOC", imp_geoloc)
         logger.debug('IMP_GEOLOC = ' + str(cfg.get('CONFIG_PARAMS', 'IMP_GEOLOC')))
@@ -793,6 +855,11 @@ def set_config_from_xml(in_xml_tree):
         biglake_grid_res = int(in_xml_tree.xpath("//swot_product/processing_parameters/biglake_grid_res")[0].text)
         cfg.set(section, "BIGLAKE_GRID_RES", biglake_grid_res)
         logger.debug('BIGLAKE_GRID_RES = ' + str(cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_RES')))
+        
+        # Input data for storage change computation
+        stocc_input = in_xml_tree.xpath("//swot_product/processing_parameters/stocc_input")[0].text
+        cfg.set(section, "STOCC_INPUT", stocc_input)
+        logger.debug('STOCC_INPUT = ' + str(cfg.get('CONFIG_PARAMS', 'STOCC_INPUT')))
         
         # Nb digits for counter of lakes, used in the obs_id identifier of each observed lake
         nb_digits = int(in_xml_tree.xpath("//swot_product/processing_parameters/nb_digits")[0].text)
@@ -836,6 +903,14 @@ def set_config_from_xml(in_xml_tree):
                 raise service_error.ProcessingError(message, logger)
             logger.debug('MIN_OVERLAP = ' + str(cfg.get('CONFIG_PARAMS', 'MIN_OVERLAP')))
             
+            # Method to compute area_total attribute
+            area_method_xml = in_xml_tree.xpath("//swot_product/processing_parameters/area_method")[0].text
+            area_method = cfg.get(section, "AREA_METHOD")
+            if (area_method_xml != area_method):
+                message = "ERROR bad area_method. In XML file: " + str(area_method_xml) + " WHEREAS previously set at: " + str(area_method)
+                raise service_error.ProcessingError(message, logger)
+            logger.debug('AREA_METHOD = ' + str(cfg.get('CONFIG_PARAMS', 'AREA_METHOD')))
+            
             # Method to compute height-segmentation
             # 1 = Felzenszwalb
             # 2 = SLIC
@@ -848,11 +923,12 @@ def set_config_from_xml(in_xml_tree):
             segmentation_method_xml = float(in_xml_tree.xpath("//swot_product/processing_parameters/segmentation_method")[0].text)
             segmentation_method = cfg.getint(section, "SEGMENTATION_METHOD")
             if (segmentation_method_xml != segmentation_method):
-                message = "ERROR bad segmentation_method. In XML file: " + str(segmentation_method_xml) + " WHEREAS previously set at: " + str(segmentation_method)
+                message = "ERROR bad segmentation_method. In XML file: " + str(segmentation_method_xml) + " WHEREAS previously set at: " \
+                          + str(segmentation_method)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('SEGMENTATION_METHOD = ' + str(cfg.get('CONFIG_PARAMS', 'SEGMENTATION_METHOD')))
     
-            # To improve PixC golocation (=True) or not (=False)
+            # To improve PixC geolocation (=True) or not (=False)
             imp_geoloc_xml = bool(in_xml_tree.xpath("//swot_product/processing_parameters/imp_geoloc")[0].text)
             imp_geoloc = cfg.getboolean(section, "IMP_GEOLOC")
             if (imp_geoloc_xml != imp_geoloc):
@@ -922,6 +998,15 @@ def set_config_from_xml(in_xml_tree):
                           + str(biglake_grid_res)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('BIGLAKE_GRID_RES = ' + str(cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_RES')))
+            
+            # Input data for storage change computation
+            stocc_input_xml = in_xml_tree.xpath("//swot_product/processing_parameters/stocc_input")[0].text
+            stocc_input = cfg.get(section, "STOCC_INPUT")
+            if (stocc_input_xml != stocc_input):
+                message = "ERROR bad stocc_input. In XML file: " + str(stocc_input_xml) + " WHEREAS previously set at: " \
+                          + str(stocc_input)
+                raise service_error.ProcessingError(message, logger)
+            logger.debug('STOCC_INPUT = ' + str(cfg.get('CONFIG_PARAMS', 'STOCC_INPUT')))
             
             # Nb digits for counter of lakes, used in the obs_id identifier of each observed lake
             nb_digits_xml = int(in_xml_tree.xpath("//swot_product/processing_parameters/nb_digits")[0].text)
