@@ -22,8 +22,10 @@ from ressources.utils.inversion_algo import inversionCore
 import ressources.utils.vincenty_direct_formula as vincenty
 from ressources.utils import my_api
 
-from lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE, GEN_APPROX_RAD_EARTH
-
+# Earth parameters
+GEN_RAD_EARTH_EQ = 6378137.0  # Radius of the Earth model (WGS84 ellipsoid) at the equator
+GEN_RAD_EARTH_POLE = 6356752.31425  # Radius of the Earth model at the pole
+GEN_APPROX_RAD_EARTH = (2*GEN_RAD_EARTH_EQ + GEN_RAD_EARTH_POLE)/3  # Radius (in meters) of the sphere equivalent to ellipsoid
 
 RECORD_MARGIN = 2  # Margin between 2 orbit points
 SWATH_MARGIN = 0  # Margin (in meters) to add at the end of the swath
