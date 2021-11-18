@@ -181,11 +181,11 @@ class BigLakeModel(object):
         # For now, degre 2, may be change
         A = np.array([X[good_ind]*0+1, X[good_ind], Y[good_ind], X[good_ind]**2, X[good_ind]**2*Y[good_ind], X[good_ind]**2*Y[good_ind]**2,
                       Y[good_ind]**2, X[good_ind]*Y[good_ind]**2, X[good_ind]*Y[good_ind]]).T
-        B = Z[good_ind].flatten()
+        B = Z[good_ind].flatten()-np.nanmean(Z)
         coeff, r, rank, s = np.linalg.lstsq(A, B)
         
         res = coeff[0]*(X*0+1) + coeff[1]*X + coeff[2]*Y + coeff[3]*(X**2) + coeff[4]*(X**2*Y) + coeff[5]*(X**2*Y**2) + coeff[6]*(Y**2) + \
-              coeff[7]*(X*Y**2) + coeff[8]*(X*Y)
+              coeff[7]*(X*Y**2) + coeff[8]*(X*Y)+np.nanmean(Z)
         
         return res
     
