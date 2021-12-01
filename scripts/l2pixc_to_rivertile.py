@@ -129,11 +129,11 @@ def run_river_tile( args_and_pixc_ann_file):
     # Create output directories name
     # For RiverTile products
     river_dir = os.path.abspath(os.path.join(args['output_dir'], 'rivertile'))
-    if not os.path.isdir(river_dir):
+    if not os.path.isdir(river_dir) and not os.path.exists(river_dir):
         os.makedirs(river_dir)
     # For PIXCVec products
     pixcvec_dir = os.path.abspath(os.path.join(args['output_dir'], 'pixcvec'))
-    if not os.path.isdir(pixcvec_dir):
+    if not os.path.isdir(pixcvec_dir) and not os.path.exists(pixcvec_dir):
         os.makedirs(pixcvec_dir)
 
     # Prepare args for l2pixc_to_rivertile.py
@@ -214,9 +214,11 @@ def main():
     parser.add_argument("--writelog", help="if true, write riverobs output to log file", nargs='?', type=bool, default=False, const=True)
     parser.add_argument("-mp", "--multiproc", help="if true, tiles will be computed in parallel", nargs='?', type=bool,
                         default=False, const=True)
-    parser.add_argument(
-        '-f', '--force', action='store_true', dest='force', default=False,
-        help='force overwrite existing outputs; default is to quit')
+    # parser.add_argument(
+    #     '-f', '--force', action='store_true', dest='force', default=False,
+    #     help='force overwrite existing outputs; default is to quit')
+    # args = vars(parser.parse_args())
+    parser.add_argument('--skip', type=bool, default=False, help='force skip existing outputs; default is to quit')
     args = vars(parser.parse_args())
 
     # Set logger
@@ -250,6 +252,26 @@ def main():
     logging.info("")
     logging.info("")
 
+    if args["skip"]:
+        # Load rdf pixcvec files
+        # multi files case
+        rdf_files_pixcvec = glob.glob(os.path.join(args['output_dir'],"river-annotation*.rdf"))
+        if len(rdf_files_pixcvec) == 0:
+            logging.info("> NO PixCVec annotation file to deal with")
+        else:
+            logging.info("> %d PixCVec annotation file(s) to deal with" % len(rdf_files_pixcvec))
+        logging.info("")
+        logging.info("")
+
+        rdf_files_pixcvec = [name.replace("3_river_obs/river-annotation", "") for name in rdf_files_pixcvec]
+        rdf_files = [file for file in rdf_files if all(name not in file for name in rdf_files_pixcvec)]
+
+        if len(rdf_files) == 0:
+            logging.info("> NO PixC annotation file to deal with in this new run")
+        else:
+            logging.info("> %d PixC annotation file(s) to deal with in this new run" % len(rdf_files))
+        logging.info("")
+        logging.info("")
 
     if not args["multiproc"]:
         for pixc_ann_file in rdf_files :
