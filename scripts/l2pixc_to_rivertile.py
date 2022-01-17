@@ -56,7 +56,7 @@ def l2pixc_to_rivertile(pixc_file, out_riverobs_file, out_pixc_vector_file, rdf_
     # (excluding strings)
     for key in config.keys():
         if key in ['geolocation_method', 'reach_db_path', 'height_agg_method',
-                   'area_agg_method', 'slope_method']:
+                   'area_agg_method', 'slope_method', 'outlier_method']:
             continue
         config[key] = ast.literal_eval(config[key])
 
@@ -145,15 +145,15 @@ def run_river_tile( args_and_pixc_ann_file):
     river_ann_file = os.path.join(args['output_dir'], river_filenames.annot_file)
 
     logging.info("== Run RiverObs ==")
-    try :
-        l2pixc_to_rivertile(pixc_file, output_riverobs, output_pixcvec, os.path.abspath(args['parameter_riverobs']), shpbasedir=river_dir,
-                        log_level="info", gdem_file=None)
-        logging.info("== Run RiverObs OK ==")
-        logging.info("")
-    except:
-        logging.warning("== Run RiverObs NOK ==")
-        logging.info("")
-        return None
+    # ~ try :
+    l2pixc_to_rivertile(pixc_file, output_riverobs, output_pixcvec, os.path.abspath(args['parameter_riverobs']), shpbasedir=river_dir,
+                    log_level="info", gdem_file=None)
+    logging.info("== Run RiverObs OK ==")
+    logging.info("")
+    # ~ except:
+        # ~ logging.warning("== Run RiverObs NOK ==")
+        # ~ logging.info("")
+        # ~ return None
 
     logging.info("")
 

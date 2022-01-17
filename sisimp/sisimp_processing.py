@@ -147,6 +147,8 @@ class Processing(object):
             self.my_attributes.orbit_jitter = read_parameter(parameters, "Orbit jitter", my_var.ORBIT_JITTER, float)
             self.my_attributes.baseline = read_parameter(parameters, "Baseline", my_var.BASELINE, float)
 
+            self.my_attributes.nr_cross_track_filter = read_parameter(parameters, "NR cross track filter", False, bool)
+
             # Height model parameter
             self.my_attributes.height_model = read_parameter(parameters, "Height model", my_var.HEIGHT_MODEL, str)
     
