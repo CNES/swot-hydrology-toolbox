@@ -28,7 +28,6 @@ Water flag = 4
 
 !### Dark water
 Dark water = yes
-Dark water flag = 24
 Dark water percentage = 5
 Dark water detected percentage = 100
 Dark water detected noise factor = 4
