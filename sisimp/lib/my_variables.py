@@ -13,43 +13,41 @@ This file is part of the SWOT Hydrology Toolbox
 """
 from math import pi
 
-# Earth parameters
-GEN_RAD_EARTH_EQ = 6378137.0  # Radius of the Earth model (WGS84 ellipsoid) at the equator
-GEN_RAD_EARTH_POLE = 6356752.31425  # Radius of the Earth model at the pole
-GEN_APPROX_RAD_EARTH = (2*GEN_RAD_EARTH_EQ + GEN_RAD_EARTH_POLE)/3  # Radius (in meters) of the sphere equivalent to ellipsoid
 
-# Instrument parameters
-SWATH_WIDTH = 120000.000000  # Swath width (m)
-NR_CROSS_TRACK = 5000.000  # NR cross track (m)
-SENSOR_WAVELENGTH = 0.008385803  # Sensor wavelength (m)
-NB_PIX_RANGE = 3117  # Number of pixels in range 3117 (10-60km) or 3500 (extended swath 5-65km)
-RANGE_SAMPLING = 0.75  # Range spacing of SWOT
-BASELINE = 10.
+#############################
+# DEFAULT CONFIG PARAMETERS #
+#############################
 
-# Noise parameters
-GEOLOCATION_IMPROVEMENT = 'no'
-NOISE_MULTIPLIER_FACTOR = 0.5  # Noise multiplier factor 1/sqrt(Nl) where Nl=4(nb_multilook)
-HEIGHT_BIAS_STD = 0.1  # Height bias std (m)
 
-NOISE_FILE_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt"
-NOISE_FILE_PATH_FOR_LAND = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2_land.txt"
-NOISE_FILE_PATH_FOR_DW = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2_land.txt"
+#==================================
+#= Default path for external data =
+#==================================
+# PixC tiles geometry (science orbit)
 TILE_DATABASE_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip"
+# Geoid
 GEOID_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/egm2008-5.pgm"
 
-# Orbit parameters
+
+#====================
+#= Orbit parameters =
+#====================
 ORBIT_JITTER = 1000  # Orbit jitter (m)
 MULTIPLE_ORBIT = 'yes'
 
-# Height model
-HEIGHT_MODEL = None   # polynomial / gaussian (default)
-HEIGHT_MODEL_MIN_AREA = 100  # Optionnal argument to add complex 2D height model
 
-# Constant height model (always applied, set HEIGHT_MODEL_A to 0 to desactivate)
+#================
+#= Height model =
+#================
+
+HEIGHT_MODEL = None   # None(default)/polynomial/gaussian/reference_height/reference_file
+
+# Constant height model (always applied, set HEIGHT_MODEL_A to 0 to disable)
 HEIGHT_MODEL_A = 10  # Height model A (m)
 HEIGHT_MODEL_t0 = 47076  # Height model t0
 HEIGHT_MODEL_PERIOD = 365.25  # Height model period (days)
 
+# Polynomial model
+HEIGHT_MODEL_MIN_AREA = 100  # (ha) min area of water bodies on which to add complex 2D height model
 # Polynomial parameters for polynomial model for big lake
 COEFF_X2 = 1.e-9
 COEFF_Y2 = 1.e-9
@@ -58,25 +56,56 @@ COEFF_Y = 5.e-5
 COEFF_XY = 1.e-9
 COEFF_CST = 0.
 
-# Dark water
-FACT_ECHELLE_DW = 2.
-DW_PERCENT = 10.
-DARKWATER_FLAG = 5
-SCALE_FACTOR_NON_DETECTED_DW = 0.5
-DW_DETECTED_PERCENT = 90
-DW_DETECTED_NOISE_FACTOR = 5
-DW_CORRELATION_LENGTH = 50
+# Gaussian model
+HEIGHT_MODEL_STDV = 0.1  # Parameter of the model
 
-# Gaussian parameter for gaussian model
-FACT_ECHELLE = 2.
-HEIGHT_MODEL_STDV = 0.1
 
-# Water flag
-WATER_FLAG = 4  # Water flag
-WATER_LAND_FLAG = 3
+#=========================
+#= Simulation parameters =
+#=========================
+
+# Instrument caracteristics
+SWATH_WIDTH = 120000.000000  # Swath width (m)
+NR_CROSS_TRACK = 5000.000  # NR cross track (m)
+SENSOR_WAVELENGTH = 0.008385803  # Sensor wavelength (m)
+BASELINE = 10.
+RANGE_SAMPLING = 0.75  # Range spacing of SWOT
+NB_PIX_RANGE = 4575  # Number of pixels
+
+# Classification flags
 LAND_FLAG = 1
 LAND_WATER_FLAG = 2
-LAND_DETECTED_NOISE_FACTOR = 10.
+WATER_LAND_FLAG = 3
+WATER_FLAG = 4
+DARKWATER_FLAG = 5
+
+
+#==========================
+#= Noise and error config =
+#==========================
+
+# Noise parameters
+NOISE_FILE_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt"
+NOISE_FILE_PATH_FOR_LAND = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2_land.txt"
+NOISE_FILE_PATH_FOR_DW = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2_land.txt"
+NOISE_MULTIPLIER_FACTOR = 0.5  # Noise multiplier factor 1/sqrt(Nl) where Nl=4(nb_multilook)
+HEIGHT_BIAS_STD = 0.  #Deprecated
+GEOLOCATION_IMPROVEMENT = 'no'
+
+# Dark water
+DW_PERCENT = 10.
+DW_DETECTED_PERCENT = 90
+SCALE_FACTOR_NON_DETECTED_DW = 0.5
+DW_CORRELATION_LENGTH = 50
+
+
+#######################################
+
+
+# Earth parameters
+GEN_RAD_EARTH_EQ = 6378137.0  # Radius of the Earth model (WGS84 ellipsoid) at the equator
+GEN_RAD_EARTH_POLE = 6356752.31425  # Radius of the Earth model at the pole
+GEN_APPROX_RAD_EARTH = (2*GEN_RAD_EARTH_EQ + GEN_RAD_EARTH_POLE)/3  # Radius (in meters) of the sphere equivalent to ellipsoid
 
 # Degrees / radians convertors
 RAD2DEG = 180. / pi
