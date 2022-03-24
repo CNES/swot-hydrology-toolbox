@@ -114,7 +114,7 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
     my_new_attributes.y = my_attributes.y[nadir_az]
     my_new_attributes.z = my_attributes.z[nadir_az]
 
-    my_new_attributes.lon  = (my_attributes.lon[nadir_az])
+    my_new_attributes.lon = (my_attributes.lon[nadir_az])
     my_new_attributes.lon_init = (my_attributes.lon[nadir_az])
     
     my_new_attributes.lat = (my_attributes.lat[nadir_az])
