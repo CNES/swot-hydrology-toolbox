@@ -1,15 +1,20 @@
+!### PATHS
 Run directory for orbits = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/orbit
 Shapefile path = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/data/river_and_lake
 Output directory = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/simu
 
-!### Orbit parameters: 
-!3 options =
+!### OPTIONS
+Create shapefile = yes                !Produce output files also as shapefiles (default=no)
+Create dummy PIXCVecRiver file = yes  !Produce L2_HR_PIXCVecRiver product associated to PixC files (default=no)
+
+
+!###################
+!# ORBIT SELECTION #
+!###################
+
+!== 3 options ==
 !Multiple orbit = yes (default) => all orbit files in Orbit directory will be processed
 !Multiple orbit = no => set the Orbit to a correct number found in the Orbit directory; only this orbit file will be processed
 !Multiple orbit = passplan => orbit files will be processed according to passplan.txt file (generated if passplan = yes in select_orbit.rdf)
 Multiple orbit = no !=no/yes/passplan
 Orbit = 267
-
-!### Files in output
-Create shapefile = yes !Produce output files also as shapefiles
-Create dummy pixc vec river file = yes !Produce L2_HR_PIXCVecRiver product associated to PixC files

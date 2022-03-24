@@ -21,7 +21,6 @@ import utm
 import pickle
 import pyproj
 from scipy import ndimage
-from scipy.spatial import cKDTree
 from sklearn.neighbors import KDTree
 import time
 
@@ -30,7 +29,7 @@ import lib.my_api as my_api
 import lib.my_shp as my_shp
 import lib.my_tools as my_tools
 from lib.my_lacs import Constant_Lac, Reference_height_Lac, Gaussian_Lac, Polynomial_Lac, Height_in_file_Lac
-from lib.my_variables import RAD2DEG, DEG2RAD, GEN_APPROX_RAD_EARTH
+from lib.my_variables import RAD2DEG, DEG2RAD, GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE, GEN_APPROX_RAD_EARTH
 from lib.roll_module import Roll_module
 from lib.tropo_module import Tropo_module
 import lib.true_height_model as true_height_model
@@ -43,10 +42,6 @@ import proc_pixc
 import proc_pixcvecriver
 
 
-GEN_RAD_EARTH = 6378137.0
-GEN_RAD_EARTH_POLE = 6356752.31425
-
-
 class orbitAttributes:
     
     def __init__(self):
@@ -54,75 +49,90 @@ class orbitAttributes:
         # 1 - Attributes from parameters file or default
     
         # 1.1 - Files and directories
-        self.out_dir = None  # Output directory
         self.shapefile_path = None  # Full path of shapefile of input water bodies
-    
-        # 1.2 - Instrument parameters
-        self.swath_width = None  # Swath width
-        self.nr_cross_track = None  # NR cross track
-        self.sensor_wavelength = None  # Sensor wavelength
-        self.nb_pix_range = None  # Number of pixels in range
-        self.range_sampling = None  # Range sampling
-    
-        # 1.3 - Orbit parameters
+        self.out_dir = None  # Output directory
+        
+        # 1.2 - Auxiliary data
+        self.geoid_file = None  # Geoid map full path
+        self.roll_file = None  # Full path of cross-over residual roll error
+        
+        # 1.3 - Optional files in output
+        self.create_shapefile = None
+        self.create_dummy_pixc_vec_river = None
+        
+        # 1.4 - Orbit parameters
         self.orbit_jitter = None  # Orbit jitter
         self.mission_start_time = None  # Launch time
         self.cycle_duration = None  # Cycle duration
         self.multi_orbit_option = None  # Multiple orbit option
         self.orbit_number = None  # Orbit number to process
+        self.cycle_number = None  # Cycle number to process
         self.passplan_path = None  # Full path of passplan.txt file
-    
-        # 1.4 - Height parameters
-        self.trueheight_file = None  # True height file
+        
+        # 1.5 - Height modelisation
         self.height_model = None  # Height model
-        self.height_name = None  # Height field name
-        self.height_model_min_area = None  # Optionnal argument to add complex 2D height model
         # Constant height model (always applied, set HEIGHT_MODEL_A to 0 to desactivate)
         self.height_model_a = None  # Height model A
-        self.height_model_a_tab = None  # Height model from shapefile
         self.height_model_t0 = None  # Height model t0
         self.height_model_period = None  # Height model period
-        # Gaussian parameter for gaussian model
+        # Min area of water bodies on which to add complex 2D height model
+        self.height_model_min_area = None
+        # Parameter for gaussian model
         self.height_model_stdv = None  # Height model standard deviation (for gaussian model)
+        # Height retrieved from shapefile
+        self.height_name = None  # Name of attribute related to height in shapefile
+        self.height_ref_multitemp = None  # Compute multitemp from original height value in shapefile
+        # Height retrieved from 2D NetCDF file
+        self.trueheight_file = None  # True height file
         
-        # Dark water
-        self.dark_water = None
-        self.fact_echelle_dw = None
-        self.dw_pourcent = None
-        self.dw_seed = None
-        self.darkwater_flag = None
-        self.scale_factor_non_detected_dw = None
-        self.dw_detected_percent = None
-        self.dw_detected_noise_factor = None
-
-        # 1.5 - Water flag
-        self.water_flag = None
-        self.water_land_flag = None
+        # 1.6 - Instrument parameters
+        self.swath_width = None  # Swath width
+        self.nr_cross_track = None  # NR cross track
+        self.nr_cross_track_filter = None  # NR cross track filter
+        self.sensor_wavelength = None  # Sensor wavelength
+        self.baseline = None  # Baseline
+        self.range_sampling = None  # Range sampling
+        self.nb_pix_range = None  # Number of pixels in range
+        
+        # 1.7 - Classification flags
         self.land_flag = None
         self.land_water_flag = None
-        self.land_detected_noise_height = None
-        self.land_detected_noise_factor = None
-    
-        # 1.6 - Noise parameters
-        self.geolocalisation_improvement = None  # No noise applied on geolocation
+        self.water_land_flag = None
+        self.water_flag = None
+        self.darkwater_flag = None
+        
+        # 1.8 - Noise parameters
         self.noise_multiplier_factor = None  # Noise multiplier factor
         self.height_bias_std = None  # Height bias std
-    
-        # 1.7 - Cross-over residual roll error
-        self.roll_file = None  # Full path
-    
-        # 2 - Attributes for computation configuration
-        self.create_shapefile = None
-        self.create_dummy_pixc_vec_river = None
+        self.geolocalisation_improvement = None  # No noise applied on geolocation
+        
+        # 1.9 - Dark water
+        self.dark_water = None
+        self.dw_pourcent = None
+        self.dw_detected_percent = None
+        self.scale_factor_non_detected_dw = None
+        self.dw_correlation_length = None
+        self.dw_seed = None
+        
+        # 1.10 - Tropo model
+        self.tropo_model = None
+        self.tropo_error_correlation = None
+        self.tropo_error_stdv = None
+        self.tropo_error_mean = None
+        self.tropo_error_map_file = None
+        
+        # 1.11 - Cross-over residual roll error
+        self.roll_repo = None
     
         # 3 - Working variables init
         self.sisimp_filenames = None  # Filenames specific to SISIMP
         self.noise_height = None  # Noise tab
+        self.dw_detected_noise_height = None  # dw detected noise tab
+        self.land_detected_noise_height = None
         self.orbit_list = []  # List of triplets (cycle number, pass number, orbit file) to process
         self.near_range = None
+        self.tile_database = None
         self.tile_coords = {}  # Dictionnary for storing tile coordinates for swath R and L
-
-        self.dw_detected_noise_height = None  # dw detected noise tab
 
         # 3.1 - From orbit file
         self.azimuth_spacing = None  # Azimuth spacing
@@ -150,7 +160,7 @@ class orbitAttributes:
         # 4 - List of each water body
         self.liste_lacs = None
 
-        # number of pixels overlapping top and bottom tile in tilling process
+        # number of pixels overlapping top and bottom tile in tiling process
         self.nb_pix_overlap_begin = 0
         self.nb_pix_overlap_end = 0
 
@@ -668,7 +678,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             tile_vz = vz[nb_pix_overlap_begin:-nb_pix_overlap_end]
             
             # Calcul x, y, z of satellite on earth
-            x_earth, y_earth, z_earth = inversionCore.convert_llh2ecef(tile_nadir_lat_deg, tile_nadir_lon_deg, np.zeros(len(tile_nadir_lat_deg)), GEN_RAD_EARTH, GEN_RAD_EARTH_POLE)
+            x_earth, y_earth, z_earth = inversionCore.convert_llh2ecef(tile_nadir_lat_deg, tile_nadir_lon_deg, np.zeros(len(tile_nadir_lat_deg)), GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
             nadir_vx = tile_x - x_earth
             nadir_vy = tile_y - y_earth
             nadir_vz = tile_z - z_earth
@@ -702,7 +712,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             interf_2d = []
             
 
-            x_water, y_water, z_water = inversionCore.convert_llh2ecef(lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], GEN_RAD_EARTH, GEN_RAD_EARTH_POLE)
+            x_water, y_water, z_water = inversionCore.convert_llh2ecef(lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
             for i, (x_w, y_w, z_w) in enumerate(zip(x_water, y_water, z_water), 0):
 
                 interferogram = my_tools.compute_interferogram(sensor_plus_y_x[sub_az[i]], sensor_plus_y_y[sub_az[i]], sensor_plus_y_z[sub_az[i]],\
@@ -1253,7 +1263,7 @@ def intersect(input, output, indmax, IN_attributes, lat, IN_cycle_number, overwr
     out_lyr.CreateField(ogr.FieldDefn(str('IND_LAC'), ogr.OFTInteger64))
     out_lyr.CreateField(ogr.FieldDefn(str('HEIGHT'), ogr.OFTReal))
     
-    out_list = []
+    #out_list = []
     
     for i, polygon_index_1 in enumerate(lyr):
         
