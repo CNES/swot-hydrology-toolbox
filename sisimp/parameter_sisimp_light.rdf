@@ -3,7 +3,7 @@ Run directory for orbits = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/or
 Shapefile path = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/data/river_and_lake
 Output directory = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/simu
 
-!### OPTIONS
+!### OPTIONAL FILES IN OUTPUT
 Create shapefile = yes                !Produce output files also as shapefiles (default=no)
 Create dummy PIXCVecRiver file = yes  !Produce L2_HR_PIXCVecRiver product associated to PixC files (default=no)
 
