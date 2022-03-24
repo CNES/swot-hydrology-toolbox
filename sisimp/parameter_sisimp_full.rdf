@@ -104,14 +104,14 @@ Dark water correlation length = 50
 
 !== Tropo error model ==
 !== 3 options: Tropo model = None/gaussian/map (default=None)
-!Tropo model  = gaussian
+!Tropo model = gaussian
 !Tropo error correlation = 5000
 !Tropo error stdv = 0.03
 !Tropo error mean = 0.01
 
 !////////// ON CNES CLUSTER ONLY //////////
 
-!Tropo model  = map
+!Tropo model = map
 !Tropo error correlation = 5000
 !Tropo error map file = /work/ALT/swot/swotdev/desrochesd/swot-hydrology-toolbox/sisimp/data/tropo_map/zonal_delta_wtc_J2.nc
 
