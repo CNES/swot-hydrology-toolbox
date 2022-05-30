@@ -740,7 +740,7 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                                            sigma0[az_indices], geoid[az_indices])
             
             # Update filenames with tile ref
-            IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, IN_attributes.tile_orbit_time[0], IN_attributes.tile_orbit_time[-1])
+            IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, tile_orbit_time[0], tile_orbit_time[-1])
             
             # Write main file
             my_pixc.write_pixc_file(IN_attributes.sisimp_filenames.pixc_file+".nc")
