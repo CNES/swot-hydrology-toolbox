@@ -28,12 +28,19 @@ class Roll_module(object):
         root_name = "GLOBAL_swot292_c"
         
         ############### VERY DIRTY FIX #################
-        orbit_number_shifted = orbit_number+330
-        delta_time = -1018647.36577032
-        if orbit_number_shifted > 584:
-            orbit_number_shifted+= -584
-            delta_time = 784049.790623216
+        # ~ orbit_number_shifted = orbit_number+330
+        # ~ delta_time = -1018647.36577032
+        # ~ if orbit_number_shifted > 584:
+            # ~ orbit_number_shifted+= -584
+            # ~ delta_time = 784049.790623216
+            
+        orbit_number_shifted = orbit_number-330
+        delta_time = 1018647.36577032
+        if orbit_number_shifted < 1:
+            orbit_number_shifted+= 584
+            delta_time = -784049.790623216
         ############### VERY DIRTY FIX #################
+        # ~ print(orbit_number, orbit_number_shifted)
         
         file_name = os.path.join(self.In_repository, root_name + str(cycle_number).zfill(2) + "_p" + str(orbit_number_shifted).zfill(3)) +".nc"
         my_api.printInfo("Roll file used : %s " % file_name)
