@@ -26,12 +26,22 @@ class Roll_module(object):
 
     def get_roll_file_associated_to_orbit_and_cycle(self, orbit_number, cycle_number, delta_time = 0):
         root_name = "GLOBAL_swot292_c"
-        file_name = os.path.join(self.In_repository, root_name + str(cycle_number).zfill(2) + "_p" + str(orbit_number).zfill(3)) +".nc"
+        
+        ############### VERY DIRTY FIX #################
+        orbit_number_shifted = orbit_number+330
+        delta_time = -1018647.36577032
+        if orbit_number_shifted > 584:
+            orbit_number_shifted+= -584
+            delta_time = 784049.790623216
+        ############### VERY DIRTY FIX #################
+        
+        file_name = os.path.join(self.In_repository, root_name + str(cycle_number).zfill(2) + "_p" + str(orbit_number_shifted).zfill(3)) +".nc"
         my_api.printInfo("Roll file used : %s " % file_name)
         
         self.read_roll_file(file_name, delta_time = delta_time)
 
-    def read_roll_file(self, In_filename, delta_time = 0):
+    # ~ 1018647.36577032
+    def read_roll_file(self, In_filename, delta_time = 0.):
                 
         try:
             fid = nc.Dataset(In_filename, 'r')
@@ -52,10 +62,15 @@ class Roll_module(object):
         self.roll1_err_sens = []
         for i in range(self.roll1_err.shape[1]):
             # Interpolate simulated roll variables on sensor time grid
+            
+            # ~ print(self.time)
+            # ~ print(sensor_time)
+            # ~ print('')
+
             ensind=numpy.where(((self.time>=sensor_time[0]-2.)&(self.time<=sensor_time[-1]+2.)))
             f=scipy.interpolate.interp1d(self.time[ensind],(self.roll1_err[:,i])[ensind],kind='linear')
             self.roll1_err_sens.append(f(sensor_time))
-
+            
 
 
     def interpolate_roll_on_pixelcloud(self, sensor_time, cloud_time, y):
@@ -69,6 +84,9 @@ class Roll_module(object):
             ind = np.where(col == i)
             if ind[0].size:
                 # Interpolate roll variables on pixel cloud
+                
+                # ~ print("cloud_time", cloud_time)
+                # ~ print("sensor_time", sensor_time)
                 f=scipy.interpolate.interp1d(sensor_time,self.roll1_err_sens[i],kind='linear')
                 self.roll1_err_cloud[ind]=f(cloud_time[ind])
 
