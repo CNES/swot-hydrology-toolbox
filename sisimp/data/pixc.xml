@@ -31,8 +31,8 @@
         <real name="/pixel_cloud/water_frac_uncert" shape="pixel_cloud_points_shape" width="32">
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="water fraction uncertainty" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Uncertainty estimate of the water fraction estimate (width of noisy water frac estimate distribution)."/>
         </real>
-        <integer name="/pixel_cloud/classification" shape="pixel_cloud_points_shape" width="8" signed="true">
-          <annotation app="conformance" _FillValue="127" long_name="classification" quality_flag="classification_qual" flag_meanings="land land_near_water water_near_land open_water dark_water low_coh_water_near_land open_low_coh_water" flag_values="1 2 3 4 5 6 7" valid_min="1" valid_max="7" coordinates="longitude latitude" comment="Flags indicating water detection results."/>
+        <integer name="/pixel_cloud/classification" shape="pixel_cloud_points_shape" width="8" signed="false">
+          <annotation app="conformance" _FillValue="255" long_name="classification" quality_flag="classification_qual" flag_meanings="land land_near_water water_near_land open_water dark_water low_coh_water_near_land open_low_coh_water" flag_values="1 2 3 4 5 6 7" valid_min="1" valid_max="7" coordinates="longitude latitude" comment="Flags indicating water detection results."/>
         </integer>
         <real name="/pixel_cloud/false_detection_rate" shape="pixel_cloud_points_shape" width="32">
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="false detection rate" units="1" quality_flag="classification_qual" valid_min="0" valid_max="1" coordinates="longitude latitude" comment="Probability of falsely detecting water when there is none."/>
@@ -43,8 +43,8 @@
         <real name="/pixel_cloud/prior_water_prob" shape="pixel_cloud_points_shape" width="32">
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="prior water probability" units="1" valid_min="0" valid_max="1" coordinates="longitude latitude" comment="Prior probability of water occurring."/>
         </real>
-        <integer name="/pixel_cloud/bright_land_flag" shape="pixel_cloud_points_shape" width="8" signed="true">
-          <annotation app="conformance" _FillValue="127" long_name="bright land flag" standard_name="status_flag" flag_meanings="not_bright_land bright_land bright_land_or_water" flag_values="0 1 2" valid_min="0" valid_max="2" coordinates="longitude latitude" comment="Flag indicating areas that are not typically water but are expected to be bright (e.g., urban areas, ice).  Flag value 2 indicates cases where prior data indicate land, but where prior_water_prob indicates possible water."/>
+        <integer name="/pixel_cloud/bright_land_flag" shape="pixel_cloud_points_shape" width="8" signed="false">
+          <annotation app="conformance" _FillValue="255" long_name="bright land flag" standard_name="status_flag" flag_meanings="not_bright_land bright_land bright_land_or_water" flag_values="0 1 2" valid_min="0" valid_max="2" coordinates="longitude latitude" comment="Flag indicating areas that are not typically water but are expected to be bright (e.g., urban areas, ice).  Flag value 2 indicates cases where prior data indicate land, but where prior_water_prob indicates possible water."/>
         </integer>
         <real name="/pixel_cloud/layover_impact" shape="pixel_cloud_points_shape" width="32">
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="layover impact" units="m" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Estimate of the height error caused by layover, which may not be reliable on a pixel by pixel basis, but may be useful to augment aggregated height uncertainties."/>
@@ -121,6 +121,12 @@
         <real name="/pixel_cloud/instrument_baseline_cor" shape="pixel_cloud_points_shape" width="32">
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="instrument baseline correction" units="m" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Term that incorporates all calibration corrections applied to baseline before geolocation."/>
         </real>
+        <real name="/pixel_cloud/sig0_cor_atmos_model" shape="pixel_cloud_points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="two-way atmospheric correction to sigma0 from model" source="European Centre for Medium-Range Weather Forecasts" institution="ECMWF" units="1" valid_min="1" valid_max="10" coordinates="longitude latitude" comment="Atmospheric correction to sigma0 from weather model data as a linear power multiplier (not decibels). sig0_cor_atmos_model is already applied in computing sig0 and x_factor_plus_y and x_factor_minus_y."/>
+        </real>
+        <real name="/pixel_cloud/height_cor_xover" shape="pixel_cloud_points_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="height correction from KaRIn crossovers" units="m" valid_min="-10" valid_max="10" coordinates="longitude latitude" comment="Height correction from KaRIn crossover calibration. The correction is applied before geolocation but reported as an equivalent height correction."/>
+        </real>
         <real name="/pixel_cloud/model_dry_tropo_cor" shape="pixel_cloud_points_shape" width="32">
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="dry troposphere vertical correction" source="European Centre for Medium-Range Weather Forecasts" institution="ECMWF" units="m" valid_min="-3" valid_max="-1.5" coordinates="longitude latitude" comment="Equivalent vertical correction due to dry troposphere delay. The reported pixel height, latitude and longitude are computed after adding negative media corrections to uncorrected range along slant-range paths, accounting for the differential delay between the two KaRIn antennas. The equivalent vertical correction is computed by applying obliquity factors to the slant-path correction. Adding the reported correction to the reported pixel height results in the uncorrected pixel height."/>
         </real>
@@ -130,14 +136,11 @@
         <real name="/pixel_cloud/iono_cor_gim_ka" shape="pixel_cloud_points_shape" width="32">
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="ionosphere vertical correction" source="Global Ionosphere Maps" institution="JPL" units="m" valid_min="-0.5" valid_max="0" coordinates="longitude latitude" comment="Equivalent vertical correction due to ionosphere delay. The reported pixel height, latitude and longitude are computed after adding negative media corrections to uncorrected range along slant-range paths, accounting for the differential delay between the two KaRIn antennas. The equivalent vertical correction is computed by applying obliquity factors to the slant-path correction. Adding the reported correction to the reported pixel height results in the uncorrected pixel height."/>
         </real>
-        <real name="/pixel_cloud/height_cor_xover" shape="pixel_cloud_points_shape" width="32">
-          <annotation app="conformance" _FillValue="9.96921e+36" long_name="height correction from KaRIn crossovers" units="m" valid_min="-10" valid_max="10" coordinates="longitude latitude" comment="Height correction from KaRIn crossover calibration. The correction is applied before geolocation but reported as an equivalent height correction."/>
-        </real>
         <real name="/pixel_cloud/geoid" shape="pixel_cloud_points_shape" width="32">
-          <annotation app="conformance" _FillValue="9.96921e+36" long_name="geoid height" standard_name="geoid_height_above_reference_ellipsoid" source="EGM2008 (Pavlis et al., 2012)" units="m" valid_min="-150" valid_max="150" coordinates="longitude latitude" comment="Geoid height above the reference ellipsoid with a correction to refer the value to the mean tide system, i.e. includes the permanent tide (zero frequency)."/>
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="geoid height" standard_name="geoid_height_above_reference_ellipsoid" source="EGM2008 (Pavlis et al., 2012)" units="m" valid_min="-150" valid_max="150" coordinates="longitude latitude" comment="Geoid height above the reference ellipsoid with a correction to refer the value to the mean tide system, i.e. includes the permanent tide (zero frequency).  This value is reported for reference but is not applied to the reported height."/>
         </real>
         <real name="/pixel_cloud/solid_earth_tide" shape="pixel_cloud_points_shape" width="32">
-          <annotation app="conformance" _FillValue="9.96921e+36" long_name="solid Earth tide height" source="Cartwright and Taylor (1971) and Cartwright and Edden (1973)" units="m" valid_min="-1" valid_max="1" coordinates="longitude latitude" comment="Solid-Earth (body) tide height. The zero-frequency permanent tide component is not included."/>
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="solid Earth tide height" source="Cartwright and Taylor (1971) and Cartwright and Edden (1973)" units="m" valid_min="-1" valid_max="1" coordinates="longitude latitude" comment="Solid-Earth (body) tide height. The zero-frequency permanent tide component is not included.  This value is reported for reference but is not applied to the reported height."/>
         </real>
         <real name="/pixel_cloud/load_tide_fes" shape="pixel_cloud_points_shape" width="32">
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="geocentric load tide height (FES)" source="FES2014b (Carrere et al., 2016)" institution="LEGOS/CNES" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth's crust. This value is reported for reference but is not applied to the reported height."/>
@@ -146,26 +149,36 @@
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="geocentric load tide height (GOT)" source="GOT4.10c (Ray, 2013)" institution="GSFC" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth's crust. This value is reported for reference but is not applied to the reported height."/>
         </real>
         <real name="/pixel_cloud/pole_tide" shape="pixel_cloud_points_shape" width="32">
-          <annotation app="conformance" _FillValue="9.96921e+36" long_name="geocentric pole tide height" source="Wahr (1985) and Desai et al. (2015)" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric pole tide height. The total of the contribution from the solid-Earth (body) pole tide height and the load pole tide height (i.e., the effect of the ocean pole tide loading of the Earth's crust)."/>
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="geocentric pole tide height" source="Wahr (1985) and Desai et al. (2015)" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric pole tide height. The total of the contribution from the solid-Earth (body) pole tide height and the load pole tide height (i.e., the effect of the ocean pole tide loading of the Earth's crust).  This value is reported for reference but is not applied to the reported height."/>
         </real>
         <integer name="/pixel_cloud/ancillary_surface_classification_flag" shape="pixel_cloud_points_shape" width="8" signed="false">
           <annotation app="conformance" _FillValue="255" long_name="surface classification" standard_name="status_flag" source="MODIS/GlobCover" institution="European Space Agency" flag_meanings="open_ocean land continental_water aquatic_vegetation continental_ice_snow floating_ice salted_basin" flag_values="0 1 2 3 4 5 6" valid_min="0" valid_max="6" coordinates="longitude latitude" comment="7-state surface type classification computed from a mask built with MODIS and GlobCover data."/>
         </integer>
-        <integer name="/pixel_cloud/interferogram_qual" shape="pixel_cloud_points_shape" width="8" signed="true">
-          <annotation app="conformance" _FillValue="127" standard_name="status_flag" flag_meanings="good suspect bad" flag_values="0 1 2" valid_min="0" valid_max="2" coordinates="longitude latitude" comment="Quality flag for the interferogram quantities in the pixel cloud data"/>
+        <integer name="/pixel_cloud/interferogram_qual" shape="pixel_cloud_points_shape" width="32" signed="false">
+          <annotation app="conformance" _FillValue="4294967295" standard_name="status_flag" flag_meanings="rare_power_suspect rare_phase_suspect tvp_suspect sc_event_suspect small_karin_gap rare_power_bad rare_phase_bad tvp_bad sc_event_bad large_karin_gap" flag_masks="[      2048       4096       8192      16384      32768  134217728
+  268435456  536870912 1073741824 2147483648]" valid_min="0" valid_max="4160813056" coordinates="longitude latitude" comment="Quality flag for the interferogram quantities in the pixel cloud data"/>
         </integer>
-        <integer name="/pixel_cloud/classification_qual" shape="pixel_cloud_points_shape" width="8" signed="true">
-          <annotation app="conformance" _FillValue="127" standard_name="status_flag" flag_meanings="good suspect bad" flag_values="0 1 2" valid_min="0" valid_max="2" coordinates="longitude latitude" comment="Quality flag for the classification quantities in the pixel cloud data"/>
+        <integer name="/pixel_cloud/classification_qual" shape="pixel_cloud_points_shape" width="32" signed="false">
+          <annotation app="conformance" _FillValue="4294967295" standard_name="status_flag" flag_meanings="no_coherent_gain power_close_to_noise_floor detected_water_but_no_prior_water detected_water_but_bright_land water_false_detection_rate_suspect coherent_power_suspect tvp_suspect sc_event_suspect small_karin_gap coherent_power_bad tvp_bad sc_event_bad large_karin_gap" flag_masks="[         1          2          4          8         16       2048
+       8192      16384      32768  134217728  536870912 1073741824
+ 2147483648]" valid_min="0" valid_max="3892373535" coordinates="longitude latitude" comment="Quality flag for the classification quantities in the pixel cloud data"/>
         </integer>
-        <integer name="/pixel_cloud/geolocation_qual" shape="pixel_cloud_points_shape" width="8" signed="true">
-          <annotation app="conformance" _FillValue="127" standard_name="status_flag" flag_meanings="good suspect bad" flag_values="0 1 2" valid_min="0" valid_max="2" coordinates="longitude latitude" comment="Quality flag for the geolocation quantities in the pixel cloud data"/>
+        <integer name="/pixel_cloud/geolocation_qual" shape="pixel_cloud_points_shape" width="32" signed="false">
+          <annotation app="conformance" _FillValue="4294967295" standard_name="status_flag" flag_meanings="layover_significant phase_noise_suspect phase_unwrapping_suspect model_dry_tropo_cor_suspect model_wet_tropo_cor_suspect iono_cor_gim_ka_suspect geolocation_is_from_refloc medium_phase_suspect tvp_suspect sc_event_suspect small_karin_gap no_geolocation_bad medium_phase_bad tvp_bad sc_event_bad large_karin_gap" flag_masks="[         1          2          4          8         16         32
+         64       4096       8192      16384      32768  134217728
+  268435456  536870912 1073741824 2147483648]" valid_min="0" valid_max="4160811135" coordinates="longitude latitude" comment="Quality flag for the geolocation quantities in the pixel cloud data"/>
         </integer>
-        <integer name="/pixel_cloud/sig0_qual" shape="pixel_cloud_points_shape" width="8" signed="true">
-          <annotation app="conformance" _FillValue="127" standard_name="status_flag" flag_meanings="good suspect bad" flag_values="0 1 2" valid_min="0" valid_max="2" coordinates="longitude latitude" comment="Quality flag for sig0"/>
+        <integer name="/pixel_cloud/sig0_qual" shape="pixel_cloud_points_shape" width="32" signed="false">
+          <annotation app="conformance" _FillValue="4294967295" standard_name="status_flag" flag_meanings="sig0_uncert_suspect sig0_corr_atmos_suspect noise_power_suspect xfactor_suspect rare_power_suspect tvp_suspect sc_event_suspect small_karin_gap noise_power_bad xfactor_bad rare_power_bad tvp_bad sc_event_bad large_karin_gap" flag_masks="[         1          2          4          8       2048       8192
+      16384      32768   33554432   67108864  134217728  536870912
+ 1073741824 2147483648]" valid_min="0" valid_max="3993036815" coordinates="longitude latitude" comment="Quality flag for sig0"/>
         </integer>
-        <integer name="/pixel_cloud/pixc_line_qual" shape="pixel_cloud_num_pixc_lines_shape" width="8" signed="true">
-          <annotation app="conformance" _FillValue="127" standard_name="status_flag" flag_meanings="good suspect bad" flag_values="0 1 2" valid_min="0" valid_max="2" comment="Quality flag for pixel cloud data per rare-posted interferogram line (similar to slc_qual in the L1B_HR_SLC product)"/>
+        <integer name="/pixel_cloud/pixc_line_qual" shape="pixel_cloud_num_pixc_lines_shape" width="32" signed="false">
+          <annotation app="conformance" _FillValue="4294967295" standard_name="status_flag" flag_meanings="tvp_suspect sc_event_suspect small_karin_gap tvp_bad sc_event_bad large_karin_gap" flag_masks="[      8192      16384      32768  536870912 1073741824 2147483648]" valid_min="0" valid_max="3758153728" comment="Quality flag for pixel cloud data per rare-posted interferogram line (similar to slc_qual in the L1B_HR_SLC product)"/>
         </integer>
+        <real name="/pixel_cloud/pixc_line_to_tvp" shape="pixel_cloud_num_pixc_lines_shape" width="32">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="pixel cloud rare line to tvp index" units="1" valid_min="0" valid_max="999999" comment="Pixel cloud rare radar grid line index to tvp index mapping"/>
+        </real>
         <string name="/pixel_cloud/@description" shape="Scalar" width="0">
           <annotation description="cloud of geolocated interferogram pixels"/>
         </string>
@@ -178,6 +191,12 @@
         <real name="/pixel_cloud/@looks_to_efflooks" shape="Scalar" width="64">
           <annotation description="ratio of the number of real looks to the effective number of independent looks"/>
         </real>
+        <real name="/pixel_cloud/@num_azimuth_looks" shape="Scalar" width="64">
+          <annotation description="number of real azimuth looks commanded in rare multilooking"/>
+        </real>
+        <integer name="/pixel_cloud/@azimuth_offset" shape="Scalar" width="32" signed="true">
+          <annotation description="offset number of slc lines used in rare multilooking to keep overlapping portion of consecutive tiles to be consistent for the 2D rare interferogram images before pruning"/>
+        </integer>
         <real name="/tvp/time" shape="tvp_num_tvps_shape" width="64">
           <annotation app="conformance" _FillValue="9.969209968386869e+36" long_name="time in UTC" standard_name="time" calendar="gregorian" tai_utc_difference="[Value of TAI-UTC at time of first record]" leap_second="YYYY-MM-DDThh:mm:ssZ" units="seconds since 2000-01-01 00:00:00.000" comment="Time of measurement in seconds in the UTC time scale since 1 Jan 2000 00:00:00 UTC. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the attribute leap_second is set to the UTC time at which the leap second occurs."/>
         </real>
@@ -244,11 +263,11 @@
         <integer name="/tvp/record_counter" shape="tvp_num_tvps_shape" width="32" signed="true">
           <annotation app="conformance" _FillValue="2147483647" long_name="record counter" units="1" valid_min="1" valid_max="999999999" coordinates="longitude latitude" comment="Index of the TVP record used to align data samples across granules."/>
         </integer>
-        <integer name="/tvp/sc_event_flag" shape="tvp_num_tvps_shape" width="8" signed="true">
-          <annotation app="conformance" _FillValue="127" standard_name="status_flag" flag_meanings="nominal not_nominal" flag_values="0 1" valid_min="0" valid_max="1" coordinates="longitude latitude" comment="Spacecraft event flag"/>
+        <integer name="/tvp/sc_event_flag" shape="tvp_num_tvps_shape" width="8" signed="false">
+          <annotation app="conformance" _FillValue="255" long_name="spacecraft event flag" standard_name="status_flag" flag_meanings="yaw_flip_maneuver gyro_calibration_maneuver orbit_control_maneuver solar_array_rotation eclipse_entry eclipse_exit karin_bad_due_to_eclipse_event karin_bad_due_to_non_eclipse_event" flag_masks="[  1   2   4   8  16  32  64 128]" valid_min="0" valid_max="255" coordinates="longitude latitude" comment="Flag indicating spacecraft events that may affect the characteristics of the KaRIn data. The spacecraft is in a nominal state when all bits equal 0. The KaRIn measurement may be affected by a spacecraft event when any of bits 0 to 5 are equal to 1. The KaRIn measurement is likely bad when bits 6 or 7 are equal to 1."/>
         </integer>
-        <integer name="/tvp/tvp_qual" shape="tvp_num_tvps_shape" width="8" signed="true">
-          <annotation app="conformance" _FillValue="127" standard_name="status_flag" flag_meanings="good bad" flag_values="0 1" valid_min="0" valid_max="1" coordinates="longitude latitude" comment="Quality flag for TVP data"/>
+        <integer name="/tvp/tvp_qual" shape="tvp_num_tvps_shape" width="8" signed="false">
+          <annotation app="conformance" _FillValue="255" long_name="TVP quality flag" standard_name="status_flag" flag_meanings="good orbit_estimated_during_a_maneuver orbit_interpolated_over_data_gap orbit_extrapolated_for_a_duration_less_than_1_day orbit_extrapolated_for_a_duration_between_1_to_2_days orbit_extrapolated_for_a_duration_greater_than_2_days bad_attitude" flag_values="0 4 5 6 7 8 64" valid_min="0" valid_max="64" coordinates="longitude latitude" comment="Flag indicating the quality of the reconstructed attitude and orbit ephemeris. A value of 0 indicates the reconstructed attitude and orbit ephemeris are both good. Non-zero values less than 64 indicate that the reconstructed attitude is good but there are issues that degrade the quality of the orbit ephemeris. A value of 64 indicates that the reconstructed attitude is degraded or bad."/>
         </integer>
         <string name="/tvp/@description" shape="Scalar" width="0">
           <annotation description="Time varying parameters group including spacecraft attitude, position, velocity, and antenna position information"/>
@@ -447,8 +466,8 @@
         </real>
       </nodes>
     </science>
-    <shape name="Scalar" order="irrelevant"/>    
-	<shape name="pixel_cloud_points_shape" order="slowest...fastest">
+    <shape name="Scalar" order="irrelevant"/>  
+      <shape name="pixel_cloud_points_shape" order="slowest...fastest">
       <dimension extent="0" name="/pixel_cloud/points"/>
     </shape>
     <shape name="pixel_cloud_points_complex_depth_shape" order="slowest...fastest">
