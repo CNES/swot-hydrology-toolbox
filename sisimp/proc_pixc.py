@@ -212,7 +212,7 @@ class l2_hr_pixc(object):
         tmp_metadata["processing_beamwidth"] = 0.000873
         tmp_metadata["slc_along_track_resolution"] = 21.875000/4
         tmp_metadata["slc_first_line_index_in_tvp"] = 0
-        tmp_metadata["slc_last_line_index_in_tvp"] = len(self.nadir_time)
+        tmp_metadata["slc_last_line_index_in_tvp"] = len(self.nadir_time)-1
         
         tmp_metadata["xref_watermask_files"] = self.shapefile_path+".shp"
         tmp_metadata["xref_param_l2_hr_pixc_file"] = self.param_file
