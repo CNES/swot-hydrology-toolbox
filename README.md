@@ -31,26 +31,25 @@ Note that both algorithms and products are still under development and will be u
 * Potentially other modules in the future 
 
 ## Associated SHT version
-release_version_10_28_2021 branch
+release_version_08_03_2022 branch
 
 ## Associated RiverObs version
 develop branch
 
-commit 3895abe8e7a5f3b224efd80b939889083c72364f
-Merge: 87e7c02 ed226f6
-Author: Cassie Stuurman <cassie.stuurman@jpl.nasa.gov>
-Date:   Tue Apr 6 12:29:09 2021 -0700
+commit 3ddd70202765298f6ddf7091edfb75c0a7b5ff1c 
+Author: Alex Fore <Alexander.Fore@jpl.nasa.gov>
+Date:   Wed May 18 05:49:40 2022 -0700
 
-Merge branch 'develop' of https://github-fn.jpl.nasa.gov/SWOTAlgorithmFN/RiverObs into develop
+    add validate_inputs to rivertile SAS and check for pixc with no pixels
 
 
 updated batch validation tool for compatibility with plot reach
 
-River database SWORD v8 available here:
-http://gaia.geosci.unc.edu/SWORD/SWORD_v08.zip
+River database SWORD v12 available here:
+http://gaia.geosci.unc.edu/SWORD/SWORD_v12.zip
 
 Don't forget to modify parameter_river.rdf
-reach_db_path (-) = /work/ALT/swot/swotpub/BD/BD_rivers/SWORD_v08/Reaches_Nodes/netcdf
+reach_db_path (-) = /work/ALT/swot/swotpub/BD/BD_rivers/SWORD_v12/Reaches_Nodes/netcdf
 
 You can also try to use a more recent RiverObs version, but don't forget to use the associated SWORD version.
 
