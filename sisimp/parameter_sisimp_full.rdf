@@ -4,7 +4,7 @@ Shapefile path = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/data/river_and_lake
 Output directory = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/simu
 
 !### AUXILIARY DATA
-Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip  !PixC tile geometry for Science orbit
+Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full_2018.txt.zip  !PixC tile geometry for Science orbit
 Geoid = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/egm2008-5.pgm                    !Geoid map
 
 !### OPTIONAL FILES IN OUTPUT

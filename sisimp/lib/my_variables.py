@@ -23,7 +23,7 @@ from math import pi
 #= Default path for external data =
 #==================================
 # PixC tiles geometry (science orbit)
-TILE_DATABASE_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip"
+TILE_DATABASE_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full_2018.txt.zip"
 # Geoid
 GEOID_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/egm2008-5.pgm"
 
