@@ -1,5 +1,5 @@
 width_db_file             (-) = None
-reach_db_path             (-) = /work/ALT/swot/swotpub/BD/BD_rivers/SWORD_v12/Reaches_Nodes/netcdf
+reach_db_path             (-) = /work/ALT/swot/swotpub/BD/BD_rivers/SWORD_v08/Reaches_Nodes/netcdf
 class_list                (-) = [2, 3, 4, 5, 22, 23, 24]
 use_fractional_inundation (-) = [True, True, False, False, False, False, False]
 use_segmentation          (-) = [False, True, True, True, False, True, True]

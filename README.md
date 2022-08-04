@@ -46,10 +46,10 @@ Date:   Wed May 18 05:49:40 2022 -0700
 updated batch validation tool for compatibility with plot reach
 
 River database SWORD v12 available here:
-http://gaia.geosci.unc.edu/SWORD/SWORD_v12.zip
+http://gaia.geosci.unc.edu/SWORD/SWORD_v08.zip
 
 Don't forget to modify parameter_river.rdf
-reach_db_path (-) = /work/ALT/swot/swotpub/BD/BD_rivers/SWORD_v12/Reaches_Nodes/netcdf
+reach_db_path (-) = /work/ALT/swot/swotpub/BD/BD_rivers/SWORD_v08/Reaches_Nodes/netcdf
 
 You can also try to use a more recent RiverObs version, but don't forget to use the associated SWORD version.
 
