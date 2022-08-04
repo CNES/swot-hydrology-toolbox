@@ -305,7 +305,7 @@ class Processing(object):
         # Load the tile database file
         try:
             archive = zipfile.ZipFile(os.path.expandvars(read_parameter(parameters, "Tile database path", my_var.TILE_DATABASE_PATH, str)), "r")
-            imgfile = archive.open("tiles_full.txt")
+            imgfile = archive.open("tiles_full_2018.txt")
             self.my_attributes.tile_database = np.loadtxt(imgfile, skiprows=1)
         except IOError:
             my_api.exitWithError("Tile database not found")

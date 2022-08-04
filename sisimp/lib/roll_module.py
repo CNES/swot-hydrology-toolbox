@@ -27,25 +27,24 @@ class Roll_module(object):
     def get_roll_file_associated_to_orbit_and_cycle(self, orbit_number, cycle_number, delta_time = 0):
         root_name = "GLOBAL_swot292_c"
         
+        
         ############### VERY DIRTY FIX #################
-        # ~ orbit_number_shifted = orbit_number+330
-        # ~ delta_time = -1018647.36577032
-        # ~ if orbit_number_shifted > 584:
-            # ~ orbit_number_shifted+= -584
-            # ~ delta_time = 784049.790623216
-            
+        # ~ dt = delta_time
+        # ~ orbit_number_shifted = orbit_number
         orbit_number_shifted = orbit_number-330
-        delta_time = 1018647.36577032
+        dt = 1018647.36577032
         if orbit_number_shifted < 1:
             orbit_number_shifted+= 584
-            delta_time = -784049.790623216
+            dt = -784049.790623216
         ############### VERY DIRTY FIX #################
+        
+        
         # ~ print(orbit_number, orbit_number_shifted)
         
         file_name = os.path.join(self.In_repository, root_name + str(cycle_number).zfill(2) + "_p" + str(orbit_number_shifted).zfill(3)) +".nc"
         my_api.printInfo("Roll file used : %s " % file_name)
         
-        self.read_roll_file(file_name, delta_time = delta_time)
+        self.read_roll_file(file_name, delta_time = delta_time+dt)
 
     # ~ 1018647.36577032
     def read_roll_file(self, In_filename, delta_time = 0.):
@@ -67,18 +66,27 @@ class Roll_module(object):
     def interpolate_roll_on_sensor_grid(self, sensor_time):
         
         self.roll1_err_sens = []
+        self.lon_sens = []
+        self.lat_sens = []
+        
+        # ~ print(sensor_time)
+        # ~ print(self.time)
+        
         for i in range(self.roll1_err.shape[1]):
             # Interpolate simulated roll variables on sensor time grid
             
-            # ~ print(self.time)
-            # ~ print(sensor_time)
-            # ~ print('')
-
             ensind=numpy.where(((self.time>=sensor_time[0]-2.)&(self.time<=sensor_time[-1]+2.)))
             f=scipy.interpolate.interp1d(self.time[ensind],(self.roll1_err[:,i])[ensind],kind='linear')
             self.roll1_err_sens.append(f(sensor_time))
             
+        f2=scipy.interpolate.interp1d(self.time[ensind],(self.lon_nadir[:])[ensind],kind='linear')
+        self.lon_sens.append(f2(sensor_time))
 
+        f3=scipy.interpolate.interp1d(self.time[ensind],(self.lat_nadir[:])[ensind],kind='linear')
+        self.lat_sens.append(f3(sensor_time))
+            
+        # ~ print('self.lon_sens= ', self.lon_sens)
+        # ~ print('self.lat_sens= ', self.lat_sens)
 
     def interpolate_roll_on_pixelcloud(self, sensor_time, cloud_time, y):
 

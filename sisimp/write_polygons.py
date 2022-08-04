@@ -646,127 +646,127 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min r ind = %d - Max r ind = %d" % (np.min(sub_r), np.max(sub_r)))
             my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] Min az ind = %d - Max az ind = %d" % (np.min(sub_az), np.max(sub_az)))
 
-            # Get output filename
+            if np.max(sub_az)-np.min(sub_az) !=0:
+                # Get output filename
 
-            # Left / right swath flag
-            left_or_right = IN_swath.upper()[0]
-            
-            # General tile reference
-            tile_ref = "%03d%s" % (IN_attributes.tile_number, left_or_right)
-
-            sub_az = sub_az - az_min - nb_pix_overlap_begin 
-
-            # remove first and last orbit point, added in read_orbit
-            if nb_pix_overlap_begin == 0:
-                nb_pix_overlap_begin = 1
-                nb_pix_overlap_end = nb_pix_overlap_end - nb_pix_overlap_begin
-            if nb_pix_overlap_end <= 0:
-                nb_pix_overlap_end = 1
-
-            #TODO:keep only indices + negative values from azr_from_lonlat
-            tile_nadir_lat_deg = nadir_lat_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
-            tile_nadir_lon_deg = nadir_lon_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
-            tile_orbit_time = IN_attributes.orbit_time[nb_pix_overlap_begin:-nb_pix_overlap_end]
-            tile_nadir_alt = nadir_alt[nb_pix_overlap_begin:-nb_pix_overlap_end]
-            tile_nadir_heading = nadir_heading[nb_pix_overlap_begin:-nb_pix_overlap_end]
-
-            tile_x = IN_attributes.x[nb_pix_overlap_begin:-nb_pix_overlap_end]
-            tile_y = IN_attributes.y[nb_pix_overlap_begin:-nb_pix_overlap_end]
-            tile_z = IN_attributes.z[nb_pix_overlap_begin:-nb_pix_overlap_end]
-            tile_vx = vx[nb_pix_overlap_begin:-nb_pix_overlap_end]
-            tile_vy = vy[nb_pix_overlap_begin:-nb_pix_overlap_end]
-            tile_vz = vz[nb_pix_overlap_begin:-nb_pix_overlap_end]
-            
-            # Calcul x, y, z of satellite on earth
-            x_earth, y_earth, z_earth = inversionCore.convert_llh2ecef(tile_nadir_lat_deg, tile_nadir_lon_deg, np.zeros(len(tile_nadir_lat_deg)), GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
-            nadir_vx = tile_x - x_earth
-            nadir_vy = tile_y - y_earth
-            nadir_vz = tile_z - z_earth
-
-            # Calcul norm for each vector
-            norm_sat = [np.sqrt(x*x + y*y + z*z) for x, y, z in zip(tile_vx, tile_vy, tile_vz)]
-            norm_nadir = [np.sqrt(x*x + y*y + z*z) for x, y, z in zip(nadir_vx, nadir_vy, nadir_vz)]
-
-            # Normalize vectors
-            norm_vx = [val / norm_val for val, norm_val in zip(tile_vx, norm_sat)]
-            norm_vy = [val / norm_val for val, norm_val in zip(tile_vy, norm_sat)]
-            norm_vz = [val / norm_val for val, norm_val in zip(tile_vz, norm_sat)]
-
-            norm_nadir_vx = [val/norm_val for val, norm_val in zip(nadir_vx, norm_nadir)]
-            norm_nadir_vy = [val/norm_val for val, norm_val in zip(nadir_vy, norm_nadir)]
-            norm_nadir_vz = [val/norm_val for val, norm_val in zip(nadir_vz, norm_nadir)]
-
-            # Calcul normal vector
-            normal_vector = [np.cross([vx, vy, vz], [nadir_vx, nadir_vy, nadir_vz]) for vx, vy, vz, nadir_vx, nadir_vy, nadir_vz in zip(norm_vx, norm_vy, norm_vz, norm_nadir_vx, norm_nadir_vy, norm_nadir_vz)]
-           
-            # Find sensors coordinates
-            sensor_plus_y_x = [x + nv[0]*5 for x, nv in zip(tile_x, normal_vector)]
-            sensor_plus_y_y = [y + nv[1]*5 for y, nv in zip(tile_y, normal_vector)]
-            sensor_plus_y_z = [z + nv[2]*5 for z, nv in zip(tile_z, normal_vector)]
-
-            sensor_minus_y_x = [x - nv[0]*5 for x, nv in zip(tile_x, normal_vector)]
-            sensor_minus_y_y = [y - nv[1]*5 for y, nv in zip(tile_y, normal_vector)]
-            sensor_minus_y_z = [z - nv[2]*5 for z, nv in zip(tile_z, normal_vector)]
-
-            # Calcul interferogram for all water pixels
-            interf_2d = []
-            
-
-            x_water, y_water, z_water = inversionCore.convert_llh2ecef(lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
-            for i, (x_w, y_w, z_w) in enumerate(zip(x_water, y_water, z_water), 0):
-
-                interferogram = my_tools.compute_interferogram(sensor_plus_y_x[sub_az[i]], sensor_plus_y_y[sub_az[i]], sensor_plus_y_z[sub_az[i]],\
-                    sensor_minus_y_x[sub_az[i]], sensor_minus_y_y[sub_az[i]], sensor_minus_y_z[sub_az[i]], x_w, y_w, z_w) 
-                interf_2d.append([interferogram[0], interferogram[1]])
-
-            #  Calcul water frac for each point 
-            nadir_az_size = tile_nadir_lat_deg.size
-
-            tile_coords = compute_tile_coords(IN_attributes, IN_swath, nadir_az_size, nb_pix_overlap_begin)
-            IN_attributes.tile_coords[left_or_right] = tile_coords
-
-            # Init L2_HR_PIXC object
-
-
-            my_pixc = proc_pixc.l2_hr_pixc(sub_az, sub_r, classification_tab[az_indices], pixel_area[az_indices],
-                                           lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], phase_noise_std[az_indices],
-                                           dh_dphi[az_indices], dlon_dphi[az_indices], dlat_dphi[az_indices], y[az_indices],
-                                           tile_orbit_time, tile_nadir_lat_deg, tile_nadir_lon_deg, tile_nadir_alt, tile_nadir_heading,
-                                           tile_x, tile_y, tile_z, tile_vx, tile_vy, tile_vz, IN_attributes.near_range, 
-                                           IN_attributes.shapefile_path, IN_attributes.param_file,
-                                           IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number,
-                                           IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az_size, IN_attributes.azimuth_spacing,
-                                           IN_attributes.range_sampling, IN_attributes.near_range, tile_coords, interf_2d, water_frac[az_indices],
-                                           sigma0[az_indices], geoid[az_indices])
-            
-            # Update filenames with tile ref
-            IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, tile_orbit_time[0], tile_orbit_time[-1])
-            
-            # Write main file
-            my_pixc.write_pixc_file(IN_attributes.sisimp_filenames.pixc_file+".nc")
-            
-            # Write annotation file
-            my_pixc.write_annotation_file(IN_attributes.sisimp_filenames.file_annot_file, IN_attributes.sisimp_filenames.pixc_file+".nc")
-            
-            # Write shapefiles if asked
-            if IN_attributes.create_shapefile:
-                my_pixc.write_pixc_asShp(IN_attributes.sisimp_filenames.pixc_file+"_pixc.shp")
-                my_pixc.write_tvp_asShp(IN_attributes.sisimp_filenames.pixc_file+"_tvp.shp")
+                # Left / right swath flag
+                left_or_right = IN_swath.upper()[0]
                 
-            # Write PIXCVec files if asked
-            if IN_attributes.create_dummy_pixc_vec_river:
-                empty_array = np.array([])
-                my_pixc_vec = proc_pixcvecriver.l2_hr_pixc_vec_river(empty_array, empty_array,
-                                                                     IN_attributes.mission_start_time,
-                                                                     IN_attributes.cycle_duration, IN_cycle_number,
-                                                                     IN_orbit_number, tile_ref, tile_orbit_time[0],
-                                                                     tile_orbit_time[-1],
-                                                                     IN_attributes.nb_pix_range, nadir_az.size,
-                                                                     tile_coords)
-                my_pixc_vec.set_vectorproc( empty_array, empty_array, empty_array)
-                my_pixc_vec.set_river_lake_tag(empty_array)
-                my_pixc_vec.write_file(IN_attributes.sisimp_filenames.pixc_vec_river_file + ".nc")
-            
+                # General tile reference
+                tile_ref = "%03d%s" % (IN_attributes.tile_number, left_or_right)
+
+                sub_az = sub_az - az_min - nb_pix_overlap_begin 
+
+                # remove first and last orbit point, added in read_orbit
+                if nb_pix_overlap_begin == 0:
+                    nb_pix_overlap_begin = 1
+                    nb_pix_overlap_end = nb_pix_overlap_end - nb_pix_overlap_begin
+                if nb_pix_overlap_end <= 0:
+                    nb_pix_overlap_end = 1
+
+                #TODO:keep only indices + negative values from azr_from_lonlat
+                tile_nadir_lat_deg = nadir_lat_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
+                tile_nadir_lon_deg = nadir_lon_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
+                tile_orbit_time = IN_attributes.orbit_time[nb_pix_overlap_begin:-nb_pix_overlap_end]
+                tile_nadir_alt = nadir_alt[nb_pix_overlap_begin:-nb_pix_overlap_end]
+                tile_nadir_heading = nadir_heading[nb_pix_overlap_begin:-nb_pix_overlap_end]
+
+                tile_x = IN_attributes.x[nb_pix_overlap_begin:-nb_pix_overlap_end]
+                tile_y = IN_attributes.y[nb_pix_overlap_begin:-nb_pix_overlap_end]
+                tile_z = IN_attributes.z[nb_pix_overlap_begin:-nb_pix_overlap_end]
+                tile_vx = vx[nb_pix_overlap_begin:-nb_pix_overlap_end]
+                tile_vy = vy[nb_pix_overlap_begin:-nb_pix_overlap_end]
+                tile_vz = vz[nb_pix_overlap_begin:-nb_pix_overlap_end]
+                
+                # Calcul x, y, z of satellite on earth
+                x_earth, y_earth, z_earth = inversionCore.convert_llh2ecef(tile_nadir_lat_deg, tile_nadir_lon_deg, np.zeros(len(tile_nadir_lat_deg)), GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
+                nadir_vx = tile_x - x_earth
+                nadir_vy = tile_y - y_earth
+                nadir_vz = tile_z - z_earth
+
+                # Calcul norm for each vector
+                norm_sat = [np.sqrt(x*x + y*y + z*z) for x, y, z in zip(tile_vx, tile_vy, tile_vz)]
+                norm_nadir = [np.sqrt(x*x + y*y + z*z) for x, y, z in zip(nadir_vx, nadir_vy, nadir_vz)]
+
+                # Normalize vectors
+                norm_vx = [val / norm_val for val, norm_val in zip(tile_vx, norm_sat)]
+                norm_vy = [val / norm_val for val, norm_val in zip(tile_vy, norm_sat)]
+                norm_vz = [val / norm_val for val, norm_val in zip(tile_vz, norm_sat)]
+
+                norm_nadir_vx = [val/norm_val for val, norm_val in zip(nadir_vx, norm_nadir)]
+                norm_nadir_vy = [val/norm_val for val, norm_val in zip(nadir_vy, norm_nadir)]
+                norm_nadir_vz = [val/norm_val for val, norm_val in zip(nadir_vz, norm_nadir)]
+
+                # Calcul normal vector
+                normal_vector = [np.cross([vx, vy, vz], [nadir_vx, nadir_vy, nadir_vz]) for vx, vy, vz, nadir_vx, nadir_vy, nadir_vz in zip(norm_vx, norm_vy, norm_vz, norm_nadir_vx, norm_nadir_vy, norm_nadir_vz)]
+               
+                # Find sensors coordinates
+                sensor_plus_y_x = [x + nv[0]*5 for x, nv in zip(tile_x, normal_vector)]
+                sensor_plus_y_y = [y + nv[1]*5 for y, nv in zip(tile_y, normal_vector)]
+                sensor_plus_y_z = [z + nv[2]*5 for z, nv in zip(tile_z, normal_vector)]
+
+                sensor_minus_y_x = [x - nv[0]*5 for x, nv in zip(tile_x, normal_vector)]
+                sensor_minus_y_y = [y - nv[1]*5 for y, nv in zip(tile_y, normal_vector)]
+                sensor_minus_y_z = [z - nv[2]*5 for z, nv in zip(tile_z, normal_vector)]
+
+                # Calcul interferogram for all water pixels
+                interf_2d = []
+
+                x_water, y_water, z_water = inversionCore.convert_llh2ecef(lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
+                for i, (x_w, y_w, z_w) in enumerate(zip(x_water, y_water, z_water), 0):
+
+                    interferogram = my_tools.compute_interferogram(sensor_plus_y_x[sub_az[i]], sensor_plus_y_y[sub_az[i]], sensor_plus_y_z[sub_az[i]],\
+                        sensor_minus_y_x[sub_az[i]], sensor_minus_y_y[sub_az[i]], sensor_minus_y_z[sub_az[i]], x_w, y_w, z_w) 
+                    interf_2d.append([interferogram[0], interferogram[1]])
+
+                #  Calcul water frac for each point 
+                nadir_az_size = tile_nadir_lat_deg.size
+
+                tile_coords = compute_tile_coords(IN_attributes, IN_swath, nadir_az_size, nb_pix_overlap_begin)
+                IN_attributes.tile_coords[left_or_right] = tile_coords
+
+                # Init L2_HR_PIXC object
+
+
+                my_pixc = proc_pixc.l2_hr_pixc(sub_az, sub_r, classification_tab[az_indices], pixel_area[az_indices],
+                                               lat_noisy[az_indices], lon_noisy[az_indices], elevation_tab_noisy[az_indices], phase_noise_std[az_indices],
+                                               dh_dphi[az_indices], dlon_dphi[az_indices], dlat_dphi[az_indices], y[az_indices],
+                                               tile_orbit_time, tile_nadir_lat_deg, tile_nadir_lon_deg, tile_nadir_alt, tile_nadir_heading,
+                                               tile_x, tile_y, tile_z, tile_vx, tile_vy, tile_vz, IN_attributes.near_range, 
+                                               IN_attributes.shapefile_path, IN_attributes.param_file,
+                                               IN_attributes.mission_start_time, IN_attributes.cycle_duration, IN_cycle_number,
+                                               IN_orbit_number, tile_ref, IN_attributes.nb_pix_range, nadir_az_size, IN_attributes.azimuth_spacing,
+                                               IN_attributes.range_sampling, IN_attributes.near_range, tile_coords, interf_2d, water_frac[az_indices],
+                                               sigma0[az_indices], geoid[az_indices])
+                
+                # Update filenames with tile ref
+                IN_attributes.sisimp_filenames.updateWithTileRef(tile_ref, tile_orbit_time[0], tile_orbit_time[-1])
+                
+                # Write main file
+                my_pixc.write_pixc_file(IN_attributes.sisimp_filenames.pixc_file+".nc")
+                
+                # Write annotation file
+                my_pixc.write_annotation_file(IN_attributes.sisimp_filenames.file_annot_file, IN_attributes.sisimp_filenames.pixc_file+".nc")
+                
+                # Write shapefiles if asked
+                if IN_attributes.create_shapefile:
+                    my_pixc.write_pixc_asShp(IN_attributes.sisimp_filenames.pixc_file+"_pixc.shp")
+                    my_pixc.write_tvp_asShp(IN_attributes.sisimp_filenames.pixc_file+"_tvp.shp")
+                    
+                # Write PIXCVec files if asked
+                if IN_attributes.create_dummy_pixc_vec_river:
+                    empty_array = np.array([])
+                    my_pixc_vec = proc_pixcvecriver.l2_hr_pixc_vec_river(empty_array, empty_array,
+                                                                         IN_attributes.mission_start_time,
+                                                                         IN_attributes.cycle_duration, IN_cycle_number,
+                                                                         IN_orbit_number, tile_ref, tile_orbit_time[0],
+                                                                         tile_orbit_time[-1],
+                                                                         IN_attributes.nb_pix_range, nadir_az.size,
+                                                                         tile_coords)
+                    my_pixc_vec.set_vectorproc( empty_array, empty_array, empty_array)
+                    my_pixc_vec.set_river_lake_tag(empty_array)
+                    my_pixc_vec.write_file(IN_attributes.sisimp_filenames.pixc_vec_river_file + ".nc")
+                
     else:  
         my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] No output data file to write")
                 

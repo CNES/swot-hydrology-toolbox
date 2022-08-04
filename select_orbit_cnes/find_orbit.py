@@ -134,25 +134,36 @@ class findOrbit(object):
                     nb_sampling_points = int(vincenty.dist_vincenty(lat[index_over_dem[0]], lon[index_over_dem[0]], lat[index_over_dem[-1]], lon[index_over_dem[-1]])/in_azimuth_spacing)
                     my_api.printInfo("  Number of sampling points = %d" % nb_sampling_points)
 
-                    # Cut valid files and save in new files
-                    if in_mission_name == "SWOT":
-                        pass_num = int(orbit_file.split('.')[0].split("_")[-1]) + 332  # Compute pass number wrt SWOT KMLs available on AVISO+ (sept2015-v2)
-                        if pass_num > 584:
-                            pass_num -= 584
-                    else:
-                        pass_num = int(orbit_file.split('.')[0].split("_")[-1])
+
+                    # ~ # Cut valid files and save in new files
+                    # ~ if in_mission_name == "SWOT":
+                        # ~ pass_num = int(orbit_file.split('.')[0].split("_")[-1]) + 332  # Compute pass number wrt SWOT KMLs available on AVISO+ (sept2015-v2)
+                        # ~ if pass_num > 584:
+                            # ~ pass_num -= 584
+                    # ~ else:
+                        # ~ pass_num = int(orbit_file.split('.')[0].split("_")[-1])
+                        
+                    # ~ out_filename = in_file_prefix + "_cycle_0001_pass_%04d.nc" % pass_num
+                    # ~ my_api.printInfo("  Save as %s" % out_filename)
+                    # ~ output_orbit_file = Dataset(out_filename, "w", format="NETCDF4")
+                    
+                    # ~ # SWOT only: update time vector to be coherent with new pass number
+                    # ~ tmp_time = data_orbit.variables['time'][:]
+                    # ~ if in_mission_name == "SWOT":
+                        # ~ tmp_time += 1024820.9861689  # = 332/2 (orbit number) * 6173.62​0398608 (nodal period)
+                        # ~ tmp_ind = np.where(tmp_time > out_cycle_duration)[0]
+                        # ~ if len(tmp_ind) > 0:
+                            # ~ tmp_time[tmp_ind] -= out_cycle_duration
+                
+                
+
+                    pass_num = int(orbit_file.split('.')[0].split("_")[-1])   
                     out_filename = in_file_prefix + "_cycle_0001_pass_%04d.nc" % pass_num
                     my_api.printInfo("  Save as %s" % out_filename)
                     output_orbit_file = Dataset(out_filename, "w", format="NETCDF4")
-                    
-                    # SWOT only: update time vector to be coherent with new pass number
                     tmp_time = data_orbit.variables['time'][:]
-                    if in_mission_name == "SWOT":
-                        tmp_time += 1024820.9861689  # = 332/2 (orbit number) * 6173.62​0398608 (nodal period)
-                        tmp_ind = np.where(tmp_time > out_cycle_duration)[0]
-                        if len(tmp_ind) > 0:
-                            tmp_time[tmp_ind] -= out_cycle_duration
-                
+            
+            
                     # Dimensions
                     output_orbit_file.createDimension('record', nb_sampling_points)
 

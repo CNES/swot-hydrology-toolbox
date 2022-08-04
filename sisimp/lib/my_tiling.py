@@ -19,9 +19,13 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
     
     # Subset the tile DB to the portion related to the orbit number
     #tile_db_orbit = tile_db[np.where(tile_db[:,0] == IN_orbit_number)[0],:]
-    tmp_orbit_number = orbit_number - 331  # Pass 1 in tile database file = pass 332 in last KML file (sept2015-v2)
-    if tmp_orbit_number < 1:
-        tmp_orbit_number += 584
+    
+    # ~ tmp_orbit_number = orbit_number - 331  # Pass 1 in tile database file = pass 332 in last KML file (sept2015-v2)
+    # ~ if tmp_orbit_number < 1:
+        # ~ tmp_orbit_number += 584
+
+    tmp_orbit_number = orbit_number
+        
     tile_db_orbit = tile_db[np.where(tile_db[:, 0] == tmp_orbit_number)[0], :]
     
     # Shift the lon/lat coordinates to compute center for each tile
