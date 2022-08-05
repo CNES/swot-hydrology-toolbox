@@ -629,9 +629,20 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
 
         # Get pixel indices of water pixels corresponding to this latitude interval
         az_indices = np.where((az >= min(nadir_az) + nb_pix_overlap_begin) & (az <= max(nadir_az) - nb_pix_overlap_end))[0]
+
+        # remove first and last orbit point, added in read_orbit
+        if nb_pix_overlap_begin == 0:
+            nb_pix_overlap_begin = 1
+            az_indices = np.where((az >= min(nadir_az) + nb_pix_overlap_begin) & (az <= max(nadir_az) - nb_pix_overlap_end))[0]
+            nb_pix_overlap_end = nb_pix_overlap_end - nb_pix_overlap_begin+1
+
+        if nb_pix_overlap_end <= 0:
+            nb_pix_overlap_end = 1
+            az_indices = np.where((az >= min(nadir_az) + nb_pix_overlap_begin) & (az <= max(nadir_az) - nb_pix_overlap_end))[0]
+            
         nb_pix = az_indices.size  # Number of water pixels for this latitude interval
-        my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d water pixels" % nb_pix)
-        
+        my_api.printInfo("[write_polygons] [write_water_pixels_realPixC] = %d water pixels" % nb_pix)   
+                   
         if az_indices.size != 0:  # Write water pixels at this latitude
             
              #Filtering of bad pixels (dirty trick)
@@ -654,17 +665,12 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 
                 # General tile reference
                 tile_ref = "%03d%s" % (IN_attributes.tile_number, left_or_right)
-
+                
                 sub_az = sub_az - az_min - nb_pix_overlap_begin 
 
-                # remove first and last orbit point, added in read_orbit
-                if nb_pix_overlap_begin == 0:
-                    nb_pix_overlap_begin = 1
-                    nb_pix_overlap_end = nb_pix_overlap_end - nb_pix_overlap_begin
-                if nb_pix_overlap_end <= 0:
-                    nb_pix_overlap_end = 1
-
+ 
                 #TODO:keep only indices + negative values from azr_from_lonlat
+
                 tile_nadir_lat_deg = nadir_lat_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
                 tile_nadir_lon_deg = nadir_lon_deg[nb_pix_overlap_begin:-nb_pix_overlap_end]
                 tile_orbit_time = IN_attributes.orbit_time[nb_pix_overlap_begin:-nb_pix_overlap_end]
@@ -676,8 +682,8 @@ def write_water_pixels_realPixC(IN_water_pixels, IN_swath, IN_cycle_number, IN_o
                 tile_z = IN_attributes.z[nb_pix_overlap_begin:-nb_pix_overlap_end]
                 tile_vx = vx[nb_pix_overlap_begin:-nb_pix_overlap_end]
                 tile_vy = vy[nb_pix_overlap_begin:-nb_pix_overlap_end]
-                tile_vz = vz[nb_pix_overlap_begin:-nb_pix_overlap_end]
-                
+                tile_vz = vz[nb_pix_overlap_begin:-nb_pix_overlap_end]                    
+                    
                 # Calcul x, y, z of satellite on earth
                 x_earth, y_earth, z_earth = inversionCore.convert_llh2ecef(tile_nadir_lat_deg, tile_nadir_lon_deg, np.zeros(len(tile_nadir_lat_deg)), GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE)
                 nadir_vx = tile_x - x_earth

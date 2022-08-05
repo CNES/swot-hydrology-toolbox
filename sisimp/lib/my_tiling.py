@@ -18,7 +18,6 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
     tile_db = my_attributes.tile_database
     
     # Subset the tile DB to the portion related to the orbit number
-    #tile_db_orbit = tile_db[np.where(tile_db[:,0] == IN_orbit_number)[0],:]
     
     # ~ tmp_orbit_number = orbit_number - 331  # Pass 1 in tile database file = pass 332 in last KML file (sept2015-v2)
     # ~ if tmp_orbit_number < 1:
@@ -82,7 +81,7 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
 
     nb_pix_overlap_begin = 50
     nb_pix_overlap_end = 50
-
+    
     if min(nadir_az) > nb_pix_overlap_begin:
         add_nadir = np.arange(min(nadir_az)-1-nb_pix_overlap_begin, min(nadir_az)-1)
         nadir_az = np.concatenate((nadir_az, add_nadir))
@@ -99,8 +98,9 @@ def crop_orbit(my_attributes, tile_values, tile_number, tropo_map_rg_az):
         nb_pix_overlap_end = len(my_attributes.orbit_time) - 1 - max(nadir_az)
         add_nadir = np.arange(max(nadir_az)+1, max(nadir_az)+1+ nb_pix_overlap_end)
         nadir_az = np.concatenate((nadir_az, add_nadir))
+            
     my_api.printInfo("[my_tiling] [crop_orbit] nadir az contains %d pixels " % nadir_az.size)
-    my_api.printInfo("[my_tiling] [crop_orbit] Tile contains %d and %d of overlaping azimuth pixel in the begining and the end of the tile" %(nb_pix_overlap_begin, nb_pix_overlap_end))
+    my_api.printInfo("[my_tiling] [crop_orbit] Tile contains %d and %d of overlaping azimuth pixel in the beginning and the end of the tile" %(nb_pix_overlap_begin, nb_pix_overlap_end))
 
     nadir_az = np.sort(nadir_az)
 

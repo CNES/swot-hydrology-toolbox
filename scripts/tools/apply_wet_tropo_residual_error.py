@@ -19,6 +19,7 @@ from lib.tropo_module import Tropo_module
 from lib.roll_module import Roll_module
 from write_polygons import orbitAttributes
 import cnes.modules.geoloc.lib.geoloc as my_geoloc
+from datetime import datetime
 
     
 def main():
@@ -72,26 +73,40 @@ def main():
     tropo_2d_field = tropo.tropo_2d_field
     delta_h += tropo_2d_field        
    
-
+    utc_start_crossover = datetime(2021, 9, 1)
+    utc_end_crossover = datetime(2022, 9, 1)
+    utc_ref_simu = datetime(2000, 1, 1)
+    utc_date_simu = datetime(2019, 2, 5)
     
-    if parameters['roll_repository_name'] != None:
-            
-        print("Applying roll residual error")
-
-        roll = Roll_module(parameters['roll_repository_name'])
-        roll.get_roll_file_associated_to_orbit_and_cycle(pass_number, cycle_number, delta_time = -1541.907908)
+    diff_between_date = (utc_start_crossover-utc_ref_simu).total_seconds()
+    diff_between_simulation_and_reference_crossover = (datetime(2019, 2, 5)-utc).total_seconds()
+    
+    if diff_between_simulation_and_reference_crossover<0:
+        print("Simulation date is below crossover simulated start time : ", utc_start_crossover)
         
-        roll.interpolate_roll_on_sensor_grid(orbit_time)
-        
-
-        
-        # Apply roll for each pixel
-        roll.interpolate_roll_on_pixelcloud(orbit_time, pixel_cloud_time, cross_track)
-        delta_h_roll = (roll.roll1_err_cloud)
-        delta_h += delta_h_roll
-        
+    elif diff_between_simulation_and_reference_crossover > (utc_end_crossover-utc_start_crossover).total_seconds():
+        print("Simulation date is after crossover simulated start time : ", utc_end_crossover)      
+    
     else:
-        print("No roll error applied")
+    
+        if parameters['roll_repository_name'] != None:
+                
+            print("Applying roll residual error")
+
+            roll = Roll_module(parameters['roll_repository_name'])
+            roll.get_roll_file_associated_to_orbit_and_cycle(pass_number, cycle_number, delta_time = diff_between_date)
+            
+            roll.interpolate_roll_on_sensor_grid(orbit_time)
+            
+
+            
+            # Apply roll for each pixel
+            roll.interpolate_roll_on_pixelcloud(orbit_time, pixel_cloud_time, cross_track)
+            delta_h_roll = (roll.roll1_err_cloud)
+            delta_h += delta_h_roll
+            
+        else:
+            print("No roll error applied")
 
 
     IN_attributes = orbitAttributes()
