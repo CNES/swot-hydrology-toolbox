@@ -79,26 +79,23 @@ def main():
     utc_date_simu = datetime(2019, 2, 5)
     
     diff_between_date = (utc_start_crossover-utc_ref_simu).total_seconds()
-    diff_between_simulation_and_reference_crossover = (datetime(2019, 2, 5)-utc).total_seconds()
+    diff_between_simulation_and_reference_crossover = (utc_date_simu-utc_start_crossover).total_seconds()
     
     if diff_between_simulation_and_reference_crossover<0:
-        print("Simulation date is below crossover simulated start time : ", utc_start_crossover)
+        print("Simulation date (",utc_date_simu,") is below crossover simulated start time : ", utc_start_crossover)
         
     elif diff_between_simulation_and_reference_crossover > (utc_end_crossover-utc_start_crossover).total_seconds():
-        print("Simulation date is after crossover simulated start time : ", utc_end_crossover)      
+        print("Simulation date is (",utc_date_simu,") after crossover simulated start time : ", utc_end_crossover)      
     
     else:
     
         if parameters['roll_repository_name'] != None:
-                
             print("Applying roll residual error")
 
             roll = Roll_module(parameters['roll_repository_name'])
             roll.get_roll_file_associated_to_orbit_and_cycle(pass_number, cycle_number, delta_time = diff_between_date)
             
             roll.interpolate_roll_on_sensor_grid(orbit_time)
-            
-
             
             # Apply roll for each pixel
             roll.interpolate_roll_on_pixelcloud(orbit_time, pixel_cloud_time, cross_track)
@@ -120,31 +117,28 @@ def main():
     IN_attributes.vy = pixc.groups['tvp'].variables['vy'][:] 
     IN_attributes.vz = pixc.groups['tvp'].variables['vz'][:]
         
-    if parameters['noisy_geoloc']:
         
-        coordinates_sensor = np.dstack((IN_attributes.lat[az]*RAD2DEG, IN_attributes.lon[az]*RAD2DEG, IN_attributes.alt[az]))[0]
-        
-        xyz_sensor = project_array(coordinates_sensor, srcp='latlon', dstp='geocent')
-        coordinates_pixc = np.dstack((lat, lon, height))[0]     
-        xyz_pixc = project_array(coordinates_pixc, srcp='latlon', dstp='geocent')
-        vxyz_sensor = np.dstack((IN_attributes.vx[az], IN_attributes.vy[az], IN_attributes.vz[az]))[0]
-        
-        ri = np.sqrt((xyz_sensor[:,0]-xyz_pixc[:,0])**2+(xyz_sensor[:,1]-xyz_pixc[:,1])**2+(xyz_sensor[:,2]-xyz_pixc[:,2])**2)
-        
-                
-        p_final, p_final_llh, h_mu, (iter_grad,nfev_minimize_scalar) = my_geoloc.pointcloud_height_geoloc_vect(xyz_pixc, height,
-                                                                                                           xyz_sensor,
-                                                                                                           vxyz_sensor,
-                                                                                                           ri, height + delta_h, 
-                                                                                                           recompute_doppler=True, recompute_range=True, verbose=False, 
-                                                                                                           max_iter_grad=1, height_goal=1.e-3)
-             
-        final_pixc.groups['pixel_cloud'].variables['latitude'][:] = p_final_llh[:,0]
-        final_pixc.groups['pixel_cloud'].variables['longitude'][:] = p_final_llh[:,1]
-        final_pixc.groups['pixel_cloud'].variables['height'][:] = p_final_llh[:,2]
-     
-    else:
-        final_pixc.groups['pixel_cloud'].variables['height'][:] = height + delta_h
+    coordinates_sensor = np.dstack((IN_attributes.lat[az]*RAD2DEG, IN_attributes.lon[az]*RAD2DEG, IN_attributes.alt[az]))[0]
+    
+    xyz_sensor = project_array(coordinates_sensor, srcp='latlon', dstp='geocent')
+    coordinates_pixc = np.dstack((lat, lon, height))[0]     
+    xyz_pixc = project_array(coordinates_pixc, srcp='latlon', dstp='geocent')
+    vxyz_sensor = np.dstack((IN_attributes.vx[az], IN_attributes.vy[az], IN_attributes.vz[az]))[0]
+    
+    ri = np.sqrt((xyz_sensor[:,0]-xyz_pixc[:,0])**2+(xyz_sensor[:,1]-xyz_pixc[:,1])**2+(xyz_sensor[:,2]-xyz_pixc[:,2])**2)
+    
+            
+    p_final, p_final_llh, h_mu, (iter_grad,nfev_minimize_scalar) = my_geoloc.pointcloud_height_geoloc_vect(xyz_pixc, height,
+                                                                                                       xyz_sensor,
+                                                                                                       vxyz_sensor,
+                                                                                                       ri, height + delta_h, 
+                                                                                                       recompute_doppler=True, recompute_range=True, verbose=False, 
+                                                                                                       max_iter_grad=1, height_goal=1.e-3)
+         
+    final_pixc.groups['pixel_cloud'].variables['latitude'][:] = p_final_llh[:,0]
+    final_pixc.groups['pixel_cloud'].variables['longitude'][:] = p_final_llh[:,1]
+    final_pixc.groups['pixel_cloud'].variables['height'][:] = p_final_llh[:,2]
+ 
                                                                                                                
     pixc.close()
     final_pixc.close()
