@@ -81,19 +81,21 @@ def main():
     diff_between_date = (utc_start_crossover-utc_ref_simu).total_seconds()
     diff_between_simulation_and_reference_crossover = (utc_date_simu-utc_start_crossover).total_seconds()
     
+    repeat_cycle_period = 1802697.1564
+    nb_cycle_shift = diff_between_simulation_and_reference_crossover//repeat_cycle_period+1
+
     if diff_between_simulation_and_reference_crossover<0:
-        print("Simulation date (",utc_date_simu,") is below crossover simulated start time : ", utc_start_crossover)
+        print("Warning, Simulation date (",utc_date_simu,") is below crossover simulated start time : ", utc_start_crossover)
         
-    elif diff_between_simulation_and_reference_crossover > (utc_end_crossover-utc_start_crossover).total_seconds():
-        print("Simulation date is (",utc_date_simu,") after crossover simulated start time : ", utc_end_crossover)      
-    
-    else:
-    
+    if diff_between_simulation_and_reference_crossover > (utc_end_crossover-utc_start_crossover).total_seconds():
+        print("Warning, Simulation date is (",utc_date_simu,") after crossover simulated start time : ", utc_end_crossover)      
+    try:
         if parameters['roll_repository_name'] != None:
             print("Applying roll residual error")
 
             roll = Roll_module(parameters['roll_repository_name'])
-            roll.get_roll_file_associated_to_orbit_and_cycle(pass_number, cycle_number, delta_time = diff_between_date)
+            # ~ roll.get_roll_file_associated_to_orbit_and_cycle(pass_number, cycle_number, delta_time = diff_between_date)
+            roll.get_roll_file_associated_to_orbit_and_cycle(pass_number, cycle_number, delta_time = diff_between_date+nb_cycle_shift*repeat_cycle_period)
             
             roll.interpolate_roll_on_sensor_grid(orbit_time)
             
@@ -104,8 +106,9 @@ def main():
             
         else:
             print("No roll error applied")
-
-
+    except:
+        print("Error during crossover application, No roll error applied")
+        
     IN_attributes = orbitAttributes()
     
     IN_attributes.lat = pixc.groups['tvp'].variables['latitude'][:] * DEG2RAD

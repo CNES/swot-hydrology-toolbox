@@ -29,7 +29,7 @@ class Roll_module(object):
         
         
         ############### VERY DIRTY FIX #################
-        # ~ dt = delta_time
+        # ~ dt = 0
         # ~ orbit_number_shifted = orbit_number
         orbit_number_shifted = orbit_number-330
         dt = 1018647.36577032
@@ -38,7 +38,6 @@ class Roll_module(object):
             dt = -784049.790623216
         ############### VERY DIRTY FIX #################
         
-        
         # ~ print(orbit_number, orbit_number_shifted)
         
         file_name = os.path.join(self.In_repository, root_name + str(cycle_number).zfill(2) + "_p" + str(orbit_number_shifted).zfill(3)) +".nc"
@@ -46,14 +45,13 @@ class Roll_module(object):
         
         self.read_roll_file(file_name, delta_time = delta_time+dt)
 
-    # ~ 1018647.36577032
     def read_roll_file(self, In_filename, delta_time = 0.):
                 
         try:
             fid = nc.Dataset(In_filename, 'r')
         except:
             raise Exception("Roll file not found")
-            
+        
         self.time=numpy.array(fid.variables['time'])+delta_time
         self.lon_nadir=numpy.array(fid.variables['lon_nadir'])
         self.lat_nadir=numpy.array(fid.variables['lat_nadir'])
@@ -69,14 +67,17 @@ class Roll_module(object):
         self.lon_sens = []
         self.lat_sens = []
         
-        # ~ print(sensor_time)
-        # ~ print(self.time)
+        print(sensor_time)
+        print(self.time)
         
         for i in range(self.roll1_err.shape[1]):
             # Interpolate simulated roll variables on sensor time grid
             
             ensind=numpy.where(((self.time>=sensor_time[0]-2.)&(self.time<=sensor_time[-1]+2.)))
-            f=scipy.interpolate.interp1d(self.time[ensind],(self.roll1_err[:,i])[ensind],kind='linear')
+            try:
+                f=scipy.interpolate.interp1d(self.time[ensind],(self.roll1_err[:,i])[ensind],kind='linear')
+            except:
+                print("time between crossover files and simulation time are not consistant")   
             self.roll1_err_sens.append(f(sensor_time))
             
         f2=scipy.interpolate.interp1d(self.time[ensind],(self.lon_nadir[:])[ensind],kind='linear')
