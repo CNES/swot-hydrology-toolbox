@@ -23,7 +23,9 @@ from math import pi
 #= Default path for external data =
 #==================================
 # PixC tiles geometry (science orbit)
-TILE_DATABASE_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full_2018.txt.zip"
+TILE_DATABASE_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/SWOT_RefOrbitTrackTileBoundary_Nom_20000101T000000_21000101T000000_20200617T193054_v101.txt"
+# Longitude delay between 2 consecutive passes (must be coherent with TILE_DATABASE_PATH)
+LONG_DELAY = -25.890410959
 # Geoid
 GEOID_PATH = "$SWOT_HYDROLOGY_TOOLBOX/sisimp/data/egm2008-5.pgm"
 

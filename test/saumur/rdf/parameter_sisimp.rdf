@@ -6,7 +6,10 @@ Output directory = $SWOT_HYDROLOGY_TOOLBOX/test/saumur/output/simu
 Noise file path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt
 roll_repository_name = /work/ALT/swot/swototar/XOVERCAL/karin
 
-Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full.txt.zip
+!### PIXC TILING (must be coherent with orbit used in select_orbit_cnes processing)
+!Science orbit (default)
+Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/SWOT_RefOrbitTrackTileBoundary_Nom_20000101T000000_21000101T000000_20200617T193054_v101.txt
+Longitude delay = -25.890410959
 
 !### Orbit parameters
 !3 options =

@@ -78,13 +78,17 @@ def convert_to_m180_180(in_long):
     """
     
     out_long = in_long
-    ind = np.where(in_long > 180.0)
-    if ind is not None:
-        out_long[ind] -= 360.
-        
+    
+    if np.iterable(in_long):
+        ind = np.where(in_long > 180.0)[0]
+        if len(ind) > 0:
+            out_long[ind] -= 360.
+    else:
+        if in_long > 180.0:
+            out_long -= 360
+            
     return out_long
     
-
 def convert_to_0_360(in_long):
     """
     Convert longitudes from [-180;180[ to [0;360[ 
@@ -97,10 +101,13 @@ def convert_to_0_360(in_long):
     """
     
     out_long = in_long
-    ind = np.where(in_long < 0.0)
-    if ind is not None:
-        out_long[ind] += 360.
-        
+    if np.iterable(in_long):
+        ind = np.where(in_long < 0.0)
+        if ind is not None:
+            out_long[ind] += 360.
+    else:
+        if in_long < 0.0:
+            out_long += 360.
     return out_long
 
 #######################################

@@ -304,10 +304,9 @@ class Processing(object):
 
         # Load the tile database file
         try:
-            path = os.path.expandvars(read_parameter(parameters, "Tile database path", my_var.TILE_DATABASE_PATH, str))
-            archive = zipfile.ZipFile(path, "r")
-            imgfile = archive.open(os.path.basename(path)[:-4])
-            self.my_attributes.tile_database = np.loadtxt(imgfile, skiprows=1)
+            tile_filename = os.path.expandvars(read_parameter(parameters, "Tile database path", my_var.TILE_DATABASE_PATH, str))
+            self.my_attributes.tile_database = np.loadtxt(tile_filename, skiprows=1)
+            self.my_attributes.long_delay = read_parameter(parameters, "Longitude delay", my_var.LONG_DELAY, float)
         except IOError:
             my_api.exitWithError("Tile database not found")
             
@@ -367,6 +366,7 @@ class Processing(object):
             my_attributes = self.my_attributes
 
         for (cycle_number, pass_number, orbit_file) in my_attributes.orbit_list:
+            my_api.printInfo("")
             my_api.printInfo("########################################################")
             my_api.printInfo("[sisimp_processing] >>> CYCLE %03d and ORBIT %03d <<<" % (cycle_number, pass_number))
             my_api.printInfo("########################################################")

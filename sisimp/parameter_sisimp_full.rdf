@@ -4,8 +4,15 @@ Shapefile path = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/data/river_and_lake
 Output directory = $SWOT_HYDROLOGY_TOOLBOX/test/river_and_lake/output/simu
 
 !### AUXILIARY DATA
-Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/tiles_full_2018.txt.zip  !PixC tile geometry for Science orbit
-Geoid = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/egm2008-5.pgm                    !Geoid map
+Geoid = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/egm2008-5.pgm  !Geoid map
+
+!### PIXC TILING (must be coherent with orbit used in select_orbit_cnes processing)
+!Science orbit (default)
+Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/SWOT_RefOrbitTrackTileBoundary_Nom_20000101T000000_21000101T000000_20200617T193054_v101.txt  
+Longitude delay = -25.890410959
+!CalVal orbit
+!Tile database path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/SWOT_RefOrbitTrackTileBoundary_Cal_20000101T000000_21000101T000000_20200617T193054_v101.txt  
+!Longitude delay = -25.714285714
 
 !### OPTIONAL FILES IN OUTPUT
 Create shapefile = yes                !Produce output files also as shapefiles (default=no)

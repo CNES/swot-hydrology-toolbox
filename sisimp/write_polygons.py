@@ -131,7 +131,8 @@ class orbitAttributes:
         self.land_detected_noise_height = None
         self.orbit_list = []  # List of triplets (cycle number, pass number, orbit file) to process
         self.near_range = None
-        self.tile_database = None
+        self.tile_database = None  # Tile delineation
+        self.long_delay = 0.  # Longitude delay between 2 consecutive passes
         self.tile_coords = {}  # Dictionnary for storing tile coordinates for swath R and L
 
         # 3.1 - From orbit file
@@ -1434,9 +1435,6 @@ def compute_tile_coords(IN_attributes, IN_swath, nadir_az_size, nb_pix_overlap_b
     outer_last_lon, outer_last_lat = math_fct.lonlat_from_azy(outer_last_az, outer_last_rg, IN_attributes, IN_swath, h=0, IN_unit="deg")
     outer_last = (outer_last_lon[0], outer_last_lat[0])
 
-    inner_first = inner_first
-    inner_last = inner_last
-    outer_first = outer_first
-    outer_last = outer_last
     tile_coords = (inner_first, inner_last, outer_first, outer_last)
+    
     return tile_coords

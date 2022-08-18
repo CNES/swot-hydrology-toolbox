@@ -96,8 +96,11 @@ Shapefile path = <full_path_to_shp_without_.shp>
 Output directory = <full_path_to_output_directory>
 
 !### AUXILIARY DATA
-Tile database path = <full_path_to_tile_files>
 Geoid = <full_path_to_geoid_map>
+
+!### PIXC TILING (must be coherent with orbit used in select_orbit_cnes processing)
+Tile database path = <full_path_to_tile_files>
+Longitude delay = <value_in_seconds>
 
 !### OPTIONAL FILES IN OUTPUT
 Create shapefile = <yes|no>

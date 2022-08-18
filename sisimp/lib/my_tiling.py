@@ -3,14 +3,13 @@
  Copyright (C) 2018 Centre National d’Etudes Spatiales
  This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY, read LICENSE.txt for further details.
 '''
-
-
-import numpy as np
-import matplotlib.pyplot as plt
-from lib.my_variables import RAD2DEG
-from scipy.spatial import cKDTree
-import lib.my_api as my_api
 from copy import deepcopy
+import numpy as np
+from scipy.spatial import cKDTree
+
+import lib.my_api as my_api
+import lib.my_tools as my_tools
+from lib.my_variables import RAD2DEG
 
 def get_tiles_from_orbit(my_attributes, orbit_number):
     
@@ -18,14 +17,11 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
     tile_db = my_attributes.tile_database
     
     # Subset the tile DB to the portion related to the orbit number
-    
-    # ~ tmp_orbit_number = orbit_number - 331  # Pass 1 in tile database file = pass 332 in last KML file (sept2015-v2)
-    # ~ if tmp_orbit_number < 1:
-        # ~ tmp_orbit_number += 584
-
-    tmp_orbit_number = orbit_number
-        
-    tile_db_orbit = tile_db[np.where(tile_db[:, 0] == tmp_orbit_number)[0], :]
+    orbit_number_eq = orbit_number % 2
+    tile_db_orbit = tile_db[np.where(tile_db[:,0] == orbit_number_eq)[0],:]
+    tmp_delay = (int((orbit_number-1)/2) * my_attributes.long_delay)
+    tmp_orbit_long = (tile_db_orbit[:,3] + tmp_delay) % 360.
+    tile_db_orbit[:,3] = my_tools.convert_to_m180_180(tmp_orbit_long)
     
     # Shift the lon/lat coordinates to compute center for each tile
     tile_db_orbit_center = np.copy(tile_db_orbit)
@@ -33,7 +29,6 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
         tile_db_orbit_center[i, 2] = 0.5*(tile_db_orbit[i,2]+tile_db_orbit[i+1,2])
         tile_db_orbit_center[i, 3] = 0.5*(tile_db_orbit[i,3]+tile_db_orbit[i+1,3])
     # Compute the indices of nadir_lat_min and nadir_lat_max
-    
     nadir_lat_argmin = int(np.argmin(my_attributes.lat*RAD2DEG))
     nadir_lat_argmax = int(np.argmax(my_attributes.lat*RAD2DEG))
     # Get long and lat in degrees, associated to nadir_min_lat
@@ -50,14 +45,17 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
     ind_min = tree.query([nadir_lat_deg_min, nadir_lon_deg_min])
     # Retrieve index of tile_db_orbit the nearest of nadir_max_lat
     ind_max = tree.query([nadir_lat_deg_max, nadir_lon_deg_max])
+    # Retrieve nadir coordinates of tile start from ind_min to ind_max+2
     tile_db_orbit_cropped = tile_db_orbit_center[max(0, min(ind_max[1], ind_min[1])-1):min(len(tile_db_orbit_center), max(ind_max[1], ind_min[1])+2), :]
+    # Init
     vect_lat_lon_db_cropped = np.zeros([max(0, tile_db_orbit_cropped.shape[0]-1), 2])
     
-    
     for i in range(max(0, tile_db_orbit_cropped.shape[0]-1)):
+        # Latitude diff (stop-start) of tile i
         vect_lat_lon_db_cropped[i,0] = tile_db_orbit_cropped[i+1, 2]-tile_db_orbit_cropped[i, 2]
+        # Longitude diff (stop-start) of tile i
         vect_lat_lon_db_cropped[i,1] = tile_db_orbit_cropped[i+1, 3]-tile_db_orbit_cropped[i, 3]
-        nb_az_traj = max(nadir_lat_argmax, nadir_lat_argmin)- min(nadir_lat_argmax, nadir_lat_argmin) + 1
+        nb_az_traj = max(nadir_lat_argmax, nadir_lat_argmin) - min(nadir_lat_argmax, nadir_lat_argmin) + 1
         tile_values = np.zeros(nb_az_traj, int)
 
     for i in range(min(nadir_lat_argmax, nadir_lat_argmin)-1, max(nadir_lat_argmax, nadir_lat_argmin)+1):
@@ -67,6 +65,7 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
     tile_list = np.unique(tile_values)
 
     my_api.printInfo("[my_tiling] [get_tiles_from_orbit] Simulation over tiles number: %s" % str(tile_list))
+    my_api.printInfo("")
     
     return tile_values, tile_list
 
