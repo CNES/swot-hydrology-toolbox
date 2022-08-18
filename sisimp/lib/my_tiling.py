@@ -18,6 +18,8 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
     
     # Subset the tile DB to the portion related to the orbit number
     orbit_number_eq = orbit_number % 2
+    if orbit_number_eq == 0:
+        orbit_number_eq = 2
     tile_db_orbit = tile_db[np.where(tile_db[:,0] == orbit_number_eq)[0],:]
     tmp_delay = (int((orbit_number-1)/2) * my_attributes.long_delay)
     tmp_orbit_long = (tile_db_orbit[:,3] + tmp_delay) % 360.
@@ -38,7 +40,7 @@ def get_tiles_from_orbit(my_attributes, orbit_number):
     nadir_lat_deg_max = my_attributes.lat[nadir_lat_argmax]*RAD2DEG
     nadir_lon_deg_max = my_attributes.lon[nadir_lat_argmax]*RAD2DEG
     
-    # Construct the kd-tree for quick nearest-neighbor lookup        
+    # Construct the kd-tree for quick nearest-neighbor lookup 
     tree = cKDTree(tile_db_orbit_center[:, 2:4])
     
     # Retrieve index of tile_db_orbit the nearest of nadir_min_lat

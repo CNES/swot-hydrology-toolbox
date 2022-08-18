@@ -383,7 +383,6 @@ class Processing(object):
                                                                       pass_number)
 
             ## loop over tile
-
             tile_values, tile_list = tiling.get_tiles_from_orbit(my_attributes, pass_number)
             tropo = tropo_module.Tropo_module(my_attributes.tropo_model, 0, my_attributes.nb_pix_range, 0,
                                                   len(tile_values), \
