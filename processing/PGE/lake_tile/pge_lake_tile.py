@@ -11,6 +11,7 @@
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
+# VERSION:3.2.0:DM:#91:2021/10/27:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -94,6 +95,7 @@ class PGELakeTile():
         # Retrieve options which are optionnal
         self.flag_prod_shp = self.cfg.getboolean("OPTIONS", "Produce shp")
         self.flag_inc_file_counter = self.cfg.getboolean("OPTIONS", "Increment file counter")
+        self.flag_write_full_path = self.cfg.getboolean("OPTIONS", "Write full path")
         
         # 4 - Init data object
         self.obj_pixcvec = None
@@ -152,6 +154,7 @@ class PGELakeTile():
         # Default values
         out_params["flag_prod_shp"] = "False"
         out_params["flag_inc_file_counter"] = "True"
+        out_params["flag_write_full_path"] = "False"
 
         # 1 - Read parameter file
         config = configparser.ConfigParser()
@@ -186,12 +189,15 @@ class PGELakeTile():
         # 4 - Retrieve OPTIONS
         if "OPTIONS" in config.sections():
             list_options = config.options("OPTIONS")
-            # Flag to also produce LakeTile_edge and LakeTile_pixcvec as shapefiles (=True); else=False (default)
+            # Flag to also produce LakeTile_Edge and LakeTile_PIXCVec as shapefiles (=True); else=False (default)
             if "produce shp" in list_options:
                 out_params["flag_prod_shp"] = config.get("OPTIONS", "Produce shp")
             # Flag to increment the file counter in the output filenames (=True, default); else=False
             if "increment file counter" in list_options:
                 out_params["flag_inc_file_counter"] = config.get("OPTIONS", "Increment file counter")
+            # To write full path in global attributes (=True); to write only basename=False
+            if "write full path" in list_options:
+                out_params["flag_write_full_path"] = config.get("OPTIONS", "Write full path")
 
         # 5 - Retrieve LOGGING
         error_file = config.get("LOGGING", "errorFile")
@@ -205,8 +211,6 @@ class PGELakeTile():
         # 6 - Retrieve FILE_INFORMATION
         # Name of producing agency
         out_params["INSTITUTION"] = config.get("FILE_INFORMATION", "INSTITUTION")
-        # Version number of software generating product
-        out_params["REFERENCES"] = config.get("FILE_INFORMATION", "REFERENCES")
         # Product version
         out_params["PRODUCT_VERSION"] = config.get("FILE_INFORMATION", "PRODUCT_VERSION")
         # Composite Release IDentifier for LakeTile processing
@@ -257,12 +261,12 @@ class PGELakeTile():
             self.cfg.add_section(section)
             self.cfg.set(section, "Produce shp", param_list["flag_prod_shp"])
             self.cfg.set(section, "Increment file counter", param_list["flag_inc_file_counter"])
+            self.cfg.set(section, "Write full path", param_list["flag_write_full_path"])
             
             # Add section FILE_INFORMATION
             section = "FILE_INFORMATION"
             self.cfg.add_section(section)
             self.cfg.set(section, "INSTITUTION", param_list["INSTITUTION"])
-            self.cfg.set(section, "REFERENCES", param_list["REFERENCES"])
             self.cfg.set(section, "PRODUCT_VERSION", param_list["PRODUCT_VERSION"])
             self.cfg.set(section, "CRID", param_list["CRID"])
             self.cfg.set(section, "PGE_VERSION", param_list["PGE_VERSION"])
@@ -280,7 +284,7 @@ class PGELakeTile():
         :rtype: boolean
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
+        logger.debug("- start -")
         
         try:
 
@@ -336,14 +340,14 @@ class PGELakeTile():
             # Increment output file counter
             self.cfg.test_var_config_file('OPTIONS', 'Increment file counter', bool, logger=logger)
             logger.debug('OK - Increment file counter = ' + str(self.cfg.get('OPTIONS', 'Increment file counter')))
+            # Write full path in global attributes
+            self.cfg.test_var_config_file('OPTIONS', 'Write full path', bool, logger=logger)
+            logger.debug('OK - Write full path = ' + str(self.cfg.get('OPTIONS', 'Write full path')))
             
             # 1.4 - FILE_INFORMATION section
             # Name of producing agency
             self.cfg.test_var_config_file('FILE_INFORMATION', 'INSTITUTION', str, logger=logger)
             logger.debug('OK - INSTITUTION = ' + str(self.cfg.get('FILE_INFORMATION', 'INSTITUTION')))
-            # Version number of software generating product
-            self.cfg.test_var_config_file('FILE_INFORMATION', 'REFERENCES', str, logger=logger)
-            logger.debug('OK - REFERENCES = ' + str(self.cfg.get('FILE_INFORMATION', 'REFERENCES')))
             # Product version
             self.cfg.test_var_config_file('FILE_INFORMATION', 'PRODUCT_VERSION', str, logger=logger)
             logger.debug('OK - PRODUCT_VERSION = ' + str(self.cfg.get('FILE_INFORMATION', 'PRODUCT_VERSION')))
@@ -361,16 +365,49 @@ class PGELakeTile():
 
             # 2.1 - CONFIG_PARAMS section
             
-            # Water flag = 3=water near land edge  4=interior water
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'FLAG_WATER', str, val_default="3;4", logger=logger)
-            logger.debug('OK - FLAG_WATER = ' + str(self.cfg.get('CONFIG_PARAMS', 'FLAG_WATER')))
-            # Dark water flag = 23=darkwater near land  24=interior dark water
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'FLAG_DARK', str, val_default="23;24", logger=logger)
-            logger.debug('OK - FLAG_DARK = ' + str(self.cfg.get('CONFIG_PARAMS', 'FLAG_DARK')))
+            # List of classif flags to keep for processing: 2=land_near_water  3=water_near_land   4=open_water  5=dark_water 
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_LIST', str, val_default="2;3;4;5", logger=logger)
+            logger.debug('OK - CLASSIF_LIST = ' + str(self.cfg.get('CONFIG_PARAMS', 'CLASSIF_LIST')))
+            # True/False list of classif flags which contain observed water (1-to-1 correspondance with CLASSIF_LIST)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_WATER', str, val_default="True;True;True;False", logger=logger)
+            logger.debug('OK - CLASSIF_WATER = ' + str(self.cfg.get('CONFIG_PARAMS', 'CLASSIF_WATER')))
+            # True/False list of classif flags to use for lake boundary construction (1-to-1 correspondance with CLASSIF_LIST)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_4HULL', str, val_default="True;True;True;True", logger=logger)
+            logger.debug('OK - CLASSIF_4HULL = ' + str(self.cfg.get('CONFIG_PARAMS', 'CLASSIF_4HULL')))
+            # True/False list of classif flags to use for WSE computation (1-to-1 correspondance with CLASSIF_LIST)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_4WSE', str, val_default="False;False;True;False", logger=logger)
+            logger.debug('OK - CLASSIF_4WSE = ' + str(self.cfg.get('CONFIG_PARAMS', 'CLASSIF_4WSE')))
+            # True/False list of classif flags to use for lake area computation (1-to-1 correspondance with CLASSIF_LIST)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_4AREA', str, val_default="True;True;True;True", logger=logger)
+            logger.debug('OK - CLASSIF_4AREA = ' + str(self.cfg.get('CONFIG_PARAMS', 'CLASSIF_4AREA')))
+            # True/False list of classif flags to use water fraction for inundated computation (1-to-1 correspondance with CLASSIF_LIST)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'USE_FRACTIONAL_INUNDATION', str, val_default="True;True;False;False", logger=logger)
+            logger.debug('OK - USE_FRACTIONAL_INUNDATION = ' + str(self.cfg.get('CONFIG_PARAMS', 'USE_FRACTIONAL_INUNDATION')))
+            
+            # List of quality flags to consider for PixC selection
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'PIXC_QUAL_LIST', str, 
+                                          val_default="interferogram_qual;classification_qual;geolocation_qual", logger=logger)
+            logger.debug('OK - PIXC_QUAL_LIST = ' + str(self.cfg.get('CONFIG_PARAMS', 'PIXC_QUAL_LIST')))
+            # Mask of quality flags to use for PixC selection (1-to-1 correspondance with PIXC_QUAL_LIST)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'PIXC_QUAL_MASK', str, val_default="0;0;0", logger=logger)
+            logger.debug('OK - PIXC_QUAL_MASK = ' + str(self.cfg.get('CONFIG_PARAMS', 'PIXC_QUAL_MASK')))
+            # To exclude PixC having bright_land_flag=1 (=True) or not (=False, default)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'EXCLUDE_BRIGHT_LAND', bool, val_default=False, logger=logger)
+            logger.debug('OK - EXCLUDE_BRIGHT_LAND = ' + str(self.cfg.get('CONFIG_PARAMS', 'EXCLUDE_BRIGHT_LAND')))
+            
+            # Min cross-track distance to select PixC
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'MIN_XTRACK', float, val_default=-1.0, logger=logger)
+            logger.debug('OK - MIN_XTRACK = ' + str(self.cfg.get('CONFIG_PARAMS', 'MIN_XTRACK')))
+            # Max cross-track distance to select PixC
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'MAX_XTRACK', float, val_default=-1.0, logger=logger)
+            logger.debug('OK - MAX_XTRACK = ' + str(self.cfg.get('CONFIG_PARAMS', 'MAX_XTRACK')))
             
             # Min size for a lake to generate a lake product (=polygon + attributes) for it
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'MIN_SIZE', float, val_default=0.01, logger=logger)
             logger.debug('OK - MIN_SIZE = ' + str(self.cfg.get('CONFIG_PARAMS', 'MIN_SIZE')))
+            # Maximum number of azimuth tiles fully covered by a lake processed in LakeSP; -1 to disable (default)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'MAX_NB_TILES_FULL_AZ', int, val_default=-1, logger=logger)
+            logger.debug('OK - MAX_NB_TILES_FULL_AZ = ' + str(self.cfg.get('CONFIG_PARAMS', 'MAX_NB_TILES_FULL_AZ')))
             # Min percentage of overlapping area to consider PLD lake linked to an observed feature
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'MIN_OVERLAP', float, val_default=1.0, logger=logger)
             logger.debug('OK - MIN_OVERLAP = ' + str(self.cfg.get('CONFIG_PARAMS', 'MIN_OVERLAP')))
@@ -395,17 +432,15 @@ class PGELakeTile():
             # Method to compute lake boundary or polygon hull
             # 0 = convex hull 
             # 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library
-            # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation
-            # 1.2 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track
-            # 2 = edge computed in radar geometry, then converted in ground geometry (default)
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'HULL_METHOD', float, valeurs=[0, 1.0, 1.1, 1.2, 2], val_default=2, logger=logger)
+            # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation (time consuming)
+            # 1.2 = concave hull computed in ground geometry, based on Delaunay triangulation with alpha parameter varying along range
+            # 2.0 = edge computed in radar geometry, then converted in ground geometry by reordering lon lat (default)
+            # 2.1 = edge computed in radar geometry, then converted in ground geometry by checking each segment
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'HULL_METHOD', float, valeurs=[0, 1.0, 1.1, 1.2, 2.0, 2.1], val_default=2.0, logger=logger)
             logger.debug('OK - HULL_METHOD = ' + str(self.cfg.get('CONFIG_PARAMS', 'HULL_METHOD')))
             # max number of pixel for hull computation 1            
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY', int, val_default=100000, logger=logger)
             logger.debug('OK - NB_PIX_MAX_DELAUNEY = ' + str(self.cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY')))
-            # max number of contour points for hull computation 2
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'NB_PIX_MAX_CONTOUR', int, val_default=8000, logger=logger)
-            logger.debug('OK - NB_PIX_MAX_CONTOUR = ' + str(self.cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_CONTOUR')))
 
             # Big lakes parameters for improved geoloc
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'BIGLAKE_MODEL', str, valeurs=["polynomial", "no"], val_default="polynomial", logger=logger)
@@ -421,6 +456,9 @@ class PGELakeTile():
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'STOCC_INPUT', str, val_default="pld", logger=logger)
             logger.debug('OK - STOCC_INPUT = ' + str(self.cfg.get('CONFIG_PARAMS', 'STOCC_INPUT')))
             
+            # Threshold of good pixels within a lake to set quality_f
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'THRESHOLD_4NOMINAL', float, val_default=0.7, logger=logger)
+            logger.debug('OK - THRESHOLD_4NOMINAL = ' + str(self.cfg.get('CONFIG_PARAMS', 'THRESHOLD_4NOMINAL')))
             # Nb digits for counter of lakes in a tile or pass
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'NB_DIGITS', str, val_default=6, logger=logger)
             logger.debug('OK - NB_DIGITS = ' + str(self.cfg.get('CONFIG_PARAMS', 'NB_DIGITS')))
@@ -430,6 +468,7 @@ class PGELakeTile():
             message = "Error in the configuration file " + self.cfg.path_conf
             logger.error(message, exc_info=True)
             raise
+            
         # Warning error not managed !
         except Exception:
             logger.error("Something wrong happened during configuration file check!", exc_info=True)
@@ -459,10 +498,22 @@ class PGELakeTile():
         self.obj_pixc = proc_pixc.PixelCloud()
         self.obj_pixc.set_from_pixc_file(self.pixc_file, self.obj_pixcvec.reject_index)
         logger.info("")
+        
+        # 3 - Retrieve orbit info from PIXC filename and compute output filenames
+        logger.info("> 1.3 - Retrieving tile infos from PIXC filename...")
+        self.lake_tile_filenames = locnes_filenames.LakeTileFilenames(self.pixc_file, 
+                                                                      self.pixcvec_river_file, 
+                                                                      self.output_dir, 
+                                                                      flag_inc=self.flag_inc_file_counter)
 
     def _read_lake_db(self):
         """
         This method prepares Lake DB class, and init with Lake DB data
+        
+        Possible combinations:
+            - in_tile_ref=not None, others=None => LakeTile processing with operational PLD
+            - in_tile_poly=not None, others=None
+                - with in_az_0_line=not None, in_az_max_line=not None => LakeTile processing with user lake DB
         """
         logger = logging.getLogger(self.__class__.__name__)
         
@@ -476,24 +527,43 @@ class PGELakeTile():
             
             type_db = lake_db_file.split('.')[-1]  # File type
             
-            if type_db == "shp":  # Shapefile format
+            if type_db == "shp":  # User lake DB file in shapefile format
+                logger.debug("Use of personal user lake database in shapefile format")
                 self.obj_lake_db = lake_db.LakeDbShp(lake_db_file, 
                                                      in_poly=self.obj_pixc.tile_poly, 
                                                      in_az_0_line=self.obj_pixc.az_0_line, 
                                                      in_az_max_line=self.obj_pixc.az_max_line)
-            elif type_db == "sqlite":  # SQLite format
-                self.obj_lake_db = lake_db.LakeDbSqlite(lake_db_file, 
-                                                        in_poly=self.obj_pixc.tile_poly, 
-                                                        in_az_0_line=self.obj_pixc.az_0_line, 
-                                                        in_az_max_line=self.obj_pixc.az_max_line)
-            elif os.path.isdir(lake_db_file):  # Directory containing Sqlite files
-                self.obj_lake_db = lake_db.LakeDbDirectory(lake_db_file, 
-                                                           in_poly=self.obj_pixc.tile_poly, 
-                                                           in_az_0_line=self.obj_pixc.az_0_line, 
-                                                           in_az_max_line=self.obj_pixc.az_max_line)
-                self.proc_metadata["xref_prior_lake_db_file"] = ";".join(self.obj_lake_db.pld_path_list)
+                
+            elif type_db == "sqlite":  # User or operational lake DB file in SQLite format
+                if os.path.basename(lake_db_file).startswith(locnes_filenames.PLD_PREFIX_BASE):  # Operationnal PLD filename
+                    logger.debug("Use of operational Prior Lake Database (specific filename given)")
+                    self.obj_lake_db = lake_db.LakeDbSqlite(lake_db_file, 
+                                                            in_tile_ref=self.lake_tile_filenames.tile_ref)
+                else:
+                    logger.debug("Use of personal user lake database in SQLite format")
+                    self.obj_lake_db = lake_db.LakeDbSqlite(lake_db_file, 
+                                                            in_poly=self.obj_pixc.tile_poly, 
+                                                            in_az_0_line=self.obj_pixc.az_0_line, 
+                                                            in_az_max_line=self.obj_pixc.az_max_line)
+                
+            elif os.path.isdir(lake_db_file):  # Directory of operational Prior Lake Database (PLD)
+                logger.debug("Use of operational Prior Lake Database (upper directory given)")
+                # Compute PLD filename
+                lakedb_filenames = locnes_filenames.PldFilenames("TILE", 
+                                                                 lake_db_file, 
+                                                                 cycle_num=self.lake_tile_filenames.cycle_num,
+                                                                 pass_num=self.lake_tile_filenames.pass_num)
+                # Init PLD object
+                if os.path.exists(lakedb_filenames.filename):
+                    self.obj_lake_db = lake_db.LakeDbSqlite(lakedb_filenames.filename, 
+                                                            in_tile_ref=self.lake_tile_filenames.tile_ref)
+                    self.proc_metadata["xref_prior_lake_db_file"] = lakedb_filenames.filename
+                else:
+                    logger.warning("NO related operational Prior Lake Database file found -> NO database specified")
+                    self.obj_lake_db = lake_db.LakeDb()
+                
             else:
-                message = "Prior lake database format (%s) is unknown: must be .shp or .sqlite => set to None" % type_db
+                message = "Prior Lake Database format (%s) is unknown: must be .shp or .sqlite => set to None" % type_db
                 logger.warning(message)
                 self.obj_lake_db = lake_db.LakeDb()
         
@@ -505,17 +575,13 @@ class PGELakeTile():
         """
         logger = logging.getLogger(self.__class__.__name__)
         
-        # 1 - Retrieve orbit info from PIXC filename and compute output filenames
-        logger.info("> 3.1 - Retrieving tile infos from PIXC filename...")
-        self.lake_tile_filenames = locnes_filenames.LakeTileFilenames(self.pixc_file, self.pixcvec_river_file, self.output_dir,
-                                                                      flag_inc=self.flag_inc_file_counter)
-        
-        # 2 - Initialize LakeTile product object
-        logger.info("> 3.2 - Initialize LakeTile product object...")
-        self.obj_lake = proc_lake.LakeTileProduct(self.obj_pixc,
-                                                  self.obj_pixcvec,
-                                                  self.obj_lake_db,
-                                                  os.path.basename(self.lake_tile_filenames.lake_tile_shp_file_obs).split(".")[0])
+        # 1 - Initialize LakeTile product object
+        logger.info("> 3.1 - Initialize LakeTile product object...")
+        self.obj_lake = proc_lake.LakeProduct("TILE",
+                                              self.obj_pixc,
+                                              self.obj_pixcvec,
+                                              self.obj_lake_db,
+                                              os.path.basename(self.lake_tile_filenames.lake_tile_shp_file_obs).split(".")[0])
 
     def _write_output_data(self):
         """
@@ -589,33 +655,40 @@ class PGELakeTile():
             self._prepare_output_data()
             logger.info("")
             
-            logger.info("****************************")
-            logger.info("***** Run SAS LakeTile *****")
-            logger.info("****************************")
+            if self.obj_lake_db.flag_ocean:
+                
+                logger.warning("This is an OCEAN tile => generate an empty product")
+                logger.info("")
+                
+            else:
             
-            # 4 - Initialization
-            logger.info("> 4 - Initialization of SASLakeTile class")
-            my_lake_tile = sas_lake_tile.SASLakeTile(self.obj_pixc, self.obj_pixcvec, self.obj_lake_db, self.obj_lake)
-            logger.info(self.timer.info(0)) 
-            logger.info("")         
-            
-            # 5 - Run pre-processing
-            logger.info("> 5 - Run SASpre-processing")
-            my_lake_tile.run_preprocessing()
-            logger.info(self.timer.info(0))
-            logger.info("")
-            
-            # 6 - Run processing
-            logger.info("> 6 - Run SASprocessing")
-            my_lake_tile.run_processing()
-            logger.info(self.timer.info(0))
-            logger.info("")
-    
-            # 7 - Run post-processing
-            logger.info("> 7 - Run SASpost-processing")
-            my_lake_tile.run_postprocessing()
-            logger.info(self.timer.info(0))
-            logger.info("")
+                logger.info("****************************")
+                logger.info("***** Run SAS LakeTile *****")
+                logger.info("****************************")
+                
+                # 4 - Initialization
+                logger.info("> 4 - Initialization of SASLakeTile class")
+                my_lake_tile = sas_lake_tile.SASLakeTile(self.obj_pixc, self.obj_pixcvec, self.obj_lake_db, self.obj_lake)
+                logger.info(self.timer.info(0)) 
+                logger.info("")         
+                
+                # 5 - Run pre-processing
+                logger.info("> 5 - Run SASpre-processing")
+                my_lake_tile.run_preprocessing()
+                logger.info(self.timer.info(0))
+                logger.info("")
+                
+                # 6 - Run processing
+                logger.info("> 6 - Run SASprocessing")
+                my_lake_tile.run_processing()
+                logger.info(self.timer.info(0))
+                logger.info("")
+        
+                # 7 - Run post-processing
+                logger.info("> 7 - Run SASpost-processing")
+                my_lake_tile.run_postprocessing()
+                logger.info(self.timer.info(0))
+                logger.info("")
             
             logger.info("*****************************")
             logger.info("***** Write output data *****")
@@ -640,6 +713,7 @@ class PGELakeTile():
         """
         logger = logging.getLogger(self.__class__.__name__)
             
+        logger.info("")
         logger.info("******************************")
         logger.info("***** Close all services *****")
         logger.info("******************************")

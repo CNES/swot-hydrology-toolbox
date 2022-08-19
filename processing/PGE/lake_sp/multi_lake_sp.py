@@ -11,6 +11,7 @@
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
+# VERSION:3.2.0:DM:#91:2021/10/27:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -59,7 +60,6 @@ class MultiLakeSP(object):
         print("[multiLakeSPProcessing] == INIT ==")
 
         # Directories
-        self.param_file = in_params["param_file"]  # Parameter file
         self.laketile_dir = in_params["laketile_dir"]  # LakeTile files directory
         self.output_dir = in_params["output_dir"]  # Output directory
 
@@ -70,12 +70,19 @@ class MultiLakeSP(object):
         # Tiles info
         self.cycle_num = in_params["cycle_num"]  # Cycle number
         self.pass_num = in_params["pass_num"]  # Pass number
+        self.continent_id = in_params["continent_id"]  # Continent identifier
         self.cycle_pass_set = set()
 
-        # Flag to produce LakeTile_edge and LakeTile_pixcvec shapefiles
+        # Flag to produce LakeTile_Edge and LakeTile_PIXCVec shapefiles
         self.flag_prod_shp = in_params["flag_prod_shp"]
         # Flag to increment output file counter
         self.flag_inc_file_counter = in_params["flag_inc_file_counter"]
+        # Flag to write full path in global attributes
+        self.flag_write_full_path = in_params["flag_write_full_path"]
+        # Number of processors to use
+        self.nb_proc = in_params["nb_proc"]
+        # Flag to delete temporary swath LakeSP shapefiles
+        self.flag_del_tmp_shp = in_params["flag_del_tmp_shp"]
         
         # Log level
         self.error_file = in_params["errorFile"]
@@ -86,7 +93,6 @@ class MultiLakeSP(object):
         
         # File information
         self.institution = in_params["institution"]
-        self.references = in_params["references"]
         self.product_version = in_params["product_version"]
         self.crid_laketile = in_params["crid_laketile"]
         self.crid_lakesp = in_params["crid_lakesp"]
@@ -155,9 +161,10 @@ class MultiLakeSP(object):
                 cur_continent_id_txt = metadata.xpath("//swot_product/global_metadata/continent_id")[0].text
                 if not cur_continent_id_txt:
                     self.cycle_pass_set.add((cycle_num, pass_num, ""))
-                else :
+                else:
                     for continent_id in cur_continent_id_txt.split(";"):
-                        self.cycle_pass_set.add((cycle_num, pass_num, continent_id))
+                        if not self.continent_id or cur_continent_id_txt == self.continent_id :
+                            self.cycle_pass_set.add((cycle_num, pass_num, continent_id))
 
         print("[multiLakeSPProcessing]   --> %d cycle and continental pass to deal with" % len(self.cycle_pass_set))
         for (cycle_num, pass_num, continent_id) in self.cycle_pass_set:
@@ -166,8 +173,12 @@ class MultiLakeSP(object):
 
         print("[multiLakeSPProcessing]  Writing command files")
         for (cycle_num, pass_num, continent_id) in self.cycle_pass_set:
-            print("[multiLakeSPProcessing]  Writing command files for cycle %s orbit %s and continent_id %s" %(cycle_num, pass_num, continent_id))
-            cmd_file = self.create_cmd_file(cycle_num, pass_num, continent_id)
+            if continent_id in [None, "None", ""]:
+                print("[multiLakeSPProcessing]  Writing command files for cycle %s / orbit %s / continent_id UNKNOWN" % (cycle_num, pass_num))
+                cmd_file = self.create_cmd_file(cycle_num, pass_num)
+            else:
+                print("[multiLakeSPProcessing]  Writing command files for cycle %s / orbit %s / continent_id %s" % (cycle_num, pass_num, continent_id))
+                cmd_file = self.create_cmd_file(cycle_num, pass_num, continent_id)
             self.cmd_file_path_list.append(cmd_file)
             print("")
 
@@ -195,15 +206,17 @@ class MultiLakeSP(object):
                 print("")
                 print("")
 
-                # 1 - Init
-                my_lake_sp = pge_lake_sp.PGELakeSP(cmd_file)
+                try:
+                    # 1 - Init
+                    my_lake_sp = pge_lake_sp.PGELakeSP(cmd_file)
 
-                # 2 - Run
-                my_lake_sp.start()
+                    # 2 - Run
+                    my_lake_sp.start()
 
-                # 3 - Stop
-                my_lake_sp.stop()
-
+                    # 3 - Stop
+                    my_lake_sp.stop()
+                except:
+                    print("WARNING : cmd_file %s failed" % cmd_file)
         else:
             print("")
             print("")
@@ -213,14 +226,17 @@ class MultiLakeSP(object):
             print("")
             print("")
 
-            # 1 - Init
-            my_lake_sp = pge_lake_sp.PGELakeSP(cmd_file)
+            try:
+                # 1 - Init
+                my_lake_sp = pge_lake_sp.PGELakeSP(cmd_file)
 
-            # 2 - Run
-            my_lake_sp.start()
+                # 2 - Run
+                my_lake_sp.start()
 
-            # 3 - Stop
-            my_lake_sp.stop()
+                # 3 - Stop
+                my_lake_sp.stop()
+            except:
+                print("WARNING : cmd_file %s failed" % cmd_file)
             
         print("")
         print("")
@@ -238,7 +254,7 @@ class MultiLakeSP(object):
             pool.close()
             pool.join()
 
-    def create_cmd_file(self, cycle_num, pass_num, continent_id):
+    def create_cmd_file(self, cycle_num, pass_num, continent_id=None):
         """
         Create command file for PGE_L2_HR_LakeSP for each input cycle and pass
         
@@ -246,31 +262,35 @@ class MultiLakeSP(object):
         :type cycle_num: int
         :param pass_num: pass number
         :type pass_num: int
-        :param continent_id: 2-letter continent identifier (AF, EU, etc.)
+        :param continent_id: 2-letter continent identifier (AF, EU, etc.) (default = None)
         :type continent: string
         
         :return: out_cmd_file = command file full path
         :rtype: string
         """
+        
+        continent_id_in_filename = continent_id
+        if continent_id is None:
+            continent_id_in_filename = "xx"
 
         # 1.1 - Init error log filename (without date because it is computed in pge_lake_sp.py)
         if self.error_file is None:
             error_file = os.path.join(self.output_dir, "ErrorFile_" + str(cycle_num) + "_" +
-                                    str(pass_num)  + "_" + str(continent_id) + ".log")
+                                    str(pass_num)  + "_" + str(continent_id_in_filename) + ".log")
         else:
-            error_file = os.path.splitext(self.error_file)[0] + "_" + str(cycle_num) + "_" + str(pass_num)  + "_" + str(continent_id) +  os.path.splitext(self.error_file)[1]
+            error_file = os.path.splitext(self.error_file)[0] + "_" + str(cycle_num) + "_" + str(pass_num)  + "_" + str(continent_id_in_filename) +  os.path.splitext(self.error_file)[1]
         print("Error log file : " + error_file)
         
         # 1.2 - Init log filename
         if self.log_file is None:
             log_file = os.path.join(self.output_dir, "LogFile_" + str(cycle_num) + "_" +
-                                    str(pass_num)  + "_" + str(continent_id) + ".log")
+                                    str(pass_num)  + "_" + str(continent_id_in_filename) + ".log")
         else:
-            log_file = os.path.splitext(self.log_file)[0] + "_" + str(cycle_num) + "_" + str(pass_num)  + "_" + str(continent_id) + os.path.splitext(self.log_file)[1]
+            log_file = os.path.splitext(self.log_file)[0] + "_" + str(cycle_num) + "_" + str(pass_num)  + "_" + str(continent_id_in_filename) + os.path.splitext(self.log_file)[1]
         print("Log file : " + log_file)
 
         # 2 - Init command filename
-        cmd_filename = "lake_sp_command_" + str(cycle_num) + "_" + str(pass_num)  + "_" + str(continent_id) + ".cfg"
+        cmd_filename = "lake_sp_command_" + str(cycle_num) + "_" + str(pass_num)  + "_" + str(continent_id_in_filename) + ".cfg"
         out_cmd_file = os.path.join(self.output_dir, cmd_filename)
         
         # 3 - Write command variables in command file
@@ -284,10 +304,8 @@ class MultiLakeSP(object):
 
         # 3.2 - Fill DATABASES section
         writer_command_file.write("[DATABASES]\n")
-        writer_command_file.write("# Prior lake database\n")
         if self.lake_db is not None:
             writer_command_file.write("LAKE_DB = " + self.lake_db + "\n")
-        writer_command_file.write("# Lake identifier attribute name in the database\n")
         if self.lake_db_id is not None:
             writer_command_file.write("LAKE_DB_ID = " + self.lake_db_id + "\n")
         writer_command_file.write("\n")
@@ -296,47 +314,37 @@ class MultiLakeSP(object):
         writer_command_file.write("[TILES_INFOS]\n")
         writer_command_file.write("Cycle number = " + str(cycle_num) +"\n")
         writer_command_file.write("Pass number = " + str(pass_num) +"\n")
-        writer_command_file.write("Continent identifier = " + str(continent_id) +"\n")
+        if continent_id is not None:
+            writer_command_file.write("Continent identifier = " + str(continent_id) +"\n")
         writer_command_file.write("\n")
         
         # 3.4 - Fill OPTIONS section
         writer_command_file.write("[OPTIONS]\n")
-        writer_command_file.write("# To also produce PIXCVec products as shapefiles (=True); else=False (default)\n")
         writer_command_file.write("Produce shp = " + str(self.flag_prod_shp) + "\n")
-        writer_command_file.write("# To increment the file counter in the output filenames (=True, default); else=False\n")
         writer_command_file.write("Increment file counter = " + str(self.flag_inc_file_counter) + "\n")
+        writer_command_file.write("Write full path = " + str(self.flag_write_full_path) + "\n")
+        writer_command_file.write("Nb_proc = " + str(self.nb_proc) + "\n")
+        writer_command_file.write("Delete temporary shp = " + str(self.flag_del_tmp_shp) + "\n")
         writer_command_file.write("\n")
         
         # 3.5 - Fill LOGGING section
         writer_command_file.write("[LOGGING]\n")
-        writer_command_file.write("# Error file full path\n")
         writer_command_file.write("errorFile = " + error_file + "\n")
-        writer_command_file.write("# Log file full path\n")
         writer_command_file.write("logFile = " + log_file + "\n")
-        writer_command_file.write("# Log level put inside the file\n")
         writer_command_file.write("logfilelevel = " + self.log_file_level + "\n")
-        writer_command_file.write("# Is log console output ?\n")
         writer_command_file.write("logConsole = " + str(self.log_console) + "\n")
-        writer_command_file.write("# Log level print in console\n")
         writer_command_file.write("logconsolelevel = " + self.log_console_level + "\n")
         writer_command_file.write("\n")
 
         # 3.6 - Fill FILE_INFORMATION section
-        writer_command_file.write("[FILE_INFORMATION]\n")
-        writer_command_file.write("# Name of producing agency\n")    
+        writer_command_file.write("[FILE_INFORMATION]\n")   
         writer_command_file.write("INSTITUTION = " + self.institution + "\n")
-        writer_command_file.write("# Version number of software generating product\n")    
-        writer_command_file.write("REFERENCES = " + self.references + "\n") 
-        writer_command_file.write("# Product version\n")    
-        writer_command_file.write("PRODUCT_VERSION = " + self.product_version + "\n")
-        writer_command_file.write("# Composite Release IDentifier for LakeTile processing\n")        
-        writer_command_file.write("CRID_LAKETILE = " + self.crid_laketile + "\n")
-        writer_command_file.write("# Composite Release IDentifier for LakeSP processing\n")        
+        writer_command_file.write("PRODUCT_VERSION = " + self.product_version + "\n")       
+        writer_command_file.write("CRID_LAKETILE = " + self.crid_laketile + "\n")    
         writer_command_file.write("CRID_LAKESP = " + self.crid_lakesp + "\n")
-        writer_command_file.write("# Version identifier of the product generation executable (PGE)\n")    
         writer_command_file.write("PGE_VERSION = " + self.pge_version + "\n")
-        writer_command_file.write("# Contact\n")        
-        writer_command_file.write("CONTACT = " + self.contact + "\n\n")
+        writer_command_file.write("CONTACT = " + self.contact + "\n")
+        writer_command_file.write("\n")
         
         # 3.7 - Close command file
         writer_command_file.close() 
@@ -362,20 +370,24 @@ def read_command_file(in_filename):
     # 0 - Init output dictionary
     out_params = {}
     # Default values
-    out_params["param_file"] = None
+    out_params["laketile_dir"] = None
+    out_params["output_dir"] = None
     out_params["LAKE_DB"] = None
     out_params["LAKE_DB_ID"] = None
     out_params["cycle_num"] = None
     out_params["pass_num"] = None
+    out_params["continent_id"] = None
     out_params["flag_prod_shp"] = False
     out_params["flag_inc_file_counter"] = True
+    out_params["flag_write_full_path"] = False
+    out_params["nb_proc"] = 1
+    out_params["flag_del_tmp_shp"] = True
     out_params["errorFile"] = None
     out_params["logFile"] = None
     out_params["logfilelevel"] = "DEBUG"
     out_params["logConsole"] = True
     out_params["logconsolelevel"] = "DEBUG"
     out_params["institution"] = "CNES"
-    out_params["references"] = "0.0"
     out_params["product_version"] = "0.0"
     out_params["crid_laketile"] = "Dx0000"
     out_params["crid_lakesp"] = "Dx0000"
@@ -387,9 +399,6 @@ def read_command_file(in_filename):
     config.read(in_filename)
 
     # 2 - Retrieve PATHS
-    list_paths = config.options("PATHS")
-    if "param_file" in list_paths:
-        out_params["param_file"] = config.get("PATHS", "param_file")
     out_params["laketile_dir"] = config.get("PATHS", "LakeTile directory")
     out_params["output_dir"] = config.get("PATHS", "Output directory")
 
@@ -411,6 +420,9 @@ def read_command_file(in_filename):
         # Pass number
         if "pass number" in list_options:
             out_params["pass_num"] = config.getint("TILES_INFOS", "Pass number")
+        # Continent identifier
+        if "continent identifier" in list_options:
+            out_params["continent_id"] = config.get("TILES_INFOS", "Continent identifier")
 
     # 5 - Retrieve OPTIONS
     if "OPTIONS" in config.sections():
@@ -421,6 +433,17 @@ def read_command_file(in_filename):
         # Flag to increment the file counter in the output filenames (=True, default); else=False
         if "increment file counter" in list_options:
             out_params["flag_inc_file_counter"] = config.get("OPTIONS", "Increment file counter")
+        # To write full path in global attributes (=True); to write only basename=False
+        if "write full path" in list_options:
+            out_params["flag_write_full_path"] = config.get("OPTIONS", "Write full path")
+        # Number of processors to use (default=1)
+        if "nb_proc" in list_options:
+            out_params["nb_proc"] = config.getint("OPTIONS", "Nb_proc")
+            if out_params["nb_proc"] > 2:
+                out_params["nb_proc"] = 2
+        # Flag to delete temporary swath LakeSP shapefiles (=True, default) or not (=False)
+        if "delete temporary shp" in list_options:
+            out_params["flag_del_tmp_shp"] = config.get("OPTIONS", "Delete temporary shp")
             
     # 6 - Retrieve LOGGING
     if "LOGGING" in config.sections():
@@ -439,8 +462,6 @@ def read_command_file(in_filename):
         list_options = config.options("FILE_INFORMATION")
         if "institution" in list_options:
             out_params["institution"] = config.get("FILE_INFORMATION", "INSTITUTION")
-        if "references" in list_options:
-            out_params["references"] = config.get("FILE_INFORMATION", "REFERENCES")
         if "product_version" in list_options:
             out_params["product_version"] = config.get("FILE_INFORMATION", "PRODUCT_VERSION")
         if "crid_laketile" in list_options:
@@ -489,10 +510,11 @@ if __name__ == '__main__':
     # 4 - Run processing
     if args.multiproc:
         multi_lake_sp.run_multiprocessing()
-    else :
+    else:
         multi_lake_sp.run_processing()
+
     print(timer.info(0))
 
     print("")
     print(timer.stop())
-    print("===== multiLakeTileProcessing = END =====")
+    print("===== multiLakeSPProcessing = END =====")

@@ -8,6 +8,7 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 '''
@@ -36,6 +37,7 @@ class BigLakeModel(object):
         Constructor of BigLakeModel
          :param height_model: height model
          :type height_model: string
+
         Variables of the object:
         - height_model / string: biglake height model
         """
@@ -59,12 +61,12 @@ class BigLakeModel(object):
         :type in_obj_pixc: proc_pixc_sp.PixelCloudSP object
         :param pixc_mask: selected indices
         :type pixc_mask: numpy 1D array of integer
-        :param grid_spacing spacing between averaging points in biglake model
+        :param grid_spacing: spacing between averaging points in biglake model
         :type grid_spacing: float
         :param grid_resolution: side length of square averaging box in biglake model
         :type grid_resolution: float
 
-        return: new smooth heights for each
+        :return: new smooth heights for each
         :rtype: numpy 1D array of float
         """
 

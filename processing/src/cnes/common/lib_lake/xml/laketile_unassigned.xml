@@ -27,10 +27,10 @@
         <annotation description="SWOT"/>
       </string>
       <string name="references">
-        <annotation description="Provides version number of software generating product."/>
+        <annotation description="SWOT-TN-CDM-0672-CNES_Product_Description_L2_HR_LakeTile - Revision A - 20220531"/>
       </string>
       <string name="reference_document">
-        <annotation description="SWOT-TN-CDM-0672-CNES"/>
+        <annotation description="SWOT-DD-CDM-0561-CNES_SAS_Design_L2_HR_LakeTile - Revision A - 20220531"/>
       </string>
       <string name="product_version">
         <annotation description="Version identifier of this data file"/>

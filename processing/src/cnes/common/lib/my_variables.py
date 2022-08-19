@@ -10,6 +10,7 @@
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
+# VERSION:4.0.0:DM:#91:2022/05/05:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -145,12 +146,15 @@ FORMAT_OGR_STR = {'integer': "ogr.OFTInteger",
 PLD_TABLE_LAKE = "lake"
 PLD_TABLE_BASIN = "basin"
 PLD_TABLE_LAKE_INFL = "lake_influence"
+PLD_TABLE_PASS_TILE = "pass_tile"
 
 # Fields names
+# lake table
 PLD_FIELD_LAKE_ID = "lake_id"
-PLD_FIELD_BASIN_ID = "basin_id"
 PLD_FIELD_LAKE_NAMES = "names"
-PLD_FIELD_LAKE_GRAND_ID = "grand_id"
+PLD_FIELD_LAKE_RES_ID = "res_id"
+PLD_FIELD_LAKE_LON = "lon"
+PLD_FIELD_LAKE_LAT = "lat"
 PLD_FIELD_LAKE_MAX_WSE = "ref_wse"
 PLD_FIELD_LAKE_MAX_WSE_U = "ref_wse_u"
 PLD_FIELD_LAKE_MAX_AREA = "ref_area"
@@ -158,14 +162,32 @@ PLD_FIELD_LAKE_MAX_AREA_U = "ref_area_u"
 PLD_FIELD_LAKE_REF_DATE = "date_t0"
 PLD_FIELD_LAKE_REF_DS = "ds_t0"
 PLD_FIELD_LAKE_STORAGE = "storage"
+PLD_FIELD_ICE_CLIM = "ice_clim_flag"
+PLD_FIELD_ICE_DYN = "ice_dyn_flag"
+PLD_FIELD_LAKE_REACH = "reach_id_list"
+PLD_FIELD_LAKE_OVERLAP_AVG_L = "overlap_avg_l"
+PLD_FIELD_LAKE_NB_TILES_L = "nb_tiles_l"
+PLD_FIELD_LAKE_OVERLAP_AVG_R = "overlap_avg_r"
+PLD_FIELD_LAKE_NB_TILES_R = "nb_tiles_r"
+# basin table
+PLD_FIELD_BASIN_ID = "basin_id"
+PLD_FIELD_BASIN_LON_MIN = "lon_min"
+PLD_FIELD_BASIN_LON_MAX = "lon_max"
+PLD_FIELD_BASIN_LAT_MIN = "lat_min"
+PLD_FIELD_BASIN_LAT_MAX = "lat_max"
+# pass_tile table
+PLD_FIELD_TILE_REF = "ref_tile"
+PLD_FIELD_TILE_CONT = "continent"
+PLD_FIELD_TILE_AZ_0_LINE = "az_0_line"
+PLD_FIELD_TILE_AZ_MAX_LINE = "az_max_line"
 
 # Prior fields to keep in _Obs shapefile
-PLD_FIELD_TO_KEEP_IN_OBS = ["lake_name", "p_grand_id"]
+PLD_FIELD_TO_KEEP_IN_OBS = ["lake_name", "p_res_id", "ice_clim_f", "ice_dyn_f"]
 
 
-##############################
-# PIXC classification flags  #
-##############################
+#############################
+# PIXC classification flags #
+#############################
 
 # Water flags
 CLASSIF_LAND_EDGE = 2
@@ -173,6 +195,12 @@ CLASSIF_WATER_EDGE = 3
 CLASSIF_INTERIOR_WATER = 4
 
 # Dark water flags
-CLASSIF_LAND_NEAR_DARK_WATER = 22
-CLASSIF_DARK_EDGE = 23
-CLASSIF_DARK = 24
+CLASSIF_DARK = 5
+
+
+########
+# MISC #
+########
+
+SEP_FILES = ", "  # Separator for list of files
+SEP_ATT = ";"     # Separator for list of values of an attribute

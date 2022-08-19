@@ -9,6 +9,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 '''
@@ -21,57 +23,121 @@
 '''
 
 
-import sys
+import sys, os
 from collections import OrderedDict
 import argparse
 import math
 import numpy as np
+from osgeo import ogr
+import numpy.ma as ma
 
-import fiona
-import fiona.crs
-import shapely.geometry as geometry
+from collections import OrderedDict
 import netCDF4 as nc
 import cnes.common.lib.my_tools as my_tools
 
-def pixc_to_shp(input_name, output_name, lat_name, lon_name, var_names, group_name=None, progress=False):
-    pixc = nc.Dataset(input_name, "r")
+def get_valid_variable(var_name, var_data):
+    try:
+        var_data = ma.filled(var_data, fill_value=-9999.0).astype(np.float)
+    except:
+        if var_name == "node_id":
+            tmp_id = nc.chartostring(var_data)
+            var_data = np.char.asarray(tmp_id, itemsize=14)
+            var_data_array = np.ones(var_data.shape, dtype=np.float) * -9999.0
+            var_data_array[var_data != ''] = np.asarray(var_data[var_data != ''], dtype=np.float)
+            var_data = var_data_array
+        elif var_name == "reach_id":
+            tmp_id = nc.chartostring(var_data)
+            var_data = np.char.asarray(tmp_id, itemsize=11)
+            var_data_array = np.ones(var_data.shape, dtype=np.float) * -9999.0
+            var_data_array[var_data != ''] = np.asarray(var_data[var_data != ''], dtype=np.float)
+            var_data = var_data_array
+        elif var_name == "lake_id":
+            tmp_id = nc.chartostring(var_data)
+            var_data = np.char.asarray(tmp_id, itemsize=10)
+            var_data_array = np.ones(var_data.shape, dtype=np.float) * -9999.0
+            var_data_array[var_data != ''] = np.asarray(var_data[var_data != ''], dtype=np.float)
+            var_data = var_data_array
+        elif var_name == "obs_id":
+            tmp_id = nc.chartostring(var_data)
+            var_data = np.char.asarray(tmp_id, itemsize=13)
+            var_data_array = np.ones(var_data.shape, dtype=np.float) * -9999.0
+            var_data_array[var_data != ''] = np.asarray(var_data[var_data != ''], dtype=np.float)
+            var_data = var_data_array
 
+    return var_data
+
+def create_shp(output_name, var_names):
+    shp_driver = ogr.GetDriverByName("ESRI Shapefile")
+    shp_ds = shp_driver.CreateDataSource(output_name)
+
+    # Set spatial projection
+    srs = ogr.osr.SpatialReference()
+    srs.ImportFromEPSG(4326)
+
+    # Set the lake_layer name
+    layer_name = str((os.path.splitext(os.path.basename(output_name))[0]).lower())
+
+    # Creating output lake_layer
+    shp_layer = shp_ds.CreateLayer(str(layer_name), srs, geom_type=ogr.wkbPoint)
+
+    # Create fields
+    for i, var_name in enumerate(var_names):
+        print('Creating output fields: %s %s' % (var_name, ogr.OFTReal))
+        if len(var_name) > 10:
+            print('         output field name reduced to: %s' % (var_name[:10]))
+            var_name = var_name[:10]
+        field_defn = ogr.FieldDefn(var_name, ogr.OFTReal)
+        field_defn.SetWidth(20)
+        field_defn.SetPrecision(4)
+        shp_layer.CreateField(field_defn)
+
+    return shp_ds, shp_layer
+
+def pixc_to_shp(input_name, output_name, lat_name, lon_name, var_names, group_name=None, progress=False, wateronly=False):
+
+    pixc = nc.Dataset(input_name, "r")
+    variables = {}
     if group_name is None:
-        latitude = pixc.variables[lat_name][:]
-        longitude = my_tools.convert_to_m180_180(pixc.variables[lon_name][:])
-        variables = [pixc.variables[var_name][:] for var_name in var_names]
+        latitude = get_valid_variable(lat_name, pixc.variables[lat_name][:])
+        longitude = get_valid_variable(lon_name, my_tools.convert_to_m180_180(pixc.variables[lon_name][:]))
+        for var_name in var_names :
+            var_data = pixc.variables[var_name][:]
+            var_data = get_valid_variable(var_name, var_data)
+            variables[var_name] = var_data
     else:
-        latitude = pixc.groups[group_name].variables[lat_name][:]
-        longitude = my_tools.convert_to_m180_180(pixc.groups[group_name].variables[lon_name][:])
-        variables = [pixc.groups[group_name].variables[var_name][:] for var_name in var_names]
+        latitude = get_valid_variable(lat_name, pixc.groups[group_name].variables[lat_name][:])
+        longitude = get_valid_variable(lon_name, my_tools.convert_to_m180_180(pixc.groups[group_name].variables[lon_name][:]))
+        for var_name in var_names :
+            variables[var_name] = get_valid_variable(var_name, pixc.groups[group_name].variables[var_name][:])
+
+    if wateronly:
+        idx = np.where(np.logical_and(np.logical_and(variables["classification"] != 1, variables["classification"] != 2), variables["classification"] != 22))
+        latitude = latitude[idx]
+        longitude = longitude[idx]
+        for var_name in var_names:
+            variables[var_name] = variables[var_name][idx]
 
     nb_points = latitude.size
 
-    driver = "ESRI Shapefile"
-    crs = fiona.crs.from_epsg(4326) # WGS84
+    shp_ds, shp_layer = create_shp(output_name, var_names)
 
-    schema = {'properties': OrderedDict([(lon_name, 'float:24.15'), (lat_name, 'float:24.15')] + [(var_name, 'float:24.15') for var_name in var_names]), 'geometry': 'Point'}
+    print("Writting oupt shapefile %s with attributes %s " %(output_name, " ".join(var_names)))
 
-    sys.stdout.write("Writing shp points")
-    with fiona.open(output_name,'w', driver=driver, crs=crs, schema=schema) as c:
-        for i in range(nb_points):
-            point = geometry.Point(longitude[i], latitude[i])
+    for i in range(nb_points):
+        feature = ogr.Feature(shp_layer.GetLayerDefn())
 
-            prop = {lon_name: float(point.coords.xy[0][0]),
-                    lat_name: float(point.coords.xy[1][0])}
+        point = ogr.CreateGeometryFromWkt("POINT(%f %f)" % (longitude[i], latitude[i]))
+        feature.SetGeometry(point)
 
-            for var_name, var_values in zip(var_names, variables):
-                if np.ma.is_masked(var_values[i]) or math.isnan(var_values[i]) :
-                    prop[var_name] = float(-9999.)
-                else:
-                    prop[var_name] = float(var_values[i])
+        for var_name in var_names:
+            var_value = variables[var_name][i]
+            feature.SetField(var_name[:10], var_value)
 
-            c.write({'geometry': geometry.mapping(point), 'properties': prop})
-
-            if progress and i % 100 == 0:
-                sys.stdout.write("\rWriting shp points: {:.1f}% done ({} / {})".format(100*(i+1)/nb_points, i+1, nb_points))
-    sys.stdout.write("\n")
-
+        shp_layer.CreateFeature(feature)
+        if progress and i % 10000 == 0:
+            print("Writing shp points: {:.1f}% done ({} / {})".format(100*(i+1)/nb_points, i+1, nb_points))
+    print()
+    shp_ds.Destroy()
     pixc.close()
 
 if __name__ == "__main__":

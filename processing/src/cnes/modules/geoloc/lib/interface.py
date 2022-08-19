@@ -8,6 +8,7 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 '''
@@ -260,14 +261,14 @@ class RiverTile(object):
 
         - From netcdf file (.nc)
             - [reach/node]_indx / [reach/node] 1D-array of float: tag associated to river node database, corresponding to the(reach index, node index)
-             tuple from the pixel cloud
+            - tuple from the pixel cloud
             - s 2D-array of float: curvilinear coordinate of distance along reach
             - h_n_ave / 1D-array of float:  node heights for each node previous node
             - h_n_ave_fit / 1D-array of float:  node heights for each node previous node
 
         - From netcdf file (.shp)
             - [reach/node]_indx / [reach/node] 1D-array of float: tag associated to river node database, corresponding to the(reach index, node index)
-             tuple from the pixel cloud
+            - tuple from the pixel cloud
             - s 2D-array of float: curvilinear coordinate of distance along reach
             - h_n_ave / 1D-array of float:  node heights for each node previous node
 
@@ -300,7 +301,8 @@ class RiverTile(object):
             self.s = node_outputs['s']
             self.h_n_ave = node_outputs['h_n_ave']
             self.h_n_ave_fit = copy.deepcopy(node_outputs['h_n_ave'])
-            self.fit_height = node_outputs['fit_height']+node_outputs['geoid_hght']+node_outputs['load_tidef']+node_outputs['solid_tide']+node_outputs['pole_tide']
+            self.fit_height = node_outputs['fit_height']+node_outputs['geoid_hght']+node_outputs['load_tidef']+node_outputs['solid_tide']\
+                              +node_outputs['pole_tide']
 
 
         except Exception as exc:

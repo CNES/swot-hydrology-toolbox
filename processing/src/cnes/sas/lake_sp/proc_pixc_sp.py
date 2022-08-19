@@ -10,11 +10,13 @@
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
+# VERSION:4.0.0:DM:#91:2022/05/05:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
 .. module:: proc_pixc_sp.py
-   :synopsis: Deals with subset of pixel cloud, for objects located at top or bottom edge of a tile; i.e. gather pixels retrieved from all L2_HR_LakeTile_edge files 
+   :synopsis: Deals with subset of pixel cloud, for objects located at top or bottom edge of a tile; i.e. gather pixels retrieved from all 
+              L2_HR_LakeTile_Edge files 
     Created on 09/27/2017
 
 .. moduleauthor:: Cécile Cazals - CS
@@ -39,288 +41,69 @@ import cnes.common.lib.my_segmentation as my_segmentation
 import cnes.common.lib.my_variables as my_var
 import cnes.common.lib_lake.lake_db as lake_db
 
+import cnes.sas.lake_tile.proc_pixc as proc_pixc
+
 import cnes.common.service_config_file as service_config_file
 
-import jpl.modules.aggregate as jpl_aggregate
 
-
-class PixCEdge(object):
-    """
-    class PixCEdge
-    This class is designed to process all L2_HR_LakeTile_edge files of two half-swath thought 2 PixCEdgeSwath objects
-    """
-    def __init__(self, in_lake_tile_edge_path_list, in_cycle, in_pass, in_continent_id):
-        """
-        Constructor: init aggregation of all LakeTile_edge files of one continent-pass
-
-        :param in_lake_tile_edge_path_list: list of LakeTile_edge files full path
-        :type in_lake_tile_edge_path_list: list of string
-        :param in_cycle num: cycle number
-        :type in_cycle: int
-        :param in_pass_num: pass number
-        :type in_pass_num: int
-        :param in_continent_id: 2-letter continent identifier
-        :type in_continent_id: string
-
-        Variables of the object:
-        - lake_tile_edge_path_r / list of string: list of full path to LakeTile_edge files for right half-swath
-        - lake_tile_edge_path_l / list of string: list of full path to LakeTile_edge files for left half-swath
-        - pixc_edge_r / PixCEdgeSwath: object to process right half-swath
-        - pixc_edge_l / PixCEdgeSwath: object to process left half-swath
-        - tile_poly / ogr.Polygon: polygon of all tiles on both half-swaths
-        - nb_pixels / int: number of pixels to process in both half-swaths
-        """
-
-        # Get instance of service config file
-        self.cfg = service_config_file.get_instance()
-        logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
-
-        # 1 - Init object gathering LakeTile_edge files for RIGHT half-swath
-        logger.info("== INIT *RIGHT* half-swath for continent %s with LakeTile_Edge files ==" % in_continent_id)
-        # 1.1 - List LakeTile_edge files
-        self.lake_tile_edge_path_r = [file for file in in_lake_tile_edge_path_list if "R_20" in file]
-        self.lake_tile_edge_path_r.sort()  # Sort in alphabetic order
-        # Print list of files
-        for file in self.lake_tile_edge_path_r:
-            logger.info(file)
-        logger.info("===================================")
-        # 1.2 - Init PIXC_edge object
-        self.pixc_edge_r = PixCEdgeSwath(in_cycle, in_pass, in_continent_id, "R")
-
-        # 2 - Init object gathering LakeTile_edge files for LEFT half-swath
-        logger.info("== INIT *LEFT* half-swath for continent %s with LakeTile_edge files ==" % in_continent_id)
-        # 2.1 - List LakeTile_edge files
-        self.lake_tile_edge_path_l = [file for file in in_lake_tile_edge_path_list if "L_20" in file]
-        self.lake_tile_edge_path_l.sort()  # Sort in alphabetic order
-        # Print list of files
-        for file in self.lake_tile_edge_path_l:
-            logger.info(file)
-        logger.info("===================================")
-        # 2.2 - Init PIXC_edge object
-        self.pixc_edge_l = PixCEdgeSwath( in_cycle, in_pass, in_continent_id, "L")
-        
-        # 3 - Init SP metadata
-        self.pixc_metadata = {}
-
-    def set_pixc_edge_from_laketile_edge_file(self):
-        """
-        Load LakeTile_edge PIXC data from both half-swaths
-        And fill metadata
-        """
-        logger = logging.getLogger(self.__class__.__name__)
-
-        # 1 - Load _edge data from both half-swaths
-        # 1.1 - Load left swath
-        self.pixc_edge_l.set_pixc_edge_swath_from_laketile_edge_file(self.lake_tile_edge_path_l)
-        # 1.2 - Load right swath
-        self.pixc_edge_r.set_pixc_edge_swath_from_laketile_edge_file(self.lake_tile_edge_path_r)
-
-        # 2 - Update tile_poly with both swath
-        self.tile_poly = self.pixc_edge_r.tile_poly.Union(self.pixc_edge_l.tile_poly)
-
-        # 3 - Update nb_pixels with both swath
-        self.nb_pixels = self.pixc_edge_r.nb_pixels + self.pixc_edge_l.nb_pixels
-
-        # 4 - Assert that both swath belong to the same SP product (cycle, pass and continent) and fill metadata
-        
-        # 4.1 - Cycle number
-        if self.pixc_edge_l.cycle_num == self.pixc_edge_r.cycle_num:
-            self.pixc_metadata["cycle_number"] =  self.pixc_edge_l.cycle_num
-        else:
-            logger.error("Cycle number for swath left and right are not the same")
-        
-        # 4.2 - Pass number
-        if self.pixc_edge_l.pass_num == self.pixc_edge_r.pass_num:
-            self.pixc_metadata["pass_number"] =  self.pixc_edge_l.pass_num
-        else:
-            logger.error("Pass number for swath left and right are not the same")
-        
-        # 4.3 - Continent identifier and code
-        if self.pixc_edge_l.continent_id == self.pixc_edge_r.continent_id:
-            self.pixc_metadata["continent_id"] =  self.pixc_edge_l.continent_id
-            self.pixc_metadata["continent_code"] =  self.pixc_edge_l.continent_code
-        else:
-            logger.error("Continent for swath left and right are not the same")
-        
-        # 4.4 - Start and stop time
-        if self.pixc_edge_l.pixc_metadata["time_granule_start"] == "":
-            self.pixc_metadata["time_granule_start"] = self.pixc_edge_r.pixc_metadata["time_granule_start"]
-        elif self.pixc_edge_r.pixc_metadata["time_granule_start"] == "":
-            self.pixc_metadata["time_granule_start"] = self.pixc_edge_l.pixc_metadata["time_granule_start"]
-        else:
-            self.pixc_metadata["time_granule_start"] = min(self.pixc_edge_l.pixc_metadata["time_granule_start"], 
-                                                            self.pixc_edge_r.pixc_metadata["time_granule_start"])
-        self.pixc_metadata["time_granule_end"] = max(self.pixc_edge_l.pixc_metadata["time_granule_end"], 
-                                                      self.pixc_edge_r.pixc_metadata["time_granule_end"])
-        
-        # 4.5 - Polygon of the swath
-        self.pixc_metadata["polygon"] = str(self.tile_poly)
-        
-        # 4.6 - Swath corners
-        if self.pixc_edge_l.pixc_metadata["left_first_longitude"] != -9999:
-            self.pixc_metadata["left_first_longitude"] = self.pixc_edge_l.pixc_metadata["left_first_longitude"]
-        else:
-            self.pixc_metadata["left_first_longitude"] = self.pixc_edge_r.pixc_metadata["left_first_longitude"]
-            
-        if self.pixc_edge_l.pixc_metadata["left_first_latitude"] != -9999:
-            self.pixc_metadata["left_first_latitude"] = self.pixc_edge_l.pixc_metadata["left_first_latitude"]
-        else:
-            self.pixc_metadata["left_first_latitude"] = self.pixc_edge_r.pixc_metadata["left_first_latitude"]
-            
-        if self.pixc_edge_l.pixc_metadata["left_last_longitude"] != -9999:
-            self.pixc_metadata["left_last_longitude"] = self.pixc_edge_l.pixc_metadata["left_last_longitude"]
-        else:
-            self.pixc_metadata["left_last_longitude"] = self.pixc_edge_r.pixc_metadata["left_last_longitude"]
-            
-        if self.pixc_edge_l.pixc_metadata["left_last_latitude"] != -9999:
-            self.pixc_metadata["left_last_latitude"] = self.pixc_edge_l.pixc_metadata["left_last_latitude"]
-        else:
-            self.pixc_metadata["left_last_latitude"] = self.pixc_edge_r.pixc_metadata["left_last_latitude"]
-            
-        if self.pixc_edge_r.pixc_metadata["right_first_longitude"] != -9999:
-            self.pixc_metadata["right_first_longitude"] = self.pixc_edge_r.pixc_metadata["right_first_longitude"]
-        else:
-            self.pixc_metadata["right_first_longitude"] = self.pixc_edge_l.pixc_metadata["right_first_longitude"]
-            
-        if self.pixc_edge_r.pixc_metadata["right_first_latitude"] != -9999:
-            self.pixc_metadata["right_first_latitude"] = self.pixc_edge_r.pixc_metadata["right_first_latitude"]
-        else:
-            self.pixc_metadata["right_first_latitude"] = self.pixc_edge_l.pixc_metadata["right_first_latitude"]
-            
-        if self.pixc_edge_r.pixc_metadata["right_last_longitude"] != -9999:
-            self.pixc_metadata["right_last_longitude"] = self.pixc_edge_r.pixc_metadata["right_last_longitude"]
-        else:
-            self.pixc_metadata["right_last_longitude"] = self.pixc_edge_l.pixc_metadata["right_last_longitude"]
-            
-        if self.pixc_edge_r.pixc_metadata["right_last_latitude"] != -9999:
-            self.pixc_metadata["right_last_latitude"] = self.pixc_edge_r.pixc_metadata["right_last_latitude"]
-        else:
-            self.pixc_metadata["right_last_latitude"] = self.pixc_edge_l.pixc_metadata["right_last_latitude"]
-            
-        # 4.7 - Bounding box
-        if self.pixc_edge_l.pixc_metadata["geospatial_lon_min"] == -9999:
-            self.pixc_metadata["geospatial_lon_min"] = self.pixc_edge_r.pixc_metadata["geospatial_lon_min"]
-        elif self.pixc_edge_r.pixc_metadata["geospatial_lon_min"] == -9999:
-            self.pixc_metadata["geospatial_lon_min"] = self.pixc_edge_l.pixc_metadata["geospatial_lon_min"]
-        else:
-            self.pixc_metadata["geospatial_lon_min"] = min(self.pixc_edge_l.pixc_metadata["geospatial_lon_min"], 
-                                                           self.pixc_edge_r.pixc_metadata["geospatial_lon_min"])
-        
-        self.pixc_metadata["geospatial_lon_max"] = max(self.pixc_edge_l.pixc_metadata["geospatial_lon_max"], 
-                                                       self.pixc_edge_r.pixc_metadata["geospatial_lon_max"])
-        
-        if self.pixc_edge_l.pixc_metadata["geospatial_lat_min"] == -9999:
-            self.pixc_metadata["geospatial_lat_min"] = self.pixc_edge_r.pixc_metadata["geospatial_lat_min"]
-        elif self.pixc_edge_r.pixc_metadata["geospatial_lat_min"] == -9999:
-            self.pixc_metadata["geospatial_lat_min"] = self.pixc_edge_l.pixc_metadata["geospatial_lat_min"]
-        else:
-            self.pixc_metadata["geospatial_lat_min"] = min(self.pixc_edge_l.pixc_metadata["geospatial_lat_min"], 
-                                                           self.pixc_edge_r.pixc_metadata["geospatial_lat_min"])
-            
-        self.pixc_metadata["geospatial_lat_max"] = max(self.pixc_edge_l.pixc_metadata["geospatial_lat_max"], 
-                                                       self.pixc_edge_r.pixc_metadata["geospatial_lat_max"])
-        
-        if self.pixc_metadata["geospatial_lon_min"] == -9999.0:
-            self.pixc_metadata["geospatial_lon_min"] = min(self.pixc_metadata["left_first_longitude"],
-                                                              self.pixc_metadata["left_last_longitude"],
-                                                              self.pixc_metadata["right_first_longitude"],
-                                                              self.pixc_metadata["right_last_longitude"])
-            self.pixc_metadata["geospatial_lon_max"] = max(self.pixc_metadata["left_first_longitude"],
-                                                              self.pixc_metadata["left_last_longitude"],
-                                                              self.pixc_metadata["right_first_longitude"],
-                                                              self.pixc_metadata["right_last_longitude"])
-            self.pixc_metadata["geospatial_lat_min"] = min(self.pixc_metadata["left_first_latitude"],
-                                                              self.pixc_metadata["left_last_latitude"],
-                                                              self.pixc_metadata["right_first_latitude"],
-                                                              self.pixc_metadata["right_last_latitude"])
-            self.pixc_metadata["geospatial_lat_max"] = max(self.pixc_metadata["left_first_latitude"],
-                                                              self.pixc_metadata["left_last_latitude"],
-                                                              self.pixc_metadata["right_first_latitude"],
-                                                              self.pixc_metadata["right_last_latitude"])
-        
-        # 5 - Assert that ellipsoid_semi_major_axis and ellipsoid_flattening are the same and fill metadata
-        # 5.1 - ellipsoid_semi_major_axis
-        if self.pixc_edge_l.pixc_metadata["ellipsoid_semi_major_axis"] == self.pixc_edge_r.pixc_metadata["ellipsoid_semi_major_axis"]:
-            self.pixc_metadata["ellipsoid_semi_major_axis"] =  self.pixc_edge_l.pixc_metadata["ellipsoid_semi_major_axis"]
-        elif self.pixc_edge_l.pixc_metadata["ellipsoid_semi_major_axis"] == "": # if one swath is processed
-            self.pixc_metadata["ellipsoid_semi_major_axis"] = self.pixc_edge_r.pixc_metadata["ellipsoid_semi_major_axis"]
-        elif self.pixc_edge_r.pixc_metadata["ellipsoid_semi_major_axis"] == "": # if one swath is processed
-            self.pixc_metadata["ellipsoid_semi_major_axis"] = self.pixc_edge_l.pixc_metadata["ellipsoid_semi_major_axis"]
-        else:
-            logger.error("Ellipsoid semi major axis for left and right half-swaths are not the same")
-
-        # 5.2 - ellipsoid_flattening
-        if self.pixc_edge_l.pixc_metadata["ellipsoid_flattening"] == self.pixc_edge_r.pixc_metadata["ellipsoid_flattening"]:
-            self.pixc_metadata["ellipsoid_flattening"] =  self.pixc_edge_l.pixc_metadata["ellipsoid_flattening"]
-        elif self.pixc_edge_l.pixc_metadata["ellipsoid_flattening"] == "":  # if one swath is processed
-            self.pixc_metadata["ellipsoid_flattening"] = self.pixc_edge_r.pixc_metadata["ellipsoid_flattening"]
-        elif self.pixc_edge_r.pixc_metadata["ellipsoid_flattening"] == "":  # if one swath is processed
-            self.pixc_metadata["ellipsoid_flattening"] = self.pixc_edge_l.pixc_metadata["ellipsoid_flattening"]
-        else:
-            logger.error("Ellipsoid flattening for swath left and right are not the same")
-    
-
-#######################################
-
-
-class PixCEdgeSwath(object):
+class PixCEdgeSwath(proc_pixc.PixelCloud):
     """
     class PixCEdgeSwath
-    This class is designed to process all L2_HR_LakeTile_edge files of one single swath. 
-    LakeTile edge files contain pixel cloud information (from L2_HR_PIXC) for pixels involved in lakes located 
-    at the top/bottom edges of tiles.
+    This class is designed to process all L2_HR_LakeTile_Edge files of one single swath. 
+    LakeTile_Edge files contain pixel cloud information (from L2_HR_PIXC) for pixels involved in lakes located 
+    at the edges of tiles in the along-track direction.
     """
 
-    def __init__(self, in_cycle, in_pass, in_continent_id, in_swath_side):
+    def __init__(self, in_cycle_num, in_pass_num, in_continent_id, in_swath_side):
         """
-        Constructor: init aggregation of all LakeTile_edge files of one half-swath of a continent-pass
+        Constructor: init aggregation of all LakeTile_Edge files of one half-swath over a continent-pass
         
-        The LakeTile_edge file contains only needed PixC variables information, but also additional information like:
+        The LakeTile_Edge file contains only needed PixC variables information, but also additional information like:
 
             - edge_loc field, the edge location of the lake: top of the tile, bottom of the tile or both top and bottom (0=bottom 1=top 2=both)
             - edge_label contains the object labels retrieved from PGE_LakeTile labeling process.
             - edge_index contains the L2_HR_PIXC initial pixels indices. This information is needed to update the improved geoloc and tag fields
-              of LakeTile pixcvec files.
+              of LakeTile_PIXCVec files.
 
-        This class processes all LakeTile_edge files of a single swath to gather all entities at the edge of tile into lake entities.
+        This class processes all LakeTile_Edge files of a single swath to gather all entities at the along-track edge of tile into lake entities.
 
-        :param in_cycle num: cycle number
-        :type in_cycle: int
+        :param in_cycle_num: cycle number
+        :type in_cycle_num: int
         :param in_pass_num: pass number
         :type in_pass_num: int
-        :param in_continent_id: 2-letter identifier of the processed continent
+        :param in_continent_id: 2-letter continent identifier
         :type in_continent_id: string
-        :param in_swath_side: R=Right L=Left swath side
+        :param in_swath_side: 1-letter swath side; R=right or L=left
         :type in_swath_side: string
 
         Variables of the object:
             
         - Global PixCEdgeSwath infos:
-            - cycle_num / int: cycle number (= global attribute named cycle_number in LakeTile_edge)
-            - pass_num / int: pass number (= global attribute named pass_number in LakeTile_edge)
+            - cycle_num / int: cycle number (= global attribute named cycle_number in LakeTile_Edge)
+            - pass_num / int: pass number (= global attribute named pass_number in LakeTile_Edge)
             - swath_side / string: R=Right L=Left swath side
-            - date / int: date of acquisition (ex: 20000101 )
-            - nb_pix_range / int: number of pixels in range dimension (= global attribute named nb_pix_range in LakeTile_edge)
+            - date / int: date of acquisition (ex: 20000101)
+            - nb_pix_range / int: number of pixels in range dimension (= global attribute named nb_pix_range in LakeTile_Edge)
             - nb_pixels / int: total number of pixels
             - pixc_metadata / dict: processing metadata
-            - tile_poly / ogr.Polygon: polygon of the PixC tile
+            - tile_poly / ogr.Polygon: polygon of the swath delineated by the PixC tiles
 
         - Variables specific to processing:
             - tile_num / list of int: List of tile number to process ex: [76, 77, 78]
-            - tile_index /list of int: Tile_num reference of each pixel ex: [0, 0, 0, 1, 2, 2, 2, 2]
+            - tile_index / list of int: Tile_num reference of each pixel ex: [0, 0, 0, 1, 2, 2, 2, 2]
             - labels / 1D-array of int: arrays of new labels
             - is_boundary_pix / list of bool: if pixel belong to the first / last azimuth of single pass
             - near_range / list of float: store the near range of each tiles
             - slant_range_spacing / list of int: store the slant range samplig of each tiles (supposed to be 0.75)
             - classif_full_water / 1D-array of int: classification as if all pixels were interior water pixels
             - classif_without_dw / 1D-array of int: classification of all water pixels (ie with dark water pixels removed)
+            - classif_dict/ dict: selection (by True or False) of pixels wrt their classification, for different processes; key=water/dark/4hull/4wse/4area
             - interferogram_flattened / 1D-array of complex: flattened interferogram
             - inundated_area / 1D-array of int: area of pixels covered by water
             - height_std_pix / 1D-array of float: height std
             - corrected_height / 1D-array of float: height corrected from geoid and other tide corrections
             
-        - From L2_HR_LakeTile_edge file:
+        - From L2_HR_LakeTile_Edge file:
             
             - Edge objects info:
                 - edge_loc
@@ -348,12 +131,9 @@ class PixCEdgeSwath(object):
                 - height / 1D-array of float: height of water pixels
                 - cross_track / 1D-array of float: cross-track distance from nadir to center of water pixels
                 - pixel_area / 1D-array of int: area of water pixels
-                - inc / 1D array of float: incidence angle
-                - phase_noise_std / 1D-array of float: phase noise standard deviation
                 - dlatitude_dphase / 1D-array of float: sensitivity of latitude estimate to interferogram phase
                 - dlongitude_dphase / 1D-array of float: sensitivity of longitude estimate to interferogram phase
                 - dheight_dphase / 1D array of float: sensitivity of height estimate to interferogram phase
-                - dheight_drange / 1D array of float: sensitivity of height estimate to range
                 - darea_dheight / 1D array of float: sensitivity of pixel area to reference height
                 - eff_num_medium_looks / 1D array of int: number of medium looks
                 - model_dry_tropo_cor / 1D array of float: dry troposphere vertical correction
@@ -365,7 +145,8 @@ class PixCEdgeSwath(object):
                 - load_tide_fes / 1D array of float: load tide height (FES2014)
                 - load_tide_got / 1D array of float: load tide height (GOT4.10)
                 - pole_tide / 1D array of float: pole tide height
-                - classification_qual / 1D-array of byte: status flag
+                - classification_qual / 1D array of uint: flag that indicates the quality of the classification quantities 
+                - geolocation_qual / 1D array of uint: flag that indicates the quality of the geolocation quantities 
                 - wavelength / float: wavelength corresponding to the effective radar carrier frequency 
                 - looks_to_efflooks / float: ratio between the number of actual samples and the effective number of independent samples during 
                   spatial averaging over a large 2-D area
@@ -382,28 +163,33 @@ class PixCEdgeSwath(object):
                   (= variables named plus_y_antenna_[x|y|z] in L2_HR_PIXC file)
                 - nadir_minus_y_antenna_[x|y|z] / 1D-array of float: position vector of the -y KaRIn antenna phase center in ECEF coordinates 
                   (= variables named minus_y_antenna_[x|y|z] in L2_HR_PIXC file)
-                - nadir_sc_event_flag / 1D array of byte: spacecraft event flag
-                - nadir_tvp_qual / 1D array of byte: quality flag
         """
         # Get instance of service config file
         self.cfg = service_config_file.get_instance()
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
+        logger.debug("- start -")
+        
+        # 0 - Retrieve flag variables from configuration file
+        self.classif_list = [int(i) for i in self.cfg.get("CONFIG_PARAMS", "CLASSIF_LIST").split(";")]
+        self.classif_water = [i == "True" for i in self.cfg.get("CONFIG_PARAMS", "CLASSIF_WATER").split(";")]
+        self.classif_4hull = [i == "True" for i in self.cfg.get("CONFIG_PARAMS", "CLASSIF_4HULL").split(";")]
+        self.classif_4wse = [i == "True" for i in self.cfg.get("CONFIG_PARAMS", "CLASSIF_4WSE").split(";")]
+        self.classif_4area = [i == "True" for i in self.cfg.get("CONFIG_PARAMS", "CLASSIF_4AREA").split(";")]
 
         # 1. Init Global PixCEdgeSwath infos
-        self.cycle_num = in_cycle # Cycle number
-        self.pass_num = in_pass # Orbit number
+        self.cycle_num = in_cycle_num # Cycle number
+        self.pass_num = in_pass_num # Orbit number
         self.swath_side = in_swath_side # swath R or L
         self.continent_id = in_continent_id
         self.continent_code = lake_db.compute_continent_code(in_continent_id)
         
-        # 2. Init LakeTile_edge variables
+        # 2. Init LakeTile_Edge variables
         # 2.1. Edge info
         self.edge_loc =  np.array(()).astype('int')  # Localization (top/bottom/both)
         self.edge_label = np.array(()).astype('int')  # Label in tile
         self.edge_index = np.array(()).astype('int')  # Index in original L2_HR_PIXC product
         # 2.2. From PIXC/pixel_cloud
-        self.classif = np.array(())
+        self.classif = np.array(()).astype('byte')
         self.range_index = np.array(()).astype('int')
         self.azimuth_index = np.array(()).astype('int')
         self.interferogram = np.array(())
@@ -413,7 +199,7 @@ class PixCEdgeSwath(object):
         self.water_frac_uncert = np.array(())
         self.false_detection_rate = np.array(())
         self.missed_detection_rate = np.array(())
-        self.bright_land_flag = np.array(())
+        self.bright_land_flag = np.array(()).astype('byte')
         self.layover_impact = np.array(())
         self.eff_num_rare_looks = np.array(())
         self.latitude = np.array(())
@@ -421,12 +207,9 @@ class PixCEdgeSwath(object):
         self.height = np.array(())
         self.cross_track = np.array(())
         self.pixel_area = np.array(())
-        self.inc = np.array(())
-        self.phase_noise_std = np.array(())
         self.dlatitude_dphase = np.array(())
         self.dlongitude_dphase = np.array(())
         self.dheight_dphase = np.array(())
-        self.dheight_drange = np.array(())
         self.darea_dheight = np.array(())
         self.eff_num_medium_looks = np.array(())
         self.model_dry_tropo_cor = np.array(())
@@ -438,7 +221,8 @@ class PixCEdgeSwath(object):
         self.load_tide_fes = np.array(())
         self.load_tide_got = np.array(())
         self.pole_tide = np.array(())
-        self.classification_qual = np.array(())
+        self.classification_qual = np.array(()).astype('uint32')
+        self.geolocation_qual = np.array(()).astype('uint32')
         self.wavelength = -9999.0
         self.looks_to_efflooks = -9999.0
         # 2.3. From PIXC/tvp group
@@ -458,8 +242,6 @@ class PixCEdgeSwath(object):
         self.nadir_minus_y_antenna_x = np.array(())
         self.nadir_minus_y_antenna_y = np.array(())
         self.nadir_minus_y_antenna_z = np.array(())
-        self.nadir_sc_event_flag = np.array(())
-        self.nadir_tvp_qual = np.array(())
         
         # 3. Init dictionary of SP_Edge metadata
         self.pixc_metadata = {}
@@ -498,8 +280,10 @@ class PixCEdgeSwath(object):
         self.is_boundary_pix = []  # If pixel belongs to the first / last azimuth of single pass
         self.near_range = []
         self.slant_range_spacing = []
-        self.classif_full_water = np.array(())
-        self.classif_without_dw = np.array(())
+        self.list_classif_keys = ["water", "interior_water", "as_full_water", "dark", "without_dw", "4hull", "4wse", "4area"]
+        self.classif_dict = dict()
+        for key in self.list_classif_keys:
+            self.classif_dict[key] = np.array((), dtype='bool')
         self.interferogram_flattened = np.array(())
         self.inundated_area = np.array(())
         self.height_std_pix = np.array(())
@@ -507,20 +291,24 @@ class PixCEdgeSwath(object):
 
     # ----------------------------------------
 
-    def set_pixc_edge_swath_from_laketile_edge_file(self, in_lake_tile_edge_path_list):
+    def set_from_laketile_edge_file(self, in_laketile_edge_path_list):
         """
         This function loads NetCDF information from all tiles and merge all PIXC_edge info into 1D vectors
 
-        :param in_lake_tile_edge_path_list: list of full path of the NetCDF file to load
-        :type in_lake_tile_edge_path_list: list of string
+        :param in_laketile_edge_path_list: list of sorted full path of the NetCDF file to load
+        :type in_laketile_edge_path_list: list of string
         """
         logger = logging.getLogger(self.__class__.__name__)
 
-        in_lake_tile_edge_path_list.sort()
-        nb_pix_azimuth_list = [0]
-        for lake_tile_edge_path in in_lake_tile_edge_path_list:  # For each LakeTile edge file
+        in_laketile_edge_path_list.sort()
+        # store number of pixels in azimuth
+        full_path_azimuth_nb_pix = [0]
+        # store azimith boundaries : begining and end of path + edges in case of missing tiles
+        full_path_azimuth_boundary = [0]
 
-            logger.info("Loading L2_HR_LakeTile edge file = %s" % lake_tile_edge_path)
+        for lake_tile_edge_path in in_laketile_edge_path_list:  # For each LakeTile_Edge file
+
+            logger.debug("Loading LakeTile_Edge file = %s" % lake_tile_edge_path)
 
             # Load data
             nb_pix_loaded, current_tile_number, current_nb_pix_azimuth, current_near_range, current_slant_range_spacing = \
@@ -529,7 +317,7 @@ class PixCEdgeSwath(object):
             if not current_tile_number:
                 continue
 
-            logger.info("%d pixels loaded" % nb_pix_loaded)
+            logger.debug("%d pixels loaded" % nb_pix_loaded)
 
             # Update nb_pixel
             self.nb_pixels += nb_pix_loaded
@@ -543,34 +331,52 @@ class PixCEdgeSwath(object):
                     logger.warning("Tile %d%s is missing, an empty tile is added" % (previous_tile_number + 1, self.swath_side))
                     # if current tile is not adjacent to previous tile, add an empty tile to tile_ref
                     self.tile_num.append(previous_tile_number + 1)
-                    nb_pix_azimuth_list.append(current_nb_pix_azimuth)
                     self.near_range.append(0)
                     self.slant_range_spacing.append(0)
                     previous_tile_number = self.tile_num[-1]
+
+                    # in the case of missing tile, add an azimuth boundary for adjacent tile azimuth min and max
+                    full_path_azimuth_boundary.append(np.sum(full_path_azimuth_nb_pix)-1)
+                    full_path_azimuth_nb_pix.append(current_nb_pix_azimuth)
+                    full_path_azimuth_boundary.append(np.sum(full_path_azimuth_nb_pix))
+
+                    #  stop process if more than 50 tiles are missing
                     cpt += 1
                     if cpt > 50:
                         break
 
+            # add current tile information
             self.tile_index += [current_tile_number] * nb_pix_loaded
             self.tile_num.append(current_tile_number)
-            nb_pix_azimuth_list.append(current_nb_pix_azimuth)
             self.near_range.append(current_near_range)
             self.slant_range_spacing.append(current_slant_range_spacing)
+
+            full_path_azimuth_nb_pix.append(current_nb_pix_azimuth)
 
         # Convert list to numpy array
         self.tile_index = np.array(self.tile_index)
         self.labels = np.zeros((self.nb_pixels))
 
-        # Compute if pixels belong to the beging or the end of pass
-        azimuth_increment_list = np.cumsum(nb_pix_azimuth_list)[:-1]
-        full_path_azimuth = np.zeros((self.nb_pixels))
+        # add last azimuth index to boundaries
+        full_path_azimuth_boundary.append(np.sum(full_path_azimuth_nb_pix)-1)
 
+        # compute azimuth index of the beginning of each tile
+        full_path_tile_azimuth_index = np.cumsum(full_path_azimuth_nb_pix)
+
+        # Compute if pixels belong to the beging or end od path or missing tile egde
+        self.is_boundary_pix = np.zeros((self.nb_pixels))
+
+        # compute full path azimuth from the begining of path to the end of path
+        full_path_azimuth_index = np.zeros((self.nb_pixels)).astype('int')
         for i, tile in enumerate(self.tile_num):
-            full_path_azimuth[np.where(self.tile_index == tile)] = self.azimuth_index[np.where(self.tile_index == tile)] + azimuth_increment_list[i]
+            full_path_azimuth_index[np.where(self.tile_index == tile)] = self.azimuth_index[np.where(self.tile_index == tile)].astype('int') +\
+                                                                         full_path_tile_azimuth_index[i]
 
-        self.is_boundary_pix = np.logical_or(full_path_azimuth == 0, full_path_azimuth == np.sum(nb_pix_azimuth_list)-1)
+        # fill is boundary array if azimuth of pixel is a path boundary
+        for az_boundary in full_path_azimuth_boundary :
+            self.is_boundary_pix[full_path_azimuth_index == az_boundary] = 1
 
-        logger.info("%d PixC loaded for current swath" % self.nb_pixels)
+        logger.debug("%d PixC loaded for current swath" % self.nb_pixels)
 
     # ----------------------------------------
 
@@ -581,7 +387,7 @@ class PixCEdgeSwath(object):
         :param in_laketile_edge_filename: full path of the NetCDF file to load
         :type in_laketile_edge_filename: string
         
-        :return: out_nb_pix = number of pixel loaded
+        :return: out_nb_pix = number of pixels loaded
         :rtype: out_nb_pix = integer
         :return: out_tile_ref = reference of loaded tile
         :rtype: out_tile_ref = string
@@ -609,7 +415,7 @@ class PixCEdgeSwath(object):
         if not self.date:
             self.date = current_date
         # Stop the process if acquisition dates delta > 24h
-        if (current_date - self.date) > datetime.timedelta(days=1) :
+        if (current_date - self.date) > datetime.timedelta(days=1):
             logger.error("Input LakeTile_Edge file do not correspond to the same aquisition date")
 
         current_continent_id = str(pixc_edge_reader.get_att_value("continent_id"))
@@ -773,7 +579,7 @@ class PixCEdgeSwath(object):
                     self.pixc_metadata["right_last_latitude"] = min(self.pixc_metadata["right_last_latitude"], 
                                                                     np.double(pixc_edge_reader.get_att_value("outer_last_latitude")))
             
-            # 7 - Update vectors if there are pixels in the current LakeTile_edge file
+            # 7 - Update vectors if there are pixels in the current LakeTile_Edge file
             if out_nb_pix > 0:
     
                 # 7.1 - Add edge objects info
@@ -784,19 +590,51 @@ class PixCEdgeSwath(object):
                 # 7.2 - Add variables from PIXC/pixel_cloud
                 tmp_classif = pixc_edge_reader.get_var_value("classification")
                 self.classif = np.concatenate((self.classif, tmp_classif))
+                
+                classif_dict = dict()
+                for key in self.list_classif_keys:
+                    classif_dict[key] = np.full((out_nb_pix), False)
+                
                 # Simulate classification of edge + full water pixels
                 # All PIXC are set to INTERIOR_WATER
                 # LAND_EDGE + WATER_EDGE PIXC are set to WATER_EDGE
-                tmp_classif_full_water = np.zeros(out_nb_pix) + my_var.CLASSIF_INTERIOR_WATER
-                tmp_classif_full_water[tmp_classif == my_var.CLASSIF_LAND_EDGE] = my_var.CLASSIF_WATER_EDGE
-                tmp_classif_full_water[tmp_classif == my_var.CLASSIF_WATER_EDGE] = my_var.CLASSIF_WATER_EDGE
-                self.classif_full_water = np.concatenate((self.classif_full_water, tmp_classif_full_water))
+                classif_dict["as_full_water"] = np.zeros(out_nb_pix) + my_var.CLASSIF_INTERIOR_WATER
+                classif_dict["as_full_water"][tmp_classif == my_var.CLASSIF_LAND_EDGE] = my_var.CLASSIF_WATER_EDGE
+                classif_dict["as_full_water"][tmp_classif == my_var.CLASSIF_WATER_EDGE] = my_var.CLASSIF_WATER_EDGE
                 # Keep only classification of water pixels (ie remove dark water flags)
-                tmp_classif_without_dw = np.copy(tmp_classif)
-                tmp_classif_without_dw[tmp_classif == my_var.CLASSIF_LAND_NEAR_DARK_WATER] = 0
-                tmp_classif_without_dw[tmp_classif == my_var.CLASSIF_DARK_EDGE] = 0
-                tmp_classif_without_dw[tmp_classif == my_var.CLASSIF_DARK] = 0
-                self.classif_without_dw = np.concatenate((self.classif_without_dw, tmp_classif_without_dw))
+                classif_dict["without_dw"] = np.copy(tmp_classif)
+                classif_dict["without_dw"][tmp_classif == my_var.CLASSIF_DARK] = 0
+            
+                # PIXC indices wrt category of process
+                # Boolean arrays of classification flags (=True if PIXC is of classif "key")
+                tmp_classif_dict = dict()
+                for classif_flag in self.classif_list:
+                    tmp_classif_dict[classif_flag] = np.full((out_nb_pix), False)
+                    tmp_classif_dict[classif_flag][tmp_classif == classif_flag] = True
+                    if classif_flag == my_var.CLASSIF_INTERIOR_WATER:
+                        classif_dict["interior_water"] = tmp_classif_dict[classif_flag]
+                # PIXC indices of water and dark water pixels
+                for classif_flag, ok_water in zip(self.classif_list, self.classif_water):
+                    if ok_water:
+                        classif_dict["water"] += tmp_classif_dict[classif_flag]
+                    else:
+                        classif_dict["dark"] += tmp_classif_dict[classif_flag]
+                # PIXC indices of pixels to be used for hull computation
+                for classif_flag, ok_4hull in zip(self.classif_list, self.classif_4hull):
+                    if ok_4hull:
+                        classif_dict["4hull"] += tmp_classif_dict[classif_flag]
+                # PIXC indices of pixels to be used for wse computation
+                for classif_flag, ok_4wse in zip(self.classif_list, self.classif_4wse):
+                    if ok_4wse:
+                        classif_dict["4wse"] += tmp_classif_dict[classif_flag]
+                # PIXC indices of pixels to be used for area_total attribute computation
+                for classif_flag, ok_4area in zip(self.classif_list, self.classif_4area):
+                    if ok_4area:
+                        classif_dict["4area"] += tmp_classif_dict[classif_flag]
+                        
+                # Concatenate classif_dict lists
+                for key in self.list_classif_keys:
+                    self.classif_dict[key] = np.concatenate((self.classif_dict[key], classif_dict[key]))
                 
                 self.range_index = np.concatenate((self.range_index, pixc_edge_reader.get_var_value("range_index")))
                 self.azimuth_index = np.concatenate((self.azimuth_index, pixc_edge_reader.get_var_value("azimuth_index")))
@@ -832,14 +670,11 @@ class PixCEdgeSwath(object):
                     tmp_inundated_area[ind_ok] = tmp_pixel_area[ind_ok] * tmp_water_frac[ind_ok]
                 self.inundated_area = np.concatenate((self.inundated_area, tmp_inundated_area))
                 
-                self.inc = np.concatenate((self.inc, pixc_edge_reader.get_var_value("inc")))
                 tmp_phase_noise_std = pixc_edge_reader.get_var_value("phase_noise_std")
-                self.phase_noise_std = np.concatenate((self.phase_noise_std, tmp_phase_noise_std))
                 self.dlatitude_dphase = np.concatenate((self.dlatitude_dphase, pixc_edge_reader.get_var_value("dlatitude_dphase")))
                 self.dlongitude_dphase = np.concatenate((self.dlongitude_dphase, pixc_edge_reader.get_var_value("dlongitude_dphase")))
                 tmp_dheight_dphase = pixc_edge_reader.get_var_value("dheight_dphase")
                 self.dheight_dphase = np.concatenate((self.dheight_dphase, tmp_dheight_dphase))
-                self.dheight_drange = np.concatenate((self.dheight_drange, pixc_edge_reader.get_var_value("dheight_drange")))
                 self.darea_dheight = np.concatenate((self.darea_dheight, pixc_edge_reader.get_var_value("darea_dheight")))
                 self.eff_num_medium_looks = np.concatenate((self.eff_num_medium_looks, pixc_edge_reader.get_var_value("eff_num_medium_looks")))
                 
@@ -859,7 +694,10 @@ class PixCEdgeSwath(object):
                 tmp_pole_tide = pixc_edge_reader.get_var_value("pole_tide")
                 self.pole_tide = np.concatenate((self.pole_tide, tmp_pole_tide))
                 
-                self.classification_qual = np.concatenate((self.classification_qual, pixc_edge_reader.get_var_value("classification_qual")))
+                tmp_classification_qual = pixc_edge_reader.get_var_value("classification_qual")
+                self.classification_qual = np.concatenate((self.classification_qual, tmp_classification_qual))
+                tmp_geolocation_qual = pixc_edge_reader.get_var_value("geolocation_qual")
+                self.geolocation_qual = np.concatenate((self.geolocation_qual, tmp_geolocation_qual))
     
                 # 7.3 - Info of the nadir point associated to the PixC
                 self.nadir_time = np.concatenate((self.nadir_time, pixc_edge_reader.get_var_value("nadir_time")))
@@ -881,8 +719,6 @@ class PixCEdgeSwath(object):
                                                                pixc_edge_reader.get_var_value("nadir_minus_y_antenna_y")))
                 self.nadir_minus_y_antenna_z = np.concatenate((self.nadir_minus_y_antenna_z, \
                                                                pixc_edge_reader.get_var_value("nadir_minus_y_antenna_z")))
-                self.nadir_sc_event_flag = np.concatenate((self.nadir_sc_event_flag, pixc_edge_reader.get_var_value("nadir_sc_event_flag")))
-                self.nadir_tvp_qual = np.concatenate((self.nadir_tvp_qual, pixc_edge_reader.get_var_value("nadir_tvp_qual")))
                 
                 # 7.4 - Set bad PIXC height std to high number to deweight 
                 # instead of giving infs/nans
@@ -895,15 +731,15 @@ class PixCEdgeSwath(object):
             
                 # 7.5 - Compute height wrt the geoid and apply tide corrections
                 # Compute indices of PIXC for which corrections are all valid
-                valid_geoid = np.where(tmp_geoid < my_var.FV_NETCDF[str(tmp_geoid.dtype)])[0]
-                valid_solid_earth_tide = np.where(tmp_solid_earth_tide < my_var.FV_NETCDF[str(tmp_solid_earth_tide.dtype)])[0]
-                valid_pole_tide = np.where(tmp_pole_tide < my_var.FV_NETCDF[str(tmp_pole_tide.dtype)])[0]
-                valid_load_tide_fes = np.where(tmp_load_tide_fes < my_var.FV_NETCDF[str(tmp_load_tide_fes.dtype)])[0]
+                valid_geoid = np.where(np.isfinite(tmp_geoid))[0]
+                valid_solid_earth_tide = np.where(np.isfinite(tmp_solid_earth_tide))[0]
+                valid_pole_tide = np.where(np.isfinite(tmp_pole_tide))[0]
+                valid_load_tide_fes = np.where(np.isfinite(tmp_load_tide_fes))[0]
                 inter1 = np.intersect1d(valid_geoid, valid_solid_earth_tide)
                 inter2 = np.intersect1d(valid_pole_tide, inter1)
                 ind_valid_corr = np.intersect1d(valid_load_tide_fes, inter2)
                 # Compute corrected height for these PIXC
-                tmp_corrected_height = np.zeros(out_nb_pix) + my_var.FV_FLOAT
+                tmp_corrected_height = np.zeros(out_nb_pix) + np.nan
                 tmp_corrected_height[ind_valid_corr] = tmp_height[ind_valid_corr] \
                                                        - tmp_geoid[ind_valid_corr] \
                                                        - tmp_solid_earth_tide[ind_valid_corr] \
@@ -931,28 +767,29 @@ class PixCEdgeSwath(object):
 
         for i_edge, tile_num in enumerate(self.tile_num[:-1]):  # Loop over tile edges
 
-            logger.info(" ***** Processing edge of tiles %d and %d *****" % (tile_num, tile_num + 1))
+            logger.debug(" ***** Processing edge of tiles %d and %d *****" % (tile_num, tile_num + 1))
 
             # 1.1 - Get indices of pixels processed at the current edge
-            tile_idx1 = np.where(self.tile_index == tile_num)[0]
-            tile_idx2 = np.where(self.tile_index == tile_num + 1)[0]
+            tile_idx1 = np.where(np.logical_and(self.tile_index == tile_num, np.logical_or(self.edge_loc == 1, self.edge_loc == 2)))[0]
+            tile_idx2 = np.where(np.logical_and(self.tile_index == tile_num + 1, np.logical_or(self.edge_loc == 0, self.edge_loc == 2)))[0]
+
 
             # 1.2 - If one tile does not have pixel to process, continue to next iteration
             if (tile_idx1.size == 0) or (tile_idx2.size == 0):
-                logger.info("")
+                logger.debug("")
                 continue
-            logger.info(" %d pixels of tile %d will be match with %d pixels of tile %d" % (tile_idx1.size, tile_num, tile_idx2.size, tile_num + 1))
+            logger.debug(" %d pixels of tile %d will be match with %d pixels of tile %d" % (tile_idx1.size, tile_num, tile_idx2.size, tile_num + 1))
 
             # 1.3 - New labels for pixels at the edge of current edge
             # compute near range variation
             delta_range = self.compute_range_variation_between_tiles(tile_num, tile_num+1)
             new_labels_subset = self.gather_edge_entities(tile_idx1, tile_idx2,  delta_range)
-            logger.debug("Range variation between tile is %d pixels" % (delta_range))
+            logger.debug("Range variation between tile is %d pixels" % delta_range)
 
             # 1.4 - Link old labels to new ones
             self.label_matching(tile_idx1, tile_idx2, new_labels_subset)
             
-            logger.info("")
+            logger.debug("")
 
         # 2 - Deal with edge at beginning or end of pass
         if (self.labels == 0).any():
@@ -985,7 +822,7 @@ class PixCEdgeSwath(object):
 
         # If SEGMENTATION_METHOD is 0, function unactivated
         if seg_method == 0:
-            logger.info("Lake segmentation following height unactivated")
+            logger.debug("Lake segmentation following height unactivated")
         # 4.1. If SEGMENTATION_METHOD not 0, relabel lake following segmentation height
         else:
 
@@ -1012,7 +849,6 @@ class PixCEdgeSwath(object):
                     labels_tmp[self.labels == label] = np.max(labels_tmp) + 1
 
             self.labels = labels_tmp
-
 
     # ----------------------------------------
 
@@ -1051,7 +887,7 @@ class PixCEdgeSwath(object):
         # 4 - Convert into 1D-array
         out_new_labels_subset = my_tools.convert_2d_mat_in_1d_vec(rg, az, sep_entities)
 
-        logger.info("%d separate entities located at the edge tile" % np.unique(out_new_labels_subset).size)
+        logger.debug("%d separate entities located at the edge tile" % np.unique(out_new_labels_subset).size)
 
         return out_new_labels_subset
 
@@ -1130,7 +966,7 @@ class PixCEdgeSwath(object):
 
     def label_matching(self, in_tile_idx1, in_tile_idx2, in_new_labels_subset):
         """
-        This function matches labels computed in LakeTile_edge file with labels computed in the gatherEdgeEntities() function.
+        This function matches labels computed in LakeTile_Edge file with labels computed in the gatherEdgeEntities() function.
         Pixels belonging to the same entity but cut by the tiling process are gathered with a single new label.
             
         :param in_tile_idx1: indices of pixels in tile 1
@@ -1141,9 +977,9 @@ class PixCEdgeSwath(object):
         :type in_new_labels_subset: 1D-array of int
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("Matching old labels from LakeTile_edge with new labels")
+        logger.debug("Matching old labels from LakeTile_Edge with new labels")
 
-        # 1 - Get old labels computed in LakeTile_edge
+        # 1 - Get old labels computed in LakeTile_Edge
         old_labels_subset1, old_labels_subset2 = self.select_edge_labels(in_tile_idx1, in_tile_idx2)
 
         # 2 - Get new labels
@@ -1249,6 +1085,8 @@ class PixCEdgeSwath(object):
                         # Set global label
                         self.labels[in_tile_idx2[np.where(self.edge_label[in_tile_idx2] == old_l2)]] = new_label
 
+            logger.debug("Labels %s of tile N matched with labels %s of tiles N+1 into new labels %s" % (str(label_tile_1), str(label_tile_2), str(new_label)))
+
         nb_edge_entities = np.unique(np.concatenate((self.labels[in_tile_idx1], self.labels[in_tile_idx2]))).size
 
         logger.debug(" %d separate entities are located at tile edge" % nb_edge_entities)
@@ -1257,7 +1095,7 @@ class PixCEdgeSwath(object):
 
     def select_edge_labels(self, in_tile_idx1, in_tile_idx2):
         """
-        This function selects old labels from LakeTile_edge at top and bottom of tile 1 and 2
+        This function selects old labels from LakeTile_Edge at top and bottom of tile 1 and 2
 
         :param in_tile_idx1: indices of edge pixels in tile 1
         :type in_tile_idx1: 1D-array of int
@@ -1277,14 +1115,14 @@ class PixCEdgeSwath(object):
 
     def get_edge_labels(self, in_tile_idx, in_edge_loc_str):
         """
-        This function returns the LakeTile_edge labels of pixels within the buffer zone
+        This function returns the LakeTile_Edge labels of pixels within the buffer zone
         
         :param in_tile_idx: indices of pixels at the edge of tile
         :type in_tile_idx: 1D array of int
         :param in_edge_loc_str: edge location = "top" or "bottom"
         :type in_edge_loc_str: string
         
-        :return: LakeTile_edge labels of pixels within the buffer zone
+        :return: LakeTile_Edge labels of pixels within the buffer zone
         :rtype: 1D-array of int
         """
         logger = logging.getLogger(self.__class__.__name__)
@@ -1389,7 +1227,7 @@ class PixCEdgeSwath(object):
         :param in_new_label: global new label
         :type in_new_label: int
         
-        :return: LakeTile_edge label involving the largest number of pixels
+        :return: LakeTile_Edge label involving the largest number of pixels
         :rtype: string
         """
 
@@ -1462,130 +1300,6 @@ class PixCEdgeSwath(object):
 
         return np.array(near_range)
 
-    # ----------------------------------------
-    
-    def compute_height(self, in_pixc_index, method='weight'):
-        """
-        Caller of JPL aggregate.py/height_only function 
-        which computes the aggregation of PIXC height over a feature
-    
-        :param in_pixc_index: indices of pixels to consider for computation
-        :type in_pixc_index: 1D-array of int
-        :param method: type of aggregator ('weight', 'uniform', or 'median')
-        :type method: string
-        
-        :return: out_height = aggregated height
-        :rtype: out_height = float
-        """
-    
-        # Call JPL function
-        out_height, weight_norm = jpl_aggregate.height_only(self.height, in_pixc_index, height_std=self.height_std_pix, method=method)
-        
-        return out_height
-    
-    def compute_height_with_uncertainties(self, in_pixc_index, method='weight'):
-        """
-        Caller of JPL aggregate.py/height_with_uncerts function 
-        which computes the aggregation of PIXC height over a feature, with corresponding uncertainty
-    
-        :param in_pixc_index: indices of pixels to consider for computation
-        :type in_pixc_index: 1D-array of int
-        :param method: type of aggregator ('weight', 'uniform', or 'median')
-        :type method: string
-        
-        :return: out_height = aggregated height
-        :rtype: out_height = float
-        :return: out_height_std = standard deviation of the heights
-        :rtype: out_height_std = float
-        :return: out_height_unc = height uncertainty for the feature
-        :rtype: out_height_unc = float
-        """
-        
-        # Call JPL function
-        out_height, out_height_std, out_height_unc, lat_unc, lon_unc = jpl_aggregate.height_with_uncerts(
-                    self.corrected_height, in_pixc_index, self.eff_num_rare_looks, self.eff_num_medium_looks,
-                    self.interferogram_flattened, self.power_plus_y, self.power_minus_y, self.looks_to_efflooks,
-                    self.dheight_dphase, self.dlatitude_dphase, self.dlongitude_dphase, height_std=self.height_std_pix,
-                    method=method)
-        
-        return out_height, out_height_std, out_height_unc
-
-    def compute_area_with_uncertainties(self, in_pixc_index, method='composite'):
-        """
-        Caller of JPL aggregate.py/area_with_uncert function 
-        which computes the aggregation of PIXC area over a feature, with corresponding uncertainty
-    
-        :param in_pixc_index: indices of pixels to consider for computation
-        :type in_pixc_index: 1D-array of int
-        :param method: type of aggregator ('weight', 'uniform', or 'median')
-        :type method: string
-        
-        :return: out_area = total water area (=water + dark water pixels)
-        :rtype: out_area = float
-        :return: out_area_unc = uncertainty in total water area
-        :rtype: out_area_unc = float
-        :return: out_area_detct = area of detected water pixels
-        :rtype: out_area_detct = float
-        :return: out_area_detct_unc = uncertainty in area of detected water
-        :rtype: out_area_detct_unc = float
-        """
-        # == TODO: compute the pixel assignment error?
-        # call the general function
-
-        # Should normally just use all the data 
-        # (not just the use_heights pixels), but could use goodvar 
-        # to filter out outliers
-
-        # 1 - Aggregate PIXC area and uncertainty considering all PIXC (ie water + dark water)
-        # Call external function common with RiverObs
-        out_area, out_area_unc, area_pcnt_uncert = jpl_aggregate.area_with_uncert(
-                self.pixel_area, self.water_frac, self.water_frac_uncert,
-                self.darea_dheight, self.classif_full_water, self.false_detection_rate,
-                self.missed_detection_rate, in_pixc_index,
-                Pca=0.9, Pw=0.5, Ptf=0.5, ref_dem_std=10,
-                interior_water_klass=my_var.CLASSIF_INTERIOR_WATER,
-                water_edge_klass=my_var.CLASSIF_WATER_EDGE,
-                land_edge_klass=my_var.CLASSIF_LAND_EDGE,
-                method=method)
-        
-        # 2 - Aggregate PIXC area and uncertainty considering only water PIXC (ie detected water)
-        # Call external function common with RiverObs
-        out_area_detct, out_area_detct_unc, area_detct_pcnt_uncert = jpl_aggregate.area_with_uncert(
-                self.pixel_area, self.water_frac, self.water_frac_uncert,
-                self.darea_dheight, self.classif_without_dw, self.false_detection_rate,
-                self.missed_detection_rate, in_pixc_index,
-                Pca=0.9, Pw=0.5, Ptf=0.5, ref_dem_std=10,
-                interior_water_klass=my_var.CLASSIF_INTERIOR_WATER,
-                water_edge_klass=my_var.CLASSIF_WATER_EDGE,
-                land_edge_klass=my_var.CLASSIF_LAND_EDGE,
-                method=method)
-        
-        return out_area, out_area_unc, out_area_detct, out_area_detct_unc
-    
-    def compute_interferogram_flattened(self, in_pixc_index, in_p_final):
-        """
-        Flatten the interferogram for the feature definied by the PIXC of indices in_pixc_index
-        
-        :param in_pixc_index: indices of pixels defining the studied feature
-        :type in_pixc_index: 1D-array of int
-        :param in_p_final: position of pixels of the feature in geocentric coordinates (same length as in_pixc_index)
-        :type in_p_final: numpy 2D-array of float; size (3=x/y/z, nb_pixc)
-        """
-        
-        # 1 - Format variables
-        # 1.1 - Cartesian coordinates of plus_y antenna
-        plus_y_antenna_xyz = (self.nadir_plus_y_antenna_x , self.nadir_plus_y_antenna_y , self.nadir_plus_y_antenna_z)
-        # 1.2 - Cartesian coordinates of minus_y antenna
-        minus_y_antenna_xyz = (self.nadir_minus_y_antenna_x , self.nadir_minus_y_antenna_y, self.nadir_minus_y_antenna_z)
-        # 1.3 - Position of PIXC in geocentric coordinates
-        target_xyz = (in_p_final[:,0], in_p_final[:,1], in_p_final[:,2])
-        
-        # 2 - Call to external function, common with RiverObs
-        self.interferogram_flattened[in_pixc_index] = jpl_aggregate.flatten_interferogram(
-                self.interferogram[in_pixc_index], 
-                plus_y_antenna_xyz, minus_y_antenna_xyz, 
-                target_xyz, in_pixc_index, self.wavelength)          
-
 
 #######################################
 
@@ -1597,18 +1311,18 @@ def match_labels(in_liste):
     :param IN_liste: ex: [(a, r), (a, s), (b, s), (b, t), (c, u), (d, u)]. Labels a, b and r, s, t belong to the same entity, labels c, d, u belong to a separate entity.
     
     :return: labels gathered by entities
-             ex: [(set([a, b]), set([r, s, t])), (set([c, d]), set([u]))] <=> [([a, b], [r, s, t]), ([c, d], [u])]
+             ex: [({a, b}, {r, s, t])), ({c, d}, {u})] <=> [([a, b], [r, s, t]), ([c, d], [u])]
     """
     labels_list = group_by_second(group_by_first(in_liste))
     labels_match_out = []
     for (set_label_tile1, set_label_tile2) in labels_list:
 
-        if set_label_tile1 == set([None]):
+        if set_label_tile1 == {None}:
             for label in set_label_tile2:
-                labels_match_out.append((set_label_tile1, set([label])))
-        elif set_label_tile2 == set([None]):
+                labels_match_out.append((set_label_tile1, {label}))
+        elif set_label_tile2 == {None}:
             for label in set_label_tile1:
-                labels_match_out.append((set([label]), None))
+                labels_match_out.append(({label}, None))
         else:
             set_label_tile1.discard(None)
             set_label_tile2.discard(None)
@@ -1617,49 +1331,71 @@ def match_labels(in_liste):
     return labels_match_out
 
 
-def group_by_first(in_liste):
+def group_by_first(in_list):
     """
-    This function take a list of tuples. The list is grouped by the first element of tuple and returned as a dictionary.
+    This function take a list of tuples. The list is grouped by the first element of tuple.
         
-    :param IN_liste: la list of tuple. Ex: [ (a, r), (b, r),  (c, s), (c, t)]
+    :param IN_list: la list of tuple. Ex: [(a, r), (b, r),  (c, s), (c, t)]
     
-    :return out_dico: ex: {a: set([r]), b: set([r]), c: set([t]}
+    :return out_list: ex: [(a,{r}), (b,{r}), (c,{s,t})]
     """
 
-    out_dico = {}
-    
-    for (ind_i, ind_j) in in_liste:
-        if ind_i not in out_dico:
-            out_dico[ind_i] = set()
-        out_dico[ind_i].add(ind_j)
+    l1 = []
+    l2 = []
 
-    return out_dico
+    for (ind_i, ind_j) in in_list:
+
+        if ind_i is None:
+            l1.append(ind_i)
+            l2.append({ind_j})
+        else :
+            if ind_i in l1:
+                idx = l1.index(ind_i)
+                l2[idx].add(ind_j)
+            else :
+                l1.append(ind_i)
+                l2.append({ind_j})
+
+    out_list = []
+    for (elem1, elem2) in zip(l1, l2):
+        if len(elem2) > 1 and None in elem2:
+            elem2.remove(None)
+        out_list.append((elem1, elem2))
+
+    out_list = [(l1[i], l2[i]) for i in range(len(l1))]
+
+    return out_list
 
 
-def group_by_second(in_dict):
+def group_by_second(in_list):
     """
     This function take a dictionary. The dictionary is grouped by second elements and returned as a list of tuple of set.
         
-    :param in_dict: result of group by first function: {a: set([r]), b: set([r]), c: set([t]}
+    :param in_list: result of group by first function: [(a,{r}), (b,{r}), (c,{s,t})]
     
-    :return: a list of tuple of set. ex: [(set([a, b]), set([r])), (set([c]), set([s, t]))]
+    :return: a list of tuple of set. ex: [({a,b},{r}), ({c},{s,t})]
     """
-    
+
     # Init
     out_results = []
     
-    for key, value in list(in_dict.items()):
-        
+    for (in_elem1, in_elem2) in in_list:
         has_been_found = False
-        
-        for ind, result in enumerate(out_results):
-            if checklist_inter(value, result):
-                has_been_found = True
-                out_results[ind] = merge(result, key, value)
+        if in_elem2 == {None}:
+            has_been_found = False
+        else :
+            for ind, (out_elem1, out_elem2) in enumerate(out_results):
+
+                if checklist_inter(in_elem2, (out_elem1, out_elem2)):
+                    if in_elem1 is None:
+                        in_elem2 = in_elem2.difference(checklist_inter(in_elem2, (out_elem1, out_elem2)))
+                    else:
+                        has_been_found = True
+                        out_results[ind] = merge( (out_elem1, out_elem2), in_elem1, in_elem2)
 
         if not has_been_found:
-            out_results.append((set([key]), value))
-            
+            out_results.append(({in_elem1}, in_elem2))
+
     return out_results
 
 
@@ -1667,10 +1403,10 @@ def checklist_inter(in_value, in_result):
     """
     Check if an element of value is contained in result
         
-    :param in_value: a set of elements ex: set([r])
-    :param in_result: a tuple of set ex: (set([a]), set([r]))
+    :param in_value: a set of elements ex: {r}
+    :param in_result: a tuple of set ex: ({a}, {r})
     
-    :return: set([r])
+    :return: {r}
     """
     return in_result[1].intersection(in_value)
 
@@ -1679,11 +1415,10 @@ def merge(in_result, in_key, in_value):
     """
     Merge value with element of tuple key in result.
         
-    :param in_result: a tuple of set ex: (set([a]), set([r]))
+    :param in_result: a tuple of set ex: ({a}, {r})
     :param in_key: key of first element of tuple. ex: b
-    :param in_value: set to merge ex: set([r])
+    :param in_value: set to merge ex: {r}
     
-    :return: merged tuple of set. ex:set([a, b]), set([r])
+    :return: merged tuple of set. ex:{a, b]), {r])
     """
-    return (in_result[0].union(set([in_key])), in_result[1].union(in_value))
-
+    return (in_result[0].union({in_key}), in_result[1].union(in_value))

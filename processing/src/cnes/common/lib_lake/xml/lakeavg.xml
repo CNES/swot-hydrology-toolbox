@@ -1,0 +1,342 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<product>
+  <science uid="l2_hr_lakeavg">
+    <global_metadata>
+      <string name="Conventions">
+        <annotation description="Esri conventions as given in 'ESRI Shapefile Technical Description, an ESRI White Paper, July 1998' http://www.esri.com/library/whitepapers/pdfs/shapefile.pdf"/>
+      </string>
+      <string name="title">
+        <annotation description="Level 2 KaRIn high rate lake average vector product"/>
+      </string>
+      <string name="short_name">
+        <annotation description="L2_HR_LakeAvg"/>
+      </string>
+      <string name="institution">
+        <annotation description="Name of producing agency."/>
+      </string>
+      <string name="source">
+        <annotation description="The method of production of the original data. If it was model-generated, source should name the model and its version, as specifically as could be useful. If it is observational, source should characterize it (e.g., 'Ka-band radar interferometer')"/>
+      </string>
+      <string name="history">
+        <annotation description="UTC time when file generated. Format is: YYYY-MM-DD hh:mm:ss : Creation"/>
+      </string>
+      <string name="platform">
+        <annotation description="SWOT"/>
+      </string>
+      <string name="references">
+        <annotation description="SWOT-TN-CDM-0673-CNES_Product_Description_L2_HR_LakeAvg - Revision A - 20220531"/>
+      </string>
+      <string name="reference_document">
+        <annotation description="SWOT-DD-CDM-0674-CNES_SAS_Design_L2_HR_LakeAvg - Revision A - 20220531"/>
+      </string>
+      <string name="product_version">
+        <annotation description="Version identifier of this data file"/>
+      </string>
+      <string name="crid">
+        <annotation description="Composite release identifier (CRID) of the data system used to generate this file"/>
+      </string>
+      <string name="pge_name">
+        <annotation description="PGE_L2_HR_LakeAvg"/>
+      </string>
+      <string name="pge_version">
+        <annotation description="Version identifier of the product generation executable (PGE) that created this file"/>
+      </string>
+      <string name="contact">
+        <annotation description="Contact information for producer of product. (e.g., 'ops@jpl.nasa.gov')."/>
+      </string>
+      <short name="cycle_number">
+        <annotation description="Cycle number of the product."/>
+      </short>
+      <string name="continent_id">
+        <annotation description="Two-letter continent identifier of the product granule."/>
+      </string>
+      <string name="continent_code">
+        <annotation description="One-digit (C) continent code of the product granule."/>
+      </string>
+      <short name="basin_code">
+        <annotation description="Two-digit (CB) basin code of the product granule (from HydroBASINS)."/>
+      </short>
+      <string name="time_granule_start">
+        <annotation description="Nominal starting UTC time of product granule. Format is: YYYY-MM-DDThh:mm:ss.ssssssZ"/>
+      </string>
+      <string name="time_granule_end">
+        <annotation description="Nominal ending UTC time of product granule. Format is: YYYY-MM-DDThh:mm:ss.ssssssZ"/>
+      </string>
+      <string name="time_coverage_start">
+        <annotation description="UTC time of first measurement. Format is: YYYY-MM-DDThh:mm:ss.ssssssZ"/>
+      </string>
+      <string name="time_coverage_end">
+        <annotation description="UTC time of last measurement. Format is: YYYY-MM-DDThh:mm:ss.ssssssZ"/>
+      </string>
+      <double name="geospatial_lon_min">
+        <annotation description="Westernmost longitude (deg) of granule bounding box"/>
+      </double>
+      <double name="geospatial_lon_max">
+        <annotation description="Easternmost longitude (deg) of granule bounding box"/>
+      </double>
+      <double name="geospatial_lat_min">
+        <annotation description="Southernmost latitude (deg) of granule bounding box"/>
+      </double>
+      <double name="geospatial_lat_max">
+        <annotation description="Northernmost latitude (deg) of granule bounding box"/>
+      </double>
+      <string name="xref_l2_hr_lakesp_files">
+        <annotation description="Names of input Level 2 high rate lake single-pass files."/>
+      </string>
+      <string name="xref_prior_lake_db_file">
+        <annotation description="Name of input prior lake database file."/>
+      </string>
+      <string name="xref_param_l2_hr_lakeavg_file">
+        <annotation description="Name of input Level 2 high rate lake average processor configuration parameters file."/>
+      </string>
+    </global_metadata>
+    <attribute_metadata>
+      <text name="lake_id" width="10">
+        <annotation long_name="lake ID from prior database" comment="Identifier of prior lake from the prior lake database. The format of the identifier is CBBNNNNNNT, where C=continent code, B=basin code, N=lake counter within the basin, T=type."/>
+      </text>
+      <text name="reach_id">
+        <annotation fill_value="no_data" long_name="list of reach ID(s) intersecting this lake" comment="If this prior lake is a connected lake, this attribute provides the list of the identifiers of the river reaches (i.e. reach_id attribute in the prior river database) of type “Connected lake” (i.e. ending with digit 3) that are related to it."/>
+      </text>
+      <text name="lake_name">
+        <annotation fill_value="no_data" long_name="name(s) of the lake" comment="Name(s) of the lake, retrieved from Open Street Map, IGN Carthage, GLWD and vMap0 databases. The different names are separated by semicolons."/>
+      </text>
+      <int9 name="p_res_id">
+        <annotation fill_value="-99999999" long_name="reservoir Id from GRanD database" source="https://doi.org/10.1890/100125" valid_min="0" valid_max="10000" comment="Reservoir ID from the Global Reservoir and Dam (GRanD) database. 0=The lake is not a registered reservoir."/>
+      </int9>
+      <int4 name="npass">
+        <annotation fill_value="-999" long_name="number of valid passes" comment="Number of valid SWOT overpasses during the observation cycle, i.e. having wse and area_total populated in the LakeSP_Prior shapefiles."/>
+      </int4>
+      <int4 name="npass_full">
+        <annotation fill_value="-999" long_name="number of passes fully covering the lake" comment="Number of valid SWOT overpasses fully covering the prior lake during the observation cycle, i.e. having partial_f=0 in the LakeSP_Prior shapefiles. This is the number of passes listed in the pass_full attribute."/>
+      </int4>
+      <text name="pass_full">
+        <annotation fill_value="no_data" long_name="list of passes fully covering the lake" comment="List of valid SWOT overpasses fully covering the prior lake during the observation cycle. The different pass numbers are separated by semicolons."/>
+      </text>
+      <int4 name="npass_part">
+        <annotation fill_value="-999" long_name="number of passes partially covering the lake" comment="Number of valid SWOT overpasses partially covering the prior lake during the observation cycle, i.e. having partial_f=1 in the LakeSP_Prior shapefiles. This is the number of passes listed in the pass_part attribute."/>
+      </int4>
+      <text name="pass_part">
+        <annotation fill_value="no_data" long_name="list of passes partially covering lake" comment="List of valid SWOT overpasses partially covering the prior lake during the observation cycle. The different pass numbers are separated by semicolons."/>
+      </text>
+      <float name="t_avg" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="average UTC time" standard_name="time" calendar="gregorian" tai_utc_difference="[value of TAI-UTC at time of first record]" leap_second="YYYY-MM-DD hh:mm:ss" units="seconds since 2000-01-01 00:00:00.000" comment="Average UTC time for all passes with valid water surface elevation in the observation cycle. Time of measurement in seconds in the UTC time scale since 1 Jan 2000 00:00:00 UTC. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the metadata leap_second is set to the UTC time at which the leap second occurs."/>
+      </float>
+      <float name="t_tai_avg" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="average TAI time" standard_name="time" calendar="gregorian" units="seconds since 2000-01-01 00:00:00.000" comment="Average TAI time for all passes with valid water surface elevation in the observation cycle. Time of measurement in seconds in the TAI time scale since 1 Jan 2000 00:00:00 TAI. This time scale contains no leap seconds. The time difference (in seconds) between TAI and UTC at the time of the first measurement of the dataset is given by the metadata [t_avg:tai_utc_difference]."/>
+      </float>
+      <text name="t_str_avg" width="20">
+        <annotation fill_value="no_data" long_name="average UTC time" standard_name="time" calendar="gregorian" tai_utc_difference="[value of TAI-UTC at time of first record]" leap_second="YYYY-MM-DD hh:mm:ss" comment="Average UTC time for all passes with valid water surface elevation in the observation cycle. The format is YYYY-MM-DDThh:mm:ssZ, where the Z suffix indicates UTC time. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the metadata leap_second is set to the UTC time at which the leap second occurs."/>
+      </text>
+      <float name="wse_avg" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="average water surface elevation with respect to the geoid" units="m" valid_min="-1000" valid_max="100000" comment="Average water surface elevation observed in the cycle."/>
+      </float>
+      <float name="wse_avg_u" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="uncertainty in average water surface elevation" units="m" valid_min="0" valid_max="100" comment="Uncertainty in the average water surface elevation observed in the cycle."/>
+      </float>
+      <float name="area_avg" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="average water area" units="km^2" valid_min="0" valid_max="200000" comment="Average water area observed in the cycle. If the prior lake has only been partially observed during the cycle (“partial_f” is thus set to 1), this corresponds to the area of the reconstructed polygon."/>
+      </float>
+      <float name="area_avg_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in average water area" units="km^2" valid_min="0" valid_max="200000" comment="Uncertainty in the average water area observed in the cycle."/>
+      </float>
+      <float name="ds1_l_avg" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="cycle-average storage change computed by direct approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Storage change computed from the cycle-average state of the lake (given by “wse_avg” and “area_avg” attributes) with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the direct approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds1l_avg_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in cycle-average storage change computed by direct approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in cycle-average storage change computed by the direct approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds1_q_avg" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="cycle-average storage change computed by direct approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Storage change computed from the cycle-average state of the lake (given by “wse_avg” and “area_avg” attributes) with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the direct approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds1q_avg_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in cycle-average storage change computed by direct approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in cycle-average storage change computed by the direct approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2_l_avg" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="cycle-average storage change computed by incremental approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Storage change computed from the cycle-average state of the lake (given by “wse_avg” and “area_avg” attributes) with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the incremental approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2l_avg_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in cycle-average storage change computed by incremental approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in cycle-average storage change computed by the incremental approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2_q_avg" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="cycle-average storage change computed by incremental approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Storage change computed from the cycle-average state of the lake (given by “wse_avg” and “area_avg” attributes) with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the incremental approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2q_avg_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in cycle-average storage change computed by incremental approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in cycle-average storage change computed by the incremental approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <int4 name="partial_f">
+        <annotation fill_value="-999" long_name="partially covered lake flag" flag_meanings="fully_covered partially_covered" flag_values="0 1" valid_min="0" valid_max="1" comment="&quot;Flag that indicates whether the prior lake has been fully, partially or not observed during the cycle.  0= Indicates that the prior lake has been entirely covered at least once during the cycle"/>
+      </int4>
+      <float name="t_hmin" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="UTC time at the minimum water surface elevation" standard_name="time" calendar="gregorian" tai_utc_difference="[value of TAI-UTC at time of first record]" leap_second="YYYY-MM-DD hh:mm:ss" units="seconds since 2000-01-01 00:00:00.000" comment="UTC time corresponding to the mininum water surface elevation (hmin) in the observation cycle. Time of measurement in seconds in the UTC time scale since 1 Jan 2000 00:00:00 UTC. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the attribute leap_second is set to the UTC time at which the leap second occurs."/>
+      </float>
+      <float name="t_tai_hmin" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="TAI time at the minimum water surface elevation" standard_name="time" calendar="gregorian" units="seconds since 2000-01-01 00:00:00.000" comment="TAI time corresponding to the mininum water surface elevation (hmin) in the observation cycle. Time of measurement in seconds in the TAI time scale since 1 Jan 2000 00:00:00 TAI. This time scale contains no leap seconds. The time difference (in seconds) between TAI and UTC at the time of the first measurement of the dataset is given by the metadata [t_hmin:tai_utc_difference]."/>
+      </float>
+      <text name="t_str_hmin" width="20">
+        <annotation fill_value="no_data" long_name="UTC time at the minimum water surface elevation" standard_name="time" calendar="gregorian" tai_utc_difference="[value of TAI-UTC at time of first record]" leap_second="YYYY-MM-DD hh:mm:ss" comment="UTC time corresponding to the mininum water surface elevation (hmin) in the observation cycle. The format is YYYY-MM-DDThh:mm:ssZ, where the Z suffix indicates UTC time. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the metadata leap_second is set to the UTC time at which the leap second occurs."/>
+      </text>
+      <float name="wse_hmin" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="minimum water surface elevation with respect to the geoid" units="m" valid_min="-1000" valid_max="100000" comment="Minimum water surface elevation in the observation cycle relative to the provided model of the geoid, with corrections for media delays (wet and dry troposphere, and ionosphere), crossover correction, and tidal effects applied."/>
+      </float>
+      <float name="wse_hmin_u" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="uncertainty in the minimum water surface elevation" units="m" valid_min="0" valid_max="100" comment="Estimated uncertainty in the minimum water surface elevation observed in the cycle."/>
+      </float>
+      <float name="area_hmin" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="water surface area at minimum water surface elevation" units="km^2" valid_min="0" valid_max="200000" comment="Water surface area measured during the pass containing the minimum water surface elevation in the observation cycle. If the lake has only been partially observed (“partf_hmin” set to 1), this corresponds to the area of the observed part of the prior lake. This variable is corrected for the potential presence of dark water."/>
+      </float>
+      <float name="are_hmin_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in the water surface area at minimum water surface elevation" units="km^2" valid_min="0" valid_max="200000" comment="Estimated water surface area uncertainty during the pass containing the minimum water surface elevation in the observation cycle."/>
+      </float>
+      <float name="ds1_l_hmin" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="storage change at minimum water surface elevation, computed by direct approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Estimated storage change computed between the minimal state of the lake (given by “wse_hmin” and “area_hmin” attributes), corresponding to the pass containing the minimum water surface elevation in the observation cycle, with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the direct approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds1lhmin_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in storage change at minimum water surface elevation, computed by direct approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in the storage change estimated during the pass containing the minimum water surface elevation in the observation cycle, computed by the direct approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds1_q_hmin" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="storage change at minimum water surface elevation, computed by direct approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Estimated storage change computed between the minimal state of the lake (given by “wse_hmin” and “area_hmin” attributes), corresponding to the pass containing the minimum water surface elevation in the observation cycle, with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the direct approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds1qhmin_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in storage change at minimum water surface elevation, computed by direct approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in the storage change estimated during the pass containing the minimum water surface elevation in the observation cycle, computed by the direct approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2_l_hmin" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="storage change at minimum water surface elevation, computed by incremental approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Estimated storage change computed between the minimal state of the lake (given by “wse_hmin” and “area_hmin” attributes), corresponding to the pass containing the minimum water surface elevation in the observation cycle, with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the incremental approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2lhmin_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in storage change at minimum water surface elevation, computed by incremental approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in the storage change estimated during the pass containing the minimum water surface elevation in the observation cycle, computed by the incremental approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2_q_hmin" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="storage change at minimum water surface elevation, computed by incremental approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Estimated storage change computed between the minimal state of the lake (given by “wse_hmin” and “area_hmin” attributes), corresponding to the pass containing the minimum water surface elevation in the observation cycle, with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the incremental approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2qhmin_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in storage change at minimum water surface elevation, computed by incremental approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in the storage change estimated during the pass containing the minimum water surface elevation in the observation cycle, computed by the incremental approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <int4 name="partf_hmin">
+        <annotation fill_value="-999" long_name="partially covered lake flag at minimum water surface elevation" flag_meanings="covered partially_covered" flag_values="0 1" valid_min="0" valid_max="1" comment="Flag that indicates partial lake coverage during the pass containing the minimum water surface elevation in the observation cycle.  0= Indicates that the observed lake has been entirely covered by the swath. 1= Indicates that the observed lake has been partially covered by the swath."/>
+      </int4>
+      <float name="t_hmed" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="UTC time at the median water surface elevation" standard_name="time" calendar="gregorian" tai_utc_difference="[value of TAI-UTC at time of first record]" leap_second="YYYY-MM-DD hh:mm:ss" units="seconds since 2000-01-01 00:00:00.000" comment="UTC time corresponding to the median water surface elevation (hmed) in the observation cycle. Time of measurement in seconds in the UTC time scale since 1 Jan 2000 00:00:00 UTC. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the attribute leap_second is set to the UTC time at which the leap second occurs."/>
+      </float>
+      <float name="t_tai_hmed" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="TAI time at the median water surface elevation" standard_name="time" calendar="gregorian" units="seconds since 2000-01-01 00:00:00.000" comment="TAI time corresponding to the median water surface elevation (hmed) in the observation cycle. Time of measurement in seconds in the TAI time scale since 1 Jan 2000 00:00:00 TAI. This time scale contains no leap seconds. The time difference (in seconds) between TAI and UTC at the time of the first measurement of the dataset is given by the metadata [t_hmed:tai_utc_difference]."/>
+      </float>
+      <text name="t_str_hmed" width="20">
+        <annotation fill_value="no_data" long_name="UTC time at the median water surface elevation" standard_name="time" calendar="gregorian" tai_utc_difference="[value of TAI-UTC at time of first record]" leap_second="YYYY-MM-DD hh:mm:ss" comment="UTC time corresponding to the median water surface elevation (hmed) in the observation cycle. The format is YYYY-MM-DDThh:mm:ssZ, where the Z suffix indicates UTC time. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the metadata leap_second is set to the UTC time at which the leap second occurs."/>
+      </text>
+      <float name="wse_hmed" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="median water surface elevation with respect to the geoid" units="m" valid_min="-1000" valid_max="100000" comment="Median water surface elevation in the observation cycle relative to the provided model of the geoid, with corrections for media delays (wet and dry troposphere, and ionosphere), crossover correction, and tidal effects applied."/>
+      </float>
+      <float name="wse_hmed_u" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="uncertainty in the median water surface elevation" units="m" valid_min="0" valid_max="100" comment="Estimated uncertainty in the median water surface elevation observed in the cycle."/>
+      </float>
+      <float name="area_hmed" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="water area at median water surface elevation" units="km^2" valid_min="0" valid_max="200000" comment="Water surface area measured during the pass containing the median water surface elevation in the observation cycle. If the lake has only been partially observed (“partf_hmed” set to 1), this corresponds to the area of the observed part of the prior lake. This variable is corrected for the potential presence of dark water."/>
+      </float>
+      <float name="are_hmed_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in the water surface area at median water surface elevation" units="km^2" valid_min="0" valid_max="200000" comment="Estimated water surface area uncertainty during the pass containing the median water surface elevation observed in the observation cycle."/>
+      </float>
+      <float name="ds1_l_hmed" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="storage change at median water surface elevation, computed by direct approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Estimated storage change computed between the median state of the lake (given by “wse_hmed” and “area_hmed” attributes), corresponding to the pass containing the median water surface elevation in the observation cycle, with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the direct approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds1lhmed_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in storage change at median water surface elevation, computed by direct approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in the storage change estimated during the pass containing the median water surface elevation in the observation cycle, computed by the direct approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds1_q_hmed" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="storage change at median water surface elevation, computed by direct approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Estimated storage change computed between the median state of the lake (given by “wse_hmin” and “area_hmin” attributes), corresponding to the pass containing the median water surface elevation in the observation cycle, with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the direct approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds1qhmed_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in storage change at median water surface elevation, computed by direct approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in the storage change estimated during the pass containing the median water surface elevation in the observation cycle, computed by the direct approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2_l_hmed" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="storage change at median water surface elevation, computed by incremental approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Estimated storage change computed between the median state of the lake (given by “wse_hmed” and “area_hmed” attributes), corresponding to the pass containing the median water surface elevation in the observation cycle, with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the incremental approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2lhmed_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in storage change at median water surface elevation, computed by incremental approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in the storage change estimated during the pass containing the median water surface elevation in the observation cycle, computed by the incremental approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2_q_hmed" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="storage change at median water surface elevation, computed by incremental approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Estimated storage change computed between the median state of the lake (given by “wse_hmed” and “area_hmed” attributes), corresponding to the pass containing the median water surface elevation in the observation cycle, with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the incremental approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2qhmed_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in storage change at median water surface elevation, computed by incremental approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in the storage change estimated during the pass containing the median water surface elevation in the observation cycle, computed by the incremental approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <int4 name="partf_hmed">
+        <annotation fill_value="-999" long_name="partially covered lake flag at median water surface elevation" flag_meanings="covered partially_covered" flag_values="0 1" valid_min="0" valid_max="1" comment="Flag that indicates partial lake coverage during the pass containing the median water surface elevation in the observation cycle.  0= Indicates that the observed lake has been entirely covered by the swath. 1= Indicates that the observed lake has been partially covered by the swath."/>
+      </int4>
+      <float name="t_hmax" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="UTC time at the maximum water surface elevation" standard_name="time" calendar="gregorian" tai_utc_difference="[value of TAI-UTC at time of first record]" leap_second="YYYY-MM-DD hh:mm:ss" units="seconds since 2000-01-01 00:00:00.000" comment="UTC time corresponding to the maximum observed water surface elevation (hmax) in the observation cycle. Time of measurement in seconds in the UTC time scale since 1 Jan 2000 00:00:00 UTC. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the attribute leap_second is set to the UTC time at which the leap second occurs."/>
+      </float>
+      <float name="t_tai_hmax" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="TAI time at the maximum water surface elevation" standard_name="time" calendar="gregorian" units="seconds since 2000-01-01 00:00:00.000" comment="TAI time corresponding to the maximum water surface elevation (hmax) in the observation cycle. Time of measurement in seconds in the TAI time scale since 1 Jan 2000 00:00:00 TAI. This time scale contains no leap seconds. The time difference (in seconds) between TAI and UTC at the time of the first measurement of the dataset is given by the metadata [t_hmax:tai_utc_difference]."/>
+      </float>
+      <text name="t_str_hmax" width="20">
+        <annotation fill_value="no_data" long_name="UTC time at the maximum water surface elevation" standard_name="time" calendar="gregorian" tai_utc_difference="[value of TAI-UTC at time of first record]" leap_second="YYYY-MM-DD hh:mm:ss" comment="UTC time corresponding to the maximum water surface elevation (hmax) in the observation cycle. The format is YYYY-MM-DDThh:mm:ssZ, where the Z suffix indicates UTC time. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the metadata leap_second is set to the UTC time at which the leap second occurs."/>
+      </text>
+      <float name="wse_hmax" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="maximum water surface elevation with respect to the geoid" units="m" valid_min="-1000" valid_max="100000" comment="Maximum water surface elevation in the observation cycle relative to the provided model of the geoid, with corrections for media delays (wet and dry troposphere, and ionosphere), crossover correction, and tidal effects applied."/>
+      </float>
+      <float name="wse_hmax_u" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="uncertainty in maximum water surface elevation" units="m" valid_min="0" valid_max="100" comment="Estimated uncertainty in the maximum water surface elevation observed in the cycle."/>
+      </float>
+      <float name="area_hmax" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="water surface area at maximum water surface elevation" units="km^2" valid_min="0" valid_max="200000" comment="Water surface area measured during the pass containing the maximum water surface elevation in the observation cycle. If the lake has only been partially observed (“partfh_max” is thus set to 1), this corresponds to the area of the observed part of the prior lake. This variable is corrected for the potential presence of dark water."/>
+      </float>
+      <float name="are_hmax_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in the water surface area at maximum water surface elevation" units="km^2" valid_min="0" valid_max="200000" comment="Estimated water surface area uncertainty during the pass containing the maximum water surface elevation in the observation cycle."/>
+      </float>
+      <float name="ds1_l_hmax" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="storage change at maximum water surface elevation, computed by direct approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Estimated storage change computed between the maximal state of the lake (given by “wse_hmax” and “area_hmax” attributes), corresponding to the pass containing the maximum water surface elevation in the observation cycle, with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the direct approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds1lhmax_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in storage change at maximum water surface elevation, computed by direct approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in the storage change estimated during the pass containing the maximum water surface elevation in the observation cycle, computed by the direct approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds1_q_hmax" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="storage change at maximum water surface elevation, computed by direct approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Estimated storage change computed between the maximal state of the lake (given by “wse_hmax” and “area_hmax” attributes), corresponding to the pass containing the maximum water surface elevation in the observation cycle, with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the direct approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds1qhmax_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in storage change at maximum water surface elevation, computed by direct approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in the storage change estimated during the pass containing the maximum water surface elevation in the observation cycle, computed by the direct approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2_l_hmax" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="storage change at maximum water surface elevation, computed by incremental approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Estimated storage change computed between the maximal state of the lake (given by “wse_hmax” and “area_hmax” attributes), corresponding to the pass containing the maximum water surface elevation in the observation cycle, with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the incremental approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2lhmax_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in storage change at maximum water surface elevation, computed by incremental approach with linear bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in the storage change estimated during the pass containing the maximum water surface elevation in the observation cycle, computed by the incremental approach with the linear hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2_q_hmax" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="storage change at maximum water surface elevation, computed by incremental approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Estimated storage change computed between the maximal state of the lake (given by “wse_hmax” and “area_hmax” attributes), corresponding to the pass containing the maximum water surface elevation in the observation cycle, with respect to the reference state of the lake (given by “p_ref_wse” and “p_ref_area” provided by the prior lake database). This attribute is computed by the incremental approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <float name="ds2qhmax_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in storage change at maximum water surface elevation, computed by incremental approach with quadratic bathymetry model" units="km^3" valid_min="-1000" valid_max="1000" comment="Uncertainty in the storage change estimated during the pass containing the maximum water surface elevation in the observation cycle, computed by the incremental approach with the quadratic hypothesis for the bathymetry model."/>
+      </float>
+      <int4 name="partf_hmax">
+        <annotation fill_value="-999" long_name="partially covered lake flag at maximum water surface elevation" flag_meanings="covered partially_covered" flag_values="0 1" valid_min="0" valid_max="1" comment="Flag that indicates partial lake coverage during the pass containing the maximum water surface elevation in the observation cycle.  0= Indicates that the observed lake has been entirely covered by the swath. 1= Indicates that the observed lake has been partially covered by the swath."/>
+      </int4>
+      <int4 name="quality_f">
+        <annotation fill_value="-999" long_name="summary quality indicator for lake cycle average" flag_meanings="good bad" flag_values="0 1" valid_min="0" valid_max="1" comment="Summary quality flag for the lake cycle average. Values of 0 and 1 indicate nominal and off-nominal measurements."/>
+      </int4>
+      <float name="geoid_hght" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="geoid height" standard_name="geoid_height_above_reference_ellipsoid" source="EGM2008" institution="GSFC" units="m" valid_min="-150" valid_max="150" comment="Lake-averaged geoid model height above the reference ellipsoid. The value is computed from the EGM2008 geoid model with a correction to refer the value to the mean tide system (i.e., includes the zero-frequency permanent tide)."/>
+      </float>
+      <float name="p_lon" width="20" precision="6">
+        <annotation long_name="longitude of the reference point within the prior lake" units="degrees_east" valid_min="-180" valid_max="180" comment="Longitude of the reference point within the prior lake."/>
+      </float>
+      <float name="p_lat" width="20" precision="6">
+        <annotation long_name="latitude of the reference point within the prior lake" units="degrees_north" valid_min="-80" valid_max="80" comment="Latitude of the reference point within the prior lake."/>
+      </float>
+      <float name="p_ref_wse" width="17" precision="3">
+        <annotation fill_value="-999999999999" long_name="reference water surface elevation" units="m" valid_min="-1000" valid_max="100000" comment="Reference water surface elevation from the prior lake database, used to compute storage change."/>
+      </float>
+      <float name="p_ref_area" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="reference water surface area" units="km^2" valid_min="0" valid_max="500000" comment="Reference water surface area  from the prior lake database, used to compute storage change."/>
+      </float>
+      <text name="p_date_t0" width="10">
+        <annotation fill_value="no_data" long_name="reference date for the storage change attributes" comment="Reference date from the prior lake database for the storage change attributes, corresponding to the date of the first valid measurement. The format is YYYY-MM-DD."/>
+      </text>
+      <float name="p_ds_t0" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="reference storage change" units="km^3" valid_min="-1000" valid_max="1000" comment="Reference storage change from the prior lake database used to translate the storage change values initially computed with respect to the p_ref_wse and p_ref_area of the prior lake, to the storage change relative to p_date_t0."/>
+      </float>
+      <float name="p_storage" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="maximum water storage" units="km^3" valid_min="0" valid_max="30000" comment="Maximum water storage value from the prior lake database, computed between the minimum (or ground when a bathymetry is available) and maximum observed levels of the lake."/>
+      </float>
+    </attribute_metadata>
+  </science>
+</product>

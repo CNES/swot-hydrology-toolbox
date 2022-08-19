@@ -7,6 +7,8 @@
 # ======================================================
 # HISTORIQUE
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.2.0:DM:#91:2021/10/27:Poursuite industrialisation
+# VERSION:4.0.0:DM:#91:2022/05/05:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -26,6 +28,8 @@ import logging
 import os
 
 import cnes.common.service_config_file as service_config_file
+
+import cnes.common.lib.my_variables as my_var
 
 
 class LocnesProduct(object):
@@ -72,8 +76,6 @@ class LocnesProduct(object):
         list_fileinfo = cfg.options("FILE_INFORMATION")
         if "institution" in list_fileinfo:
             self.global_metadata["institution"]["value"] = cfg.get('FILE_INFORMATION', 'INSTITUTION')
-        if "references" in list_fileinfo:
-            self.global_metadata["references"]["value"] = cfg.get('FILE_INFORMATION', 'REFERENCES')
         if "product_version" in list_fileinfo:
             self.global_metadata["product_version"]["value"] = cfg.get('FILE_INFORMATION', 'PRODUCT_VERSION')
         if "crid" in list_fileinfo:
@@ -116,7 +118,8 @@ class LocnesProduct(object):
         for key, value in in_metadata.items():
             if key in metadata_keys:
                 if value in ["", "None", None]:
-                    self.global_metadata[key]["value"] = "None"
+                    #self.global_metadata[key]["value"] = "None"
+                    self.global_metadata[key]["value"] = ""
                 else:
                     self.global_metadata[key]["value"] = value
             else:
@@ -128,8 +131,11 @@ class LocnesProduct(object):
         """
         If LOCNES is not run in simulation environment, convert xref_[...] global metadata full path into basename
         """
+        # Get instance of service config file
+        cfg = service_config_file.get_instance()
+        flag_write_full_path = cfg.getboolean("OPTIONS", "Write full path")
         
-        if "simu" not in self.global_metadata["source"]["value"].lower():
+        if not flag_write_full_path:
             for name, att_dict in self.global_metadata.items():
                 if name.startswith("xref_"):
                     if ";" in self.global_metadata[name]["value"]:
@@ -137,7 +143,7 @@ class LocnesProduct(object):
                         tmp_set = set()
                         for tmp_fullpath in tmp_split:
                             tmp_set.add(os.path.basename(tmp_fullpath))
-                        self.global_metadata[name]["value"] = ";".join(tmp_set)
+                        self.global_metadata[name]["value"] = my_var.SEP_FILES.join(tmp_set)
                     else:
                         self.global_metadata[name]["value"] = os.path.basename(self.global_metadata[name]["value"])
                     

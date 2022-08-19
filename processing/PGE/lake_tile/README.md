@@ -27,20 +27,29 @@ PIXCVecRiver file = <full_path_to_PIXCVecRiver_file>
 Output directory = <output_directory>
 
 [DATABASES]
-# OPTIION 1 : SQLITE lake database containing  : lake_table, lake_influence_table, basin_table
-LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20200309_PLD/PLD_EU.sqlite
+# OPTION 1: upper directory pointing to operational Prior Lake Database (PLD)
+LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/PLD
 
-# OPTION 2 : SHP lake database
-# Prior lake database
-# LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20200309_PLD/PLD_EU.shp
+# OPTION 2: lake database in SQLite format
+# 2.1 - Filename starts with SWOT_PLD_ = operational Prior Lake Database (PLD)
+# 2.2 - Filename doesn't start with SWOT_PLD = personal lake database with model similar to operational PLD 
+#       ie containing the following tables: lake, lake_influence, basin
+#LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/PLD/Cal/SWOT_LakeDatabase_Cal_001_20000101T000000_20991231T235959_20211103T133032_v001.sqlite
+#LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/PLD/Nom/SWOT_LakeDatabase_Nom_001_20000101T000000_20991231T235959_20211103T133032_v001.sqlite
+
+# OPTION 3 : lake database in shapefile format
+# Filename
+# LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20200702_PLD/PLD_EU.shp
 # Lake identifier attribute name in the prior lake database and influence_lake_db
 # LAKE_DB_ID = lake_id
 
 [OPTIONS]
-# To also produce LakeTile_edge and LakeTile_pixcvec as shapefiles (=True); else=False (default)
+# To also produce LakeTile_Edge and LakeTile_PIXCVec as shapefiles (=True); else=False (default)
 Produce shp = <True|False>
 # To increment the file counter in the output filenames (=True, default); else=False
 Increment file counter = <True|False>
+# To write full path in global attributes (=True); to write only basename=False
+Write full path = <True|False>
 
 [LOGGING]
 # Error file full path
@@ -57,8 +66,6 @@ logconsolelevel = <DEBUG|INFO>
 [FILE_INFORMATION]
 # Name of producing agency
 INSTITUTION = CNES
-# Version number of software generating product
-REFERENCES = <X.Y>
 # Product version
 PRODUCT_VERSION = <Draft|Initial release|...>
 # Composite Release IDentifier for LakeTile processing
@@ -73,9 +80,19 @@ CONTACT = <xxxx@cnes.fr>
 If the __param_file__ key is not set in the command file, the software uses default configuration parameters listed in ```PGE/lake_tile_param.cfg```. If the __param_file__ key is set , the software will use your own configuration parameters.
 
 They are:
-* __FLAG_WATER__ is the list of water flags to keep for processing (3=water near land edge  4=interior water)
-* __FLAG_DARK__ is the list of dark water flags to keep for processing (23=dark water near land edge  24=interior dark water)
+* __CLASSIF_LIST__ is the list of classif flags to keep for processing (2=land_near_water  3=water_near_land   4=open_water  5=dark_water)
+* __CLASSIF_WATER__ is the True/False list of classif flags which contain observed water (1-to-1 correspondance with CLASSIF_LIST)
+* __CLASSIF_4HULL__ is the True/False list of classif flags to use for lake boundary construction (1-to-1 correspondance with CLASSIF_LIST)
+* __CLASSIF_4WSE__ is the True/False list of classif flags to use for WSE computation (1-to-1 correspondance with CLASSIF_LIST)
+* __CLASSIF_4AREA__ is the True/False list of classif flags to use for lake area computation (1-to-1 correspondance with CLASSIF_LIST)
+* __USE_FRACTIONAL_INUNDATION__ is the True/False list of classif flags to use water fraction for inundated computation (1-to-1 correspondance with CLASSIF_LIST)
+* __PIXC_QUAL_LIST__ is the list of quality flags to consider for PixC selection
+* __PIXC_QUAL_MASK__ is the list of mask of quality flags to use for PixC selection (1-to-1 correspondance with PIXC_QUAL_LIST)
+* __EXCLUDE_BRIGHT_LAND__ is the flag to exclude PixC having bright_land_flag=1 (=True) or not (=False)
+* __MIN_XTRACK__ is the minimum cross-track distance to select PixC (-1 to disable)
+* __MAX_XTRACK__ is the maximum cross-track distance to select PixC (-1 to disable)
 * __MIN_SIZE__ is the minimum size for a lake to generate a lake product (=polygon + attributes) for it
+* __MAX_NB_TILES_FULL_AZ__ is the maximum number of azimuth tiles fully covered by a lake processed in LakeSP. If, in LakeDatabase, lake_table.nb_tiles_az*lake.swath_overlap > MAX_NB_TILES_FULL_AZ, then lake is partially processed in each LakeTile and then gathered in LakeSP, instead of fully processed in LakeSP (-1 to disable)
 * __MIN_OVERLAP__ is the minimum percentage of overlapping area to consider a PLD lake linked to an observed feature
 * __AREA_METHOD__ is the method to compute area_total attribute
   * polygon = area_total is the area of the polygon of the water region
@@ -91,17 +108,19 @@ They are:
   * 8 = MeanShift
 * __IMP_GEOLOC__ is the flag to improve PixC geolocation (=True) or not (=False)
 * __HULL_METHOD__ is the method to compute lake boundary (or polygon hull): 
-  * 0 = convex hull
-  * 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library 
-  * 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track
-  * 2 = edge computed in radar geometry, then converted in ground geometry (default)
+  * 0 = convex hull 
+  * 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library
+  * 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation (time consuming)
+  * 1.2 = concave hull computed in ground geometry, based on Delaunay triangulation with alpha parameter varying along range
+  * 2.0 = edge computed in radar geometry, then converted in ground geometry by reordering lon lat (default)
+  * 2.1 = edge computed in radar geometry, then converted in ground geometry by checking each segment
 * __NB_PIX_MAX_DELAUNEY__ is the max number of pixels used for Delaunay triangulation (when ```HULL_METHOD = 1.1```)
-* __NB_PIX_MAX_CONTOUR__ is the maximum number of contour points (when ```HULL_METHOD = 2```)
-* __BIGLAKE_MODEL, BIGLAKE_MIN_SIZE, BIGLAKE_GRID_SPACING, BIGLAKE_GRID_RES__ are parameters specific to the processing of "big" lakes, ie. lakes with an area greater than BIGLAKE_MIN_SIZE
+* __BIGLAKE_MIN_SIZE, BIGLAKE_MODEL, BIGLAKE_GRID_SPACING, BIGLAKE_GRID_RES__ are parameters specific to the processing of "big" lakes, ie. lakes with an area greater than BIGLAKE_MIN_SIZE
 * __STOCC_INPUT__ is the choice of input data to compute storage change:
   * obs = use of WSE and area of all distinct observed-oriented features related to the PLD lake
   * pld = averaged WSE and total area of the prior feature (default)
-* __NB_DIGITS__ are the number of digits for a counter of lakes in a tile or pass, used in the obs_id identifier of each observed lake
+* __THRESHOLD_4NOMINAL__ is the threshold of good pixels within a lake to set lake feature quality flag
+* __NB_DIGITS__ is the number of digits for a counter of lakes in a tile or pass, used in the obs_id identifier of each observed lake
 
 ### Input files
 

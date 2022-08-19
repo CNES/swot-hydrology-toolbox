@@ -27,10 +27,10 @@
         <annotation description="SWOT"/>
       </string>
       <string name="references">
-        <annotation description="Provides version number of software generating product."/>
+        <annotation description="SWOT-TN-CDM-0672-CNES_Product_Description_L2_HR_LakeTile - Revision A - 20220531"/>
       </string>
       <string name="reference_document">
-        <annotation description="SWOT-TN-CDM-0672-CNES"/>
+        <annotation description="SWOT-DD-CDM-0561-CNES_SAS_Design_L2_HR_LakeTile - Revision A - 20220531"/>
       </string>
       <string name="product_version">
         <annotation description="Version identifier of this data file"/>
@@ -235,7 +235,7 @@
       <text name="lake_name">
         <annotation fill_value="no_data" long_name="name(s) of the lake" comment="Name(s) of the lake, retrieved from Open Street Map, IGN Carthage, GLWD and vMap0 databases. The different names are separated by semicolons."/>
       </text>
-      <int9 name="p_grand_id">
+      <int9 name="p_res_id">
         <annotation fill_value="-99999999" long_name="reservoir Id from GRanD database" source="https://doi.org/10.1890/100125" valid_min="0" valid_max="10000" tag_basic_expert="Expert" comment="Reservoir ID from the Global Reservoir and Dam (GRanD) database. 0=The lake is not a registered reservoir."/>
       </int9>
     </attribute_metadata>

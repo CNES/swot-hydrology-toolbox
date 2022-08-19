@@ -10,6 +10,8 @@
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
+# VERSION:3.2.0:DM:#91:2021/10/27:Poursuite industrialisation
+# VERSION:4.0.0:DM:#91:2022/05/05:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -27,6 +29,7 @@
 from collections import OrderedDict
 import logging
 import os
+import numpy as np
 from lxml import etree as ET
 from osgeo import ogr, osr
 
@@ -35,7 +38,7 @@ import cnes.common.service_error as service_error
 
 import cnes.common.lib.my_variables as my_var
 import cnes.common.lib_lake.locnes_product_general as my_prod
-
+import cnes.common.lib.my_tools as my_tools
 
 class ShapefileProduct(my_prod.LocnesProduct):
     """
@@ -131,7 +134,7 @@ class ShapefileProduct(my_prod.LocnesProduct):
                 annotation = element[0]
                 self.global_metadata[cur_metadata]["description"] = annotation.get("description")
                 # Init value
-                if cur_metadata in ["Conventions", "title", "short_name", "product_file_id", "platform", "reference_document", "pge_name"]:
+                if cur_metadata in ["Conventions", "title", "short_name", "product_file_id", "platform", "references", "reference_document", "pge_name"]:
                     self.global_metadata[cur_metadata]["value"] = self.global_metadata[cur_metadata]["description"]
                 else:
                     if self.global_metadata[cur_metadata]["type"] == "string":
@@ -182,17 +185,17 @@ class ShapefileProduct(my_prod.LocnesProduct):
         # 1 - Create data source
         # 1.1 - Memory layer
         if in_filename is None:
-            logger.info('> Creating memory layer')
+            logger.debug('> Creating memory layer')
             driver = ogr.GetDriverByName(str('MEMORY'))  # Driver for memory container
             self.data_source = driver.CreateDataSource('memData')
         else:
-            logger.info('> Creating shapefile layer')
+            logger.debug('> Creating shapefile layer')
             driver = ogr.GetDriverByName(str('ESRI Shapefile'))  # Driver for shapefile 
             if os.path.exists(in_filename):
                 logger.warning("Output shapefile %s already exists => delete file" % in_filename)
                 driver.DeleteDataSource(in_filename)
             else:
-                logger.info("Output shapefile = %s" % in_filename)
+                logger.debug("Output shapefile = %s" % in_filename)
             self.data_source = driver.CreateDataSource(in_filename)
         
         # 2 - Create layer
@@ -255,23 +258,65 @@ class ShapefileProduct(my_prod.LocnesProduct):
         feature.SetGeometry(in_geom)    
         
         # 3 - Add attribute values
-        att_keys = in_attributes.keys()  # List of attributes to value
-        for att_name, attr_carac in self.attribute_metadata.items():  # Loop over the whole list of the existing attributes
-            value_to_write = None  # Init value to write
-            if att_name in att_keys:  # If in the list of attributes to modify
-                if in_attributes[att_name] is None:  
-                    value_to_write = my_var.FV_SHP[attr_carac["type"]]  # Fill to _FillValue if None
-                else:
-                    value_to_write = convert_wrt_type(in_attributes[att_name], attr_carac["type"])  # Fill with appropriate type
-            else:
-                value_to_write = my_var.FV_SHP[attr_carac["type"]]  # Fill to _FillValue if not in list
-            feature.SetField(str(att_name), value_to_write)  # Fill the field with the wanted value
+        feature = self.fill_feature_from_dict(feature, in_attributes)
             
         # 4 - Add feature
         self.layer.CreateFeature(feature)
         
         # 5 - Destroy the feature to free resources
         feature.Destroy()
+
+    def fill_feature_from_dict(self, in_feature, in_dict):
+        """
+        Fill feature from dictionary information. Attributes and type are loaded from self.attribute_metadata.
+    
+        :param in_feature: empty feature
+        :type in_feature: ogr.Feature
+        :param in_dict: attributes information to store in feature.
+        :type in_dict: dict
+    
+        :return: in_feature = feature filled
+        :rtype: in_feature = ogr.Feature
+        """
+        
+        att_keys = in_dict.keys()  # List of attributes to value
+        
+        for att_name, attr_carac in self.attribute_metadata.items():  # Loop over the whole list of the existing attributes
+            value_to_write = None  # Init value to write
+            if att_name in att_keys:  # If in the list of attributes to modify
+                if in_dict[att_name] is None:
+                    value_to_write = my_var.FV_SHP[attr_carac["type"]]  # Fill to _FillValue if None
+                else:
+                    value_to_write = convert_wrt_type(in_dict[att_name],
+                                                      attr_carac["type"])  # Fill with appropriate type
+            else:
+                value_to_write = my_var.FV_SHP[attr_carac["type"]]  # Fill to _FillValue if not in list
+    
+            in_feature.SetField(str(att_name), value_to_write)  # Fill the field with the wanted value
+    
+        return in_feature
+
+
+    def fill_dict_from_feature(self, in_feature):
+        """
+        Fill dictionary from in_feature information. Attributes and type are loaded from self.attribute_metadata.
+    
+        :param in_feature: feature with information
+        :type in_feature: ogr.Feature
+    
+        :return: out_dict = fill dictionary
+        :rtype: out_dict = depends on the wanted type
+        """
+        
+        out_dict = {}
+        for key, value in self.attribute_metadata.items():
+            val = in_feature.GetField(key)
+            if val == my_var.FV_SHP[self.attribute_metadata[key]['type']]:
+                out_dict[key] = None
+            else:
+                out_dict[key] = val
+    
+        return out_dict
 
     #----------------------------------------
         
@@ -365,7 +410,7 @@ class LakeTileShpProduct(ShapefileProduct):
         # Get instance of service config file
         cfg = service_config_file.get_instance()
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
+        logger.debug("- start -")
         
         # 1 - Inheritance of ShapefileProduct
         super().__init__(in_xml_file,
@@ -376,26 +421,26 @@ class LakeTileShpProduct(ShapefileProduct):
         
         # 2 - Init configuration parameters metadata
         self.config_metadata = OrderedDict()
-        if (in_pixc_metadata is not None) and ("simu" in in_pixc_metadata["source"]["value"].lower()):
-            self.config_metadata["lake_db"] = str(cfg.get('DATABASES', 'LAKE_DB'))
-        else:
-            self.config_metadata["lake_db"] = os.path.basename(str(cfg.get('DATABASES', 'LAKE_DB')))
         self.config_metadata["lake_db_id"] = str(cfg.get('DATABASES', 'LAKE_DB_ID'))
-        self.config_metadata["flag_water"] = str(cfg.get('CONFIG_PARAMS', 'FLAG_WATER'))
-        self.config_metadata["flag_dark"] = str(cfg.get('CONFIG_PARAMS', 'FLAG_DARK'))
+        self.config_metadata["classif_list"] = cfg.get('CONFIG_PARAMS', 'CLASSIF_LIST')
+        self.config_metadata["classif_water"] = cfg.get('CONFIG_PARAMS', 'CLASSIF_WATER')
+        self.config_metadata["classif_4hull"] = cfg.get('CONFIG_PARAMS', 'CLASSIF_4HULL')
+        self.config_metadata["classif_4wse"] = cfg.get('CONFIG_PARAMS', 'CLASSIF_4WSE')
+        self.config_metadata["classif_4area"] = cfg.get('CONFIG_PARAMS', 'CLASSIF_4AREA')
         self.config_metadata["min_size"] = cfg.get('CONFIG_PARAMS', 'MIN_SIZE')
+        self.config_metadata["max_nb_tiles_full_az"] = cfg.get('CONFIG_PARAMS', 'MAX_NB_TILES_FULL_AZ')
         self.config_metadata["min_overlap"] = cfg.get('CONFIG_PARAMS', 'MIN_OVERLAP')
         self.config_metadata["area_method"] = cfg.get('CONFIG_PARAMS', 'AREA_METHOD')
         self.config_metadata["segmentation_method"] = cfg.get('CONFIG_PARAMS', 'SEGMENTATION_METHOD')
         self.config_metadata["imp_geoloc"] = cfg.get('CONFIG_PARAMS', 'IMP_GEOLOC')
         self.config_metadata["hull_method"] = cfg.get('CONFIG_PARAMS', 'HULL_METHOD')
         self.config_metadata["nb_pix_max_delauney"] = cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY')
-        self.config_metadata["nb_pix_max_contour"] = cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_CONTOUR')
         self.config_metadata["biglake_model"] = cfg.get('CONFIG_PARAMS', 'BIGLAKE_MODEL')
         self.config_metadata["biglake_min_size"] = cfg.get('CONFIG_PARAMS', 'BIGLAKE_MIN_SIZE')
         self.config_metadata["biglake_grid_spacing"] = cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_SPACING')
         self.config_metadata["biglake_grid_res"] = cfg.get('CONFIG_PARAMS', 'BIGLAKE_GRID_RES')
         self.config_metadata["stocc_input"] = cfg.get('CONFIG_PARAMS', 'STOCC_INPUT')
+        self.config_metadata["threshold_4nominal"] = cfg.get('CONFIG_PARAMS', 'THRESHOLD_4NOMINAL')
         self.config_metadata["nb_digits"] = cfg.get('CONFIG_PARAMS', 'NB_DIGITS')
 
 
@@ -418,7 +463,7 @@ class LakeTileObsProduct(LakeTileShpProduct):
         :type in_proc_metadata: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
+        logger.debug("- start -")
         
         # 1 - Inheritance of LakeTileShpProduct
         super().__init__(os.path.join(os.path.dirname( __file__ ), "xml/laketile_obs.xml"),
@@ -447,7 +492,7 @@ class LakeTilePriorProduct(LakeTileShpProduct):
         :type in_proc_metadata: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
+        logger.debug("- start -")
         
         # 1 - Inheritance of LakeTileShpProduct
         super().__init__(os.path.join(os.path.dirname( __file__ ), "xml/laketile_prior.xml"),
@@ -476,7 +521,7 @@ class LakeTileUnassignedProduct(LakeTileShpProduct):
         :type in_proc_metadata: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
+        logger.debug("- start -")
         
         # 1 - Inheritance of LakeTileShpProduct
         super().__init__(os.path.join(os.path.dirname( __file__ ), "xml/laketile_unassigned.xml"),
@@ -494,7 +539,7 @@ class LakeSPObsProduct(ShapefileProduct):
     Deal with LakeSP_Obs file, the obs-oriented shapefile
     """
     
-    def __init__(self, in_layer_name, in_filename=None, in_laketile_metadata=None, in_proc_metadata=None):
+    def __init__(self, in_layer_name, in_filename=None, in_laketile_metadata=None, in_proc_metadata=None, flag_create=True):
         """
         Constructor; specific to LakeSP_Obs shapefile
         
@@ -506,16 +551,19 @@ class LakeSPObsProduct(ShapefileProduct):
         :type in_laketile_metadata: dict
         :param in_proc_metadata: metadata specific to LakeSP processing
         :type in_proc_metadata: dict
+        :param flag_create: =True (default) to create a shapefile or a memory layer, =False otherwise
+        :type flag_create: boolean
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
+        logger.debug("- start -")
         
         # 1 - Inheritance of ShapefileProduct
         super().__init__(os.path.join(os.path.dirname( __file__ ), "xml/lakesp_obs.xml"),
                           in_layer_name, 
                           in_filename=in_filename, 
                           in_inprod_metadata=in_laketile_metadata,
-                          in_proc_metadata=in_proc_metadata)
+                          in_proc_metadata=in_proc_metadata,
+                          flag_create=flag_create)
 
 
 class LakeSPPriorProduct(ShapefileProduct):
@@ -523,7 +571,7 @@ class LakeSPPriorProduct(ShapefileProduct):
     Deal with LakeSP_Prior file, the PLD-oriented shapefile
     """
     
-    def __init__(self, in_layer_name, in_filename=None, in_laketile_metadata=None, in_proc_metadata=None):
+    def __init__(self, in_layer_name, in_filename=None, in_laketile_metadata=None, in_proc_metadata=None, flag_create=True):
         """
         Constructor; specific to LakeSP_PLD shapefile
         
@@ -535,16 +583,298 @@ class LakeSPPriorProduct(ShapefileProduct):
         :type in_laketile_metadata: dict
         :param in_proc_metadata: metadata specific to LakeSP processing
         :type in_proc_metadata: dict
+        :param flag_create: =True (default) to create a shapefile or a memory layer, =False otherwise
+        :type flag_create: boolean
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
+        logger.debug("- start -")
         
         # 1 - Inheritance of ShapefileProduct
         super().__init__(os.path.join(os.path.dirname( __file__ ), "xml/lakesp_prior.xml"),
                           in_layer_name, 
                           in_filename=in_filename, 
                           in_inprod_metadata=in_laketile_metadata,
-                          in_proc_metadata=in_proc_metadata)
+                          in_proc_metadata=in_proc_metadata,
+                          flag_create=flag_create)
+
+    #----------------------------------------
+
+    def merge_duplicate_features(self, lake_sp_lyr):
+        """
+        A same PLD lake can be observed in swath R and L. In this case, 
+        the lake is duplicated in LakeSP_Prior file. A merge
+        between the 2 observations should be conducted.
+
+        :param lake_sp_lyr: lake_sp_prior layer
+        :type lake_sp_lyr: OGR.Layer
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+
+        # 1 - Get lake_id of duplicated lakes
+        # 1.1 - Retrieve lake_id
+        lake_id_list = []
+        for feature in lake_sp_lyr:
+            lake_id_list.append(feature.GetField("lake_id"))
+        lake_sp_lyr.ResetReading()
+        # 1.2 - List duplicate lake_id
+        tmp_duplicates = [lake_id for lake_id in lake_id_list if lake_id_list.count(lake_id) > 1]
+        duplicates = set(tmp_duplicates)
+        logger.debug("%d lakes are in swath R and L, should be merged" % len(duplicates))
+        # 1.3 - Gather duplicate feature FID
+        duplicate_lake_id = []
+        duplicate_lake_id_fid = []
+        for feature in lake_sp_lyr:
+            lake_id = feature.GetField("lake_id")
+            if lake_id in duplicates :
+                lake_fid = feature.GetFID()
+                if lake_id not in duplicate_lake_id:
+                    duplicate_lake_id.append(lake_id)
+                    duplicate_lake_id_fid.append([lake_fid])
+                else:
+                    duplicate_lake_id_fid[duplicate_lake_id.index(lake_id)].append(lake_fid)
+        logger.debug("List of lake_id to merge: %s" % (";".join(duplicate_lake_id)))
+
+        # 2 - Merge duplicated lakes
+        fid_to_delete = []
+        # 2.1 - Merge duplicate features into single features
+        for lake_id, lake_fids in zip(duplicate_lake_id, duplicate_lake_id_fid):
+            fid_to_delete += self.merge_lakes(lake_id, lake_fids, lake_sp_lyr)
+        # 2.2 - Delete original features
+        fid_to_delete.sort(reverse=True)
+        for fid in fid_to_delete:
+            lake_sp_lyr.DeleteFeature(fid)
+
+    def merge_lakes(self, lake_id, lake_fids, lake_sp_lyr):
+        """
+        PLD lake lake_id have been observed on swath R and L, corresponding 
+        features are merged into a single feature and deleted.
+
+        :param lake_id: lake_id of lake to merge
+        :type lake_id: str
+        :param lake_fids: list of FID to merge
+        :type lake_fids: list of int
+        :param lake_sp_lyr: lake_sp_prior layer
+        :type lake_sp_lyr: OGR.Layer
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.debug("Merge lake %s " % lake_id)
+        
+        if len(lake_fids) > 2:
+            logger.warning("LakeSP %s contains more than 2 lakes => all features will be merged" % lake_id)
+            
+        fid_to_delete = []
+        while len(lake_fids) >= 2:
+            
+            # 1 - Retrieve first 2 features and their obs_id
+            lake_fid_1 = lake_fids[0]
+            lake_fid_2 = lake_fids[1]
+            feat_lake_1 = lake_sp_lyr.GetFeature(lake_fid_1)
+            feat_lake_2 = lake_sp_lyr.GetFeature(lake_fid_2)
+            obs_id_1 = feat_lake_1.GetField("obs_id")
+            obs_id_2 = feat_lake_2.GetField("obs_id")
+
+            if obs_id_1 == 'no_data' and obs_id_2 == 'no_data':
+                logger.debug("Both features empty")
+                fid_to_delete.append(lake_fid_2)
+                lake_fids.pop(1)
+                
+            elif obs_id_1 == 'no_data':
+                logger.debug("Feature 1 empty")
+                fid_to_delete.append(lake_fid_1)
+                lake_fids.pop(0)
+                
+            elif obs_id_2 == 'no_data':
+                logger.debug("Feature 2 empty")
+                fid_to_delete.append(lake_fid_2)
+                lake_fids.pop(1)
+                
+            else:
+                logger.debug("Both features filled")
+                fid_to_delete.append(lake_fid_1)
+                fid_to_delete.append(lake_fid_2)
+                
+                # 2 - Merge features
+                feat_lake_merged = self.merge_features(feat_lake_1, feat_lake_2)
+                
+                # 3 - dd merged feature to layer
+                lake_sp_lyr.CreateFeature(feat_lake_merged)
+                
+                # 4 - Add new FID to list
+                lake_fids.append(feat_lake_merged.GetFID())
+                
+                # 5 - Remove old FIDs
+                lake_fids.pop(0)
+                lake_fids.pop(0)
+
+        return fid_to_delete
+
+    def merge_features(self, feat_lake_1, feat_lake_2):
+        """
+        Merge feature 1 and feature 2 into a single one.
+
+        :param feat_lake_1: lake feature 1
+        :type feat_lake_1: ogr.Feature
+        :param feat_lake_2: lake feature 2
+        :type feat_lake_2: ogr.Feature
+
+        :return: feat_lake_merged = merged lake feature
+        :rtype: feat_lake_merged = ogr.Feature
+        """
+        
+        # 1 - Merge geometries
+        if feat_lake_1.GetGeometryRef():
+            geom_lake_1 = feat_lake_1.GetGeometryRef()
+        else:
+            geom_lake_1 = ogr.Geometry(ogr.wkbPolygon)
+        if feat_lake_2.GetGeometryRef():
+            geom_lake_2 = feat_lake_2.GetGeometryRef()
+        else:
+            geom_lake_2 = ogr.Geometry(ogr.wkbPolygon)
+        geom_merged = geom_lake_1.Union(geom_lake_2)
+
+        # 2 - Merge attributes
+        
+        # 2.1 - Retrieve attributes
+        lake_1_dict = self.fill_dict_from_feature(feat_lake_1)
+        lake_2_dict = self.fill_dict_from_feature(feat_lake_2)
+
+        # 2.2 - Init ratio between 2 observations
+        if lake_1_dict['area_total'] and lake_2_dict['area_total']:
+            ratio = lake_1_dict['area_total'] / (lake_1_dict['area_total'] + lake_2_dict['area_total'])
+        elif lake_1_dict['area_total']:
+            ratio = 1
+        elif lake_2_dict['area_total']:
+            ratio = 0
+        else:
+            ratio = None
+
+        # 2.3 - Compute merge 
+        lake_merged_dict = {}
+        
+        lake_merged_dict["lake_id"] = lake_1_dict["lake_id"]
+        
+        reach_id_list = []
+        if lake_1_dict["reach_id"]:
+            reach_id_list += lake_1_dict["reach_id"].split(";")
+        if lake_2_dict["reach_id"]:
+            reach_id_list += lake_2_dict["reach_id"].split(";")
+        if reach_id_list:
+            lake_merged_dict["reach_id"] = ";".join(reach_id_list)
+        else:
+            lake_merged_dict["reach_id"] = None
+
+        lake_obs_list = []
+        overlap_list = []
+        n_overlap = 0
+        if lake_1_dict["obs_id"]:
+            lake_obs_list += lake_1_dict["obs_id"].split(";")
+            overlap_list += [elem for elem in lake_1_dict["overlap"].split(";")]
+            n_overlap += int(lake_1_dict["n_overlap"])
+
+        if lake_2_dict["obs_id"]:
+            lake_obs_list += lake_2_dict["obs_id"].split(";")
+            overlap_list += [elem for elem in lake_2_dict["overlap"].split(";")]
+            n_overlap += int(lake_2_dict["n_overlap"])
+
+        if "" in overlap_list:
+            overlap_list.remove("")  # can happen when overlap ends with ";" because truncated to 256 char.
+        overlap_list = [int(elem) for elem in overlap_list]
+
+        idx_sorted = np.argsort(overlap_list)[::-1]
+
+        lake_obs_list = [str(lake_obs_list[idx]) for i, idx in enumerate(idx_sorted) if idx < len(lake_obs_list)]
+        overlap_list = [str(overlap_list[idx]) for i, idx in enumerate(idx_sorted) if idx < len(overlap_list)]
+
+        if lake_obs_list:
+            lake_merged_dict["obs_id"] = ";".join(lake_obs_list)
+            lake_merged_dict["overlap"] = ";".join(overlap_list)
+            lake_merged_dict["n_overlap"] = str(n_overlap)
+        else:
+            lake_merged_dict["obs_id"] = None
+            lake_merged_dict["overlap"] = None
+            lake_merged_dict["n_overlap"] = None
+
+        lake_merged_dict["time"] = attributes_fusion(lake_1_dict["time"], lake_2_dict["time"], 'ratio', ratio)
+        lake_merged_dict["time_tai"] = attributes_fusion(lake_1_dict["time_tai"], lake_2_dict["time_tai"], 'ratio', ratio)
+        lake_merged_dict['time_str'] = my_tools.convert_utc_to_str(lake_merged_dict["time"])
+
+        lake_merged_dict["wse"] = attributes_fusion(lake_1_dict["wse"], lake_2_dict["wse"], 'ratio', ratio)
+        lake_merged_dict["wse_u"] = attributes_fusion(lake_1_dict["wse_u"], lake_2_dict["wse_u"], 'ratio', ratio)
+        lake_merged_dict["wse_r_u"] = attributes_fusion(lake_1_dict["wse_r_u"], lake_2_dict["wse_r_u"], 'ratio', ratio)
+        lake_merged_dict["wse_std"] = attributes_fusion(lake_1_dict["wse_std"], lake_2_dict["wse_std"], 'ratio', ratio)
+
+        lake_merged_dict["area_total"] = attributes_fusion(lake_1_dict["area_total"], lake_2_dict["area_total"], 'sum', ratio)
+        lake_merged_dict["area_tot_u"] = attributes_fusion(lake_1_dict["area_tot_u"], lake_2_dict["area_tot_u"], 'ratio', ratio)
+        lake_merged_dict["area_detct"] = attributes_fusion(lake_1_dict["area_detct"], lake_2_dict["area_detct"], 'sum', ratio)
+        lake_merged_dict["area_det_u"] = attributes_fusion(lake_1_dict["area_det_u"], lake_2_dict["area_det_u"], 'ratio', ratio)
+
+        lake_merged_dict["layovr_val"] = attributes_fusion(lake_1_dict["layovr_val"], lake_2_dict["layovr_val"], 'ratio', ratio)
+        lake_merged_dict["xtrk_dist"] = attributes_fusion(lake_1_dict["xtrk_dist"], lake_2_dict["xtrk_dist"], 'ratio', ratio)
+
+        # storage change
+        lake_merged_dict["ds1_l"] = attributes_fusion(lake_1_dict["ds1_l"], lake_2_dict["ds1_l"], 'sum', ratio)
+        lake_merged_dict["ds1_l_u"] = attributes_fusion(lake_1_dict["ds1_l_u"], lake_2_dict["ds1_l_u"], 'ratio', ratio)
+
+        lake_merged_dict["ds1_q"] = attributes_fusion(lake_1_dict["ds1_q"], lake_2_dict["ds1_q"], 'sum', ratio)
+        lake_merged_dict["ds1_q_u"] = attributes_fusion(lake_1_dict["ds1_q_u"], lake_2_dict["ds1_q_u"], 'ratio', ratio)
+
+        lake_merged_dict["ds2_l"] = attributes_fusion(lake_1_dict["ds2_l"], lake_2_dict["ds2_l"], 'sum', ratio)
+        lake_merged_dict["ds2_l_u"] = attributes_fusion(lake_1_dict["ds2_l_u"], lake_2_dict["ds2_l_u"], 'ratio', ratio)
+
+        lake_merged_dict["ds2_q"] = attributes_fusion(lake_1_dict["ds2_q"], lake_2_dict["ds2_q"], 'sum', ratio)
+        lake_merged_dict["ds2_q_u"] = attributes_fusion(lake_1_dict["ds2_q_u"], lake_2_dict["ds2_q_u"], 'ratio', ratio)
+
+        lake_merged_dict["quality_f"] = attributes_fusion(lake_1_dict["quality_f"], lake_2_dict["quality_f"], 'max',
+                                                          ratio)
+        lake_merged_dict["dark_frac"] = attributes_fusion(lake_1_dict["dark_frac"], lake_2_dict["dark_frac"], 'ratio',
+                                                          ratio)
+
+        lake_merged_dict["ice_clim_f"] = attributes_fusion(lake_1_dict["ice_clim_f"], lake_2_dict["ice_clim_f"], 'max',
+                                                           ratio)
+        lake_merged_dict["ice_dyn_f"] = attributes_fusion(lake_1_dict["ice_dyn_f"], lake_2_dict["ice_dyn_f"], 'max',
+                                                          ratio)
+        lake_merged_dict["partial_f"] = attributes_fusion(lake_1_dict["partial_f"], lake_2_dict["partial_f"], 'max',
+                                                          ratio)
+
+        lake_merged_dict["xovr_cal_q"] = attributes_fusion(lake_1_dict["xovr_cal_q"], lake_2_dict["xovr_cal_q"], 'max',
+                                                           ratio)
+        lake_merged_dict["geoid_hght"] = attributes_fusion(lake_1_dict["geoid_hght"], lake_2_dict["geoid_hght"],
+                                                           'ratio', ratio)
+
+        lake_merged_dict["solid_tide"] = attributes_fusion(lake_1_dict["solid_tide"], lake_2_dict["solid_tide"],
+                                                           'ratio', ratio)
+        lake_merged_dict["load_tidef"] = attributes_fusion(lake_1_dict["load_tidef"], lake_2_dict["load_tidef"],
+                                                           'ratio', ratio)
+        lake_merged_dict["load_tideg"] = attributes_fusion(lake_1_dict["load_tideg"], lake_2_dict["load_tideg"],
+                                                           'ratio', ratio)
+        lake_merged_dict["pole_tide"] = attributes_fusion(lake_1_dict["pole_tide"], lake_2_dict["pole_tide"], 'ratio',
+                                                          ratio)
+
+        lake_merged_dict["dry_trop_c"] = attributes_fusion(lake_1_dict["dry_trop_c"], lake_2_dict["dry_trop_c"],
+                                                           'ratio', ratio)
+        lake_merged_dict["wet_trop_c"] = attributes_fusion(lake_1_dict["wet_trop_c"], lake_2_dict["wet_trop_c"],
+                                                           'ratio', ratio)
+        lake_merged_dict["iono_c"] = attributes_fusion(lake_1_dict["iono_c"], lake_2_dict["iono_c"], 'ratio', ratio)
+        lake_merged_dict["xovr_cal_c"] = attributes_fusion(lake_1_dict["xovr_cal_c"], lake_2_dict["xovr_cal_c"],
+                                                           'ratio', ratio)
+
+        # PLD attributes should be identical
+        lake_merged_dict["lake_name"] = lake_1_dict["lake_name"]
+        lake_merged_dict["p_res_id"] = lake_1_dict["p_res_id"]
+        lake_merged_dict["p_lon"] = lake_1_dict["p_lon"]
+        lake_merged_dict["p_lat"] = lake_1_dict["p_lat"]
+        lake_merged_dict["p_ref_wse"] = lake_1_dict["p_ref_wse"]
+        lake_merged_dict["p_ref_area"] = lake_1_dict["p_ref_area"]
+        lake_merged_dict["p_date_t0"] = lake_1_dict["p_date_t0"]
+        lake_merged_dict["p_ds_t0"] = lake_1_dict["p_ds_t0"]
+        lake_merged_dict["p_storage"] = lake_1_dict["p_storage"]
+
+        # 3 - Build feature from merged attributes
+        feat_lake_merged = feat_lake_1.Clone()
+        feat_lake_merged.SetGeometry(geom_merged)
+        feat_lake_merged = self.fill_feature_from_dict(feat_lake_merged, lake_merged_dict)
+
+        return feat_lake_merged
 
 
 class LakeSPUnassignedProduct(ShapefileProduct):
@@ -552,7 +882,7 @@ class LakeSPUnassignedProduct(ShapefileProduct):
     Deal with LakeTile_Unassigned file, the shapefile dedicated to unassigned water features
     """
     
-    def __init__(self, in_layer_name, in_filename=None, in_laketile_metadata=None, in_proc_metadata=None):
+    def __init__(self, in_layer_name, in_filename=None, in_laketile_metadata=None, in_proc_metadata=None, flag_create=True):
         """
         Constructor; specific to LakeSP_Unassigned shapefile
         
@@ -564,16 +894,19 @@ class LakeSPUnassignedProduct(ShapefileProduct):
         :type in_laketile_metadata: dict
         :param in_proc_metadata: metadata specific to LakeTile processing
         :type in_proc_metadata: dict
+        :param flag_create: =True (default) to create a shapefile or a memory layer, =False otherwise
+        :type flag_create: boolean
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
+        logger.debug("- start -")
         
         # 1 - Inheritance of ShapefileProduct
         super().__init__(os.path.join(os.path.dirname( __file__ ), "xml/lakesp_unassigned.xml"),
                           in_layer_name, 
                           in_filename=in_filename, 
                           in_inprod_metadata=in_laketile_metadata,
-                          in_proc_metadata=in_proc_metadata)
+                          in_proc_metadata=in_proc_metadata,
+                          flag_create=flag_create)
             
 
 #######################################
@@ -598,7 +931,7 @@ class LakeAvgProduct(ShapefileProduct):
         :type flag_create: boolean
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
+        logger.debug("- start -")
         
         # 1 - Inheritance of ShapefileProduct
         super().__init__(os.path.join(os.path.dirname( __file__ ), "xml/lakeavg.xml"),
@@ -658,63 +991,67 @@ def convert_wrt_type(in_val, in_type):
 #######################################
     
 
-def check_lake_db(in_xml_tree):
+def check_lake_db(in_xml_tree, in_lakedb_file):
     """
-    Check lake_db filename: value in LakeTile XML files and in command file should be the same
+    Check lake_db filename: value in LakeTile XML files and in LakeSP command file should be the same
     
-    :param IN_xml_tree: XML tree
+    :param IN_xml_tree: XML tree from LakeTile shapefile
     :type IN_xml_tree: etree.parse
+    :param in_lakedb_file: lake database filename
+    :type in_lakedb_file: string
     """ 
     # Get instance of service config file
     cfg = service_config_file.get_instance()
+    flag_write_full_path = cfg.getboolean("OPTIONS", "Write full path")
     # Get logger
     logger = logging.getLogger("locnes_products_shapefile")
-    logger.info("Compare LAKE_DB value in LakeTile XML file to value in command file")
-    
-    # Read source in the XML file
-    try:
-        source_xml = in_xml_tree.xpath("//swot_product/global_processing/source")[0].text
-    except(IndexError):  # Default is None
-        source_xml = ""
-        logger.error("NO source information in LakeTile XML file")
+    logger.debug("Compare LAKE_DB value in LakeTile XML file to value in LakeSP command file")
     
     # Read PLD filename in the XML file
     try:
-        lake_db_xml = in_xml_tree.xpath("//swot_product/processing_parameters/lake_db")[0].text
+        lake_db_xml = in_xml_tree.xpath("//swot_product/global_metadata/xref_prior_lake_db_file")[0].text
     except(IndexError):  # Default is None
-        lake_db_xml = "None"
+        lake_db_xml = None
         logger.error("NO lake_db information in LakeTile XML file")
     
-    # Retrieve PLD filename from command file
-    lake_db = cfg.get('DATABASES', 'LAKE_DB')
-    
     # Both should be the same
-    if (lake_db is None) and (lake_db_xml == "None"):
-        logger.warning('LAKE_DB not filled => LakeSP product not linked to a prior lake database')
+    if (in_lakedb_file is None) and (lake_db_xml == None):
+        logger.warning('LAKE_DB not filled => LakeSP product not linked to prior lake database')
     else:
-        # Compare full path or basename of PLD depending on the environment (Simulation or else)
-        if "simu" in source_xml.lower():
-            tmp_compare_cfg = lake_db
+        # Compare full path or basename of PLD
+        if flag_write_full_path:
+            tmp_compare_cfg = in_lakedb_file
             tmp_compare_xml = lake_db_xml
         else:
-            tmp_compare_cfg = os.path.basename(lake_db)
-            tmp_compare_xml = os.path.basename(lake_db_xml)
+            if in_lakedb_file is None:
+                tmp_compare_cfg = None
+            else:
+                tmp_compare_cfg = os.path.basename(in_lakedb_file)
+            if lake_db_xml is None:
+                tmp_compare_xml = None
+            else:
+                tmp_compare_xml = os.path.basename(lake_db_xml)
             
         # Test
-        if (lake_db is None):
+        if (in_lakedb_file is None) and (tmp_compare_xml is not None):
             message = "ERROR bad lake_db. In XML file: " + lake_db_xml + " WHEREAS in command file: None"
             raise service_error.ProcessingError(message, logger)
-        elif (tmp_compare_cfg != tmp_compare_xml):
-            message = "ERROR bad lake_db. In XML file: " + tmp_compare_xml + " WHEREAS in command file: " + tmp_compare_cfg
+        elif (in_lakedb_file is not None) and (tmp_compare_xml is None):
+            message = "ERROR bad lake_db. In command file: " + in_lakedb_file + " WHEREAS in XML file: None"
             raise service_error.ProcessingError(message, logger)
+        elif (tmp_compare_cfg != tmp_compare_xml):
+            pass
+            # Suppression erreur suite au changement de PLD à LakeDatabase --> a modifier apres
+            #message = "ERROR bad lake_db. In XML file: " + tmp_compare_xml + " WHEREAS in command file: " + tmp_compare_cfg
+            #raise service_error.ProcessingError(message, logger)
             
     # Print PLD filename in log
-    logger.debug('LAKE_DB = ' + str(cfg.get('DATABASES', 'LAKE_DB')))
+    logger.debug('LAKE_DB = ' + str(in_lakedb_file))
 
 
 def check_lake_db_id(in_xml_tree):
     """
-    Check lake_db_id value: value in LakeTile XML files and in command file should be the same
+    Check lake_db_id value: value in LakeTile XML files and in LakeSP command file should be the same
     
     :param IN_xml_tree: XML tree
     :type IN_xml_tree: etree.parse
@@ -723,13 +1060,13 @@ def check_lake_db_id(in_xml_tree):
     cfg = service_config_file.get_instance()
     # Get logger
     logger = logging.getLogger("locnes_products_shapefile")
-    logger.debug("Compare LAKE_DB_ID value in LakeTile XML file to value in command file")
+    logger.debug("Compare LAKE_DB_ID value in LakeTile XML file to value in LakeSP command file")
 
     # Read lake identifier in LakeTile XML file
     try:
         lake_db_id_xml = in_xml_tree.xpath("//swot_product/processing_parameters/lake_db_id")[0].text
     except(IndexError):
-        lake_db_id_xml = "None"
+        lake_db_id_xml = None
         logger.error("NO lake_db_id information in LakeTile XML file")
     
     # Retrieve lake identifier from command file
@@ -758,13 +1095,7 @@ def set_config_from_xml(in_xml_tree):
     cfg = service_config_file.get_instance()
     # Get logger
     logger = logging.getLogger("locnes_products_shapefile")
-    logger.info("Read LakeTile XML")
-    
-    # Check if lake db specified in the command file is the same
-    # Check Lake database filename
-    check_lake_db(in_xml_tree)
-    # Check lake_db_id value
-    check_lake_db_id(in_xml_tree)
+    logger.debug("Read LakeTile XML")
 
     section = "CONFIG_PARAMS"
     # If section doesn't exist: add and init values
@@ -774,21 +1105,41 @@ def set_config_from_xml(in_xml_tree):
         # Add value if not in service_config_file
         cfg.add_section(section)
         
-        # Water flag = 3=water near land edge  4=interior water
-        flag_water = in_xml_tree.xpath("//swot_product/processing_parameters/flag_water")[0].text
-        cfg.set(section, "FLAG_WATER", flag_water)
-        logger.debug('FLAG_WATER = ' + str(cfg.get('CONFIG_PARAMS', 'FLAG_WATER')))
+        # List of classif flags to keep for processing: 2=land_near_water  3=water_near_land   4=open_water  5=dark_water 
+        classif_list = in_xml_tree.xpath("//swot_product/processing_parameters/classif_list")[0].text
+        cfg.set(section, "CLASSIF_LIST", classif_list)
+        logger.debug('CLASSIF_LIST = ' + str(cfg.get('CONFIG_PARAMS', 'CLASSIF_LIST')))
         
-        # Dark water flag = 23=darkwater near land  24=interior dark water
-        flag_dark = in_xml_tree.xpath("//swot_product/processing_parameters/flag_dark")[0].text
-        cfg.set(section, "FLAG_DARK", flag_dark)
-        logger.debug('FLAG_DARK = ' + str(cfg.get('CONFIG_PARAMS', 'FLAG_DARK')))
+        # True/False list of classif flags which contain observed water (1-to-1 correspondance with CLASSIF_LIST)
+        classif_water = in_xml_tree.xpath("//swot_product/processing_parameters/classif_water")[0].text
+        cfg.set(section, "CLASSIF_WATER", classif_water)
+        logger.debug('CLASSIF_WATER = ' + str(cfg.get('CONFIG_PARAMS', 'CLASSIF_WATER')))
+        
+        # True/False list of classif flags to use for lake boundary construction (1-to-1 correspondance with CLASSIF_LIST)
+        classif_4hull = in_xml_tree.xpath("//swot_product/processing_parameters/classif_4hull")[0].text
+        cfg.set(section, "CLASSIF_4HULL", classif_4hull)
+        logger.debug('CLASSIF_4HULL = ' + str(cfg.get('CONFIG_PARAMS', 'CLASSIF_4HULL')))
+        
+        # True/False list of classif flags to use for WSE computation (1-to-1 correspondance with CLASSIF_LIST)
+        classif_4wse = in_xml_tree.xpath("//swot_product/processing_parameters/classif_4wse")[0].text
+        cfg.set(section, "CLASSIF_4WSE", classif_4wse)
+        logger.debug('CLASSIF_4WSE = ' + str(cfg.get('CONFIG_PARAMS', 'CLASSIF_4WSE')))
+        
+        # True/False list of classif flags to use for lake area computation (1-to-1 correspondance with CLASSIF_LIST)
+        classif_4area = in_xml_tree.xpath("//swot_product/processing_parameters/classif_4area")[0].text
+        cfg.set(section, "CLASSIF_4AREA", classif_4area)
+        logger.debug('CLASSIF_4AREA = ' + str(cfg.get('CONFIG_PARAMS', 'CLASSIF_4AREA')))
         
         # Min size for a lake to generate a lake product (=polygon + attributes) for it
         min_size = float(in_xml_tree.xpath("//swot_product/processing_parameters/min_size")[0].text)
         cfg.set(section, "MIN_SIZE", min_size)
         logger.debug('MIN_SIZE = ' + str(cfg.get('CONFIG_PARAMS', 'MIN_SIZE')))
-        
+
+        # Maximum number of azimuth tiles covered by a lake processed in LakeSP
+        max_nb_tiles_full_az = int(in_xml_tree.xpath("//swot_product/processing_parameters/max_nb_tiles_full_az")[0].text)
+        cfg.set(section, "MAX_NB_TILES_FULL_AZ", max_nb_tiles_full_az)
+        logger.debug('MAX_NB_TILES_FULL_AZ = ' + str(cfg.get('CONFIG_PARAMS', 'MAX_NB_TILES_FULL_AZ')))
+
         # Min percentage of overlapping area to consider a PLD lake linked to an observed feature
         min_overlap = float(in_xml_tree.xpath("//swot_product/processing_parameters/min_overlap")[0].text)
         cfg.set(section, "MIN_OVERLAP", min_overlap)
@@ -820,10 +1171,12 @@ def set_config_from_xml(in_xml_tree):
         logger.debug('IMP_GEOLOC = ' + str(cfg.get('CONFIG_PARAMS', 'IMP_GEOLOC')))
         
         # Method to compute lake boundary or polygon hull
-        # 0 = convex hull
+        # 0 = convex hull 
         # 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library
-        # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track
-        # 2 = edge computed in radar geometry, then converted in ground geometry (default)
+        # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation (time consuming)
+        # 1.2 = concave hull computed in ground geometry, based on Delaunay triangulation with alpha parameter varying along range
+        # 2.0 = edge computed in radar geometry, then converted in ground geometry by reordering lon lat (default)
+        # 2.1 = edge computed in radar geometry, then converted in ground geometry by checking each segment
         hull_method = float(in_xml_tree.xpath("//swot_product/processing_parameters/hull_method")[0].text)
         cfg.set(section, "HULL_METHOD", hull_method)
         logger.debug('HULL_METHOD = ' + str(cfg.get('CONFIG_PARAMS', 'HULL_METHOD')))
@@ -832,12 +1185,7 @@ def set_config_from_xml(in_xml_tree):
         nb_pix_max_delauney = int(in_xml_tree.xpath("//swot_product/processing_parameters/nb_pix_max_delauney")[0].text)
         cfg.set(section, "NB_PIX_MAX_DELAUNEY", nb_pix_max_delauney)
         logger.debug('NB_PIX_MAX_DELAUNEY = ' + str(cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY')))
-        
-        # Max number of contour points for hull computation method 2
-        nb_pix_max_contour = int(in_xml_tree.xpath("//swot_product/processing_parameters/nb_pix_max_contour")[0].text)
-        cfg.set(section, "NB_PIX_MAX_CONTOUR", nb_pix_max_contour)
-        logger.debug('NB_PIX_MAX_CONTOUR = ' + str(cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_CONTOUR')))
-        
+
         # Big lakes parameters for improved geoloc
         # Model to deal with big lake processing
         biglake_model = in_xml_tree.xpath("//swot_product/processing_parameters/biglake_model")[0].text
@@ -861,6 +1209,10 @@ def set_config_from_xml(in_xml_tree):
         cfg.set(section, "STOCC_INPUT", stocc_input)
         logger.debug('STOCC_INPUT = ' + str(cfg.get('CONFIG_PARAMS', 'STOCC_INPUT')))
         
+        # Threshold of good pixels within a lake to set quality_f
+        threshold_4nominal = float(in_xml_tree.xpath("//swot_product/processing_parameters/threshold_4nominal")[0].text)
+        cfg.set(section, "THRESHOLD_4NOMINAL", threshold_4nominal)
+        logger.debug('THRESHOLD_4NOMINAL = ' + str(cfg.get('CONFIG_PARAMS', 'THRESHOLD_4NOMINAL')))
         # Nb digits for counter of lakes, used in the obs_id identifier of each observed lake
         nb_digits = int(in_xml_tree.xpath("//swot_product/processing_parameters/nb_digits")[0].text)
         cfg.set(section, "NB_DIGITS", nb_digits)
@@ -871,21 +1223,45 @@ def set_config_from_xml(in_xml_tree):
         # Check values
         try:
             
-            # Water flag = 3=water near land edge  4=interior water
-            flag_water_xml = in_xml_tree.xpath("//swot_product/processing_parameters/flag_water")[0].text
-            flag_water = cfg.get(section, "FLAG_WATER")
-            if (flag_water_xml != flag_water):
-                message = "ERROR bad flag_water. In XML file: " + str(flag_water_xml) + " WHEREAS previously set at: " + str(flag_water)
+            # List of classif flags to keep for processing: 2=land_near_water  3=water_near_land   4=open_water  5=dark_water 
+            classif_list_xml = in_xml_tree.xpath("//swot_product/processing_parameters/classif_list")[0].text
+            classif_list = cfg.get(section, "CLASSIF_LIST")
+            if (classif_list_xml != classif_list):
+                message = "ERROR bad classif_list. In XML file: " + str(classif_list_xml) + " WHEREAS previously set at: " + str(classif_list)
                 raise service_error.ProcessingError(message, logger)
-            logger.debug('FLAG_WATER = ' + str(cfg.get('CONFIG_PARAMS', 'FLAG_WATER')))
+            logger.debug('CLASSIF_LIST = ' + str(cfg.get('CONFIG_PARAMS', 'CLASSIF_LIST')))
             
-            # Dark water flag = 23=darkwater near land  24=interior dark water
-            flag_dark_xml = in_xml_tree.xpath("//swot_product/processing_parameters/flag_dark")[0].text
-            flag_dark = cfg.get(section, "FLAG_DARK")
-            if (flag_dark_xml != flag_dark):
-                message = "ERROR bad flag_dark. In XML file: " + str(flag_dark_xml) + " WHEREAS previously set at: " + str(flag_dark)
+            # True/False list of classif flags which contain observed water (1-to-1 correspondance with CLASSIF_LIST)
+            classif_water_xml = in_xml_tree.xpath("//swot_product/processing_parameters/classif_water")[0].text
+            classif_water = cfg.get(section, "CLASSIF_WATER")
+            if (classif_water_xml != classif_water):
+                message = "ERROR bad classif_water. In XML file: " + str(classif_water_xml) + " WHEREAS previously set at: " + str(classif_water)
                 raise service_error.ProcessingError(message, logger)
-            logger.debug('FLAG_DARK = ' + str(cfg.get('CONFIG_PARAMS', 'FLAG_DARK')))
+            logger.debug('CLASSIF_WATER = ' + str(cfg.get('CONFIG_PARAMS', 'CLASSIF_WATER')))
+            
+            # True/False list of classif flags to use for lake boundary construction (1-to-1 correspondance with CLASSIF_LIST)
+            classif_4hull_xml = in_xml_tree.xpath("//swot_product/processing_parameters/classif_4hull")[0].text
+            classif_4hull = cfg.get(section, "CLASSIF_4HULL")
+            if (classif_4hull_xml != classif_4hull):
+                message = "ERROR bad classif_4hull. In XML file: " + str(classif_4hull_xml) + " WHEREAS previously set at: " + str(classif_4hull)
+                raise service_error.ProcessingError(message, logger)
+            logger.debug('CLASSIF_4HULL = ' + str(cfg.get('CONFIG_PARAMS', 'CLASSIF_4HULL')))
+            
+            # True/False list of classif flags to use for WSE computation (1-to-1 correspondance with CLASSIF_LIST)
+            classif_4wse_xml = in_xml_tree.xpath("//swot_product/processing_parameters/classif_4wse")[0].text
+            classif_4wse = cfg.get(section, "CLASSIF_4WSE")
+            if (classif_4wse_xml != classif_4wse):
+                message = "ERROR bad classif_4wse. In XML file: " + str(classif_4wse_xml) + " WHEREAS previously set at: " + str(classif_4wse)
+                raise service_error.ProcessingError(message, logger)
+            logger.debug('CLASSIF_4WSE = ' + str(cfg.get('CONFIG_PARAMS', 'CLASSIF_4WSE')))
+            
+            # True/False list of classif flags to use for lake area computation (1-to-1 correspondance with CLASSIF_LIST)
+            classif_4area_xml = in_xml_tree.xpath("//swot_product/processing_parameters/classif_4area")[0].text
+            classif_4area = cfg.get(section, "CLASSIF_4AREA")
+            if (classif_4area_xml != classif_4area):
+                message = "ERROR bad classif_4area. In XML file: " + str(classif_4area_xml) + " WHEREAS previously set at: " + str(classif_4area)
+                raise service_error.ProcessingError(message, logger)
+            logger.debug('CLASSIF_4AREA = ' + str(cfg.get('CONFIG_PARAMS', 'CLASSIF_4AREA')))
             
             # Min size for a lake to generate a lake product (=polygon + attributes) for it
             min_size_xml = float(in_xml_tree.xpath("//swot_product/processing_parameters/min_size")[0].text)
@@ -894,7 +1270,16 @@ def set_config_from_xml(in_xml_tree):
                 message = "ERROR bad min_size. In XML file: " + str(min_size_xml) + " WHEREAS previously set at: " + str(min_size)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('MIN_SIZE = ' + str(cfg.get('CONFIG_PARAMS', 'MIN_SIZE')))
-            
+
+            # Maximum number of azimuth tiles covered by a lake processed in LakeSP
+            max_nb_tiles_full_az_xml = int(in_xml_tree.xpath("//swot_product/processing_parameters/max_nb_tiles_full_az")[0].text)
+            max_nb_tiles_full_az = cfg.getint(section, "MAX_NB_TILES_FULL_AZ")
+            if (max_nb_tiles_full_az_xml != max_nb_tiles_full_az):
+                message = "ERROR bad max_nb_tiles_full_az. In XML file: " + str(max_nb_tiles_full_az_xml) + " WHEREAS previously set at: " \
+                                                                        + str(max_nb_tiles_full_az)
+                raise service_error.ProcessingError(message, logger)
+            logger.debug('MAX_NB_TILES_FULL_AZ = ' + str(cfg.get('CONFIG_PARAMS', 'MAX_NB_TILES_FULL_AZ')))
+
             # Min percentage of overlapping area to consider a PLD lake linked to an observed feature
             min_overlap_xml = float(in_xml_tree.xpath("//swot_product/processing_parameters/min_overlap")[0].text)
             min_overlap = cfg.getfloat(section, "MIN_OVERLAP")
@@ -929,18 +1314,20 @@ def set_config_from_xml(in_xml_tree):
             logger.debug('SEGMENTATION_METHOD = ' + str(cfg.get('CONFIG_PARAMS', 'SEGMENTATION_METHOD')))
     
             # To improve PixC geolocation (=True) or not (=False)
-            imp_geoloc_xml = bool(in_xml_tree.xpath("//swot_product/processing_parameters/imp_geoloc")[0].text)
+            imp_geoloc_xml = in_xml_tree.xpath("//swot_product/processing_parameters/imp_geoloc")[0].text
             imp_geoloc = cfg.getboolean(section, "IMP_GEOLOC")
-            if (imp_geoloc_xml != imp_geoloc):
+            if (imp_geoloc_xml != str(imp_geoloc)):
                 message = "ERROR bad imp_geoloc. In XML file: " + str(imp_geoloc_xml) + " WHEREAS previously set at: " + str(imp_geoloc)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('IMP_GEOLOC = ' + str(cfg.get('CONFIG_PARAMS', 'IMP_GEOLOC')))
             
             # Method to compute lake boundary or polygon hull
-            # 0 = convex hull
+            # 0 = convex hull 
             # 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library
-            # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation - with alpha parameter varying across-track
-            # 2 = edge computed in radar geometry, then converted in ground geometry (default)
+            # 1.1 = concave hull computed in ground geometry, based on Delaunay triangulation (time consuming)
+            # 1.2 = concave hull computed in ground geometry, based on Delaunay triangulation with alpha parameter varying along range
+            # 2.0 = edge computed in radar geometry, then converted in ground geometry by reordering lon lat (default)
+            # 2.1 = edge computed in radar geometry, then converted in ground geometry by checking each segment
             hull_method_xml = float(in_xml_tree.xpath("//swot_product/processing_parameters/hull_method")[0].text)
             hull_method = cfg.getfloat(section, "HULL_METHOD")
             if (hull_method_xml != hull_method):
@@ -956,15 +1343,6 @@ def set_config_from_xml(in_xml_tree):
                                                                          + str(nb_pix_max_delauney)
                 raise service_error.ProcessingError(message, logger)
             logger.debug('NB_PIX_MAX_DELAUNEY = ' + str(cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY')))
-            
-            # Max number of contour points for hull computation method 2
-            nb_pix_max_contour_xml = int(in_xml_tree.xpath("//swot_product/processing_parameters/nb_pix_max_contour")[0].text)
-            nb_pix_max_contour = cfg.getint(section, "NB_PIX_MAX_CONTOUR")
-            if (nb_pix_max_contour_xml != nb_pix_max_contour):
-                message = "ERROR bad nb_pix_max_contour. In XML file: " + str(nb_pix_max_contour_xml) + " WHEREAS previously set at: " \
-                                                                        + str(nb_pix_max_contour)
-                raise service_error.ProcessingError(message, logger)
-            logger.debug('NB_PIX_MAX_CONTOUR = ' + str(cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_CONTOUR')))
     
             # Big lakes parameters for improved geoloc
             # Model to deal with big lake processing
@@ -1008,6 +1386,14 @@ def set_config_from_xml(in_xml_tree):
                 raise service_error.ProcessingError(message, logger)
             logger.debug('STOCC_INPUT = ' + str(cfg.get('CONFIG_PARAMS', 'STOCC_INPUT')))
             
+            # Threshold of good pixels within a lake to set quality_f
+            threshold_4nominal_xml = float(in_xml_tree.xpath("//swot_product/processing_parameters/threshold_4nominal")[0].text)
+            threshold_4nominal = cfg.getfloat(section, "THRESHOLD_4NOMINAL")
+            if (threshold_4nominal_xml != threshold_4nominal):
+                message = "ERROR bad threshold_4nominal. In XML file: " + str(threshold_4nominal_xml) + " WHEREAS previously set at: " \
+                          + str(threshold_4nominal)
+                raise service_error.ProcessingError(message, logger)
+            logger.debug('THRESHOLD_4NOMINAL = ' + str(cfg.get('CONFIG_PARAMS', 'THRESHOLD_4NOMINAL')))
             # Nb digits for counter of lakes, used in the obs_id identifier of each observed lake
             nb_digits_xml = int(in_xml_tree.xpath("//swot_product/processing_parameters/nb_digits")[0].text)
             nb_digits = cfg.getint(section, "NB_DIGITS")
@@ -1017,5 +1403,57 @@ def set_config_from_xml(in_xml_tree):
                 raise service_error.ProcessingError(message, logger)
             logger.debug('NB_DIGITS = ' + str(cfg.get('CONFIG_PARAMS', 'NB_DIGITS')))
 
+
+
         except(IndexError):
             raise
+
+
+#######################################
+
+
+def attributes_fusion(attribute1, attribute2, fusion_mode, ratio):
+    """
+    Merge attributes depending on fusion mode :
+    - ratio: weight average
+    - max: attribute1 if ratio > 1, attribute2 otherwise
+    - sum : attribute1 + attribute2
+
+    :param attribute1: value to merge
+    :type attribute1: depends on the value
+    :param attribute2: value to merge
+    :type attribute2: depends on the value
+    :param fusion_mode: ratio, max, sum
+    :type fusion_mode: string
+    :param ratio: weight to apply
+    :type ratio: float
+
+    :return: out_value = merged value
+    :rtype: out_value = depends on the wanted type
+    """
+    logger = logging.getLogger("locnes_products_shapefile")
+    
+    out_value = None
+    
+    if ratio is None:
+        out_value = None
+    elif ratio == 1:
+        out_value = attribute1
+    elif ratio == 0:
+        out_value = attribute2
+    elif (attribute1 is None) or (attribute2 is None):
+        out_value = None
+    elif fusion_mode == 'ratio':
+        out_value = ratio * attribute1 + (1 - ratio) * attribute2
+    elif fusion_mode == 'max':
+        if ratio >= 1:
+            out_value = attribute1
+        else:
+            out_value = attribute2
+    elif fusion_mode == 'sum':
+        out_value = attribute1 + attribute2
+    else:
+        message = "ERROR : unknown fusion mode %s with attributes %s %s" % (fusion_mode, str(attribute1), str(attribute2))
+        raise service_error.ProcessingError(message, logger)
+        
+    return out_value

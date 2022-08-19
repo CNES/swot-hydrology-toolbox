@@ -26,12 +26,19 @@ LakeTile directory = <full_path_to_LakeTile_directory>
 Output directory = <output_directory>
 
 [DATABASES]
-# OPTIION 1 : SQLITE lake database containing  : lake_table, lake_influence_table, basin_table
-LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20200309_PLD/PLD_EU.sqlite
+# OPTION 1: upper directory pointing to operational Prior Lake Database (PLD)
+LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/PLD
 
-# OPTION 2 : SHP lake database
-# Prior lake database
-# LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20200309_PLD/PLD_EU.shp
+# OPTION 2: lake database in SQLite format
+# 2.1 - Filename starts with SWOT_PLD_ = operational Prior Lake Database (PLD)
+# 2.2 - Filename doesn't start with SWOT_PLD = personal lake database with model similar to operational PLD 
+#       ie containing the following tables: lake, lake_influence, basin
+#LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/PLD/Cal/SWOT_LakeDatabase_Cal_001_20000101T000000_20991231T235959_20211103T133032_v001.sqlite
+#LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/PLD/Nom/SWOT_LakeDatabase_Nom_001_20000101T000000_20991231T235959_20211103T133032_v001.sqlite
+
+# OPTION 3 : lake database in shapefile format
+# Filename
+# LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20200702_PLD/PLD_EU.shp
 # Lake identifier attribute name in the prior lake database and influence_lake_db
 # LAKE_DB_ID = lake_id
 
@@ -41,10 +48,16 @@ Pass number = <pass_number>
 Continent = <continent_code>
 
 [OPTIONS]
-# To also produce LakeTile_edge and LakeTile_pixcvec as shapefiles (=True); else=False (default)
+# To also produce LakeTile_Edge and LakeTile_PIXCVec as shapefiles (=True); else=False (default)
 Produce shp = <True|False>
 # To increment the file counter in the output filenames (=True, default); else=False
 Increment file counter = <True|False>
+# To write full path in global attributes (=True); to write only basename=False
+Write full path = <True|False>
+# Number of processors to use (default=1, max=2)
+Nb_proc = <int>
+# To delete temporary swath LakeSP shapefiles (=True, default) or not (=False)
+Delete temporary shp = <True|False>
 
 [LOGGING]
 # Error file full path
@@ -61,8 +74,6 @@ logconsolelevel = <DEBUG|INFO>
 [FILE_INFORMATION]
 # Name of producing agency
 INSTITUTION = CNES
-# Version number of software generating product
-REFERENCES = <X.Y>
 # Product version
 PRODUCT_VERSION = <Draft|Initial release|...>
 # Composite Release IDentifier for LakeTile processing

@@ -8,6 +8,8 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 '''
@@ -91,13 +93,14 @@ def height_fast(p):
     # 2 -computation of G
     G = terme_xy ** 2 + terme_z ** 2
     # derivative of G
-    dG_dth = 2 * (GEN_RAD_EARTH_EQ * c_th * terme_xy - GEN_RAD_EARTH_POLE * s_th * terme_z)
+    dg_dth = 2 * (GEN_RAD_EARTH_EQ * c_th * terme_xy - GEN_RAD_EARTH_POLE * s_th * terme_z)
     # second derivative of G
-    d2G_dth2 = 2 * ((GEN_RAD_EARTH_EQ * c_th) ** 2 + (
-        GEN_RAD_EARTH_POLE * s_th) ** 2 - GEN_RAD_EARTH_EQ * s_th * terme_xy - GEN_RAD_EARTH_POLE * c_th * terme_z)  # this is ~GEN_RAD_EARTH_EQ**2>>1, so never 0
+    d2g_dth2 = 2 * ((GEN_RAD_EARTH_EQ * c_th) ** 2 + (
+        GEN_RAD_EARTH_POLE * s_th) ** 2 - GEN_RAD_EARTH_EQ * s_th * terme_xy - GEN_RAD_EARTH_POLE * c_th * terme_z)
+    # this is ~GEN_RAD_EARTH_EQ**2>>1, so never 0
 
     # 3 - computation of A
-    A = G - dG_dth ** 2 / d2G_dth2 / 2
+    A = G - dg_dth ** 2 / d2g_dth2 / 2
 
     # 4 - computation of h_mu
     h_mu = numpy.sign(alpha - 1.) * numpy.sqrt(A)
@@ -330,11 +333,11 @@ def pointcloud_height_geoloc_vect(p_noisy, h_noisy, s, vs, range_target, h_targe
 
     # 1.8 - tweak the intial guess: move by dh in the w_hat direction, taking the spherical earth correction factor into account
     # 1.81 - crude approximation  (acceptable but we are computing an order 1 correction)
-    R_sph_earth = (GEN_RAD_EARTH_EQ + GEN_RAD_EARTH_POLE) / 2.
+    r_sph_earth = (GEN_RAD_EARTH_EQ + GEN_RAD_EARTH_POLE) / 2.
     # 1.82 - altitude approximation for earth spherical model
-    Alt_sph = r_s - R_sph_earth
+    alt_sph = r_s - r_sph_earth
     #  1.83 - correction factor
-    fact_sph = R_sph_earth / (R_sph_earth + Alt_sph)
+    fact_sph = r_sph_earth / (r_sph_earth + alt_sph)
     # 1.84 - mu correction for earth spherical model
     mu_0 += fact_sph * (h_target - h_noisy) / r_eq / numpy.sin(mu_0)
 
@@ -363,13 +366,14 @@ def pointcloud_height_geoloc_vect(p_noisy, h_noisy, s, vs, range_target, h_targe
         # 2 -computation of G
         G = terme_xy ** 2 + terme_z ** 2
         # derivative of G
-        dG_dth = 2 * (GEN_RAD_EARTH_EQ * c_th * terme_xy - GEN_RAD_EARTH_POLE * s_th * terme_z)
+        dg_dth = 2 * (GEN_RAD_EARTH_EQ * c_th * terme_xy - GEN_RAD_EARTH_POLE * s_th * terme_z)
         # second derivative of G
-        d2G_dth2 = 2 * ((GEN_RAD_EARTH_EQ * c_th) ** 2 + (
-            GEN_RAD_EARTH_POLE * s_th) ** 2 - GEN_RAD_EARTH_EQ * s_th * terme_xy - GEN_RAD_EARTH_POLE * c_th * terme_z)  # this is ~GEN_RAD_EARTH_EQ**2>>1, so never 0
+        d2g_dth2 = 2 * ((GEN_RAD_EARTH_EQ * c_th) ** 2 + (
+            GEN_RAD_EARTH_POLE * s_th) ** 2 - GEN_RAD_EARTH_EQ * s_th * terme_xy - GEN_RAD_EARTH_POLE * c_th * terme_z)
+        # this is ~GEN_RAD_EARTH_EQ**2>>1, so never 0
 
         # 3 - computation of A
-        A = G - dG_dth ** 2 / d2G_dth2 / 2
+        A = G - dg_dth ** 2 / d2g_dth2 / 2
 
         # 4 - computation of h_mu
         h_mu = numpy.sign(alpha - 1.) * numpy.sqrt(A)
@@ -383,10 +387,10 @@ def pointcloud_height_geoloc_vect(p_noisy, h_noisy, s, vs, range_target, h_targe
                               numpy.einsum('i,ij->ij', -sin_mu, w_hat) + numpy.einsum('i,ij->ij', cos_mu, u_hat))
         dz_dmu = dp_mu_dmu[:, 2]
         dd_dmu = (dp_mu_dmu[:, 0] * p_mu[:, 0] + dp_mu_dmu[:, 1] * p_mu[:, 1]) / d_mu
-        dG_dmu = -2 * (dd_dmu * terme_xy + dz_dmu * terme_z)
-        d2G_dthdmu = 2 * (-dd_dmu * GEN_RAD_EARTH_EQ * c_th + dz_dmu * GEN_RAD_EARTH_POLE * s_th)
-        d3G_dth2dmu = 2 * (dd_dmu * GEN_RAD_EARTH_EQ * s_th + dz_dmu * GEN_RAD_EARTH_POLE * c_th)
-        B = dG_dmu - d2G_dthdmu * dG_dth / d2G_dth2 + dG_dth ** 2 * d3G_dth2dmu / d2G_dth2 ** 2 / 2
+        dg_dmu = -2 * (dd_dmu * terme_xy + dz_dmu * terme_z)
+        d2g_dthdmu = 2 * (-dd_dmu * GEN_RAD_EARTH_EQ * c_th + dz_dmu * GEN_RAD_EARTH_POLE * s_th)
+        d3g_dth2dmu = 2 * (dd_dmu * GEN_RAD_EARTH_EQ * s_th + dz_dmu * GEN_RAD_EARTH_POLE * c_th)
+        B = dg_dmu - d2g_dthdmu * dg_dth / d2g_dth2 + dg_dth ** 2 * d3g_dth2dmu / d2g_dth2 ** 2 / 2
 
         # 6 - compute delta_mu ## if B == 0, delta_mu = 0
         ind = numpy.where(B!=0)
@@ -449,11 +453,11 @@ def convert_llh2ecef(lat, lon, height, rad_e=GEN_RAD_EARTH_EQ, rad_p=GEN_RAD_EAR
     lon = lon * numpy.pi / 180.
 
     e = numpy.sqrt(rad_e * rad_e - rad_p * rad_p) / rad_e
-    Rn = rad_e / numpy.sqrt(1 - e * e * numpy.sin(lat) * numpy.sin(lat))
+    rn = rad_e / numpy.sqrt(1 - e * e * numpy.sin(lat) * numpy.sin(lat))
 
-    axe_x = (Rn + height) * numpy.cos(lat) * numpy.cos(lon)
-    axe_y = (Rn + height) * numpy.cos(lat) * numpy.sin(lon)
-    axe_z = (Rn * (1. - e * e) + height) * numpy.sin(lat)
+    axe_x = (rn + height) * numpy.cos(lat) * numpy.cos(lon)
+    axe_y = (rn + height) * numpy.cos(lat) * numpy.sin(lon)
+    axe_z = (rn * (1. - e * e) + height) * numpy.sin(lat)
 
     return axe_x, axe_y, axe_z
 

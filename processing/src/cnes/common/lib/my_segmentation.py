@@ -84,29 +84,29 @@ def relabel_lake_using_segmentation_heigth(in_x, in_y, in_height, in_pix_area, m
     nb_pts = in_x.size
     area = np.sum(in_pix_area)
 
-    logger.debug("Number of pixels : %d ; area %d ; Min - Max height: %f - %f" %(nb_pts, int(area), np.min(in_height), np.max(in_height)))
-
     # split lake if contains more than 5 pixels or area >= 2*min_size
     compute_labels = True
 
     # if area < 2*min_size or contains less than 5 pixels, lake will not be split.
-    if area < 2 * min_size or nb_pts < 5 :
+    if area < 2 * min_size or nb_pts < 5:
         out_labels = np.ones((nb_pts), dtype='int')
         compute_labels = False
-
-    elif height_segmentation_method == 1 :
+    elif (~np.isfinite(in_height)).any():
+        out_labels = np.ones((nb_pts), dtype='int')
+        compute_labels = False
+    elif height_segmentation_method == 1:
         logger.debug("Lake segmentation method = Felzenszwalb")
         height_img = get_2d_from_1d(in_height, in_x, in_y)
         labeled_img = segmentation.felzenszwalb(height_img)
         out_labels = get_1d_from_2d(labeled_img, in_x, in_y)
 
-    elif height_segmentation_method == 2 :
+    elif height_segmentation_method == 2:
         logger.debug("Lake segmentation method = SLIC")
         height_img = get_2d_from_1d(in_height, in_x, in_y)
         labeled_img = segmentation.slic(height_img, n_segments=20)
         out_labels = get_1d_from_2d(labeled_img, in_x, in_y)
 
-    elif height_segmentation_method == 3 :
+    elif height_segmentation_method == 3:
         logger.debug("Lake segmentation method = Unsupervised thresholding")
         height_img = get_2d_from_1d(in_height, in_x, in_y)
         # compute threshold
@@ -115,7 +115,7 @@ def relabel_lake_using_segmentation_heigth(in_x, in_y, in_height, in_pix_area, m
         labeled_img = height_img > text_threshold
         out_labels = get_1d_from_2d(labeled_img, in_x, in_y)
 
-    elif height_segmentation_method == 4 :
+    elif height_segmentation_method == 4:
         logger.debug("Lake segmentation method = Watershed segmentation method")
         height_img = get_2d_from_1d(in_height, in_x, in_y)
         nb_line, nb_col = height_img.shape
@@ -125,9 +125,9 @@ def relabel_lake_using_segmentation_heigth(in_x, in_y, in_height, in_pix_area, m
         distance = ndimage.distance_transform_edt(height_img_smoothed)
         min_size = np.min([nb_line, nb_col])
         # compute local maximums
-        if min_size < 5 :
+        if min_size < 5:
             local_maxi = peak_local_max(distance, indices=False, footprint=np.ones((min_size, min_size)))
-        else :
+        else:
             local_maxi = peak_local_max(distance, indices=False, footprint=np.ones((5,5)))
         # if image contains more than 1 maximum local
         if np.sum(local_maxi) >= 2:
@@ -141,7 +141,7 @@ def relabel_lake_using_segmentation_heigth(in_x, in_y, in_height, in_pix_area, m
             distance = ndimage.distance_transform_edt(height_img)
             labeled_img = watershed(-distance, markers, mask = height_img)
             out_labels = get_1d_from_2d(labeled_img, in_x, in_y)
-        else :
+        else:
             out_labels = np.zeros((nb_pts))
 
     elif height_segmentation_method == 5:
@@ -188,13 +188,13 @@ def relabel_lake_using_segmentation_heigth(in_x, in_y, in_height, in_pix_area, m
         # Compute first threshold
         out_labels, split_lake_in_two = get_otsu_labelling(in_height, in_pix_area, min_size)
         # If lake slitted, try to split again separate parts
-        if split_lake_in_two :
+        if split_lake_in_two:
             # try to split first and second sub-lakes
             for i in [1, 2]:
                 # Compute threshold for sub lakes
                 out_labels_tmp, split_lake_in_more_than_two = get_otsu_labelling(in_height[np.where(out_labels == i)], in_pix_area, min_size)
                 # if sub-lakes need to be split, build new label to avoid that 1 labels corresponds to 2 separate lakes
-                if split_lake_in_more_than_two :
+                if split_lake_in_more_than_two:
                     out_labels[np.where(out_labels == i)] = out_labels_tmp + 2
                     out_labels_tmp2 = out_labels
                     for i, label in enumerate(np.unique(out_labels)):
@@ -217,22 +217,23 @@ def relabel_lake_using_segmentation_heigth(in_x, in_y, in_height, in_pix_area, m
         ms.fit(data)
         out_labels = split_labels_by_region(in_x, in_y, ms.labels_)
 
-    else :
+    else:
         raise service_error.ProcessingError("Lake segmentation method %d unknown" % height_segmentation_method, logger)
 
-    if(compute_labels):
+    if compute_labels:
         # filter labels to keep only labels with area > min_area
         out_labels = filter_image_by_region_size(in_x, in_y, out_labels, in_pix_area, min_size)
         # reorder labels to have labels from 1 to N in decreasing number of pixels.
         out_labels = reorder_labels(out_labels)
 
         labels, counts = np.unique(out_labels, return_counts=True)
-        if len(labels) > 1 :
-            logger.debug("Current lake contains %d sublakes" %(len(labels)))
+        if len(labels) > 1:
+            logger.debug("Initial object : %d ; area %d ; Min - Max height: %f - %f" % (nb_pts, int(area), np.min(in_height), np.max(in_height)))
+            logger.debug("Current object contains %d subobject" %(len(labels)))
             for i, label in enumerate(labels):
                 std = np.std(in_height[np.where(out_labels == label)])
                 mean = np.mean(in_height[np.where(out_labels == label)])
-                logger.debug("Sublakes %d contains %d pixels with mean_height %f and std_height %f" % (label, counts[i], mean, std))
+                logger.debug("Subobject %d contains %d pixels with mean_height %f and std_height %f" % (label, counts[i], mean, std))
 
         # # =================================================================================================================
         # # TO REMOVE WHEN TESTS ARE OK
@@ -346,16 +347,16 @@ def get_otsu_labelling(in_height, in_pix_area, min_size):
     if len(set(in_height)) < 2:
         split_lake_flag = False
         labels = np.ones((in_height.size))
-    else :
+    else:
         # compute Otsu threshold
         threshold = filters.threshold_otsu(in_height)
         # compute corresponding labels
         labels = (in_height > threshold).astype('int') + 1
         labels_unique, counts = np.unique(labels, return_counts=True)
         # Check if a class contains is bigger enough to become a new lake
-        if (counts * np.mean(in_pix_area) < min_size).any() or in_height.size <= 5 :
+        if (counts * np.mean(in_pix_area) < min_size).any() or in_height.size <= 5:
             split_lake_flag = False
-        else :
+        else:
             split_lake_flag = True
             #  Check if threshold is different from mean+/-2std for each class to split lake
             for i, label in enumerate(labels_unique):
@@ -367,7 +368,7 @@ def get_otsu_labelling(in_height, in_pix_area, min_size):
 
     if split_lake_flag == True:
         out_labels = labels
-    else :
+    else:
         out_labels = np.ones((in_height.size))
 
     return out_labels, split_lake_flag
@@ -476,7 +477,7 @@ def replace_label_with_maj_neighbor_value(in_labels_img, in_label):
     neighbors_values = neighbors_values[neighbors_values!=0]
     if neighbors_values.size > 1:
         maj_val = np.bincount(neighbors_values).argmax()
-    else :
+    else:
         maj_val = neighbors_values
 
     if maj_val.size == 0:
@@ -526,22 +527,22 @@ def filter_image_by_region_size(in_x, in_y, in_labels, in_pix_area, min_size):
     # List labels that with too small area and set major_value_exists to true if a label is bigger enough to be considered as a lake.
     label_too_small = []
     major_value_exists = False
-    for nl in new_labels :
+    for nl in new_labels:
         if nl == 0:
             continue
         idx = np.where(relabels_img == nl)
         area = np.sum(pix_area_img[idx])
 
-        if area < min_size or pix_area_img[idx].size <= 5 :
+        if area < min_size or pix_area_img[idx].size <= 5:
             label_too_small.append(nl)
         else :
             major_value_exists = True
 
     #  if a label is bigger enough, replace labels too small by neighborhood major value, otherwise set all labels to 1.
-    if major_value_exists :
+    if major_value_exists:
         for l in label_too_small:
             relabels_img = replace_label_with_maj_neighbor_value(relabels_img, l)
-    else :
+    else:
         relabels_img = np.ones(relabels_img.shape)
 
     out_labels = get_1d_from_2d(relabels_img, in_x, in_y)
@@ -579,12 +580,12 @@ def reorder_labels(in_labels):
 # from matplotlib.colors import ListedColormap
 # from matplotlib.colors import BoundaryNorm
 #
-# color_array = np.load("/work/ALT/swot/swothr/users/cazalsc/Issue_70/color_plot.npz")["color_array"]
-# color_list = color_array
-# cMap = ListedColormap(color_list)
-#
-# bounds = np.arange(-0.5, len(color_list) + 0.5, 1)
-# norm = BoundaryNorm(bounds, cMap.N)
+# # color_array = np.load("/work/ALT/swot/swothr/users/cazalsc/Issue_70/color_plot.npz")["color_array"]
+# # color_list = color_array
+# # cMap = ListedColormap(color_list)
+# #
+# # bounds = np.arange(-0.5, len(color_list) + 0.5, 1)
+# # norm = BoundaryNorm(bounds, cMap.N)
 #
 # def plot_height(in_height, in_x, in_y):
 #
@@ -603,7 +604,7 @@ def reorder_labels(in_labels):
 #     # Closes all the figure windows.
 #     plt.close('all')
 #
-# def plot_height_and_segementation(in_height, in_labels, in_x, in_y, fig_path, cMap, norm):
+# def plot_height_and_segementation(in_height, in_labels, in_x, in_y, fig_path, cMap=None, norm=None):
 #
 #     height_img = get_2d_from_1d(in_height, in_x, in_y)
 #     height_img[np.where(height_img == 0)] = np.nan

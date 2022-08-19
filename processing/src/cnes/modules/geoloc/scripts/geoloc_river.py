@@ -9,6 +9,7 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 '''
@@ -55,7 +56,7 @@ class GeolocRiver(object):
           :param sensor: sensor object
           :type sensor: class Sensor
           :param rivertile: rivertile object
-          :type class RiverTile
+          :type rivertile: class RiverTile
 
         Variables of the object:
         - pixc / pixel cloud from which to compute lake products
@@ -302,7 +303,7 @@ def geoloc_river(pixc, pixcvec, sensor, rivertile, fit_heights_per_reach, interp
       :param sensor: sensor object
       :type sensor: class Sensor
       :param rivertile: rivertile object
-      :type rivertile:class RiverTile
+      :type rivertile: class RiverTile
       :param fit_heights_per_reach: active or deactivate the linear fit on node heights per reach
       :type fit_heights_per_reach: boolean
       :param interpolate_pixc_between_nodes: active or deactivate the interpolation

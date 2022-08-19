@@ -11,6 +11,7 @@
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
+# VERSION:3.2.0:DM:#91:2021/10/27:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -70,10 +71,12 @@ class MultiLakeTile(object):
         self.pass_num = in_params["pass_num"]  # Pass number
         self.tile_ref = in_params["tile_ref"]  # Tile id
 
-        # Flag to produce LakeTile_edge and LakeTile_pixcvec shapefiles
+        # Flag to produce LakeTile_Edge and LakeTile_PIXCVec shapefiles
         self.flag_prod_shp = in_params["flag_prod_shp"]
         # Flag to increment output file counter
         self.flag_inc_file_counter = in_params["flag_inc_file_counter"]
+        # Flag to write full path in global attributes
+        self.flag_write_full_path = in_params["flag_write_full_path"]
         
         # Log level
         self.error_file = in_params["errorFile"]
@@ -84,7 +87,6 @@ class MultiLakeTile(object):
         
         # File information
         self.institution = in_params["institution"]
-        self.references = in_params["references"]
         self.product_version = in_params["product_version"]
         self.crid = in_params["crid"]
         self.pge_version = in_params["pge_version"]
@@ -194,16 +196,19 @@ class MultiLakeTile(object):
                 print("")
                 print("")
 
-                # 1 - Init
-                my_lake_tile = pge_lake_tile.PGELakeTile(cmd_file)
+                try:
+                    # 1 - Init
+                    my_lake_tile = pge_lake_tile.PGELakeTile(cmd_file)
 
-                # 2 - Run
-                my_lake_tile.start()
+                    # 2 - Run
+                    my_lake_tile.start()
 
-                # 3 - Stop
-                my_lake_tile.stop()
+                    # 3 - Stop
+                    my_lake_tile.stop()
+                except:
+                    print("WARNING : cmd_file %s failed" % cmd_file)
 
-        else :
+        else:
             print("")
             print("")
             print("***********************************************")
@@ -212,14 +217,17 @@ class MultiLakeTile(object):
             print("")
             print("")
 
-            # 1 - Init
-            my_lake_tile = pge_lake_tile.PGELakeTile(cmd_file)
+            try:
+                # 1 - Init
+                my_lake_tile = pge_lake_tile.PGELakeTile(cmd_file)
 
-            # 2 - Run
-            my_lake_tile.start()
+                # 2 - Run
+                my_lake_tile.start()
 
-            # 3 - Stop
-            my_lake_tile.stop()
+                # 3 - Stop
+                my_lake_tile.stop()
+            except:
+                print("WARNING : cmd_file %s failed" % cmd_file)
 
         print("")
         print("")
@@ -296,48 +304,36 @@ class MultiLakeTile(object):
         
         # 5.2 - Fill DATABASES section
         writer_command_file.write("[DATABASES]\n")
-        writer_command_file.write("# Prior lake database\n")
         if self.lake_db is not None:
             writer_command_file.write("LAKE_DB = " + self.lake_db + "\n")
-        writer_command_file.write("# Lake identifier attribute name in the database\n")
         if self.lake_db_id is not None:
             writer_command_file.write("LAKE_DB_ID = " + self.lake_db_id + "\n")
         writer_command_file.write("\n")
         
         # 5.3 - Fill OPTIONS section
         writer_command_file.write("[OPTIONS]\n")
-        writer_command_file.write("# To also produce LakeTile_edge and LakeTile_pixcvec as shapefiles (=True); else=False (default)\n")
         writer_command_file.write("Produce shp = " + str(self.flag_prod_shp) + "\n")
-        writer_command_file.write("# To increment the file counter in the output filenames (=True, default); else=False\n")
-        writer_command_file.write("Increment file counter = " + str(self.flag_inc_file_counter) + "\n\n")
+        writer_command_file.write("Increment file counter = " + str(self.flag_inc_file_counter) + "\n")
+        writer_command_file.write("Write full path = " + str(self.flag_write_full_path) + "\n")
+        writer_command_file.write("\n")
         
         # 5.4 - Fill LOGGING section
         writer_command_file.write("[LOGGING]\n")
-        writer_command_file.write("# Error file full path\n")
         writer_command_file.write("errorFile = " + error_file + "\n")
-        writer_command_file.write("# Log file full path\n")
         writer_command_file.write("logFile = " + log_file + "\n")
-        writer_command_file.write("# Log level put inside the file\n")
         writer_command_file.write("logfilelevel = " + self.log_file_level + "\n")
-        writer_command_file.write("# Is log console output ?\n")
         writer_command_file.write("logConsole = " + str(self.log_console) + "\n")
-        writer_command_file.write("# Log level print in console\n")
-        writer_command_file.write("logconsolelevel = " + self.log_console_level + "\n\n")
+        writer_command_file.write("logconsolelevel = " + self.log_console_level + "\n")
+        writer_command_file.write("\n")
 
         # 5.6 - Fill FILE_INFORMATION section
-        writer_command_file.write("[FILE_INFORMATION]\n")
-        writer_command_file.write("# Name of producing agency\n")    
+        writer_command_file.write("[FILE_INFORMATION]\n")   
         writer_command_file.write("INSTITUTION = " + self.institution + "\n")
-        writer_command_file.write("# Version number of software generating product\n")    
-        writer_command_file.write("REFERENCES = " + self.references + "\n") 
-        writer_command_file.write("# Product version\n")    
         writer_command_file.write("PRODUCT_VERSION = " + self.product_version + "\n")
-        writer_command_file.write("# Composite Release IDentifier for LakeTile processing\n")        
         writer_command_file.write("CRID = " + self.crid + "\n")
-        writer_command_file.write("# Version identifier of the product generation executable (PGE)\n")    
         writer_command_file.write("PGE_VERSION = " + self.pge_version + "\n")
-        writer_command_file.write("# Contact\n")        
-        writer_command_file.write("CONTACT = " + self.contact + "\n\n")
+        writer_command_file.write("CONTACT = " + self.contact + "\n")
+        writer_command_file.write("\n")
         
         # 5.7 - Close command file
         writer_command_file.close() 
@@ -370,13 +366,13 @@ def read_command_file(in_filename):
     out_params["tile_ref"] = None
     out_params["flag_prod_shp"] = False
     out_params["flag_inc_file_counter"] = True
+    out_params["flag_write_full_path"] = False
     out_params["errorFile"] = None
     out_params["logFile"] = None
     out_params["logfilelevel"] = "DEBUG"
     out_params["logConsole"] = True
     out_params["logconsolelevel"] = "DEBUG"
     out_params["institution"] = "CNES"
-    out_params["references"] = "0.0"
     out_params["product_version"] = "0.0"
     out_params["crid"] = "Dx0000"
     out_params["pge_version"] = "0.0"
@@ -418,12 +414,15 @@ def read_command_file(in_filename):
     # 5 - Retrieve OPTIONS
     if "OPTIONS" in config.sections():
         list_options = config.options("OPTIONS")
-        # Flag to also produce LakeTile_edge and LakeTile_pixcvec as shapefiles (=True); else=False (default)
+        # Flag to also produce LakeTile_Edge and LakeTile_PIXCVec as shapefiles (=True); else=False (default)
         if "produce shp" in list_options:
             out_params["flag_prod_shp"] = config.getboolean("OPTIONS", "Produce shp")
         # Flag to increment the file counter in the output filenames (=True, default); else=False
         if "increment file counter" in list_options:
             out_params["flag_inc_file_counter"] = config.get("OPTIONS", "Increment file counter")
+        # To write full path in global attributes (=True); to write only basename=False
+        if "write full path" in list_options:
+            out_params["flag_write_full_path"] = config.get("OPTIONS", "Write full path")
 
     # 6 - Retrieve LOGGING
     if "LOGGING" in config.sections():
@@ -448,8 +447,6 @@ def read_command_file(in_filename):
         list_options = config.options("FILE_INFORMATION")
         if "institution" in list_options:
             out_params["institution"] = config.get("FILE_INFORMATION", "INSTITUTION")
-        if "references" in list_options:
-            out_params["references"] = config.get("FILE_INFORMATION", "REFERENCES")
         if "product_version" in list_options:
             out_params["product_version"] = config.get("FILE_INFORMATION", "PRODUCT_VERSION")
         if "crid" in list_options:
@@ -493,7 +490,7 @@ if __name__ == '__main__':
     # 4 - Run processing
     if args.multiproc:
         multi_lake_tile.run_multiprocessing()
-    else :
+    else:
         multi_lake_tile.run_processing()
 
     print(timer.info(0))

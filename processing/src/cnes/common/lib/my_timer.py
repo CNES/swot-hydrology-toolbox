@@ -84,7 +84,7 @@ class Timer(object):
         # 3 - Retourne la duree au format hh:mm:ss
         return "[Timer-INFO] Step executed in %s" % self.print_delay(int(cur_time))
 
-    def stop(self):
+    def stop(self, message=None):
         """
         Calcule la duree totale d'execution
 
@@ -96,7 +96,10 @@ class Timer(object):
         total_time = time.time() - self.start_time
 
         # 2 - Retourne la duree au format hh:mm:ss
-        return "[Timer-INFO] Total execution time in %s" % self.print_delay(int(total_time))
+        if message:
+            return "[Timer-INFO] %s %s" % (message, self.print_delay(int(total_time)))
+        else:
+            return "[Timer-INFO] Total execution time in %s" % self.print_delay(int(total_time))
 
     # ----------------------------------------
 

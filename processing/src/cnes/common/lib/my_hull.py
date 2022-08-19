@@ -48,7 +48,7 @@ import cnes.common.service_error as service_error
 import cnes.common.lib.my_tools as my_tools
 
 
-def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix_range):
+def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix_range, in_swath_side, in_pass_num):
     """
     Compute the hull of a set of points determined by their coordinates given in input parameters
 
@@ -62,6 +62,10 @@ def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix
     :type in_azimuth: 1D-array of int
     :param in_nb_pix_range: maximal number of pixel in range
     :type in_nb_pix_range: int
+    :param in_swath_side: 1-letter swath side; R=right or L=left
+    :type in_swath_side: string
+    :param in_pass_num: orbit pass number.
+    :type in_pass_num: int
 
     :return the hull of the input set of points
     :rtype: OGRMultiPolygon
@@ -88,13 +92,17 @@ def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix
         logger.debug("Hull computation method : Delauney triangulation")
         retour = get_concave_hull_from_basic_triangulation(in_v_long, in_v_lat)
 
-    elif hull_method == 1.2:  # 1.1 - CONCAV HULL - Delaunay triangulation with alpha parameter varying along range
+    elif hull_method == 1.2:  # 1.2 - CONCAV HULL - Delaunay triangulation with alpha parameter varying along range
         logger.debug("Hull computation method : Delauney triangulation with alpha parameter varying along range")
         retour = get_concave_hull_from_triangulation_enhanced(in_v_long, in_v_lat, in_range, in_nb_pix_range)
 
-    elif hull_method == 2:  # 2 - CONCAV HULL - Radar vectorisation method
-        logger.debug("Hull computation method : radar vectorization (default)")
-        retour = get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, in_v_lat)
+    elif hull_method == 2.0:  # 2.0 - CONCAV HULL - Radar vectorisation method - reorder lon lat
+        logger.debug("Hull computation method : radar vectorization with reordered lon lat (default)")
+        range, long, lat = reorder_lon_lat(in_range, in_azimuth, in_v_long, in_v_lat, in_swath_side, in_pass_num)
+        retour = get_concave_hull_from_radar_vectorisation(range, in_azimuth, long, lat, hull_method)
+    elif hull_method == 2.1:  # 2.1 - CONCAV HULL - Radar vectorisation method - check segments
+        logger.debug("Hull computation method : radar vectorization check segments building polygon")
+        retour = get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, in_v_lat, hull_method)
 
     else:
         message = "Concave hull computation method not understood"
@@ -110,7 +118,7 @@ def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix
 #######################################
 
 
-def remove_holes_triangles(polygon) :
+def remove_holes_triangles(polygon):
     """
     Remove holes
 
@@ -501,7 +509,7 @@ def split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max=1e4):
         retour = [(in_range, in_azimuth, in_v_long, in_v_lat)]
     return retour
 
-def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, in_v_lat):
+def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, in_v_lat, in_hull_method):
     """
     Compute the concave hull of a set of points using radar vectorisation, split image into sub-images if needed
 
@@ -513,6 +521,8 @@ def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, i
     :type in_v_long: 1D-array of float
     :param in_v_lat: latitude of points
     :type in_v_lat: 1D-array of float
+    :param in_hull_method: hull computation method, can be 2.0 or 2.1
+    :type in_hull_method: float
 
     :return: the hull of the input set of points
     :rtype: OGRMultiPolygon
@@ -524,29 +534,74 @@ def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, i
     # Split lake sar image in sub_images
     list_sub_img_to_process = split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max)
     if len(list_sub_img_to_process) > 1:
-        logger.info("Lake image with %d pixels is splitted in %d sub images of less than %d pixels" % (len(in_range),
+        logger.debug("Lake image with %d pixels is splitted in %d sub images of less than %d pixels" % (len(in_range),
                                                                                                        len(list_sub_img_to_process), nb_pix_max))
 
     multi_poly = ogr.Geometry(ogr.wkbMultiPolygon)
 
-    for i, (sub_range, sub_azimuth, sub_v_long, sub_v_lat) in enumerate(list_sub_img_to_process) :
-        if i%100 == 0 :
-            logger.info("%d over %d sub-image already processed" % ( i+1, len(list_sub_img_to_process)))
-        sub_poly = get_polygon_from_binar_image(sub_range, sub_azimuth, sub_v_long, sub_v_lat)
+    for i, (sub_range, sub_azimuth, sub_v_long, sub_v_lat) in enumerate(list_sub_img_to_process):
+        if i%100 == 0:
+            logger.debug("%d over %d sub-image already processed" % ( i+1, len(list_sub_img_to_process)))
+        sub_poly = get_polygon_from_binar_image(sub_range, sub_azimuth, sub_v_long, sub_v_lat, in_hull_method)
         if sub_poly.GetGeometryName() == "MULTIPOLYGON":
             for geom in sub_poly:
                 multi_poly.AddGeometry(geom)
-        else :
+        else:
             multi_poly.AddGeometry(sub_poly)
 
     if not multi_poly.IsEmpty():
         poly = multi_poly.UnionCascaded()
-    else :
+    else:
         poly = multi_poly
 
     return poly
 
-def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat):
+def compute_contour_from_range_azimuth(in_x, in_y):
+    """
+    Compute contour of object with coordinates in_x and in_y
+
+    :param in_x: x coordinates
+    :type in_x: 1D-array of int
+    :param in_y: y coordinates
+    :type in_y: 1D-array of int
+
+    :return: geometry object coordinates
+    :rtype: list of list of tuple of int
+    """
+    # Get instance of service config file
+    logger = logging.getLogger("my_hull")
+
+    # 1 - Get image (1 pixel around lake)
+    lake_img = my_tools.compute_bin_mat(np.max(in_x) + 2, np.max(in_y) + 2, in_x, in_y, verbose=False)
+    logger.debug("Processing image with size %d x %d, with %d water pixels" % (
+    lake_img.shape[0], lake_img.shape[1], np.sum(lake_img)))
+
+    # 2 - Filter isolated pixels
+    # Make a erosion to check that a contour can be computed
+    lake_erosion = binary_erosion(lake_img, structure=np.ones((2, 2))).astype(lake_img.dtype)
+
+    # 3 - Compute boundaries (there might be more than one if there are islands in lake)
+    if np.sum(lake_erosion) == 0:
+        logger.warning("Current lake pixc no not contain a valid polygon")
+        lake_contours = []
+    else:
+        lake_contours = find_contours(lake_img, 0.99999999999)
+
+    # 4 - Round contour range and azimuth coordinates to units, since they are indices in input parameters
+    # Removing duplicate points from lake contour
+    lake_contour_int = []
+
+    for contour in lake_contours:
+        contour_points = []
+
+        [contour_points.append(tuple(np.round(coords, 0))) for coords in contour if
+         tuple(np.round(coords, 0)) not in contour_points]
+
+        lake_contour_int.append(contour_points)
+
+    return lake_contour_int
+
+def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat, in_hull_method):
     """
     Compute the concave hull of a set of points using radar vectorisation
 
@@ -558,6 +613,8 @@ def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat):
     :type in_v_long: 1D-array of float
     :param in_v_lat: latitude of points
     :type in_v_lat: 1D-array of float
+    :param in_hull_method: hull computation method, can be 2.0 or 2.1
+    :type in_hull_method: float
 
     :return: the hull of the input set of points
     :rtype: OGRMultiPolygon
@@ -569,68 +626,51 @@ def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat):
     lake_x = in_range - np.min(in_range) + 1
     lake_y = in_azimuth - np.min(in_azimuth) + 1
 
-    # 2 - Get image (1 pixel around lake)
-    lake_img = my_tools.compute_bin_mat(np.max(lake_x) + 2, np.max(lake_y) + 2, lake_x, lake_y, verbose = False)
-    logger.info("Processing image with size %d x %d, with %d water pixels" %(lake_img.shape[0], lake_img.shape[1], np.sum(lake_img)))
+    # 2 - Compute contour using range and azimuth image coordinates
+    lake_contour_int = compute_contour_from_range_azimuth(lake_x, lake_y)
 
-    # 3 - Filter isolated pixels
-    # Make a erosion to check that a contour can be computed
-    lake_erosion = binary_erosion(lake_img, structure=np.ones((2,2))).astype(lake_img.dtype)
-
-    # 4 - Compute boundaries (there might be more than one if there are islands in lake)
-    if np.sum(lake_erosion) == 0 :
-        logger.warning("Current lake pixc no not contain a valid polygon")
-        lake_contours = []
-    else :
-        lake_contours = find_contours(lake_img, 0.99999999999)
-
-    # 5 - Round contour range and azimuth coordinates to units, since they are indices in input parameters
-    # Removing duplicate points from lake contour
-    lake_contour_int = []
-
-    for contour in lake_contours:
-        contour_points = []
-
-        [contour_points.append(tuple(np.round(coords, 0))) for coords in contour if tuple(np.round(coords, 0)) not in contour_points]
-
-        lake_contour_int.append(contour_points)
-
-    # 6 - Convert (azimuth, range) contour into polygon
+    # 3 - Convert (azimuth, range) contour into polygon
     logger.debug("Inital polygon contains 1 external ring and %d holes rings " % (len(lake_contour_int) - 1))
 
+    # 4 - Convert contours in lon lat
     # multi_ring_list contains every ring composing the polygon, the first ring contains exterior coordinates, 
     # all other rings are holes in the polygon
-    multi_ring_list = []
-
+    multi_list_of_points = []
     for contour in lake_contour_int:  # Loop over contours
-        logger.debug("Building new ring with %d points " % (len(contour)))
-
-        # if the lake contour contains more than 8 000 pixels, the number of pixel is restricted to 8 000..
-        if len(contour) > 8000:
+        if len(contour) < 3:
+            logger.debug("Current contour contains only %d points ... skip" % (len(contour)))
+            continue
+        elif len(contour) > 8000:
             logger.warning("Current contour contains %d points ... can be time consuming" % len(contour))
+        else:
+            logger.debug("Building new ring with %d points " % len(contour))
 
         list_of_points = []
 
-        for (y, x) in contour:  # Look over azimuth and range indices
+        for i, (y, x) in enumerate(contour):  # Look over azimuth and range indices
 
             # Retrieve lon/lat coordinates from range and azimtu coordinates
             # if current range and azimuth are found in input range and azimuth list
-            if np.where(np.logical_and(lake_x == x, lake_y == y))[0].any():
+
+            if np.logical_and(lake_x == x, lake_y == y).any():
                 point_idx = np.where(np.logical_and(lake_x == x, lake_y == y))[0][0]
                 lon = in_v_long[point_idx]
                 lat = in_v_lat[point_idx]
 
                 new_point = (lon, lat)
 
-                # Add new point :
-                #     - if new_point not in list
-                #     - if list contains more than 3 points : check if new points create a crossing between segments
-                if new_point not in list_of_points:
-                    if len(list_of_points) < 3:
-                        list_of_points.append(new_point)
-                    else:
-                        list_of_points = add_new_point_to_list_of_point(new_point, list_of_points)
-                # code commenté : list_of_points = addNewPoint(new_point, list_of_points)
+                if in_hull_method == 2.0:
+                    list_of_points.append(new_point)
+                elif in_hull_method == 2.1:
+                    # Add new point :
+                    #     - if new_point not in list
+                    #     - if list contains more than 3 points : check if new points create a crossing between segments
+                    if new_point not in list_of_points:
+                        if len(list_of_points) < 3:
+                            list_of_points.append(new_point)
+                        else:
+                            list_of_points = add_new_point_to_list_of_point(new_point, list_of_points)
+
             else:
                 logger.debug("Point of coordinates %d, %d not found -> Point removed" % (y, x))
 
@@ -638,23 +678,24 @@ def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat):
             logger.debug("Ring contains 0 points => Discarded")
             continue
 
-        # Add first point to the end of list
-        ring = build_ring_from_list_of_points(list_of_points)
-
-        # Check if ring does not intersect multi ring
-        ring = build_ring_without_integrity_issues_multi_ring(ring, multi_ring_list)
-
-        if len(ring) > 3:
-            # logger.debug("Adding new ring containing %d points to multi ring" % (len(ring[:-1])))
-            multi_ring_list.append(ring)
-
+        if in_hull_method == 2.0:
+            multi_list_of_points.append(list_of_points)
         else:
-            logger.debug("Ring contains less than 2 points => Discarded")
+            # Add first point to the end of list
+            ring = build_ring_from_list_of_points(list_of_points)
 
-    lake_poly = get_ogr_polygon_from_ring_list(multi_ring_list)
+            # Check if ring does not intersect multi ring
+            ring = build_ring_without_integrity_issues_multi_ring(ring, multi_list_of_points)
+
+            if len(ring) > 3:
+                # logger.debug("Adding new ring containing %d points to multi ring" % (len(ring[:-1])))
+                multi_list_of_points.append(ring)
+
+    # 5 - Build ogr geometry
+    lake_poly = get_ogr_polygon_from_list_of_list_of_points(multi_list_of_points)
 
     if not lake_poly.IsValid():
-        logger.debug("Polygon is invalid -> Polygon is downgraded into a valid geometry")
+        logger.warning("Polygon is invalid -> Polygon is downgraded into a valid geometry")
         lake_poly = lake_poly.Buffer(0)
 
     return lake_poly
@@ -664,6 +705,7 @@ def compute_segment_intersection(s1, s2):
     """
     Return the intersection point of s1 and s2
 
+    :param s1: segment formed by the two last points of the line
     :param s1: segment formed by the two last points of the line
     :type s1: Shapely LineString
     :param s2: segment formed by the line without last two points
@@ -688,7 +730,7 @@ def compute_segment_intersection(s1, s2):
             inter = (np.mean([inter[0].coords[0][0], inter[0].coords[1][0]]),
                      np.mean([inter[0].coords[0][1], inter[0].coords[1][1]]))
         elif isinstance(inter, GeometryCollection):
-            for geom in inter :
+            for geom in inter:
                 if isinstance(geom, Point):
                     inter_out = (geom.x, geom.y)
                 elif isinstance(geom, MultiPoint):
@@ -699,7 +741,7 @@ def compute_segment_intersection(s1, s2):
                 elif isinstance(geom, MultiLineString):
                     inter_out = (np.mean([geom[0].coords[0][0], geom[0].coords[1][0]]),
                              np.mean([geom[0].coords[0][1], geom[0].coords[1][1]]))
-                else :
+                else:
                     logger.warning("Unknown intersection geometry type : %s " % (type(geom)))
                     inter_out = None
 
@@ -771,14 +813,14 @@ def build_ring_from_list_of_points(list_of_points):
     """
     logger = logging.getLogger("my_hull")
 
-    if len(list_of_points) > 3 :
+    if len(list_of_points) > 3:
 
         s1 = LineString([list_of_points[-1], list_of_points[0]])
         s2 = LineString(list_of_points[1:-1])
 
         inter_list = compute_segment_intersection(s1, s2)
 
-        while inter_list and len(list_of_points) > 3 :
+        while inter_list and len(list_of_points) > 3:
 
             p = get_closest_point_from_list_of_point(inter_list, list_of_points[:2] + list_of_points[-2:])
             logger.debug("Removing point %f, %f" % (p[0], p[1]))
@@ -876,23 +918,26 @@ def build_ring_without_integrity_issues_multi_ring(new_ring, multi_ring):
     return new_ring
 
 
-def get_ogr_polygon_from_ring_list(multi_ring_list) :
+def get_ogr_polygon_from_list_of_list_of_points(list_list_of_points):
     """
     return ogr geometry polygon from multi ring list
 
-    :param multi_ring_list: list of rings
-    :type multi_ring_list: list of list of tuple of 2 floats
+    :param list_list_of_points: list of rings
+    :type list_list_of_points: list of list of tuple of 2 floats
 
     :return: lake polygon
     :rtype: OGRPolygon
     """
+    logger = logging.getLogger("my_hull")
+
     # 1. build a list of ogr geometry "polygon" and "linear ring"
     list_of_ogr_poly = []
     list_of_ogr_ring = []
-    for ring in multi_ring_list :
+    for ring in list_list_of_points:
         lake_ring_geom = ogr.Geometry(ogr.wkbLinearRing)
-        for (lon, lat) in ring :
+        for (lon, lat) in ring:
             lake_ring_geom.AddPoint(lon, lat)
+        lake_ring_geom.CloseRings()
         poly_tmp =  ogr.Geometry(ogr.wkbPolygon)
         poly_tmp.AddGeometry(lake_ring_geom)
         list_of_ogr_ring.append(lake_ring_geom)
@@ -904,16 +949,17 @@ def get_ogr_polygon_from_ring_list(multi_ring_list) :
     for i, (poly_i, centroid_i) in enumerate(list_of_ogr_poly):
         is_i_inner = False
         for j, (poly_j, centroid_j) in enumerate(list_of_ogr_poly):
-            if i == j :
+            if i == j:
                 continue
             if poly_i.Within(poly_j):
                 if j not in list_of_outer_ring:
                     list_of_outer_ring.append(j)
                 list_of_inner_ring.append((j,i))
                 is_i_inner = True
-        if is_i_inner == False :
+        if is_i_inner == False:
             list_of_outer_ring.append(i)
 
+    logger.debug("Current geoemety contains %d inner rings" %len(list_of_outer_ring))
     # 3. Build out geometry multipolygon, with outer / inner rings in the right order.
     multi_poly_geom = ogr.Geometry(ogr.wkbMultiPolygon)
     for i in list_of_outer_ring:
@@ -966,27 +1012,27 @@ def get_concave_hull_from_cgal_triangulation(in_v_long, in_v_lat, in_range, in_a
 
     # Near range processing
     alpha_near_rg, dist_near_rg = evaluate_alpha_from_x_pixc_geolocation(coords[:, 0][near_rg_idx], in_range[near_rg_idx], in_azimuth[near_rg_idx])
-    if dist_near_rg :
+    if dist_near_rg:
         concave_hull_utm_near_rg = alpha_shape_with_cgal(coords[near_rg_idx], alpha_near_rg)
         concave_hull_near_rg = my_tools.get_lon_lat_polygon_from_utm(concave_hull_utm_near_rg, utm_epsg_code)
-        logger.info("Alpha far rg value is %d and X var (mean + 2std) = %f " % (alpha_near_rg, dist_near_rg))
-    else :
+        logger.debug("Alpha far rg value is %d and X var (mean + 2std) = %f " % (alpha_near_rg, dist_near_rg))
+    else:
         concave_hull_near_rg = MultiPolygon()
 
     # Far range processing
     alpha_far_rg, dist_far_rg = evaluate_alpha_from_x_pixc_geolocation(coords[:, 0][far_rg_idx], in_range[far_rg_idx], in_azimuth[far_rg_idx])
-    if dist_far_rg :
+    if dist_far_rg:
         concave_hull_utm_far_rg = alpha_shape_with_cgal(coords[far_rg_idx], alpha_far_rg)
         concave_hull_far_rg = my_tools.get_lon_lat_polygon_from_utm(concave_hull_utm_far_rg, utm_epsg_code)
-        logger.info("Alpha far rg value is %d and X var (mean + 2std) = %f " % (alpha_far_rg, dist_far_rg))
-    else :
+        logger.debug("Alpha far rg value is %d and X var (mean + 2std) = %f " % (alpha_far_rg, dist_far_rg))
+    else:
         concave_hull_far_rg = MultiPolygon()
 
     concave_hull = unary_union([concave_hull_far_rg, concave_hull_near_rg])
 
     retour = ogr.CreateGeometryFromWkt(concave_hull.wkt)
 
-    logger.info("Polygon is valid : %r" %(retour.IsValid()))
+    logger.debug("Polygon is valid : %r" %(retour.IsValid()))
 
     if retour.IsEmpty():
         retour = get_convex_hull(in_v_long, in_v_lat)
@@ -1067,15 +1113,15 @@ def evaluate_alpha_from_x_pixc_geolocation(in_x, in_range, in_azimuth):
     
         if not dist_list:
             alpha = 5000
-        elif x_2sigma < 10 :
+        elif x_2sigma < 10:
             alpha = 250
-        elif x_2sigma > 10 and x_2sigma < 30 :
+        elif x_2sigma > 10 and x_2sigma < 30:
             alpha = 500
-        elif x_2sigma > 30 and x_2sigma < 50 :
+        elif x_2sigma > 30 and x_2sigma < 50:
             alpha = 1000
         elif x_2sigma > 50 and x_2sigma < 100:
             alpha = 2000
-        else :
+        else:
             alpha = 5000
 
     return alpha, x_2sigma
@@ -1278,10 +1324,58 @@ def alpha_shape_with_cgal(coords, alpha):
     
         if not polygons_list:
             poly_shp = Polygon()
-        elif len(polygons_list) > 1 :
+        elif len(polygons_list) > 1:
             poly_shp = MultiPolygon(polygons_list)
-        else :
+        else:
             poly_shp = Polygon(polygons_list[0])
 
     return poly_shp
 
+def reorder_lon_lat(in_range, in_azimuth, in_v_long, in_v_lat, in_swath_side, in_pass_num):
+    """
+    For each line, range and lonitude / latitude are reorganized to increase together. It depends on swath side and pass number.
+
+    :param in_range: range of points
+    :type in_range: 1D-array of int
+    :param in_azimuth: azimuth of points
+    :type in_azimuth: 1D-array of int
+    :param in_v_long: longitude of points
+    :type in_v_long: 1D-array of float
+    :param in_v_lat: latitude of points
+    :type in_v_lat: 1D-array of float
+    :param in_swath_side: 1-letter swath side; R=right or L=left
+    :type in_swath_side: string
+    :param in_pass_num: orbit pass number.
+    :type in_pass_num: int
+
+    :return: (in_range, in_v_long, in_v_lat) reordered.
+    :rtype: tuple of 3 arrays of int and floats
+    """
+    lines = np.unique(in_azimuth)
+    out_range = np.zeros(in_range.shape, dtype='int')
+    out_lon = np.zeros(in_v_long.shape)
+    out_lat = np.zeros(in_v_long.shape)
+
+    # for each lin in azimuth, lon and lat are ordered to increase in the same direction as range.
+    for i, l in enumerate(lines):
+        idx = np.where(in_azimuth == l)
+
+        if in_pass_num % 2 == 0 and in_swath_side == "R":
+            idx_range_increase = np.argsort(in_range[idx])[::-1]
+        elif in_pass_num % 2 == 1 and in_swath_side == "R":
+            idx_range_increase = np.argsort(in_range[idx])
+        elif in_pass_num % 2 == 0 and in_swath_side == "L":
+            idx_range_increase = np.argsort(in_range[idx])
+        elif in_pass_num % 2 == 1 and in_swath_side == "L":
+            idx_range_increase = np.argsort(in_range[idx])[::-1]
+
+
+        out_range[idx] = in_range[idx][idx_range_increase]
+
+        lon = in_v_long[idx][idx_range_increase]
+        new_idx_lon = np.argsort(lon)
+
+        out_lon[idx] = in_v_long[idx][idx_range_increase][new_idx_lon]
+        out_lat[idx] = in_v_lat[idx][idx_range_increase][new_idx_lon]
+
+    return out_range, out_lon, out_lat

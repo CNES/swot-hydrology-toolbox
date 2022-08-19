@@ -10,6 +10,8 @@
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
+# VERSION:3.2.0:DM:#91:2021/10/27:Poursuite industrialisation
+# VERSION:4.0.0:DM:#91:2022/05/05:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -31,6 +33,9 @@ import os
 
 import cnes.common.service_error as service_error
 import cnes.common.service_config_file as service_config_file
+
+import cnes.common.lib.my_tools as my_tools
+import cnes.common.lib_lake.lake_db as lake_db
 
 
 #####################
@@ -108,6 +113,25 @@ LAKE_AVG_SUFFIX = ".shp"
 # LakeAvg filename with %03d=cycle number %s=continent %s=basin idenfier %s=begin date %s=end date %s=CRID %s=counter
 LAKE_AVG_PATTERN = LAKE_AVG_PREFIX + "%03d_%s_%s_%s_%s_%s_%02d" + LAKE_AVG_SUFFIX
 
+# 7 - Operationnal Prior Lake Database (PLD)
+PLD_PREFIX_BASE = "SWOT_LakeDatabase_"
+PLD_SUFFIX = ".sqlite"
+# Distinguish each file
+PLD_PREFIX = {}
+PLD_PREFIX["calval"] = PLD_PREFIX_BASE + "Cal_"
+PLD_PREFIX["science"] = PLD_PREFIX_BASE + "Nom_"
+PLD_PREFIX["basin"] = PLD_PREFIX_BASE
+# PLD filenames
+PLD_PATTERN_START = {}
+for key, value in PLD_PREFIX.items():
+    if key == "basin":
+        # PLD filename with %s=2-letter continent identifier %02d=2-digit basin code %s=begin date %s=end date %file creation date 
+        # %03d=version number (Vvv)
+        PLD_PATTERN_START[key] = value + "%s_%s"
+    else:
+        # PLD filename with %03d=pass number %s=begin date %s=end date %file creation date %03d=version number (Vvv)
+        PLD_PATTERN_START[key] = value + "%03d"
+
 
 #######################################
 
@@ -133,14 +157,14 @@ def get_info_from_filename(in_filename, in_type):
     # 1 - Get pattern variables depending on in_type
     if in_type == "PIXC":
         if not os.path.basename(in_filename).startswith(PIXC_PREFIX):
-            logger.info("Filename %s doesn't match with PIXC pattern %s",
+            logger.debug("Filename %s doesn't match with PIXC pattern %s",
                         os.path.basename(in_filename), PIXC_PATTERN_PRINT)
             pattern = None
         else:
             pattern = PIXC_PATTERN_IND
     elif in_type == "PIXCVecRiver":
         if not os.path.basename(in_filename).startswith(PIXCVEC_RIVER_PREFIX):
-            logger.info("Filename %s doesn't match with PIXCVecRiver pattern %s",
+            logger.debug("Filename %s doesn't match with PIXCVecRiver pattern %s",
                         os.path.basename(in_filename), PIXCVEC_RIVER_PATTERN_PRINT)
             pattern = None
         else:
@@ -211,7 +235,8 @@ class LakeTileFilenames(object):
     Manage LakeTile product filenames
     """
     
-    def __init__(self, in_pixc_file, in_pixcvec_river_file, in_out_dir, flag_inc=True):
+    def __init__(self, in_pixc_file, in_pixcvec_river_file, 
+                 in_out_dir, flag_inc=True):
         """
         Constructor of LakeTile filenames
 
@@ -238,11 +263,11 @@ class LakeTileFilenames(object):
             - lake_tile_shp_file_obs / str: LakeTile_shp full path of file dedicated to obs-oriented product
             - lake_tile_shp_file_prior / str: LakeTile_shp full path of file dedicated to PLD-oriented product
             - lake_tile_shp_file_unknown / str: LakeTile_shp full path of file of unassigned water features
-            - lake_tile_edge_file / str: LakeTile_edge full path
-            - lake_tile_pixcvec_file / str: LakeTile_pixvec full path
+            - lake_tile_edge_file / str: LakeTile_Edge full path
+            - lake_tile_pixcvec_file / str: LakeTile_PIXCVec full path
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
+        logger.debug("- start -")
         cfg = service_config_file.get_instance()  # Get config file
 
         # 1 - Init variables
@@ -263,58 +288,58 @@ class LakeTileFilenames(object):
         cycle_num = tmp_dict["cycle"]
         if cycle_num is None:
             self.cycle_num = 999
-            logger.info("WARNING: cycle number has not been found in PIXC filename %s -> set to default value = %03d",
+            logger.debug("WARNING: cycle number has not been found in PIXC filename %s -> set to default value = %03d",
                         os.path.basename(pixc_file), self.cycle_num)
         else:
             self.cycle_num = int(cycle_num)
-            logger.info("Cycle number = %03d", self.cycle_num)
+            logger.debug("Cycle number = %03d", self.cycle_num)
         # 2.2 - Pass number
         pass_num = tmp_dict["pass"]
         if pass_num is None:
             self.pass_num = 999
-            logger.info("WARNING: pass number has not been found in PIXC filename %s -> set to default value = %03d",
+            logger.debug("WARNING: pass number has not been found in PIXC filename %s -> set to default value = %03d",
                         os.path.basename(pixc_file), self.pass_num)
         else:
             self.pass_num = int(pass_num)
-            logger.info("Pass number = %03d", self.pass_num)
+            logger.debug("Pass number = %03d", self.pass_num)
         # 2.3 - Tile ref
         self.tile_ref = tmp_dict["tile_ref"]
         if self.tile_ref is None:
             self.tile_ref = "ttts"
-            logger.info("WARNING: tile ref has not been found in PIXC filename %s -> set to default value = %s",
+            logger.debug("WARNING: tile ref has not been found in PIXC filename %s -> set to default value = %s",
                         os.path.basename(pixc_file), self.tile_ref)
         else:
-            logger.info("Tile ref = %s", self.tile_ref)
+            logger.debug("Tile ref = %s", self.tile_ref)
         # 2.4 - Start date
         self.start_date = tmp_dict["start_date"]
         if self.start_date is None:
             self.start_date = "yyyyMMddThhmmss"
-            logger.info("WARNING: start date has not been found in PIXC filename %s -> set to default value = %s",
+            logger.debug("WARNING: start date has not been found in PIXC filename %s -> set to default value = %s",
                         os.path.basename(pixc_file), self.start_date)
         else:
-            logger.info("Start date = %s", self.start_date)
+            logger.debug("Start date = %s", self.start_date)
         # 2.5 - Stop date
         self.stop_date = tmp_dict["stop_date"]
         if self.stop_date is None:
             self.stop_date = "yyyyMMddThhmmss"
-            logger.info("WARNING: stop date has not been found in PIXC filename %s -> set to default value = %s",
+            logger.debug("WARNING: stop date has not been found in PIXC filename %s -> set to default value = %s",
                         os.path.basename(pixc_file), self.stop_date)
         else:
-            logger.info("Stop date = %s", self.stop_date)
+            logger.debug("Stop date = %s", self.stop_date)
 
         # 3 - Test compatibility of PIXCVecRiver filename with PIXC filename
         tmp_ok = self.test_pixcvec_river_filename()
         if tmp_ok:
-            logger.info("PIXCVecRiver basename %s is compatible with PIXC basename %s",
+            logger.debug("PIXCVecRiver basename %s is compatible with PIXC basename %s",
                         os.path.basename(self.pixcvec_river_file), os.path.basename(pixc_file))
         else:
-            logger.info("WARNING: PIXCVecRiver basename %s IS NOT compatible with PIXC basename %s (cf. above)",
+            logger.debug("WARNING: PIXCVecRiver basename %s IS NOT compatible with PIXC basename %s (cf. above)",
                         os.path.basename(self.pixcvec_river_file), os.path.basename(pixc_file))
 
         # 4 - Compute output filenames
         self.compute_lake_tile_filename_shp()  # LakeTile_shp filenames
-        self.compute_lake_tile_filename_edge()  # LakeTile_edge filename
-        self.compute_lake_tile_filename_pixcvec()  # LakeTile_pixcvec filename
+        self.compute_lake_tile_filename_edge()  # LakeTile_Edge filename
+        self.compute_lake_tile_filename_pixcvec()  # LakeTile_PIXCVec filename
 
     #----------------------------------
 
@@ -347,7 +372,7 @@ class LakeTileFilenames(object):
 
     def compute_lake_tile_filename_edge(self):
         """
-        Compute LakeTile_edge full path
+        Compute LakeTile_Edge full path
         """
         
         filename = LAKE_TILE_PATTERN["edge"] % (self.cycle_num, self.pass_num, self.tile_ref, self.start_date, self.stop_date, \
@@ -356,7 +381,7 @@ class LakeTileFilenames(object):
 
     def compute_lake_tile_filename_pixcvec(self):
         """
-        Compute LakeTile_pixcvec full path
+        Compute LakeTile_PIXCVec full path
         """
         
         filename = LAKE_TILE_PATTERN["pixcvec"] % (self.cycle_num, self.pass_num, self.tile_ref, self.start_date, self.stop_date, \
@@ -390,17 +415,17 @@ class LakeTileFilenames(object):
             # 2.1 - Cycle number
             if pixcvec_cycle_num != self.cycle_num:
                 out_ok = False
-                logger.info("WARNING: cycle number is not the same in PIXC (=%03d) and PIXCVecRiver (=%03d) filenames", \
+                logger.debug("WARNING: cycle number is not the same in PIXC (=%03d) and PIXCVecRiver (=%03d) filenames", \
                             self.cycle_num, pixcvec_cycle_num)
             # 2.2 - Pass number
             if pixcvec_pass_num != self.pass_num:
                 out_ok = False
-                logger.info("WARNING: pass number is not the same in PIXC (=%03d) and PIXCVecRiver (=%03d) filenames", \
+                logger.debug("WARNING: pass number is not the same in PIXC (=%03d) and PIXCVecRiver (=%03d) filenames", \
                             self.pass_num, pixcvec_pass_num)
             # 2.3 - Tile ref
             if pixcvec_tile_ref != self.tile_ref:
                 out_ok = False
-                logger.info("WARNING: tile ref not the same in PIXC (=%s) and PIXCVecRiver (=%s) filenames", self.tile_ref, \
+                logger.debug("WARNING: tile ref not the same in PIXC (=%s) and PIXCVecRiver (=%s) filenames", self.tile_ref, \
                             pixcvec_tile_ref)
 
         return out_ok
@@ -415,7 +440,8 @@ class LakeSPFilenames(object):
     Manage LakeSP product filenames
     """
     
-    def __init__(self, in_lake_tile_file_list, in_continent_id, in_out_dir, flag_inc=True):
+    def __init__(self, in_lake_tile_file_list, in_continent_id, 
+                 in_out_dir, flag_inc=True):
         """
         Constructor of LakeSP filenames
 
@@ -444,7 +470,7 @@ class LakeSPFilenames(object):
             - lake_sp_file_unknown / str: full path of file of unassigned water features
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
+        logger.debug("- start -")
         # Get config file
         cfg = service_config_file.get_instance()
 
@@ -462,27 +488,27 @@ class LakeSPFilenames(object):
         cycle_num = tmp_dict["cycle"]
         if cycle_num is None:
             self.cycle_num = 999
-            logger.info("WARNING: cycle number has not been found in LakeTile filename %s -> set to default value = %03d",
+            logger.debug("WARNING: cycle number has not been found in LakeTile filename %s -> set to default value = %03d",
                         os.path.basename(self.lake_tile_file_list[0]), self.cycle_num)
         else:
             self.cycle_num = int(cycle_num)
-            logger.info("Cycle number = %03d", self.cycle_num)
+            logger.debug("Cycle number = %03d", self.cycle_num)
         # 2.2 - Pass number
         pass_num = int(tmp_dict["pass"])
         if pass_num is None:
             self.pass_num = 999
-            logger.info("WARNING: pass number has not been found in LakeTile filename %s -> set to default value = %03d",
+            logger.debug("WARNING: pass number has not been found in LakeTile filename %s -> set to default value = %03d",
                         os.path.basename(self.lake_tile_file_list[0]), self.pass_num)
         else:
             self.pass_num = int(pass_num)
-            logger.info("Pass number = %03d", self.pass_num)
+            logger.debug("Pass number = %03d", self.pass_num)
         # 2.3 - Continent identifier
         if in_continent_id == "":
             self.continent_id = ""
-            logger.info("WARNING: no continental split")
+            logger.debug("WARNING: no continental split")
         else:
             self.continent_id = in_continent_id
-            logger.info("Continent identifier = %s", self.continent_id)
+            logger.debug("Continent identifier = %s", self.continent_id)
 
         # 3 - Retrieve start and stop dates from LakeTile_shp filenames
         self.compute_start_stop_dates()
@@ -533,8 +559,8 @@ class LakeSPFilenames(object):
             filename = LAKE_SP_PATTERN_NO_CONT["obs"] % (self.cycle_num, self.pass_num, self.start_date, self.stop_date, self.crid_lakesp, \
                                                           self.product_counter)
         else:
-            filename = LAKE_SP_PATTERN["obs"] % (self.cycle_num, self.pass_num, self.continent_id, self.start_date, self.stop_date, self.crid_lakesp, \
-                                                  self.product_counter)
+            filename = LAKE_SP_PATTERN["obs"] % (self.cycle_num, self.pass_num, self.continent_id, self.start_date, self.stop_date, \
+                                                 self.crid_lakesp, self.product_counter)
         self.lake_sp_file_obs = os.path.join(self.out_dir, filename)
 
         # Test existence and modify self.product_counter if wanted and needed
@@ -616,10 +642,10 @@ def compute_lakeavg_filename(in_output_dir, in_cycle_number, in_continent_id, in
     :type in_cycle_number: int
     :param in_continent_id: 2-letter continent identifier
     :type in_continent_id: string
-    :param in_basin_code: 1-digit of basin code within the continent
+    :param in_basin_code: 2-digit basin code CB
     :type in_basin_code: string
     
-    :return: out_filename = L2_HR_PIXCVec full path
+    :return: out_filename = L2_HR_LakeAvg full path
     :rtype: out_filename = string
     """
     # Get config file
@@ -654,3 +680,115 @@ def compute_lakeavg_filename(in_output_dir, in_cycle_number, in_continent_id, in
             out_filename = os.path.join(in_output_dir, filename)
 
     return out_filename
+
+
+#######################################
+    
+
+class PldFilenames(object):
+    """
+    class PldFilenames
+    Manage operational Prior Lake Database filenames
+    """
+    
+    def __init__(self, in_proc_type, in_root_dir, cycle_num=None, pass_num=None, basin_code=None):
+        """
+        Constructor of PLD filenames
+
+        :param in_proc_type: processor type, among "TILE"=LakeTile, "SP"=LakeSP, and "AVG"=LakeAvg
+        :type in_proc_type: string
+        :param in_root_dir: full path of the PLD root directory
+        :type in_root_dir: string
+        :param cycle_num: cycle number
+        :type cycle_num: int
+        :param pass_num: (used for in_proc_type="SP" only) pass number
+        :type pass_num: int
+        :param basin_code: (used for in_proc_type="AVG" only) 2-digit basin code CB
+        :type basin_code: str
+
+        Variables of the object:
+            - root_dir / str: full path of the PLD root directory
+            - orbit_phase / str: orbit phase, among "calval" and "science", depending on cycle number
+            - pass_num / int: pass number
+            - basin_code / int: 2-digit basin code CB
+            - filename / str: full path of the selected PLD file
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.debug("- start -")
+        
+        # Init variables
+        self.root_dir = in_root_dir
+        self.filename = None
+        # Orbit phase
+        self.orbit_phase = "science"
+        if cycle_num is not None:
+            self.orbit_phase = my_tools.swot_orbit_phase(cycle_num)
+
+        # Filename depends on processing type
+        if (in_proc_type == "TILE") or (in_proc_type == "SP"):
+            self.pass_num = pass_num
+            self.compute_pld_filename_pass()
+            
+        elif in_proc_type == "AVG":
+            self.basin_code = basin_code
+            self.compute_pld_filename_basin()
+            
+        else:
+            message = "Processor type %s should be TILE, SP, or AVG" % in_proc_type
+            raise service_error.ProcessingError(message, logger)
+
+    #----------------------------------
+
+    def compute_pld_filename_pass(self):
+        """
+        Compute PLD full path to be used for LakeTile or LakeSP processing
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        
+        # 1 - Filename pattern
+        filename_pattern = PLD_PATTERN_START[self.orbit_phase] % self.pass_num
+        
+        # 2 - Directory
+        if self.orbit_phase == "science":
+            pld_dir = os.path.join(self.root_dir, "Nom")
+        else:
+            pld_dir = os.path.join(self.root_dir, "Cal")
+        
+        # 3 - Full path
+        # 3.1 - List of PLD files in directory
+        tmp_list = os.listdir(pld_dir)
+        # 3.2 - Retrieve PLD file corresponding to filename pattern
+        for cur_file in tmp_list:
+            # Test if file meets the condition
+            if cur_file.startswith(filename_pattern) and cur_file.endswith(PLD_SUFFIX):
+                self.filename = os.path.join(pld_dir, cur_file)
+                break
+            
+        if self.filename is None:
+            logger.warning("PLD file starting with %s has not been found" % filename_pattern)
+
+    def compute_pld_filename_basin(self):
+        """
+        Compute PLD full path to be used for LakeAvg processing
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        
+        # 1 - Filename pattern
+        continent_id = lake_db.compute_continent_id_from_basin_code(self.basin_code)
+        filename_pattern = PLD_PATTERN_START["basin"] % (continent_id, self.basin_code[0:2])
+        
+        # 2 - Directory
+        pld_dir = os.path.join(self.root_dir, "Basin")
+        
+        # 3.1 - List of PLD files in directory
+        tmp_list = os.listdir(pld_dir)
+        # 3.2 - Retrieve PLD file corresponding to filename pattern
+        for cur_file in tmp_list:
+            # Test if file meets the condition
+            if cur_file.startswith(filename_pattern) and cur_file.endswith(PLD_SUFFIX):
+                self.filename = os.path.join(pld_dir, cur_file)
+                break
+            
+        if self.filename is None:
+            logger.warning("PLD file starting with %s has not been found" % filename_pattern)
+        

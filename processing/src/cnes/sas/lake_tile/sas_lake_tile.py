@@ -11,6 +11,7 @@
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
+# VERSION:4.0.0:DM:#91:2022/05/05:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -54,7 +55,7 @@ class SASLakeTile(object):
         :type in_obj_lake: lib_lake.proc_lake
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("")
+        logger.debug("")
 
         # Objects
         self.obj_lake_db = in_obj_lake_db  # Lake DB object
@@ -77,7 +78,7 @@ class SASLakeTile(object):
 
         try:
             # 1 - Reshape PIXCVecRiver arrays
-            logger.info("> 1 - Reshape PIXCVecRiver arrays...")
+            logger.debug("> 1 - Reshape PIXCVecRiver arrays...")
             self.obj_pixcvec.reshape(self.obj_pixc)
             
         except:
@@ -102,35 +103,35 @@ class SASLakeTile(object):
             if self.obj_pixc.nb_selected != 0:
 
                 # 2 - Identify all separate entities in the water mask
-                logger.info("1 - Identifying all separate entities in the water mask...")
+                logger.debug("1 - Identifying all separate entities in the water mask...")
                 self.obj_pixc.compute_separate_entities()
-                logger.info("" + timer_proc.info(0))
-                logger.info("")
+                logger.debug("" + timer_proc.info(0))
+                logger.debug("")
 
 
                 # 3 - Retrieve pixels corresponding to lakes and unknown entirely inside the tile
-                logger.info("2 - Getting pixels corresponding to lakes and unknown entirely inside the tile...")
-                self.obj_pixc.compute_obj_inside_tile(self.obj_lake_db.az_0_geom, self.obj_lake_db.az_max_geom, self.obj_lake_db.az_0_and_max_geom)
+                logger.debug("2 - Getting pixels corresponding to lakes and unknown entirely inside the tile...")
+                self.obj_pixc.compute_obj_inside_tile(self.obj_lake_db)
 
-                logger.info("" + timer_proc.info(0))
-                logger.info("")
+                logger.debug("" + timer_proc.info(0))
+                logger.debug("")
 
             
                 # 4 - Retrieve pixels indices and associated label of objects at the top/bottom edge of the tile
-                logger.info("3 - Getting pixels corresponding to objects at the top/bottom edge of the tile...")
+                logger.debug("3 - Getting pixels corresponding to objects at the top/bottom edge of the tile...")
                 self.obj_pixc.compute_edge_indices_and_label()
-                logger.info("" + timer_proc.info(0))
-                logger.info("")
+                logger.debug("" + timer_proc.info(0))
+                logger.debug("")
 
                 # 5 - Compute lake features
-                logger.info("4 - Computing LakeTile features...")
+                logger.debug("4 - Computing LakeTile features...")
                 self.obj_lake.compute_lake_features(self.obj_pixc.labels_inside)
-                logger.info("" + timer_proc.info(0))
-                logger.info("")
+                logger.debug("" + timer_proc.info(0))
+                logger.debug("")
 
             else:
-                logger.info("NO selected PixC => empty lake tile product generated")
-                logger.info("")
+                logger.debug("NO selected PixC => empty lake tile product generated")
+                logger.debug("")
 
         except:
             message = "Something wrong happened in run_processing"
@@ -165,7 +166,7 @@ class SASLakeTile(object):
             if diff_rel > 0.1:
                 logger.warning(msg)
             else:
-                logger.info(msg)
+                logger.debug(msg)
         
-        logger.info("")
+        logger.debug("")
         

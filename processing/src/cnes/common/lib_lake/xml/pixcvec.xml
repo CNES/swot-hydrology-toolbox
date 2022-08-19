@@ -30,7 +30,7 @@
         <annotation _FillValue="" long_name="identifier of the observed feature" coordinates="longitude_vectorproc latitude_vectorproc" comment="Tile-specific identifier of the observed feature associated to the pixel. The format of the identifier is CBBTTTSNNNNNN, where C=continent, B=basin, T=tile number, S=swath side, N=lake counter within the PIXC tile."/>
       </string>
       <integer name="/ice_clim_f" shape="points_shape" width="8" signed="true">
-        <annotation _FillValue="127" long_name="climatological ice cover flag" flag_meanings="no_ice_cover partial_ice_cover full_ice_cover" flag_values="0 1 2" institution="University of North Carolina" coordinates="longitude_vectorproc latitude_vectorproc" comment="Climatological ice cover flag indicating whether the pixel is ice-covered on the day of the observation based on external climatological information (not the SWOT measurement). Values of 0, 1, and 2 indicate that the surface is not ice covered, partially ice covered, and fully ice covered, respectively. A value of 255 indicates that this flag is not available."/>
+        <annotation _FillValue="127" long_name="climatological ice cover flag" flag_meanings="no_ice_cover uncertain_ice_cover full_ice_cover" flag_values="0 1 2" institution="University of North Carolina" coordinates="longitude_vectorproc latitude_vectorproc" comment="Climatological ice cover flag indicating whether the pixel is ice-covered on the day of the observation based on external climatological information (not the SWOT measurement). Values of 0, 1, and 2 indicate that the surface is not ice covered, may or may not be partially or fully ice covered, and fully ice covered, respectively. A value of 255 indicates that this flag is not available."/>
       </integer>
       <integer name="/ice_dyn_f" shape="points_shape" width="8" signed="true">
         <annotation _FillValue="127" long_name="dynamical ice cover flag" flag_meanings="no_ice_cover partial_ice_cover full_ice_cover" flag_values="0 1 2" institution="University of North Carolina" coordinates="longitude_vectorproc latitude_vectorproc" comment="Dynamic ice cover flag indicating whether the pixel is ice-covered on the day of the observation based on analysis of external satellite optical data. Values of 0, 1, and 2 indicate that the surface is not ice covered, partially ice covered, and fully ice covered, respectively. A value of 255 indicates that this flag is not available."/>
@@ -57,10 +57,10 @@
         <annotation description="SWOT"/>
       </string>
       <string name="/@references" shape="Scalar" width="0">
-        <annotation description="Published or web-based references that describe the data or methods used to product it. Provides version number of software generating product."/>
+        <annotation description="SWOT-TN-CDM-0677-CNES_Product_Description_L2_HR_PIXCVec - Revision A - 20220531"/>
       </string>
       <string name="/@reference_document" shape="Scalar" width="0">
-        <annotation description="SWOT-TN-CDM-0677-CNES"/>
+        <annotation description="SWOT-DD-CDM-0565-CNES_SAS_Design_L2_HR_LakeSP - Revision A - 20220531"/>
       </string>
       <string name="/@product_version" shape="Scalar" width="0">
         <annotation description="Version identifier of this data file"/>
@@ -93,10 +93,10 @@
         <annotation description="Tile name using format PPP_TTTS, where PPP is a 3-digit pass number with leading zeros, TTT is a 3-digit tile number within the pass, and S is a character 'L' or 'R' for the left and right swath, respectively."/>
       </string>
       <string name="/@continent_id" shape="Scalar" width="0">
-        <annotation description="Two-letter continent identifier of the product granule."/>
+        <annotation description="Two-letter identifier of the continents of the product granule, separated by a semi-column."/>
       </string>
       <string name="/@continent_code" shape="Scalar" width="0">
-        <annotation description="One-digit (C) continent code of the product granule."/>
+        <annotation description="One-digit (C) code of the continents of the product granule, separated by a semi-column."/>
       </string>
       <string name="/@time_granule_start" shape="Scalar" width="0">
         <annotation description="Nominal starting UTC time of product granule. Format is: YYYY-MM-DDThh:mm:ss.ssssssZ"/>
@@ -158,6 +158,9 @@
       <string name="/@xref_prior_lake_db_file" shape="Scalar" width="0">
         <annotation description="Name of input prior lake database file."/>
       </string>
+      <string name="/@xref_reforbittrack_files" shape="Scalar" width="0">
+        <annotation description="Names of input reference orbit track files."/>
+      </string>
       <string name="/@xref_param_l2_hr_laketile_file" shape="Scalar" width="0">
         <annotation description="Name of input Level 2 high rate lake tile processor configuration parameters file."/>
       </string>
@@ -165,7 +168,7 @@
         <annotation description="Semi-major axis of reference ellipsoid in meters."/>
       </real>
       <real name="/@ellipsoid_flattening" shape="Scalar" width="64">
-        <annotation description="Flattening of reference ellipsoid"/>
+        <annotation description="Flattening of reference ellipsoid."/>
       </real>
     </nodes>
   </science>

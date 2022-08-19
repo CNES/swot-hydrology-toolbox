@@ -32,8 +32,8 @@
       <real name="/water_frac_uncert" shape="points_shape" width="32">
         <annotation _FillValue="9.96921e+36" long_name="water fraction uncertainty" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Uncertainty estimate of the water fraction estimate (width of noisy water frac estimate distribution)."/>
       </real>
-      <integer name="/classification" shape="points_shape" width="8" signed="true">
-        <annotation _FillValue="127" long_name="classification" quality_flag="classification_qual" flag_meanings="land land_near_water water_near_land open_water dark_water low_coh_water_near_land open_low_coh_water" flag_values="1 2 3 4 5 6 7" valid_min="1" valid_max="7" coordinates="longitude latitude" comment="Flags indicating water detection results."/>
+      <integer name="/classification" shape="points_shape" width="8" signed="false">
+        <annotation _FillValue="255" long_name="classification" quality_flag="classification_qual" flag_meanings="land land_near_water water_near_land open_water dark_water low_coh_water_near_land open_low_coh_water" flag_values="1 2 3 4 5 6 7" valid_min="1" valid_max="7" coordinates="longitude latitude" comment="Flags indicating water detection results."/>
       </integer>
       <real name="/false_detection_rate" shape="points_shape" width="32">
         <annotation _FillValue="9.96921e+36" long_name="false detection rate" units="1" quality_flag="classification_qual" valid_min="0" valid_max="1" coordinates="longitude latitude" comment="Probability of falsely detecting water when there is none."/>
@@ -41,8 +41,8 @@
       <real name="/missed_detection_rate" shape="points_shape" width="32">
         <annotation _FillValue="9.96921e+36" long_name="missed detection rate" units="1" quality_flag="classification_qual" valid_min="0" valid_max="1" coordinates="longitude latitude" comment="Probability of falsely detecting no water when there is water."/>
       </real>
-      <integer name="/bright_land_flag" shape="points_shape" width="8" signed="true">
-        <annotation _FillValue="127" long_name="bright land flag" standard_name="status_flag" flag_meanings="not_bright_land bright_land bright_land_or_water" flag_values="0 1 2" valid_min="0" valid_max="2" coordinates="longitude latitude" comment="Flag indicating areas that are not typically water but are expected to be bright (e.g., urban areas, ice).  Flag value 2 indicates cases where prior data indicate land, but where prior_water_prob indicates possible water."/>
+      <integer name="/bright_land_flag" shape="points_shape" width="8" signed="false">
+        <annotation _FillValue="255" long_name="bright land flag" standard_name="status_flag" flag_meanings="not_bright_land bright_land bright_land_or_water" flag_values="0 1 2" valid_min="0" valid_max="2" coordinates="longitude latitude" comment="Flag indicating areas that are not typically water but are expected to be bright (e.g., urban areas, ice).  Flag value 2 indicates cases where prior data indicate land, but where prior_water_prob indicates possible water."/>
       </integer>
       <real name="/layover_impact" shape="points_shape" width="32">
         <annotation _FillValue="9.96921e+36" long_name="layover impact" units="m" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Estimate of the height error caused by layover, which may not be reliable on a pixel by pixel basis, but may be useful to augment aggregated height uncertainties."/>
@@ -65,9 +65,6 @@
       <real name="/pixel_area" shape="points_shape" width="32">
         <annotation _FillValue="9.96921e+36" long_name="pixel area" units="m^2" quality_flag="geolocation_qual" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Pixel area."/>
       </real>
-      <real name="/inc" shape="points_shape" width="32">
-        <annotation _FillValue="9.96921e+36" long_name="incidence angle" units="degrees" quality_flag="geolocation_qual" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Incidence angle."/>
-      </real>
       <real name="/phase_noise_std" shape="points_shape" width="32">
         <annotation _FillValue="9.96921e+36" long_name="phase noise standard deviation" units="radians" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Estimate of the phase noise standard deviation."/>
       </real>
@@ -80,14 +77,14 @@
       <real name="/dheight_dphase" shape="points_shape" width="32">
         <annotation _FillValue="9.96921e+36" long_name="sensitivity of height estimate to interferogram phase" units="m/radian" quality_flag="geolocation_qual" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Sensitivity of the height estimate to the interferogram phase."/>
       </real>
-      <real name="/dheight_drange" shape="points_shape" width="32">
-        <annotation _FillValue="9.96921e+36" long_name="sensitivity of height estimate to range (delay)" units="m/m" quality_flag="geolocation_qual" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Sensitivity of the height estimate to the range (delay)."/>
-      </real>
       <real name="/darea_dheight" shape="points_shape" width="32">
         <annotation _FillValue="9.96921e+36" long_name="sensitivity of pixel area to reference height" units="m^2/m" quality_flag="geolocation_qual" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Sensitivity of the pixel area to the reference height."/>
       </real>
       <real name="/eff_num_medium_looks" shape="points_shape" width="32">
         <annotation _FillValue="9.96921e+36" long_name="effective number of medium looks" units="1" valid_min="0" valid_max="999999" coordinates="longitude latitude" comment="Effective number of independent looks taken in forming the medium interferogram (after adaptive averaging)."/>
+      </real>
+      <real name="/height_cor_xover" shape="points_shape" width="32">
+        <annotation _FillValue="9.96921e+36" long_name="height correction from KaRIn crossovers" units="m" valid_min="-10" valid_max="10" coordinates="longitude latitude" comment="Height correction from KaRIn crossover calibration. The correction is applied before geolocation but reported as an equivalent height correction."/>
       </real>
       <real name="/model_dry_tropo_cor" shape="points_shape" width="32">
         <annotation _FillValue="9.96921e+36" long_name="dry troposphere vertical correction" source="European Centre for Medium-Range Weather Forecasts" institution="ECMWF" units="m" valid_min="-3" valid_max="-1.5" coordinates="longitude latitude" comment="Equivalent vertical correction due to dry troposphere delay. The reported pixel height, latitude and longitude are computed after adding negative media corrections to uncorrected range along slant-range paths, accounting for the differential delay between the two KaRIn antennas. The equivalent vertical correction is computed by applying obliquity factors to the slant-path correction. Adding the reported correction to the reported pixel height results in the uncorrected pixel height."/>
@@ -98,14 +95,11 @@
       <real name="/iono_cor_gim_ka" shape="points_shape" width="32">
         <annotation _FillValue="9.96921e+36" long_name="ionosphere vertical correction" source="Global Ionosphere Maps" institution="JPL" units="m" valid_min="-0.5" valid_max="0" coordinates="longitude latitude" comment="Equivalent vertical correction due to ionosphere delay. The reported pixel height, latitude and longitude are computed after adding negative media corrections to uncorrected range along slant-range paths, accounting for the differential delay between the two KaRIn antennas. The equivalent vertical correction is computed by applying obliquity factors to the slant-path correction. Adding the reported correction to the reported pixel height results in the uncorrected pixel height."/>
       </real>
-      <real name="/height_cor_xover" shape="points_shape" width="32">
-        <annotation _FillValue="9.96921e+36" long_name="height correction from KaRIn crossovers" units="m" valid_min="-10" valid_max="10" coordinates="longitude latitude" comment="Height correction from KaRIn crossover calibration. The correction is applied before geolocation but reported as an equivalent height correction."/>
-      </real>
       <real name="/geoid" shape="points_shape" width="32">
-        <annotation _FillValue="9.96921e+36" long_name="geoid height" standard_name="geoid_height_above_reference_ellipsoid" source="EGM2008 (Pavlis et al., 2012)" units="m" valid_min="-150" valid_max="150" coordinates="longitude latitude" comment="Geoid height above the reference ellipsoid with a correction to refer the value to the mean tide system, i.e. includes the permanent tide (zero frequency)."/>
+        <annotation _FillValue="9.96921e+36" long_name="geoid height" standard_name="geoid_height_above_reference_ellipsoid" source="EGM2008 (Pavlis et al., 2012)" units="m" valid_min="-150" valid_max="150" coordinates="longitude latitude" comment="Geoid height above the reference ellipsoid with a correction to refer the value to the mean tide system, i.e. includes the permanent tide (zero frequency).  This value is reported for reference but is not applied to the reported height."/>
       </real>
       <real name="/solid_earth_tide" shape="points_shape" width="32">
-        <annotation _FillValue="9.96921e+36" long_name="solid Earth tide height" source="Cartwright and Taylor (1971) and Cartwright and Edden (1973)" units="m" valid_min="-1" valid_max="1" coordinates="longitude latitude" comment="Solid-Earth (body) tide height. The zero-frequency permanent tide component is not included."/>
+        <annotation _FillValue="9.96921e+36" long_name="solid Earth tide height" source="Cartwright and Taylor (1971) and Cartwright and Edden (1973)" units="m" valid_min="-1" valid_max="1" coordinates="longitude latitude" comment="Solid-Earth (body) tide height. The zero-frequency permanent tide component is not included.  This value is reported for reference but is not applied to the reported height."/>
       </real>
       <real name="/load_tide_fes" shape="points_shape" width="32">
         <annotation _FillValue="9.96921e+36" long_name="geocentric load tide height (FES)" source="FES2014b (Carrere et al., 2016)" institution="LEGOS/CNES" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth's crust. This value is reported for reference but is not applied to the reported height."/>
@@ -114,10 +108,13 @@
         <annotation _FillValue="9.96921e+36" long_name="geocentric load tide height (GOT)" source="GOT4.10c (Ray, 2013)" institution="GSFC" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth's crust. This value is reported for reference but is not applied to the reported height."/>
       </real>
       <real name="/pole_tide" shape="points_shape" width="32">
-        <annotation _FillValue="9.96921e+36" long_name="geocentric pole tide height" source="Wahr (1985) and Desai et al. (2015)" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric pole tide height. The total of the contribution from the solid-Earth (body) pole tide height and the load pole tide height (i.e., the effect of the ocean pole tide loading of the Earth's crust)."/>
+        <annotation _FillValue="9.96921e+36" long_name="geocentric pole tide height" source="Wahr (1985) and Desai et al. (2015)" units="m" valid_min="-0.2" valid_max="0.2" coordinates="longitude latitude" comment="Geocentric pole tide height. The total of the contribution from the solid-Earth (body) pole tide height and the load pole tide height (i.e., the effect of the ocean pole tide loading of the Earth's crust).  This value is reported for reference but is not applied to the reported height."/>
       </real>
-      <integer name="/classification_qual" shape="points_shape" width="8" signed="true">
-        <annotation _FillValue="127" standard_name="status_flag" flag_meanings="good suspect bad" flag_values="0 1 2" valid_min="0" valid_max="2" coordinates="longitude latitude" comment="Quality flag for the classification quantities in the pixel cloud data"/>
+      <integer name="/classification_qual" shape="points_shape" width="32" signed="false">
+        <annotation _FillValue="4294967295" standard_name="status_flag" flag_meanings="no_coherent_gain power_close_to_noise_floor detected_water_but_no_prior_water detected_water_but_bright_land water_false_detection_rate_suspect coherent_power_suspect tvp_suspect sc_event_suspect small_karin_gap coherent_power_bad tvp_bad sc_event_bad large_karin_gap" flag_masks="[         1          2          4          8         16       2048        8192      16384      32768  134217728  536870912 1073741824  2147483648]" valid_min="0" valid_max="3892373535" coordinates="longitude latitude" comment="Quality flag for the classification quantities in the pixel cloud data"/>
+      </integer>
+      <integer name="/geolocation_qual" shape="points_shape" width="32" signed="false">
+        <annotation _FillValue="4294967295" standard_name="status_flag" flag_meanings="layover_significant phase_noise_suspect phase_unwrapping_suspect model_dry_tropo_cor_suspect model_wet_tropo_cor_suspect iono_cor_gim_ka_suspect geolocation_is_from_refloc medium_phase_suspect tvp_suspect sc_event_suspect small_karin_gap no_geolocation_bad medium_phase_bad tvp_bad sc_event_bad large_karin_gap" flag_masks="[         1          2          4          8         16         32          64       4096       8192      16384      32768  134217728   268435456  536870912 1073741824 2147483648]" valid_min="0" valid_max="4160811135" coordinates="longitude latitude" comment="Quality flag for the geolocation quantities in the pixel cloud data"/>
       </integer>
       <real name="/nadir_time" shape="points_shape" width="64">
         <annotation _FillValue="9.969209968386869e+36" long_name="time in UTC" standard_name="time" calendar="gregorian" tai_utc_difference="[Value of TAI-UTC at time of first record]" leap_second="YYYY-MM-DDThh:mm:ssZ" units="seconds since 2000-01-01 00:00:00.000" comment="Time of measurement in seconds in the UTC time scale since 1 Jan 2000 00:00:00 UTC. [tai_utc_difference] is the difference between TAI and UTC reference time (seconds) for the first measurement of the data set. If a leap second occurs within the data set, the attribute leap_second is set to the UTC time at which the leap second occurs."/>
@@ -167,12 +164,6 @@
       <real name="/nadir_minus_y_antenna_z" shape="points_shape" width="64">
         <annotation _FillValue="9.969209968386869e+36" long_name="z coordinate of the minus_y antenna phase center in the ECEF frame" units="m" valid_min="-10000000.0" valid_max="10000000.0" comment="z coordinate of the minus_y antenna phase center in the ECEF frame."/>
       </real>
-      <integer name="/nadir_sc_event_flag" shape="points_shape" width="8" signed="true">
-        <annotation _FillValue="127" standard_name="status_flag" flag_meanings="nominal not_nominal" flag_values="0 1" valid_min="0" valid_max="1" coordinates="longitude latitude" comment="Spacecraft event flag"/>
-      </integer>
-      <integer name="/nadir_tvp_qual" shape="points_shape" width="8" signed="true">
-        <annotation _FillValue="127" standard_name="status_flag" flag_meanings="good bad" flag_values="0 1" valid_min="0" valid_max="1" coordinates="longitude latitude" comment="Quality flag for TVP data"/>
-      </integer>
       <string name="/@Conventions" shape="Scalar" width="0">
         <annotation description="NetCDF-4 conventions adopted in this group. This attribute should be set to CF-1.7 to indicate that the group is compliant with the Climate and Forecast NetCDF conventions."/>
       </string>
@@ -198,10 +189,10 @@
         <annotation description="SWOT"/>
       </string>
       <string name="/@references" shape="Scalar" width="0">
-        <annotation description="Published or web-based references that describe the data or methods used to product it. Provides version number of software generating product."/>
+        <annotation description="SWOT-TN-CDM-0672-CNES_Product_Description_L2_HR_LakeTile - Revision A - 20220531"/>
       </string>
       <string name="/@reference_document" shape="Scalar" width="0">
-        <annotation description="SWOT-TN-CDM-0672-CNES"/>
+        <annotation description="SWOT-DD-CDM-0561-CNES_SAS_Design_L2_HR_LakeTile - Revision A - 20220531"/>
       </string>
       <string name="/@contact" shape="Scalar" width="0">
         <annotation description="Contact information for producer of product. (e.g., 'ops@jpl.nasa.gov')."/>

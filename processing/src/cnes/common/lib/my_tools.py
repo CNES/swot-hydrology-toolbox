@@ -10,6 +10,7 @@
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
+# VERSION:4.0.0:DM:#91:2022/05/05:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -37,7 +38,6 @@ from osgeo import osr, ogr
 import pyproj
 from shapely.ops import transform
 
-from scipy.spatial import distance
 from scipy.ndimage.measurements import label
 
 import cnes.common.service_error as service_error
@@ -65,20 +65,6 @@ def test_file(in_file, in_extent=None):
     else:
         message = "ERROR = %s doesn't exist" % in_file
         raise service_error.ProcessingError(message, logger)
-
-
-def test_list_of_files(in_list_file, in_extent=None):
-    """
-    Test if list of full paths in input is an existing file and, optionnally, a file in the awaited format
-
-    :param in_file: list of input full path separed with ";"
-    :type in_file: string
-    :param in_extent: awaited format file (optionnal)
-    :type in_extent: string
-    """
-
-    for file in in_list_file:
-        test_file(file, in_extent)
 
 
 def test_dir(in_dir):
@@ -182,11 +168,11 @@ def convert_to_m180_180(in_long):
     """
 
     out_long = in_long
-    if np.iterable(in_long) :
+    if np.iterable(in_long):
         ind = np.where(in_long > 180.0)[0]
         if len(ind) > 0:
             out_long[ind] -= 360.
-    else :
+    else:
         if in_long > 180.0:
             out_long -= 360
     return out_long
@@ -208,7 +194,7 @@ def convert_to_0_360(in_long):
         ind = np.where(in_long < 0.0)
         if ind is not None:
             out_long[ind] += 360.
-    else :
+    else:
         if in_long < 0.0:
             out_long += 360.
     return out_long
@@ -245,40 +231,23 @@ def swot_timeformat(in_datetime, in_format=0):
     return out_datetime
 
 
-def convert_sec_2_time(in_time, txt_format=1):
+def swot_orbit_phase(in_cycle_num):
     """
-    Convert a date_time in seconds towards a string with the format specified as in put parameter
-
-    :param in_time: date_time in seconds
-    :type in_time: float
-    :param txt_format: [optionnal] 1="hh:mm:ss" 2="[hh]h [mm]min [ss]s" 3="hh:mm:ss.ms" 4="Day DD hh:mm:ss"
-    :type txt_format: int (defaut = 1)
-
-    :return: la duree correspondant a in_time au format choisi
-    :rtype: str
+    Compute SWOT orbit phase (CalVal or Science) wrt cycle number
+    
+    :param in_cycle_num:cycle number
+    :type in_cycle_num: int
+    
+    :return: out_phase = SWOT orbit phase among "calval" or "science"
+    :rtype: out_phase = string
     """
-
-    # Calcul des secondes
-    tmp_mm = math.floor(in_time / 60.0)
-    SS = in_time - 60.0 * tmp_mm
-
-    # Calcul des minutes
-    HH = math.floor(tmp_mm / 60.0)
-    MM = tmp_mm - 60.0 * HH
-
-    # Calcul des heures si > 24h
-    DD = math.floor(HH / 24.0)
-    HH -= 24.0 * DD
-    if txt_format == 1:
-        retour = "%02d:%02d:%02d" % (HH, MM, SS)
-    elif txt_format == 2:
-        retour = "%02dh%02dmin%02ds" % (HH, MM, SS)
-    elif txt_format == 3:
-        retour = "%02d:%02d:%02.3f" % (HH, MM, SS)
-    elif txt_format == 4:
-        retour = "Day %02d %02d:%02d:%02d" % (DD+1, HH, MM, SS)  # DD+1 car le 1e jour est le jour 1
-
-    return retour
+    
+    if in_cycle_num < 400:
+        out_phase = "science"
+    else:
+        out_phase = "calval"
+        
+    return out_phase
 
 
 def convert_utc_to_str(in_utc_time, in_format=3):
@@ -441,6 +410,7 @@ def label_region(in_bin_mat):
 
     return out_m_label_regions, out_nb_obj
 
+
 def get_1d_from_2d(img, in_x, in_y):
     """
     Converts a 2D matrix [ in_x[ind], in_y[ind] ] in a 1D vector [ind]
@@ -462,6 +432,7 @@ def get_1d_from_2d(img, in_x, in_y):
     for ind in range(nb_pts):
         vect[ind] = img[in_y[ind], in_x[ind]]
     return vect
+
 
 def get_2d_from_1d(vect, in_x, in_y):
     """
@@ -573,39 +544,78 @@ def compute_mean_2sigma(in_v_val, name=None):
     return out_mean
 
 
-#######################################
-
-
-def compute_az(in_lon, in_lat, in_v_nadir_lon, in_v_nadir_lat):
+def compute_std_2sigma(in_v_val, name=None):
     """
-    Compute the azimuth index associated to the point with coordinates P(in_lon, in_lat) with respect
-    to the nadir track with coordinates (in_v_nadir_lon, in_v_nadir_lat) for each point.
-    NB: the method used is to minimize the scalar product between P and the points of the nadir track.
+    Compute the standard deviation of the input values, after remove of non-sense values, i.e. below or above the median +/- 2*standard deviation
+    NaN values are removed from the computation
 
-    :param in_lon: longitude in degrees east
-    :type in_lon: float
-    :param in_lat: latitude in degrees north
-    :type in_lat: float
-    :param in_v_nadir_lon: longitude of each nadir point in degrees east
-    :type in_v_nadir_lon: 1D-array
-    :param in_v_nadir_lat: latitude of each nadir point in degrees north
-    :type in_v_nadir_lat: 1D-array
+    :param in_v_val: vector of values for which the std is computed
+    :type in_v_val: 1D-array of float
+    :param name: name to write in warning message if necessary
+    :type name: string
 
-    :return: out_idx_min azimuth index corresponding to input point (in_lon, in_lat)
-    :type: int
+    :return: out_std = the std value (numpy.nan if no finite value)
+    :rtype: float
     """
+    logger = logging.getLogger("my_tools")
+    
+    # 1 - Retrieve all values != numpy.nan
+    not_nan_idx = np.where(np.isfinite(in_v_val))[0]
+    
+    if len(not_nan_idx) == 0:
+        if name is None:
+            msg = "No finite value in the input array => return NaN"
+        else:
+            msg = "No finite value in the input array [%s] => return NaN" % name
+        logger.warning(msg)
+        out_std = np.nan
+        
+    else:
+        
+        # 2 - Compute statistical values over the input vector
+        # 2.1 - Median
+        med = np.nanmedian(in_v_val)
+        # 2.2 - Standard deviation
+        std = np.nanstd(in_v_val)
+        
+        # 3 - Remove indices with value out of 2 sigma
+        # 3.1 - Lower than mean - 2 sigma
+        idx_lower = np.where(in_v_val[not_nan_idx] < med-2*std)[0]
+        v_indices = np.delete(not_nan_idx, idx_lower)
+        # 3.2 - Higher than mean + 2 sigma
+        idx_higher = np.where(in_v_val[v_indices] > med+2*std)[0]
+        v_indices = np.delete(v_indices, idx_higher)
 
-    # 1 - Stack data
-    in_coords = np.vstack((np.array(in_lon), np.array(in_lat)))
-    nadir_coords = np.vstack((np.array(in_v_nadir_lon), np.array(in_v_nadir_lat)))
+        if name is None:
+            message = "%d / %d pixels used for std computation (med=%.3f and std=%.3f)" % (v_indices.size, len(in_v_val), med, std)
+        else:
+            message = "%d / %d pixels used for std computation of [%s] (med=%.3f and std=%.3f)" % (v_indices.size, len(in_v_val), name, med, std)
+        logger.debug(message)
 
-    # 2 - Compute distances between point (in_lon, in_lat) and vector (in_v_nadir_lon, in_v_nadir_lat)
-    distances = (distance.cdist(in_coords.transpose(), nadir_coords.transpose())).transpose()
-    # get indice of minimum distance
-    out_idx_min = np.argmin(distances)
+        # 3 - Compute the mean of clean array
+        out_std = np.std(in_v_val[v_indices])
 
-    # 3 - Return corresponding azimuth index
-    return out_idx_min
+    return out_std
+
+
+def value_or_none(in_value):
+    """
+    Test if in_value is finite or not (case of NaN); if not, return None
+    
+    :param in_value: value to test
+    :type in_value: float
+    
+    :return: out_value = in_value or None if NaN
+    :rtype: out_value = float
+    """
+    
+    out_value = in_value
+    
+    if isinstance(out_value, float):
+        if not np.isfinite(out_value):
+            out_value = None
+            
+    return out_value
 
 
 #######################################
@@ -747,7 +757,7 @@ def get_utm_coords_from_lonlat(in_long, in_lat, utm_epsg_code=None):
     :rtype: tuple of (1D-array of float, 1D-array of float, int)
     """
 
-    if utm_epsg_code == None :
+    if utm_epsg_code == None:
         lat_mean = np.mean(in_lat)
         lon_mean = np.mean(in_long)
         utm_epsg_code = get_utm_epsg_code(lon_mean, lat_mean)
@@ -824,7 +834,7 @@ def load_pixels_to_mem_layer(in_lon, in_lat):
         out_layer.CreateFeature(point)
 
     # 3 - Return layer and data source
-    return out_layer, out_data_source
+    return out_data_source, out_layer
 
 
 def get_layer_fields_name_and_type(in_layer):
@@ -845,7 +855,7 @@ def get_layer_fields_name_and_type(in_layer):
     layer_defn = in_layer.GetLayerDefn()
     
     # 2 - Store field type for each field name
-    for att in range(layer_defn.GetFieldCount()) :
+    for att in range(layer_defn.GetFieldCount()):
         # 2.1 - Get attribute name
         field_name = layer_defn.GetFieldDefn(att).GetName()
         # 2.2 - Get attribute type

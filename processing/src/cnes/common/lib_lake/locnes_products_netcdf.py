@@ -10,6 +10,7 @@
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
+# VERSION:4.0.0:DM:#91:2022/05/05:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -121,7 +122,7 @@ class NetcdfProduct(my_prod.LocnesProduct):
                     annotation = element[0]
                     self.global_metadata[tmp_metadata]["description"] = annotation.get("description")
                     # Init value
-                    if tmp_metadata in ["title", "short_name", "product_file_id", "platform", "reference_document", "pge_name"]:
+                    if tmp_metadata in ["title", "short_name", "product_file_id", "platform", "references", "reference_document", "pge_name"]:
                         self.global_metadata[tmp_metadata]["value"] = self.global_metadata[tmp_metadata]["description"]
                     else:
                         if self.global_metadata[tmp_metadata]["type"] == "string":
@@ -192,7 +193,7 @@ class NetcdfProduct(my_prod.LocnesProduct):
                             
     #----------------------------------------
         
-    def write_product(self, in_out_file, in_size, in_variables):
+    def write_product(self, in_out_file, in_size, in_variables, in_compress=True):
         """
         Write NetCDF product
         
@@ -221,10 +222,10 @@ class NetcdfProduct(my_prod.LocnesProduct):
         
         # 2 - Write variables
         if in_size == 0:
-            logger.info("Empty NetCDF file generated")
-            self.write_variables(nc_writer, in_variables, flag_fill=False)
+            logger.debug("Empty NetCDF file generated")
+            self.write_variables(nc_writer, in_variables, flag_fill=False, in_compress=in_compress)
         else:
-            self.write_variables(nc_writer, in_variables)
+            self.write_variables(nc_writer, in_variables, in_compress=in_compress)
         
         # 3 - Write global attributes
         self.write_metadata(nc_writer)
@@ -232,7 +233,7 @@ class NetcdfProduct(my_prod.LocnesProduct):
         # Close file
         nc_writer.close()
         
-    def write_variables(self, in_nc_writer, in_attributes_value, flag_fill=True):
+    def write_variables(self, in_nc_writer, in_attributes_value, flag_fill=True, in_compress=True):
         """
         Write NetCDF variables listed in input
         
@@ -260,7 +261,8 @@ class NetcdfProduct(my_prod.LocnesProduct):
                 for tmp_key, tmp_value in self.attribute_metadata[key].items():
                     if tmp_key not in ["dtype", "shape", "type", "width", "signed", "value"]:
                         tmp_var_metadata[tmp_key] = tmp_value                
-                in_nc_writer.add_variable(key, self.attribute_metadata[key]["dtype"], tmp_tuple_dims, in_attributes=tmp_var_metadata)
+                in_nc_writer.add_variable(key, self.attribute_metadata[key]["dtype"], tmp_tuple_dims, in_attributes=tmp_var_metadata,\
+                                          in_compress=in_compress)
                 # Fill variable
                 if flag_fill:
                     in_nc_writer.fill_variable(key, value)
@@ -280,7 +282,8 @@ class NetcdfProduct(my_prod.LocnesProduct):
         for name, att_dict in self.global_metadata.items():
             
             if (att_dict["value"] == "") or (att_dict["value"] == "None"):
-                in_nc_writer.add_global_attribute(name, "None")
+                #in_nc_writer.add_global_attribute(name, "None")
+                in_nc_writer.add_global_attribute(name, "")
                 
             else:
                 if "signed" in att_dict.keys():
@@ -313,7 +316,7 @@ class LakeTilePixcvecProduct(NetcdfProduct):
         :type in_proc_metadata: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
+        logger.debug("- start -")
         
         # 1 - Inheritance of NetcdfProduct
         super().__init__(os.path.join(os.path.dirname( __file__ ), "xml/laketile_pixcvec.xml"),
@@ -336,7 +339,7 @@ class LakeTileEdgeProduct(NetcdfProduct):
         :type in_proc_metadata: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
+        logger.debug("- start -")
         
         # 1 - Inheritance of NetcdfProduct
         super().__init__(os.path.join(os.path.dirname( __file__ ), "xml/laketile_edge.xml"),
@@ -359,7 +362,7 @@ class PixcvecProduct(NetcdfProduct):
         :type in_proc_metadata: dict
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.info("- start -")
+        logger.debug("- start -")
         
         # 1 - Inheritance of NetcdfProduct
         super().__init__(os.path.join(os.path.dirname( __file__ ), "xml/pixcvec.xml"),
