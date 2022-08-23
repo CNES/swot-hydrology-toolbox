@@ -4,8 +4,8 @@ longitude min = 1.
 longitude max = 2.
 
 tile_name = 42N001E
-first_date_name = 20210512T072103
-last_date_name = 20230603T075103
+first date name = 20210512T072103
+last date name = 20230603T075103
 
 # Pixc list (1 space blank between each file)
 pixc file list = /work/ALT/swot/swotpub/SWOT_Simulator_data/tests_validation_locnes/LT6/LT6_Cas_Comassa/2_sisimp/SWOT_L2_HR_PIXC_*.nc
@@ -17,5 +17,10 @@ pixcvec file list = /work/ALT/swot/swotpub/SWOT_Simulator_data/tests_validation_
 # Threading option -> choose "dask" or "multiprocessing" or "None"
 threading option = None
 cross track min value = 5000
+hull method = 1.0
+
+# 1.2 = concave hull computed in ground geometry, based on Delaunay triangulation with alpha parameter varying along range
+# 2.0 = edge computed in radar geometry, then converted in ground geometry by reordering lon lat (default)
+# 2.1 = edge computed in radar geometry, then converted in ground geometry by checking each segment
 
 output_directory = /work/ALT/swot/swotdev/desrochesd/floodplain/run/Comassa/output

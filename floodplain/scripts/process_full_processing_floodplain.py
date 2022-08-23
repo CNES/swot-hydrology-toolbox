@@ -7,7 +7,7 @@ import lib.my_timer as my_timer
 import multiprocessing as mp
 import pandas as pd
 
-from floodplain.io.names import FPDEM_BASENAME, POLYGON_SUFFIX, FPDEM_POINTCLOUD_BASENAME, MASK_SUFFIX, compute_name
+from floodplain.io.names import FPDEM_BASENAME, POLYGON_SUFFIX, FPDEM_POINTCLOUD_BASENAME, MASK_SUFFIX, FPDEM_RASTER_BASENAME, compute_name
 from functools import partial
 
 from process_floodplain import Floodplain
@@ -124,13 +124,13 @@ if __name__ == "__main__":
 
 
     # Prepare output names
-    output_directory = parameters.getValue("output_directory")
-    output_fpdem_pointcloud_name = compute_name(output_directory, FPDEM_POINTCLOUD_BASENAME, parameters.getValue("tile_name") \
-                                ,parameters.getValue("first_date_name"), parameters.getValue("last_date_name"))
+    output_directory = parameters.getValue("output directory")
+    output_fpdem_pointcloud_name = compute_name(output_directory, FPDEM_POINTCLOUD_BASENAME, parameters.getValue("tile name") \
+                                ,parameters.getValue("first date name"), parameters.getValue("last date name"))
     output_poly_name = os.path.join(output_directory, FPDEM_BASENAME+POLYGON_SUFFIX)                            
     output_mask_name = os.path.join(output_directory, FPDEM_BASENAME+MASK_SUFFIX)
-    output_fpdem_raster_name = compute_name(output_directory, FPDEM_BASENAME, parameters.getValue("tile_name") \
-                                ,parameters.getValue("first_date_name"), parameters.getValue("last_date_name"))
+    output_fpdem_raster_name = compute_name(output_directory, FPDEM_RASTER_BASENAME, parameters.getValue("tile name") \
+                                ,parameters.getValue("first date name"), parameters.getValue("last date name"))
                                 
                                 
     # Compute floodplain dem pixels boundaries extraction     
@@ -141,9 +141,9 @@ if __name__ == "__main__":
     fpdem.write_fpdem_pointcloud_output()
     
     # Compute region of intereset where raster floodplain dem product in computed (between min and max water extent)
-    if parameters.getValue("method_extract") == 'alpha_shape':
+    if parameters.getValue("method extract") == 'alpha_shape':
         extract_area = Extract_Area(parameters, input_file=output_fpdem_pointcloud_name, output_file=output_mask_name)
-    if parameters.getValue("method_extract") == 'intersection':
+    if parameters.getValue("method extract") == 'intersection':
         extract_area = Extract_Area(parameters, input_file=output_poly_name, output_file=output_mask_name)
         
     extract_area.load_input_extract_area()

@@ -33,21 +33,21 @@ class Extract_Area(object):
         """
         
         if input_file == None:
-            self.input_file = param.getValue("input_file")
+            self.input_file = param.getValue("input file")
         else:
             self.input_file = input_file 
 
         if input_file == None:
-            self.output_file = param.getValue("output_file")
+            self.output_file = param.getValue("output file")
         else:
             self.output_file = output_file 
                     
-        self.method = param.getValue("method_extract")
+        self.method = param.getValue("method extract")
         
         if self.method == 'alpha_shape':
             self.alpha = int(param.getValue("alpha"))
         if self.method == 'intersection':
-            self.smoothing_factor= float(param.getValue("smoothing_factor"))
+            self.smoothing_factor= float(param.getValue("smoothing factor"))
 
     def compute_extract_area(self):
         if self.method == 'alpha_shape':
@@ -205,9 +205,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     parameters = my_rdf.myRdfReader(args.parameter_file)
 
-    if parameters.getValue("method_extract") == 'alpha_shape':
+    if parameters.getValue("method extract") == 'alpha_shape':
         extract_area = Extract_Area(parameters)
-    if parameters.getValue("method_extract") == 'intersection':
+    if parameters.getValue("method extract") == 'intersection':
         extract_area = Extract_Area(parameters)
         
     extract_area.load_input_extract_area()

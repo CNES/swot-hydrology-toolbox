@@ -22,6 +22,7 @@ import cnes.modules.geoloc.lib.pixc_to_shp
 import RDF as RDF
 import SWOTRiver.Estimate as Estimate
 from SWOTRiver.products.pixcvec import L2PIXCVector
+from SWOTRiver.errors import RiverObsException
 
 
 #######################################
@@ -56,7 +57,7 @@ def l2pixc_to_rivertile(pixc_file, out_riverobs_file, out_pixc_vector_file, rdf_
     # (excluding strings)
     for key in config.keys():
         if key in ['geolocation_method', 'reach_db_path', 'height_agg_method',
-                   'area_agg_method', 'slope_method', 'outlier_method']:
+                   'area_agg_method', 'slope_method', 'outlier_method', 'prior_wse_method']:
             continue
         config[key] = ast.literal_eval(config[key])
 
@@ -81,18 +82,20 @@ def l2pixc_to_rivertile(pixc_file, out_riverobs_file, out_pixc_vector_file, rdf_
 
     # generate empty output file on errors
     LOGGER.info("3 - Run RiverObs")
-    try:
-        LOGGER.info("3.1 - [RiverObs] Estimate.L2PixcToRiverTile.do_river_processing()")
-        l2pixc_to_rivertile.do_river_processing()
-        LOGGER.info("3.2 - [RiverObs] Estimate.L2PixcToRiverTile.match_pixc_idx()")
-        l2pixc_to_rivertile.match_pixc_idx()
-        LOGGER.info("3.3 - [RiverObs] Estimate.L2PixcToRiverTile.do_improved_geolocation()")
-        l2pixc_to_rivertile.do_improved_geolocation()
+    # ~ try:
+    LOGGER.info("3.1 - [RiverObs] Estimate.L2PixcToRiverTile.validate_inputs()")        
+    l2pixc_to_rivertile.validate_inputs()
+    LOGGER.info("3.1 - [RiverObs] Estimate.L2PixcToRiverTile.do_river_processing()")
+    l2pixc_to_rivertile.do_river_processing()
+    LOGGER.info("3.2 - [RiverObs] Estimate.L2PixcToRiverTile.match_pixc_idx()")
+    l2pixc_to_rivertile.match_pixc_idx()
+    LOGGER.info("3.3 - [RiverObs] Estimate.L2PixcToRiverTile.do_improved_geolocation()")
+    l2pixc_to_rivertile.do_improved_geolocation()
 
-    except Exception as exception:
-        LOGGER.error(
-            'Unable to continue river processing: {}'.format(exception))
-    LOGGER.info("- end -")
+    # ~ except RiverObsException as exception:
+        # ~ LOGGER.error(
+            # ~ 'Unable to continue river processing: {}'.format(exception))
+    # ~ LOGGER.info("- end -")
 
     LOGGER.info("4 - [RiverObs] build_products()")
     l2pixc_to_rivertile.build_products()

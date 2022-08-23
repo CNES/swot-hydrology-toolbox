@@ -59,6 +59,7 @@ class Floodplain(object):
         self.lat_min = float(param.getValue("latitude min"))
         self.lon_min = float(param.getValue("longitude min"))
         self.cross_track_min = float(param.getValue("cross track min value"))
+        self.hull_method = float(param.getValue("hull method"))
         self.threshold = 10000.
 
         self.pixcfiles = param.getValue("pixc file list").split(" ")
@@ -67,11 +68,11 @@ class Floodplain(object):
         
         
         self.option = param.getValue("threading option")
-        self.output_path = param.getValue("output_directory")
+        self.output_path = param.getValue("output directory")
         
-        self.tile_name = param.getValue("tile_name") 
-        self.first_date_name = param.getValue("first_date_name")
-        self.last_date_name = param.getValue("last_date_name")
+        self.tile_name = param.getValue("tile name") 
+        self.first_date_name = param.getValue("first date name")
+        self.last_date_name = param.getValue("last date name")
         
         ## For dask multiprocessing
         self.n_workers = 12
@@ -226,7 +227,8 @@ class Floodplain(object):
                                            nb_neighbors=0)
                                            
             # Compute alpha shape polygonization to produce boundaries shapefile
-            polygons = compute_alpha_shape(water, pixc_reader.range_max, "cgal")
+            polygons = compute_alpha_shape(water, pixc_reader.range_max, self.hull_method)
+            # ~ polygons = compute_alpha_shape(water, pixc_reader.range_max, "cgal")
             
             # Post treatment
             
@@ -285,13 +287,23 @@ class Floodplain(object):
                 shp.polygons_to_file(outputfile_root + POLYGON_SUFFIX,self.res_poly, wse=self.mean_wse)
 
                 #TODO : write netcdf file
-                res_pointcloud_ds = res_pointcloud[['longitude', 'latitude', 'elevation', 'x', 'y', 'z', 'data_valid']].to_xarray()
+                res_pointcloud_ds = res_pointcloud[['longitude', 'latitude', 'elevation', 'x', 'y', 'z', 'fpdem_ungridded_qual', 'time']].to_xarray()
                 
                 zone_number = utm.latlon_to_zone_number(res_pointcloud.iloc[0]['latitude'], res_pointcloud.iloc[0]['longitude'])
                 if np.mean(res_pointcloud.iloc[0]['latitude']) >= 0:
                     res_pointcloud_ds.attrs['espg']  = int(32600 + zone_number) 
                 else:
                     res_pointcloud_ds.attrs['espg']  = int(32700 + zone_number)
+                
+                list_pixc = []
+                list_pixcvec =[]
+                for k in self.inputpixcfiles:
+                    list_pixc.append(os.path.basename(k))
+                for k in self.inputvecfiles:
+                    list_pixcvec.append(os.path.basename(k))                 
+                    
+                res_pointcloud_ds.attrs['xref_input_l2_hr_pixc_files'] = list_pixc
+                res_pointcloud_ds.attrs['xref_input_l2_hr_pixcvec_files'] = list_pixcvec
                 
                 output_fpdem_pointcloud_name = compute_name(self.output_path, FPDEM_POINTCLOUD_BASENAME, self.tile_name \
                                     ,self.first_date_name, self.last_date_name)
@@ -325,7 +337,7 @@ def valid_date(dataFrame):
     '''
     Create valid_date attribute to create raster file
     '''
-    dataFrame['data_valid']=pd.Series([1 for i in range(dataFrame.size)])
+    dataFrame['fpdem_ungridded_qual']=pd.Series([1 for i in range(dataFrame.size)])
     return dataFrame
     
 # Main program

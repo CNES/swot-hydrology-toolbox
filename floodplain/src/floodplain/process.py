@@ -5,6 +5,9 @@ Create ply file from a list of pixel cloud files
 Copyright (c) 2018, CNES
 '''
 
+import shapely.wkt
+
+import logging
 import mahotas as mh
 import numpy as np
 import geopandas as gpd
@@ -16,21 +19,24 @@ from shapely.geometry import Polygon, LinearRing,Point, MultiPolygon
 from random import randint
 from shapely.ops import unary_union
 from osgeo import ogr
-
+from scipy.ndimage.morphology import binary_erosion
 
 from floodplain.utils.spatial import compute_binary_mask, convert_to_utm_point
 from floodplain.geom.alpha_shape import alpha_shape_with_cgal, alpha_shape_with_cascaded_union
+from floodplain.constants import WATER_LABELS, WATER_LABEL, WATER_NEAR_LAND_LABEL, DARK_WATER_LABEL, WATER_NEAR_LAND_LOW_COH_LABEL, WATER_LOW_COH_LABEL
 
-WATER_LABEL = 3
-WATER_NEAR_LAND_LABEL = 4
-DARK_WATER_LABEL = 23
-DARK_WATER_NEAR_LAND_LABEL = 24
-
-WATER_LABELS = [WATER_LABEL,
-                WATER_NEAR_LAND_LABEL,
-                DARK_WATER_LABEL,
-                DARK_WATER_NEAR_LAND_LABEL]
-
+import math
+import numpy as np
+from osgeo import ogr
+import pandas as pd
+from random import randint
+from scipy.spatial import distance, Delaunay
+from scipy.ndimage.morphology import binary_erosion
+import shapely.geometry as geometry
+from shapely.geometry import Point, LineString, MultiPoint, MultiLineString, Polygon, MultiPolygon, LinearRing, GeometryCollection
+from shapely.ops import cascaded_union
+from shapely.ops import unary_union
+from skimage.measure import find_contours
 
 def extract_water_points(pixelcloud: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     '''
@@ -45,8 +51,8 @@ def extract_water_points(pixelcloud: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return pixelcloud.loc[(pixelcloud.classification == WATER_LABEL) |
                           (pixelcloud.classification == WATER_NEAR_LAND_LABEL) |
                           (pixelcloud.classification == DARK_WATER_LABEL) |
-                          (pixelcloud.classification == DARK_WATER_NEAR_LAND_LABEL) ].copy()
-
+                          (pixelcloud.classification == WATER_NEAR_LAND_LOW_COH_LABEL) |
+                          (pixelcloud.classification == WATER_LOW_COH_LABEL) ].copy()
 
 def extract_contiguous_water_points(water: gpd.GeoDataFrame, 
                          range_max: int, 
@@ -90,7 +96,6 @@ def extract_contiguous_water_points(water: gpd.GeoDataFrame,
     # Extract points corresponding to remaining regions
     return water.loc[water['region'].isin(keep_regions)].copy()
     
-
 def remove_isolated_points(water: gpd.GeoDataFrame, slc_along_track_resolution: float, 
                            factor: float = 1.0,
                            nb_neighbors: int = 4) -> gpd.GeoDataFrame:
@@ -102,7 +107,7 @@ def remove_isolated_points(water: gpd.GeoDataFrame, slc_along_track_resolution: 
     :return points: Extracted water points 
     '''
     # Add utm coordiantes
-    water['geometry_utm'] = water.apply(lambda row: convert_to_utm_point(row['latitude'],row['longitude']), axis=1)    
+    water['geometry_utm'] = water.apply(lambda row: convert_to_utm_point(row['latitude'],row['longitude'], precision=6), axis=1)    
     water['utm_x'] = water.apply(lambda row: row['geometry_utm'].x, axis=1)
     water['utm_y'] = water.apply(lambda row: row['geometry_utm'].y, axis=1)
     tree = spatial.cKDTree(np.array([ [pt.x,pt.y] for pt in water["geometry_utm"].values ])) 
@@ -112,61 +117,537 @@ def remove_isolated_points(water: gpd.GeoDataFrame, slc_along_track_resolution: 
     return water.loc[(water.neighbors > nb_neighbors)].copy()
 
 
-# ~ def compute_alpha_shape(water: gpd.GeoDataFrame, nb_pix_range: int, method: str = "cgal") -> gpd.GeoDataFrame:
-    # ~ '''
-    # ~ Copute alpha_shape
 
-    # ~ :param water: Water Dataframe
 
-    # ~ :return points: Extracted water points 
-    # ~ '''
-    # ~ data = np.array(water[['utm_x','utm_y']].values)
 
-    # ~ polygons = []
-    # ~ if method == "cascaded_union":
-        # ~ polygons = alpha_shape_with_cascaded_union(data, alpha) 
-    # ~ elif method == "cgal":
-                
-        # ~ in_v_long = water['longitude'].values
-        # ~ in_v_lat = water['latitude'].values
-        # ~ in_range = water['range_index'].values
-        # ~ in_azimuth = water['azimuth_index'].values
-        # ~ in_nb_pix_range = nb_pix_range
-        
-        # ~ coords = np.zeros((in_v_long.size, 2))
-        # ~ coords[:, 0], coords[:, 1] = water['utm_x'].values, water['utm_y'].values
 
-        # ~ # Separate swath in two zone : near and far range. This step is useful to adjust alpha regarding range sampling.
-        # ~ near_rg_idx = (np.where(in_range < (in_nb_pix_range / 2 + 10)))
-        # ~ far_rg_idx = (np.where(in_range > (in_nb_pix_range / 2 - 10)))
-        
-        # ~ # Near range processing
-        # ~ alpha_near_rg, dist_near_rg = evaluate_alpha_from_x_pixc_geolocation(coords[:, 0][near_rg_idx], in_range[near_rg_idx], in_azimuth[near_rg_idx])
-        # ~ if dist_near_rg :
-            # ~ concave_hull_near_rg = alpha_shape_with_cgal(coords[near_rg_idx], alpha_near_rg)
-        # ~ else :
-            # ~ concave_hull_near_rg = MultiPolygon()
+def split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max=1e4):
+    """
+    Split input image into list of sub-images, with 10 000 pixel maximum.
 
-        # ~ # Far range processing
-        # ~ alpha_far_rg, dist_far_rg = evaluate_alpha_from_x_pixc_geolocation(coords[:, 0][far_rg_idx], in_range[far_rg_idx], in_azimuth[far_rg_idx])
-        # ~ if dist_far_rg :
-            # ~ concave_hull_far_rg = alpha_shape_with_cgal(coords[far_rg_idx], alpha_far_rg)
-        # ~ else :
-            # ~ concave_hull_far_rg = MultiPolygon()
+    :param in_range: range of points
+    :type in_range: 1D-array of int
+    :param in_azimuth: azimuth of points
+    :type in_azimuth: 1D-array of int
+    :param in_v_long: longitude of points
+    :type in_v_long: 1D-array of float
+    :param in_v_lat: latitude of points
+    :type in_v_lat: 1D-array of float
 
-        # ~ concave_hull = unary_union([concave_hull_far_rg, concave_hull_near_rg])
-        
-        # ~ if concave_hull.type == MultiPolygon:
-            # ~ polygons = list(concave_hull)
-        # ~ else:
-            # ~ polygons = concave_hull
+    :return: list of tuple of splitted image in sub images
+    :rtype: list of tulple(in_range, in_azimuth, in_v_long, in_v_lat)
+    """
+
+    if len(in_range) > nb_pix_max:
+        margin = 10
+        if np.max(in_range) - np.min(in_range) > np.max(in_azimuth) - np.min(in_azimuth):
+            rg_half = int(np.max(in_range) - np.min(in_range)) / 2 + np.min(in_range)
+            idx1 = np.where(in_range < rg_half + margin)
+            idx2 = np.where(in_range > rg_half - margin)
+        else:
+            az_half = int(np.max(in_azimuth) - np.min(in_azimuth)) / 2 + np.min(in_azimuth)
+            idx1 = np.where(in_azimuth < az_half + margin)
+            idx2 = np.where(in_azimuth > az_half - margin)
+        retour = split_lake_image(in_range[idx1], in_azimuth[idx1], in_v_long[idx1], in_v_lat[idx1], nb_pix_max) +\
+                 split_lake_image(in_range[idx2], in_azimuth[idx2], in_v_long[idx2], in_v_lat[idx2], nb_pix_max)
+    else:
+        retour = [(in_range, in_azimuth, in_v_long, in_v_lat)]
+    return retour
+
+def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, in_v_lat, in_hull_method):
+    """
+    Compute the concave hull of a set of points using radar vectorisation, split image into sub-images if needed
+
+    :param in_range: range of points
+    :type in_range: 1D-array of int
+    :param in_azimuth: azimuth of points
+    :type in_azimuth: 1D-array of int
+    :param in_v_long: longitude of points
+    :type in_v_long: 1D-array of float
+    :param in_v_lat: latitude of points
+    :type in_v_lat: 1D-array of float
+    :param in_hull_method: hull computation method, can be 2.0 or 2.1
+    :type in_hull_method: float
+
+    :return: the hull of the input set of points
+    :rtype: OGRMultiPolygon
+    """
+
+    logger = logging.getLogger("my_hull")
+
+    nb_pix_max = 5e4
+    # Split lake sar image in sub_images
+    list_sub_img_to_process = split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max)
+    if len(list_sub_img_to_process) > 1:
+        logger.debug("Lake image with %d pixels is splitted in %d sub images of less than %d pixels" % (len(in_range),
+                                                                                                       len(list_sub_img_to_process), nb_pix_max))
+
+    multi_poly = ogr.Geometry(ogr.wkbMultiPolygon)
+
+    for i, (sub_range, sub_azimuth, sub_v_long, sub_v_lat) in enumerate(list_sub_img_to_process):
+        if i%100 == 0:
+            logger.debug("%d over %d sub-image already processed" % ( i+1, len(list_sub_img_to_process)))
+        sub_poly = get_polygon_from_binar_image(sub_range, sub_azimuth, sub_v_long, sub_v_lat, in_hull_method)
+        if sub_poly.GetGeometryName() == "MULTIPOLYGON":
+            for geom in sub_poly:
+                multi_poly.AddGeometry(geom)
+        else:
+            multi_poly.AddGeometry(sub_poly)
+
+    if not multi_poly.IsEmpty():
+        poly = multi_poly.UnionCascaded()
+    else:
+        poly = multi_poly
+
+    return poly
+
+def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat, in_hull_method):
+    """
+    Compute the concave hull of a set of points using radar vectorisation
+
+    :param in_range: range of points
+    :type in_range: 1D-array of int
+    :param in_azimuth: azimuth of points
+    :type in_azimuth: 1D-array of int
+    :param in_v_long: longitude of points
+    :type in_v_long: 1D-array of float
+    :param in_v_lat: latitude of points
+    :type in_v_lat: 1D-array of float
+    :param in_hull_method: hull computation method, can be 2.0 or 2.1
+    :type in_hull_method: float
+
+    :return: the hull of the input set of points
+    :rtype: OGRMultiPolygon
+    """
+    # Get instance of service config file
+    logger = logging.getLogger("my_hull")
+
+    # 1 - Get relative range and azimuth (1st pixel = 1)
+    lake_x = in_range - np.min(in_range) + 1
+    lake_y = in_azimuth - np.min(in_azimuth) + 1
+
+    # 2 - Compute contour using range and azimuth image coordinates
+    lake_contour_int = compute_contour_from_range_azimuth(lake_x, lake_y)
+    # 3 - Convert (azimuth, range) contour into polygon
+    logger.debug("Inital polygon contains 1 external ring and %d holes rings " % (len(lake_contour_int) - 1))
+
+    # 4 - Convert contours in lon lat
+    # multi_ring_list contains every ring composing the polygon, the first ring contains exterior coordinates, 
+    # all other rings are holes in the polygon
+    multi_list_of_points = []
+    for contour in lake_contour_int:  # Loop over contours
+        if len(contour) < 3:
+            logger.debug("Current contour contains only %d points ... skip" % (len(contour)))
+            continue
+        elif len(contour) > 8000:
+            logger.warning("Current contour contains %d points ... can be time consuming" % len(contour))
+        else:
+            logger.debug("Building new ring with %d points " % len(contour))
+
+        list_of_points = []
+
+        for i, (y, x) in enumerate(contour):  # Look over azimuth and range indices
+
+            # Retrieve lon/lat coordinates from range and azimtu coordinates
+            # if current range and azimuth are found in input range and azimuth list
+
+            if np.logical_and(lake_x == x, lake_y == y).any():
+                point_idx = np.where(np.logical_and(lake_x == x, lake_y == y))[0][0]
+                lon = in_v_long[point_idx]
+                lat = in_v_lat[point_idx]
+
+                new_point = (lon, lat)
+                if in_hull_method == 2.0:
+                    list_of_points.append(new_point)
+                elif in_hull_method == 2.1:
+                    # Add new point :
+                    #     - if new_point not in list
+                    #     - if list contains more than 3 points : check if new points create a crossing between segments
+                    if new_point not in list_of_points:
+                        if len(list_of_points) < 3:
+                            list_of_points.append(new_point)
+                        else:
+                            list_of_points = add_new_point_to_list_of_point(new_point, list_of_points)
+
+            else:
+                logger.debug("Point of coordinates %d, %d not found -> Point removed" % (y, x))
+        if not list_of_points:
+            logger.debug("Ring contains 0 points => Discarded")
+            continue
+
+        if in_hull_method == 2.0:
+            multi_list_of_points.append(list_of_points)
+        else:
+            # Add first point to the end of list
+            ring = build_ring_from_list_of_points(list_of_points)
+
+            # Check if ring does not intersect multi ring
+            ring = build_ring_without_integrity_issues_multi_ring(ring, multi_list_of_points)
+
+            if len(ring) > 3:
+                # logger.debug("Adding new ring containing %d points to multi ring" % (len(ring[:-1])))
+                multi_list_of_points.append(ring)
+
+    # 5 - Build ogr geometry
+    lake_poly = get_ogr_polygon_from_list_of_list_of_points(multi_list_of_points)
+
+    if not lake_poly.IsValid():
+        logger.warning("Polygon is invalid -> Polygon is downgraded into a valid geometry")
+        lake_poly = lake_poly.Buffer(0)
+    return lake_poly
     
-    # ~ else: 
-        # ~ raise Exception("Method not found")
-    # ~ return polygons 
+def compute_contour_from_range_azimuth(in_x, in_y):
+    """
+    Compute contour of object with coordinates in_x and in_y
+
+    :param in_x: x coordinates
+    :type in_x: 1D-array of int
+    :param in_y: y coordinates
+    :type in_y: 1D-array of int
+
+    :return: geometry object coordinates
+    :rtype: list of list of tuple of int
+    """
+    # Get instance of service config file
+    logger = logging.getLogger("my_hull")
+
+    # 1 - Get image (1 pixel around lake)
+    lake_img = compute_bin_mat(np.max(in_x) + 2, np.max(in_y) + 2, in_x, in_y, verbose=False)
+    logger.debug("Processing image with size %d x %d, with %d water pixels" % (
+    lake_img.shape[0], lake_img.shape[1], np.sum(lake_img)))
+
+    # 2 - Filter isolated pixels
+    # Make a erosion to check that a contour can be computed
+    lake_erosion = binary_erosion(lake_img, structure=np.ones((2, 2))).astype(lake_img.dtype)
+
+    # 3 - Compute boundaries (there might be more than one if there are islands in lake)
+    if np.sum(lake_erosion) == 0:
+        logger.warning("Current lake pixc no not contain a valid polygon")
+        lake_contours = []
+    else:
+        lake_contours = find_contours(lake_img, 0.99999999999)
+
+    # 4 - Round contour range and azimuth coordinates to units, since they are indices in input parameters
+    # Removing duplicate points from lake contour
+    lake_contour_int = []
+
+    for contour in lake_contours:
+        contour_points = []
+
+        [contour_points.append(tuple(np.round(coords, 0))) for coords in contour if
+         tuple(np.round(coords, 0)) not in contour_points]
+
+        lake_contour_int.append(contour_points)
+
+    return lake_contour_int
+
+def compute_bin_mat(in_size_x, in_size_y, in_x, in_y, verbose=True):
+    """
+    Creates a 2D binary matrix from Y and Y 1D vectors
+    i.e. for each ind: mat[in_x[ind],in_y[ind]] = 1
+
+    :param in_size_x: number of pixels in X dimension
+    :type in_size_x: int
+    :param in_size_y: number of pixels in Y dimension
+    :type in_size_y: int
+    :param in_x: X indices of "1" pixels
+    :type in_x: 1D vector of int
+    :param in_y: Y indices of "1" pixels
+    :type in_y: 1D vector of int
+    :param verbose: print log debug flag
+    :type verbose: bool
+
+    :return: 2D matrix with "1" for each (in_x_i, in_y_i) and 0 elsewhere
+    :rtype: 2D binary matrix of int 0/1
+    """
+    logger = logging.getLogger("my_tools")
+    if verbose:
+        logger.debug("- start -")
+
+    # 0 - Deal with exceptions
+    # 0.1 - Input vectors size must be the same
+    if in_x.size != in_y.size:
+        message = "compute_bin_mat(in_x, in_y) : in_x and in_y must be the same size ; currently : in_x = %d and in_y = %d" % (in_x.size, in_y.size)
+        raise service_error.ProcessingError(message, logger)
+    else:
+        nb_pts = in_x.size
+    if verbose:
+        logger.debug("> Nb pixels to deal with = %d" % nb_pts)
+    # 0.2 - max(X) < in_size_x
+    if np.max(in_x) >= in_size_x:
+        message = "compute_bin_mat(in_x, in_y) : elements of in_x must be less than in_size_x"
+        raise service_error.ProcessingError(message, logger)
+    # 0.3 - max(X) < in_size_x
+    if np.max(in_y) >= in_size_y:
+        message = "compute_bin_mat(in_x, in_y) : elements of in_y must be less than in_size_y"
+        raise service_error.ProcessingError(message, logger)
+    # 1 - Init output binary image
+    out_bin_im = np.zeros((in_size_y, in_size_x))
+    if verbose:
+        logger.debug("> Binary matrix size = (X=%d , Y=%d)" % (in_size_x, in_size_y))
+
+    # 2 - Put 1 for every pixels defined by the input vectors
+    for ind in range(nb_pts):
+        out_bin_im[in_y[ind], in_x[ind]] = 1
+
+    return out_bin_im
+
+def get_ogr_polygon_from_list_of_list_of_points(list_list_of_points):
+    """
+    return ogr geometry polygon from multi ring list
+
+    :param list_list_of_points: list of rings
+    :type list_list_of_points: list of list of tuple of 2 floats
+
+    :return: lake polygon
+    :rtype: OGRPolygon
+    """
+    logger = logging.getLogger("my_hull")
+
+    # 1. build a list of ogr geometry "polygon" and "linear ring"
+    list_of_ogr_poly = []
+    list_of_ogr_ring = []
+    for ring in list_list_of_points:
+        lake_ring_geom = ogr.Geometry(ogr.wkbLinearRing)
+        for (lon, lat) in ring:
+            lake_ring_geom.AddPoint(lon, lat)
+        lake_ring_geom.CloseRings()
+        
+        poly_tmp =  ogr.Geometry(ogr.wkbPolygon)
+        poly_tmp.AddGeometry(lake_ring_geom)
+        list_of_ogr_ring.append(lake_ring_geom)
+        list_of_ogr_poly.append((poly_tmp, poly_tmp.Centroid()))
+    # 2. build a list of outer / inner rings, with inner and outer relations
+    list_of_outer_ring = []
+    list_of_inner_ring = []
+    for i, (poly_i, centroid_i) in enumerate(list_of_ogr_poly):
+        is_i_inner = False
+        for j, (poly_j, centroid_j) in enumerate(list_of_ogr_poly):
+            if i == j:
+                continue
+            if poly_i.Within(poly_j):
+                if j not in list_of_outer_ring:
+                    list_of_outer_ring.append(j)
+                list_of_inner_ring.append((j,i))
+                is_i_inner = True
+        if is_i_inner == False:
+            list_of_outer_ring.append(i)
+
+    logger.debug("Current geoemety contains %d inner rings" %len(list_of_outer_ring))
+    # 3. Build out geometry multipolygon, with outer / inner rings in the right order.
+    multi_poly_geom = ogr.Geometry(ogr.wkbMultiPolygon)
+    for i in list_of_outer_ring:
+        poly_geom = list_of_ogr_poly[i][0]
+        for (out_ring, in_ring) in list_of_inner_ring:
+            if i == out_ring:
+                poly_geom.AddGeometry(list_of_ogr_ring[in_ring])
+        multi_poly_geom.AddGeometry(poly_geom)
+
+    return multi_poly_geom
+
+def add_new_point_to_list_of_point(new_point, point_list):
+    """
+    Add new point to the list of point if it doesn't imply a crossing in the line formed by the point_list
+
+    :param new_point: lon lat coordinates of new point
+    :type new_point: tuple of floats
+    :param point_list: list of point composing the contour
+    :type point_list: list of tuple of floats
 
 
-       
+    :return: list of point with new point
+    :rtype: list of tuple of 2 floats
+    """
+    logger = logging.getLogger("my_hull")
+
+    # 1. Add new point to the list
+    point_list.append(new_point)
+
+    # 2. Check if last point implies a crossing in the line
+    s1 = LineString([point_list[-2], point_list[-1]])
+    s2 = LineString(point_list[:-2])
+    inter = compute_segment_intersection(s1, s2)
+
+    # 3. If an intersection in the line is found, the point close to the intersection is removed
+    while inter:
+        if inter:
+            p = get_closest_point_from_list_of_point(inter, point_list[-4:])
+            logger.debug("Removing point %f, %f" % (p[0], p[1]))
+            point_list.remove(p)
+
+        # list of point cannot be smaller than 3 points
+        if len(point_list) < 4:
+            break
+
+        s1 = LineString([point_list[-2], point_list[-1]])
+        s2 = LineString(point_list[:-2])
+
+        inter = compute_segment_intersection(s1, s2)
+
+    return point_list
+
+def build_ring_without_integrity_issues_multi_ring(new_ring, multi_ring):
+    """
+    return ring without intersection with multi_ring
+
+    :param new_ring: new ring
+    :type new_ring: list of tuple of 2 floats
+    :param multi_ring: list of rings
+    :type multi_ring: list list of tuple of 2 floats
+
+
+    :return: ring without intersection with multi_ring
+    :rtype: list of tuple of 2 floats
+    """
+
+    logger = logging.getLogger("my_hull")
+
+    s1 = LineString(new_ring)
+    s2 = MultiLineString(multi_ring)
+
+    inter_list = compute_segment_intersection(s1, s2)
+
+    while inter_list and len(new_ring) > 3:
+
+        p = get_closest_point_from_list_of_point(inter_list, new_ring)
+        logger.debug("Removing point %f, %f" % (p[0], p[1]))
+        new_ring.remove(p)
+
+        if p == new_ring[-1]:
+            new_ring.remove(p)
+            new_ring.append(new_ring[0])
+
+        s1 = LineString(new_ring)
+        s2 = MultiLineString(multi_ring)
+
+        inter_list = compute_segment_intersection(s1, s2)
+
+    return new_ring
+
+def get_closest_point_from_list_of_point(point, list_of_points):
+    """
+    Return element of list_of_points the closest of point
+
+    :param point: lon lat coordinates of point
+    :type point: tuple of 2 floats
+    :param list_of_points: segment formed by the line without last two points
+    :type list_of_points: list of tuple of 2 floats
+
+    :return: intersection point coordinates
+    :rtype: tuple of floats
+    """
+
+    if isinstance(point, list):
+        id = distance.cdist([point], list_of_points).argmin(axis=1)[0]
+    else:
+        id = distance.cdist([point], list_of_points).argmin()
+    return list_of_points[id]
+
+def compute_segment_intersection(s1, s2):
+    """
+    Return the intersection point of s1 and s2
+
+    :param s1: segment formed by the two last points of the line
+    :param s1: segment formed by the two last points of the line
+    :type s1: Shapely LineString
+    :param s2: segment formed by the line without last two points
+    :type s2: Shapely LineString
+
+    :return: intersection point coordinates
+    :rtype: tuple of floats
+    """
+    logger = logging.getLogger("my_hull")
+    inter = s1.intersection(s2)
+
+    if inter:
+        # if the intersection is more than one point, return coordinates of the first intersection element
+        if isinstance(inter, Point):
+            inter = (inter.x, inter.y)
+        elif isinstance(inter, MultiPoint):
+            inter = (inter[0].x, inter[0].y)
+        elif isinstance(inter, LineString):
+            inter = (np.mean([inter.coords[0][0], inter.coords[1][0]]),
+                     np.mean([inter.coords[0][1], inter.coords[1][1]]))
+        elif isinstance(inter, MultiLineString):
+            inter = (np.mean([inter[0].coords[0][0], inter[0].coords[1][0]]),
+                     np.mean([inter[0].coords[0][1], inter[0].coords[1][1]]))
+        elif isinstance(inter, GeometryCollection):
+            for geom in inter:
+                if isinstance(geom, Point):
+                    inter_out = (geom.x, geom.y)
+                elif isinstance(geom, MultiPoint):
+                    inter_out = (geom[0].x, geom[0].y)
+                elif isinstance(geom, LineString):
+                    inter_out = (np.mean([geom.coords[0][0], geom.coords[1][0]]),
+                             np.mean([geom.coords[0][1], geom.coords[1][1]]))
+                elif isinstance(geom, MultiLineString):
+                    inter_out = (np.mean([geom[0].coords[0][0], geom[0].coords[1][0]]),
+                             np.mean([geom[0].coords[0][1], geom[0].coords[1][1]]))
+                else:
+                    logger.warning("Unknown intersection geometry type : %s " % (type(geom)))
+                    inter_out = None
+
+                inter = inter_out
+                break
+        else:
+            logger.warning("Unknown intersection geometry type : %s " % (type(inter)))
+            inter = None
+
+    return inter
+    
+def build_ring_from_list_of_points(list_of_points):
+    """
+    Add first point of the list and the and of the list. Take in account crossings problems
+
+    :param list_of_points: list of point composing the contour
+    :type list_of_points: list of tuple of 2 floats
+
+    :return:  list of point composing the contour, with same first and last point
+    :rtype: list of tuple of 2 floats
+    """
+    logger = logging.getLogger("my_hull")
+
+    if len(list_of_points) > 3:
+
+        s1 = LineString([list_of_points[-1], list_of_points[0]])
+        s2 = LineString(list_of_points[1:-1])
+
+        inter_list = compute_segment_intersection(s1, s2)
+
+        while inter_list and len(list_of_points) > 3:
+
+            p = get_closest_point_from_list_of_point(inter_list, list_of_points[:2] + list_of_points[-2:])
+            logger.debug("Removing point %f, %f" % (p[0], p[1]))
+
+            list_of_points.remove(p)
+
+            if len(list_of_points) > 3:
+                s1 = LineString([list_of_points[-1], list_of_points[0]])
+                s2 = LineString(list_of_points[1:-1])
+                inter_list = compute_segment_intersection(s1, s2)
+
+    list_of_points.append(list_of_points[0])
+
+    return list_of_points
+
+def from_ogr_to_shapely(ogr_geom):
+    
+    # Creating a copy of the input OGR geometry. This is done in order to 
+    # ensure that when we drop the M-values, we are only doing so in a 
+    # local copy of the geometry, not in the actual original geometry. 
+    
+    
+    ogr_geom_copy = ogr_geom.Clone()
+    ogr_geom_copy.FlattenTo2D() 
+
+    # Dropping the M-values
+    ogr_geom_copy.SetMeasured(False)
+
+    # Generating a new shapely geometry
+    shapely_geom = shapely.wkt.loads(ogr_geom_copy.ExportToWkt())
+
+    return shapely_geom
+              
 def compute_alpha_shape(water: gpd.GeoDataFrame, nb_pix_range: int, method: str = "cgal") -> gpd.GeoDataFrame:
     '''
     Copute alpha_shape
@@ -176,23 +657,30 @@ def compute_alpha_shape(water: gpd.GeoDataFrame, nb_pix_range: int, method: str 
     :return points: Extracted water points 
     '''
     data = np.array(water[['utm_x','utm_y']].values)
-
+    in_v_long = water['longitude'].values
+    in_v_lat = water['latitude'].values
+    in_range = water['range_index'].values
+    in_azimuth = water['azimuth_index'].values
+        
     polygons = []
-    if method == "cascaded_union":
+    
+    if method == 1.2:
         polygons = alpha_shape_with_cascaded_union(data, alpha) 
-    elif method == "cgal":
-                
-        in_v_long = water['longitude'].values
-        in_v_lat = water['latitude'].values
-        in_range = water['range_index'].values
-        in_azimuth = water['azimuth_index'].values
+        
+    if method == 2.0 or method == 2.1:
+        coords = np.zeros((in_v_long.size, 2))
+        coords[:, 0], coords[:, 1] = water['utm_x'].values, water['utm_y'].values
+        
+        in_hull_method = 2.0
+        polygons = from_ogr_to_shapely(get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, coords[:, 0], coords[:, 1], method))
+    
+    elif method == 1.0:
         in_nb_pix_range = nb_pix_range
         
         coords = np.zeros((in_v_long.size, 2))
         coords[:, 0], coords[:, 1] = water['utm_x'].values, water['utm_y'].values
 
-        # Separate swath in two zone : near and far range. This step is useful to adjust alpha regarding range sampling.
-        
+        # Separate swath in different zone : near and far range. This step is useful to adjust alpha regarding range sampling.
         nb_range_alpha_sampling = 20
         
         
@@ -211,7 +699,8 @@ def compute_alpha_shape(water: gpd.GeoDataFrame, nb_pix_range: int, method: str 
                 concave_hull = concave_hull_rg
             else:
                 concave_hull = unary_union([concave_hull, concave_hull_rg])
-        
+                
+       
         if concave_hull.type == MultiPolygon:
             polygons = list(concave_hull)
         else:
@@ -219,10 +708,10 @@ def compute_alpha_shape(water: gpd.GeoDataFrame, nb_pix_range: int, method: str 
     
     else: 
         raise Exception("Method not found")
+
     return polygons 
    
-   
-   
+
            
 def evaluate_alpha_from_x_pixc_geolocation(in_x, in_range, in_azimuth):
     """
@@ -351,6 +840,8 @@ def get_utm_borders(data: gpd.GeoDataFrame) -> Polygon:
                     (x_min,y_min)]).exterior
 
 
+
+
 def extract_boundary_points(data: gpd.GeoDataFrame, boundaries: List[LinearRing]):
     '''
     Extract points from boundaries
@@ -366,10 +857,21 @@ def extract_boundary_points(data: gpd.GeoDataFrame, boundaries: List[LinearRing]
     data = data.reset_index()
     data = data.set_index(['utm_x','utm_y'])
 
-    get_point_from_coord = lambda coord: tuple(data.loc[coord,['longitude','latitude','elevation','range_index','azimuth_index']].values)    
+    # ~ get_point_from_coord = lambda coord: tuple(data.loc[coord,['longitude','latitude','elevation','range_index','azimuth_index','time']].values)  
     
+    def get_point_from_coord(coord):
+        try:
+            return tuple(data.loc[coord,['longitude','latitude','elevation','range_index','azimuth_index','time']].values)  
+        except:
+            print("intersection not found")
+            return None
+        return tuple(data.loc[coord,['longitude','latitude','elevation','range_index','azimuth_index','time']].values)  
+        
+            
     points = [get_point_from_coord(coord) for boundary in boundaries for coord in boundary.coords ]
-
+    Not_none_values = filter(None.__ne__, points)
+    points = list(Not_none_values)
+    
     # ~ get_mean_height = lambda coord: np.array(data.loc[coord,['wse']]).flatten()
     # ~ mean_wse = []
     # ~ for boundary in boundaries:
@@ -377,7 +879,8 @@ def extract_boundary_points(data: gpd.GeoDataFrame, boundaries: List[LinearRing]
         # ~ mean_wse.append(np.mean(toto))
     
     # Convert to dataframe
-    df = pd.DataFrame(points,columns=['longitude','latitude','elevation','range','azimuth'])
+    df = pd.DataFrame(points,columns=['longitude','latitude','elevation','range','azimuth','time'])
+        
     lambdafunc = lambda row: pd.Series([*utm.from_latlon(row['latitude'],
                                                    row['longitude'])[0:2],
                                   row['elevation'],
@@ -385,7 +888,7 @@ def extract_boundary_points(data: gpd.GeoDataFrame, boundaries: List[LinearRing]
     df[['x','y','z']] = df.apply(lambdafunc,axis=1)
     df = df.astype(dtype={'longitude':'double','latitude':'double', 'elevation':'double',
                           'range':'int','azimuth':'int',
-                         'x':'double','y':'double', 'z':'double'})
+                         'x':'double','y':'double', 'z':'double', 'time':'int'})
     
 
     geom = [Point(x,y) for x, y in zip(df['longitude'], df['latitude'])]
@@ -394,12 +897,21 @@ def extract_boundary_points(data: gpd.GeoDataFrame, boundaries: List[LinearRing]
     return gpd.GeoDataFrame(df, geometry=geom)
 
 def compute_mean_wse(data: gpd.GeoDataFrame, polygons: List[Polygon]):
+    
+    def get_mean_height(coord):
+        try:
+            return tuple(data.loc[coord,['elevation']])
+        except:
+            print("intersection not found")
+            return None
+
     mean_wse = []
     data = data.reset_index()
     data = data.set_index(['utm_x','utm_y'])
     for poly in polygons:
-        get_mean_height = lambda coord: tuple(data.loc[coord,['elevation']])
         toto = [get_mean_height(coord) for coord in poly.exterior.coords]
+        Not_none_values = filter(None.__ne__, toto)
+        toto = list(Not_none_values)
         mean_wse.append(np.mean(toto))
     return mean_wse
     

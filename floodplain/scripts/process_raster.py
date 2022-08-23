@@ -44,22 +44,22 @@ class FPDEM_Raster(object):
         """
         
         if input_file == None:
-            self.input_file = param.getValue("input_file")
+            self.input_file = param.getValue("input file")
         else:
             self.input_file = input_file 
 
         if input_file == None:
-            self.output_file = param.getValue("output_file")
+            self.output_file = param.getValue("output file")
         else:
             self.output_file = output_file 
 
         if mask == None:
-            self.mask = param.getValue("mask_file")
+            self.mask = param.getValue("mask file")
         else:
             self.mask = mask 
             
 
-        self.method_raster = param.getValue("method_raster")
+        self.method_raster = param.getValue("method raster")
         
         if self.method_raster == 'cars':
             self.resolution = float(param.getValue("resolution"))
@@ -70,7 +70,7 @@ class FPDEM_Raster(object):
 
         if self.method_raster == 'idw':
             self.resolution = float(param.getValue("resolution"))
-            self.number_of_neighbors_considered = int(param.getValue("number_of_neighbors_considered"))
+            self.number_of_neighbors_considered = int(param.getValue("number of neighbors considered"))
             self.mode = param.getValue("mode")
 
         if self.method_raster == 'exotic':
@@ -108,6 +108,8 @@ class FPDEM_Raster(object):
         cloud_xr = xr.open_dataset(self.input_file)
         self.cloud_df_raster = cloud_xr.to_dataframe()
         self.espg = cloud_xr.attrs['espg']
+        self.xref_pixc = cloud_xr.attrs['xref_input_l2_hr_pixc_files']
+        self.xref_pixcvec = cloud_xr.attrs['xref_input_l2_hr_pixcvec_files']
     
     def compute_raster_from_pixc_idw(self):
                         
@@ -315,16 +317,33 @@ class FPDEM_Raster(object):
         grid_shape = GRID[0].shape
         GRID = np.reshape(GRID, (2, -1)).T    
         
-        # Compute first interpolation in order to reduce to raster grid without interpolation (todo, inverse distance weighting ?)
-        results = idw_tree.query_ball_point(GRID, self.resolution)
-        Z = np.zeros_like(results, dtype = float)
+
+        distances, results = idw_tree.query(GRID, k=5)
         
-        for i, k in enumerate(results):
-            if len(k) != 0:
-                Z[i] = np.mean(elevation[k])
-                
+        Z = np.zeros(len(results), dtype = float)
+        dist_min = np.zeros(len(results), dtype = float)
+        dist_mean = np.zeros(len(results), dtype = float)
+        z_rel = np.zeros(len(results), dtype = float)
+        
+        # Voir pour optimiser / broadcast python
+        for i, indices in enumerate(results):
+            indices_to_average = list(indices[np.where(distances[i] < self.resolution)])
+            distances_to_average = np.array(distances[i][np.where(distances[i] < self.resolution)])
+            
+            if len(indices_to_average) != 0:
+                Z_mean = np.mean(elevation[indices_to_average])
+                Z[i] = np.sum(elevation[indices_to_average]/distances_to_average)/np.sum(1./distances_to_average)
+                dist_mean[i] = np.mean(distances_to_average)
+                dist_min[i] = np.min(distances_to_average)
+                z_rel[i] = np.abs(np.std(elevation[indices_to_average]/Z_mean))
+
+        # Reproject into 2d grid
+
         Z2d = Z.reshape(grid_shape)
-        
+        dist_mean_2d = dist_mean.reshape(grid_shape)
+        dist_min_2d = dist_min.reshape(grid_shape)
+        z_rel_2d = z_rel.reshape(grid_shape)
+
         
         # Determine good (no empty) points to use
         good_points = np.where(Z2d != 0)
@@ -335,24 +354,10 @@ class FPDEM_Raster(object):
         Z2d = interpolate.griddata(points[0], Z2d[np.where(Z2d != 0)], (grid_x, grid_y), method='cubic')
         
 
-        if self.mode == 'latlon':
-            # ~ dist_min = 2*np.pi*EARTH_RADIUS*dist_min/360.
-            # ~ dist_mean = 2*np.pi*EARTH_RADIUS*dist_mean/360.
-                        
-            dist_min = np.zeros_like(results, dtype = float)
-            dist_mean = np.zeros_like(results, dtype = float)
-            z_rel = np.zeros_like(results, dtype = float)
-            
-            
         mask = shapefile.Reader(self.mask)
             
         proj = pyproj.Proj(init='EPSG:'+str(self.espg))    
 
-        # Reproject into 2d grid
-        # ~ Z2d = Z.reshape(grid_shape)
-        dist_min_2d = dist_min.reshape(grid_shape)
-        dist_mean_2d = dist_mean.reshape(grid_shape)
-        z_rel_2d = z_rel.reshape(grid_shape)
         
         # Compute quality flag
         qual_flag_2d = compute_qual_flag(dist_mean_2d, z_rel_2d)
@@ -452,7 +457,7 @@ class FPDEM_Raster(object):
   
     def write_fpdem_raster(self):
         # Write output file
-        write_raster_gridded(self.output_file, self.mode, self.x, self.y, self.out_image, self.out_dist_min_2d, self.out_dist_mean_2d, self.out_qual_flag_2d, self.resolution, self.espg)
+        write_raster_gridded(self.output_file, self.mode, self.x, self.y, self.out_image, self.out_dist_min_2d, self.out_dist_mean_2d, self.out_qual_flag_2d, self.resolution, self.espg, self.xref_pixc, self.xref_pixcvec)
     
 
 

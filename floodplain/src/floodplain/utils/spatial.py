@@ -31,7 +31,7 @@ def convert_to_utm_coords(latitude: float,longitude: float) -> Tuple[float,float
     return utm.from_latlon(latitude,longitude)[0:2]
 
 
-def convert_to_utm_point(latitude: float,longitude: float) -> Point:
+def convert_to_utm_point(latitude: float,longitude: float, precision = None) -> Point:
     '''
     Convert latitude/longitude to utm coordinates
 
@@ -40,6 +40,9 @@ def convert_to_utm_point(latitude: float,longitude: float) -> Point:
     :return: Point in utm coordinates
     '''
     x,y = convert_to_utm_coords(latitude, longitude) 
+    if precision is not None:
+        x=round(x,precision)
+        y=round(y,precision)
     return Point(x,y)
 
 

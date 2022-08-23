@@ -1,5 +1,5 @@
-input_file = /work/ALT/swot/swotdev/desrochesd/floodplain/run/Comassa/output/SWOT_L2_HR_FPDEM_POINTCLOUD_42N001E_20210512T072103_20230603T075103_PGA2_01.nc
-output_file = /work/ALT/swot/swotdev/desrochesd/floodplain/run/Comassa/output/SWOT_L2_HR_FPDEM_42N001E_20210512T072103_20230603T075103_PGA2_01.nc
+input file = /work/ALT/swot/swotdev/desrochesd/floodplain/run/Comassa/output/SWOT_L2_HR_FPDEM_POINTCLOUD_42N001E_20210512T072103_20230603T075103_PGA2_01.nc
+output file = /work/ALT/swot/swotdev/desrochesd/floodplain/run/Comassa/output/SWOT_L2_HR_FPDEM_42N001E_20210512T072103_20230603T075103_PGA2_01.nc
 
 !mode = utm
 !resolution = 30
@@ -8,10 +8,10 @@ mode = latlon
 resolution = 0.000277777
 !resolution = 0.00005
 
-method_raster = idw  ! cars or idw
+method raster = idw  ! cars or idw
 plot = yes
 
 # Specific mandatory argument for idw method
-number_of_neighbors_considered = 10
-mask_file = /work/ALT/swot/swotdev/desrochesd/floodplain/run/Comassa/output/SWOT_L2_HR_FPDEM_extract_area.shp
+number of neighbors considered = 10
+mask file = /work/ALT/swot/swotdev/desrochesd/floodplain/run/Comassa/output/SWOT_L2_HR_FPDEM_extract_area.shp
 

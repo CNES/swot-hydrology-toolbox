@@ -16,6 +16,7 @@ import numpy as np
 from netCDF4 import Dataset
 import osr
 import textwrap
+import os
 
 EARTH_RADIUS = 6371000.
 class PixcReader():
@@ -29,28 +30,37 @@ class PixcReader():
         '''
         
         # Read pixel cloud and convert to dataframe
-        dnc = xr.open_dataset(pixc,group="pixel_cloud")  
+        dnc = xr.open_dataset(pixc,group="pixel_cloud", decode_times=False) 
+        dnc = dnc.drop_dims('complex_depth')
+        try:
+            dnc = dnc.drop_dims('num_pixc_lines')
+        except:
+            dnc = dnc
+            
         df = dnc.to_dataframe()
-        df = df.loc[df.index.get_level_values('complex_depth') == 0]
-
+        # ~ df = df.loc[df.index.get_level_values('complex_depth') == 0]
+        # ~ ###
+        # ~ df = df.loc[df.index.get_level_values('num_pixc_lines') == 0]
+        ###
         
         try:        
             df = df[['classification','pixel_area',
                      'longitude','latitude', 'height', 
                      'range_index', 'azimuth_index',
-                     'inc', 'cross_track', 'pole_tide', 'load_tide_got', 'load_tide_fes', 'solid_earth_tide', 'geoid']]
+                     'incidence', 'cross_track', 'pole_tide', 'load_tide_got', 'load_tide_fes', 'solid_earth_tide', 'geoid', 'illumination_time']]
                      
+                
             tide_correctly_loaded = True
         except:
             # should be removed, kept to be compatible with old simulations...
             df = df[['classification','pixel_area',
                 'longitude','latitude', 'height', 
                 'range_index', 'azimuth_index',
-                'inc', 'cross_track', 'geoid']]
+                'inc', 'cross_track', 'geoid', 'illumination_time']]
             tide_correctly_loaded = False
-         
+             
         df = df.loc[(df.classification > 1.0)] # Keep only water pixel point
-        
+
         
         # Read vec file and convert to dataframe
         if vec:
@@ -96,22 +106,19 @@ class PixcReader():
             # should be removed, kept to be compatible with old simulations...
             height = xr.open_dataset(pixc,group="tvp")["height"]
 
-        #to be cleaned
+        #to be cleaned, work around for data with inc empty
       
         self.data['cos_alpha'] = self.data.apply(lambda row:
                                            float(height[row['azimuth_index']])/(near_range + row['range_index'] * nominal_range_spacing), 
                                             axis=1)
         self.data['cos_alpha']  = self.data.apply(lambda row: min(row['cos_alpha'], 0.99999),axis=1)
-        self.data['range_spacing'] = self.data.apply(lambda row: nominal_range_spacing/math.sin(math.acos(row['cos_alpha'])),axis=1)
- 
-                                                   
-        # ~ self.data['range_spacing'] = self.data.apply(lambda row:
-                                           # ~ nominal_range_spacing / 
-                                           # ~ math.sin(math.acos(
-                                           # ~ float(height[row['azimuth_index']])/(near_range + row['range_index'] * nominal_range_spacing))), 
-                                           # ~ axis=1)
         
+        if np.max(self.data['inc']) > 0.:
+            self.data['range_spacing'] = self.data.apply(lambda row: nominal_range_spacing/math.sin(row['inc']),axis=1)
         
+        else:
+            self.data['range_spacing'] = self.data.apply(lambda row: nominal_range_spacing/math.sin(math.acos(row['cos_alpha'])),axis=1)
+
         # Compute wse using heights and corrections 
         ## TODO : Deal with nan correction and consider them as 0.
         if tide_correctly_loaded:
@@ -122,6 +129,8 @@ class PixcReader():
             # should be removed, kept to be compatible with old simulations...
             self.data['elevation'] = self.data.apply(lambda row: row['height']-row['geoid'], axis=1)            
   
+        self.data['time'] = self.data.apply(lambda row: round(float(row['illumination_time'])/3600.), axis=1)
+                        
         # Get attributes
         self.range_max = dnc.attrs['interferogram_size_range']
         self.azimuth_max = dnc.attrs['interferogram_size_azimuth']
@@ -165,7 +174,7 @@ def from_file(filename: str) -> gpd.GeoDataFrame:
         return gpd.GeoDataFrame(df, geometry=geom)
 
 def write_raster_gridded(filename: str, mode: str, x: np.array, y: np.array, out_image: np.array, out_dist_min_2d: np.array, \
-                out_dist_mean_2d: np.array, qual_flag: np.array, resolution: float, espg: str):
+                out_dist_mean_2d: np.array, qual_flag: np.array, resolution: float, espg: str, xref_pixc: str, xref_pixcvec: str):
         '''
         write output raster netcdf file 
         '''
@@ -194,8 +203,9 @@ def write_raster_gridded(filename: str, mode: str, x: np.array, y: np.array, out
         ds.geospatial_lon_max = np.max(y)
         ds.geospatial_lat_min = np.min(x)
         ds.geospatial_lat_max = np.max(x)
-        
-        
+        ds.xref_input_l2_hr_pixc_files = xref_pixc
+        ds.xref_input_l2_hr_pixcvec_files = xref_pixcvec
+   
 
         
         # ~ if mode == 'utm':
@@ -212,8 +222,8 @@ def write_raster_gridded(filename: str, mode: str, x: np.array, y: np.array, out
             # ~ ds.projection = "UTM Coordinates"
                         
         if mode == 'latlon':
-            x_dim = ds.createDimension('latitude',len(x))
-            y_dim = ds.createDimension('longitude',len(y))
+            x_dim = ds.createDimension('latitude',len(y))
+            y_dim = ds.createDimension('longitude',len(x))
 
             
             coordinate_system = osr.SpatialReference()
@@ -234,78 +244,71 @@ def write_raster_gridded(filename: str, mode: str, x: np.array, y: np.array, out
             crs.comment = 'Geodetic lat/lon coordinate reference system.'
             
                     
-            x_var = ds.createVariable("latitude", "float64", ("latitude"), fill_value=-9999.)
+            x_var = ds.createVariable("latitude", "float64", ("latitude"), fill_value=9.969209968386869e+36)
             x_var.long_name = 'latitude (positive N, negative S)'
             x_var.standard_name = 'latitude'
             x_var.units = 'degrees_north'
             x_var.valid_min = -80
             x_var.valid_max = 80
             x_var.comment = textjoin("""
-                    Geodetic latitude [-80,80] (degrees north of equator) of
+                    Latitude [-80,80] (degrees north of equator) of
                     the pixel.""")
                     
-            y_var = ds.createVariable("longitude", "float64", ("longitude"), fill_value=-9999.)
+            y_var = ds.createVariable("longitude", "float64", ("longitude"), fill_value=9.969209968386869e+36)
             y_var.long_name = 'longitude (degrees East)'
             y_var.standard_name = 'longitude'
             y_var.units = 'degrees_east'
             y_var.valid_min = -180
             y_var.valid_max = 180
             y_var.comment = textjoin("""
-                    Geodetic longitude [-180,180] (east of the Greenwich meridian) of
+                    Longitude [-180,180] (east of the Greenwich meridian) of
                     the pixel.""")            
             
-            z_var    = ds.createVariable("elevation", "float64", ("longitude", "latitude"), fill_value=-9999.)  
-            z_var.long_name = 'elevation (meters)'
-            z_var.standard_name = 'elevation'
+            z_var    = ds.createVariable("elevation", "float32", ("latitude", "longitude"), fill_value=9.96921e+36)  
+            z_var.long_name = 'surface elevation above geoid'
+            z_var.grid_mapping = 'crs'
             z_var.units = 'meters'
             z_var.valid_min = -9999
             z_var.valid_max = 9999
-            z_var.comment = textjoin("""
-                    Elevation [-9999,9999] (relative  to the geoid) of
-                    the pixel.""")             
+            z_var.comment = textjoin("""Surface elevation of the pixel above the geoid and after using models to subtract the effects of tides (solid_earth_tide, load_tide_fes, pole_tide).""")             
             
-            z_var_u  = ds.createVariable("elevation_uncert", "float64", ("longitude", "latitude"), fill_value=-9999.)   
-            z_var_u.long_name = 'elevation uncertainty (meters)'
-            z_var_u.standard_name = 'elevation uncertainty'
+            z_var_u  = ds.createVariable("elevation_uncert", "float32", ("latitude", "longitude"), fill_value=9.96921e+36)   
+            z_var_u.long_name = '1-sigma uncertainty in the surface elevation.)'
+            z_var_u.grid_mapping = 'crs'
             z_var_u.units = 'meters'
-            z_var_u.valid_min = -9999
-            z_var_u.valid_max = 9999
-            z_var_u.comment = textjoin("""
-                    Elevation uncertainty [-9999,9999] (relative  to the geoid) of
-                    the pixel.""") 
+            z_var_u.valid_min = 0
+            z_var_u.valid_max = 999999
+            z_var_u.comment = textjoin("""1-sigma uncertainty in the surface elevation.""") 
                     
-            min_dist_var = ds.createVariable("distance_to_closest", "float64", ("longitude", "latitude"), fill_value=-9999.)   
-            min_dist_var.long_name = 'minimum distance to closest pixel (meters)'
-            min_dist_var.standard_name = 'distance to closest'
+            min_dist_var = ds.createVariable("distance_to_closest", "float64", ("latitude", "longitude"), fill_value=9.96921e+36)   
+            min_dist_var.long_name = 'distance to closest boundary pixel'
+            min_dist_var.grid_mapping = 'crs'
             min_dist_var.units = 'meters'
             min_dist_var.valid_min = 0
-            min_dist_var.valid_max = 9999
-            min_dist_var.comment = textjoin("""
-                    Distance to closest pixel [0,9999] from each
-                    the pixel.""") 
+            min_dist_var.valid_max = 999999
+            min_dist_var.comment = textjoin("""Distance to closest boundary pixel""") 
                                 
-            mean_dist_var = ds.createVariable("mean_distance", "float64", ("longitude", "latitude"), fill_value=-9999.)   
-            mean_dist_var.long_name = 'mean distance from pixel to aggregated pixels (meters)'
-            mean_dist_var.standard_name = 'mean distance'
+            mean_dist_var = ds.createVariable("mean_distance", "float64", ("latitude", "longitude"), fill_value=9.96921e+36)   
+            mean_dist_var.long_name = 'mean distance to selected boundaries pixels'
+            mean_dist_var.grid_mapping = 'crs'
             mean_dist_var.units = 'meters'
             mean_dist_var.valid_min = 0
-            mean_dist_var.valid_max = 9999
-            mean_dist_var.comment = textjoin("""
-                    Mean distance from pixels to aggregated pixels [0,9999].""") 
+            mean_dist_var.valid_max = 999999
+            mean_dist_var.comment = textjoin("""Mean distance to selected boundaries pixels""") 
                     
-            qual_var = ds.createVariable("fpdem_qual", "float64", ("longitude", "latitude"), fill_value=9999.)   
-            qual_var.long_name = 'Quality flag for each pixel'
-            qual_var.standard_name = 'Quality flag'
+            qual_var = ds.createVariable("fpdem_gridded_qual", "u1", ("latitude", "longitude"), fill_value=255)   
+            qual_var.long_name = 'DEM quality flag'
+            qual_var.flag_meanings = 'good bad'
+            qual_var.flag_values = '0 1'
             qual_var.units = 'None'
             qual_var.valid_min = 0
-            qual_var.valid_max = 10
-            qual_var.comment = textjoin("""
-                    Quality flag [0,10] of
-                    the pixel.""") 
+            qual_var.valid_max = 1
+            qual_var.comment = textjoin("""Gridded floodplain DEM quality flag""") 
                       
              
-        x_var[:] = x
-        y_var[:] = y
+        x_var[:] = y
+        y_var[:] = x
+        
         z_var[:,:] = out_image  
         min_dist_var[:,:] = out_dist_min_2d  
         mean_dist_var[:,:] = out_dist_mean_2d  
@@ -340,6 +343,9 @@ def write_raster_ungridded(data, filename):
     ds.geospatial_lon_max = np.max(data.variables["longitude"])
     ds.geospatial_lat_min = np.min(data.variables["latitude"])
     ds.geospatial_lat_max = np.max(data.variables["latitude"])
+    
+    ds.xref_input_l2_hr_pixc_files = data.attrs["xref_input_l2_hr_pixc_files"]
+    ds.xref_input_l2_hr_pixcvec_files = data.attrs["xref_input_l2_hr_pixcvec_files"]
 
     index_dim = ds.createDimension('index',len(data.variables['longitude']))
     
@@ -353,9 +359,7 @@ def write_raster_ungridded(data, filename):
     x_var.units = 'degrees_north'
     x_var.valid_min = -80
     x_var.valid_max = 80
-    x_var.comment = textjoin("""
-            Geodetic latitude [-80,80] (degrees north of equator) of
-            the pixel.""")
+    x_var.comment = textjoin("""Latitude [-80,80] (degrees north of equator) of the pixel.""")
             
     y_var = ds.createVariable("longitude", "float64", ("index"), fill_value=-9999.)
     y_var.long_name = 'longitude (degrees East)'
@@ -363,31 +367,35 @@ def write_raster_ungridded(data, filename):
     y_var.units = 'degrees_east'
     y_var.valid_min = -180
     y_var.valid_max = 180
-    y_var.comment = textjoin("""
-            Geodetic longitude [-180,180] (east of the Greenwich meridian) of
-            the pixel.""")            
+    y_var.comment = textjoin("""Longitude [-180,180) (east of the Greenwich meridian) of the pixel.""")            
                     
-    z_var    = ds.createVariable("elevation", "float64", ("index"), fill_value=-9999.)  
-    z_var.long_name = 'elevation (meters)'
-    z_var.standard_name = 'elevation'
+    z_var    = ds.createVariable("elevation", "float32", ("index"), fill_value=9.96921e+36)  
+    z_var.long_name = 'surface elevation above geoid'
+    z_var.grid_mapping = 'crs'
     z_var.units = 'meters'
-    z_var.valid_min = -9999
-    z_var.valid_max = 9999
-    z_var.comment = textjoin("""
-            Elevation [-9999,9999] (relative  to the geoid) of
-            the pixel.""")      
-
-    data_valid_var  = ds.createVariable("data_valid", "int64", ("index"), fill_value=-9999)  
-    data_valid_var.long_name = 'data validation flag'
-    data_valid_var.standard_name = 'data valid'
-    data_valid_var.units = ''
-    data_valid_var.valid_min = -9999
-    data_valid_var.valid_max = 9999
-    data_valid_var.comment = textjoin("""
-            Data validation flag [0, 1] of
-            the pixel.""")  
+    z_var.valid_min = -1500
+    z_var.valid_max = 15000
+    z_var.comment = textjoin("""Surface elevation of the pixel above the geoid and after using models to subtract the effects of tides (solid_earth_tide, load_tide_fes, pole_tide).""") 
+    
+    fpdem_ungridded_qual_var  = ds.createVariable("fpdem_ungridded_qual", "u1", ("index"), fill_value=255)  
+    fpdem_ungridded_qual_var.long_name = 'ungridded floodplain DEM quality flag  '
+    fpdem_ungridded_qual_var.flag_meanings = 'good suspect bad'
+    fpdem_ungridded_qual_var.flag_values = '0 1 2'
+    fpdem_ungridded_qual_var.units = ''
+    fpdem_ungridded_qual_var.valid_min = 0
+    fpdem_ungridded_qual_var.valid_max = 2
+    fpdem_ungridded_qual_var.comment = textjoin("""Ungridded floodplain DEM quality flag computed as the maximum of the three quality flags of the pixel in the corresponding L2_HR_PIXC product.""")  
+            
+    time_var  = ds.createVariable("time", "int", ("index"), fill_value=2147483647)  
+    time_var.long_name = 'measurement time in hours (UTC)'
+    time_var.standard_name = 'time'
+    time_var.units = ''
+    time_var.valid_min = 175320
+    time_var.valid_max = 438300
+    time_var.comment = textjoin("""Time of measurement in hours in the UTC time scale since 1 Jan 2000 00:00:00 UTC, obtained by dividing the illumination_time (in seconds) of the pixel in the L2_HR_PIXC product by 3600, and rounding it to entire hours""")  
                         
     x_var[:] = data.variables['latitude']
     y_var[:] = data.variables['longitude']
     z_var[:] = data.variables['elevation'] 
-    data_valid_var[:] = data.variables["data_valid"]
+    fpdem_ungridded_qual_var[:] = data.variables["fpdem_ungridded_qual"]
+    time_var[:] = data.variables["time"]

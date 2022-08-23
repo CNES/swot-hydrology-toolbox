@@ -3,34 +3,40 @@ pixc file list = /work/ALT/swot/swotpub/SWOT_Simulator_data/tests_validation_loc
 # PixcVec list (1 space blank between each file)
 pixcvec file list = /work/ALT/swot/swotpub/SWOT_Simulator_data/tests_validation_locnes/LT6/LT6_Cas_Comassa/8_lake_sp/SWOT_L2_HR_PIXCVec_*.nc
 # Output directoy
-output_directory = /work/ALT/swot/swotdev/desrochesd/floodplain/run/Comassa/output
+output directory = /work/ALT/swot/swotdev/desrochesd/floodplain/run/Comassa/output
 
 latitude min = 42.
 latitude max = 43.
 longitude min = 1.
 longitude max = 2.
 
-tile_name = 42N001E
-first_date_name = 20210512T072103
-last_date_name = 20230603T075103
+tile name = 42N001E
+first date name = 20210512T072103
+last date name = 20230603T075103
 
 # Threading option -> choose "dask" or "multiprocessing" or "None"
 threading option = multiprocessing
 cross track min value = 5000
+hull method = 1.0
 
-method_extract = intersection
+# 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation with alpha parameter varying along range (cgal)
+# 1.2 = concave hull computed in ground geometry, based on Delaunay triangulation (cascaded union)
+# 2.0 = edge computed in radar geometry, then converted in ground geometry by reordering lon lat (default)
+# 2.1 = edge computed in radar geometry, then converted in ground geometry by checking each segment
+
+method extract = intersection
 
 alpha = 5000000
-smoothing_factor = 0.001
+smoothing factor = 0.001
 
 mode = latlon
 !resolution = 0.000277777    ! in degree for latlon mode
 resolution = 0.0000277777    ! in degree for latlon mode
 
-method_raster = idw  !  idw (car not compatible now)
+method raster = idw  !  idw/exotic
 plot = yes
 
 # Specific mandatory argument for idw method
-number_of_neighbors_considered = 10
+number of neighbors considered = 10
 
 
