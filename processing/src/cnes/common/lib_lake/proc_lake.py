@@ -908,7 +908,7 @@ class LakeProduct(object):
         out_attributes["layovr_val"] = my_tools.value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.layover_impact[in_pixc_index[in_classif["interior_water"]]], name="layovr_val"))
         
         # Median distance from PIXC to the satellite ground track
-        out_attributes["xtrk_dist"] = my_tools.value_or_none(np.compute_mean_2sigma(self.obj_pixc.cross_track[in_pixc_index]))
+        out_attributes["xtrk_dist"] = my_tools.value_or_none(my_tools.compute_mean_2sigma(self.obj_pixc.cross_track[in_pixc_index]))
         
         # ======================
         # 3 - Quality indicators
