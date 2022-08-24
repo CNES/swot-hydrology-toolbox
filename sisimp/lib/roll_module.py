@@ -67,8 +67,8 @@ class Roll_module(object):
         self.lon_sens = []
         self.lat_sens = []
         
-        print(sensor_time)
-        print(self.time)
+        # ~ print(sensor_time)
+        # ~ print(self.time)
         
         for i in range(self.roll1_err.shape[1]):
             # Interpolate simulated roll variables on sensor time grid
