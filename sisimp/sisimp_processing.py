@@ -30,6 +30,7 @@ import lib.my_timer as my_timer
 import lib.tropo_module as tropo_module
 import multiprocessing as mp
 from copy import deepcopy
+import distutils.util
 
 import sisimp_function as sisimp_fct
 from write_polygons import orbitAttributes
@@ -41,8 +42,12 @@ def init_process():
 
 def read_parameter(IN_rdf_reader, IN_instrument_name, IN_instrument_default_value, read_type):
     try:
-        OUT_instrument_param = read_type(IN_rdf_reader.getValue(IN_instrument_name))
-        my_api.printInfo("[sisimp_processing] [read_parameter] %s : %s" % (IN_instrument_name, str(OUT_instrument_param)))
+        if read_type is not bool:
+            OUT_instrument_param = read_type(IN_rdf_reader.getValue(IN_instrument_name))
+            my_api.printInfo("[sisimp_processing] [read_parameter] %s : %s" % (IN_instrument_name, str(OUT_instrument_param)))
+        else:
+            OUT_instrument_param = read_type(distutils.util.strtobool(IN_rdf_reader.getValue(IN_instrument_name)))
+            my_api.printInfo("[sisimp_processing] [read_parameter] %s : %s" % (IN_instrument_name, str(OUT_instrument_param)))
     except:
         OUT_instrument_param = IN_instrument_default_value
         my_api.printInfo("[sisimp_processing] [read_parameter] Default value for %s : %s" % (IN_instrument_name, str(OUT_instrument_param)))
@@ -184,7 +189,6 @@ class Processing(object):
                 elif self.my_attributes.height_model == "reference_height":
                     self.my_attributes.height_name = read_parameter(parameters, "Height shp attribute name", "HEIGHT", str)
                     self.my_attributes.height_ref_multitemp = read_parameter(parameters, "Height ref multitemp", False, bool)
-                    
                     if self.my_attributes.height_ref_multitemp:
                         self.my_attributes.height_model_a = read_parameter(parameters, "Constant height model A", my_var.HEIGHT_MODEL_A, float)
                         self.my_attributes.height_model_t0 = read_parameter(parameters, "Constant height model t0", my_var.HEIGHT_MODEL_t0, float)
