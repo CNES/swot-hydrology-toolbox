@@ -22,6 +22,7 @@ from ressources.utils.input_reader import Input_Reader
 import ressources.utils.passplan as lib_passplan
 from ressources.utils import my_api
 
+
 class Processing(object):
 
     def __init__(self, in_parameter_file, in_output_directory):
