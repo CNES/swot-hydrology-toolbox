@@ -188,7 +188,7 @@ def main():
   
         # Convert PIXCVecRiver into shapefile if wanted
         if not args["noshp"]:
-            
+
             # write pixcvec shapefile
             print("> Converting PIXCVecRiver .nc file to shapefile...")
             pixcvec_vars = ["azimuth_index", 
