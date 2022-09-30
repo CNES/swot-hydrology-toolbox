@@ -56,7 +56,8 @@ class Roll_module(object):
         self.lon_nadir=numpy.array(fid.variables['lon_nadir'])
         self.lat_nadir=numpy.array(fid.variables['lat_nadir'])
         self.roll1_err=numpy.array(fid.variables['roll_err'])
-        
+        self.xtrack=numpy.array(fid.variables['x_ac'])*1e3
+
         fid.close()
  
  
@@ -89,22 +90,13 @@ class Roll_module(object):
         # ~ print('self.lon_sens= ', self.lon_sens)
         # ~ print('self.lat_sens= ', self.lat_sens)
 
-    def interpolate_roll_on_pixelcloud(self, sensor_time, cloud_time, y):
-
-        # Estimate col where estimate the roll error: TBC
-        delta_xtrack = 120000./self.roll1_err.shape[1]
-        col = (y/delta_xtrack).astype('int')+self.roll1_err.shape[1]/2
-
-        self.roll1_err_cloud = np.zeros(len(cloud_time), float)
-        for i in range(self.roll1_err.shape[1]):
-            ind = np.where(col == i)
-            if ind[0].size:
-                # Interpolate roll variables on pixel cloud
-                
-                # ~ print("cloud_time", cloud_time)
-                # ~ print("sensor_time", sensor_time)
-                f=scipy.interpolate.interp1d(sensor_time,self.roll1_err_sens[i],kind='linear')
-                self.roll1_err_cloud[ind]=f(cloud_time[ind])
+    def interpolate_roll_on_pixelcloud(self, sensor_time, cloud_time, y,
+                                       bounds_error=False, fill_value=0):
+        # Interpolate roll variables on pixel cloud
+        self.roll1_err_cloud = scipy.interpolate.interpn(
+            (self.xtrack, sensor_time), np.array(self.roll1_err_sens),
+            (y, cloud_time), method='linear', bounds_error=bounds_error,
+            fill_value=fill_value)
 
 if __name__ == "__main__":
     

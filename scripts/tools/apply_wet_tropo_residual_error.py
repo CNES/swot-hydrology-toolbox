@@ -89,19 +89,17 @@ def main():
     try:
         if parameters['roll_repository_name'] != None:
             print("Applying roll residual error")
-
             roll = Roll_module(parameters['roll_repository_name'])
             roll.get_roll_file_associated_to_orbit_and_cycle(
                 pass_number, cycle_number,
                 delta_time=(utc_date_simu-utc_ref_simu).total_seconds())
-            
             roll.interpolate_roll_on_sensor_grid(orbit_time)
-            
             # Apply roll for each pixel
-            roll.interpolate_roll_on_pixelcloud(orbit_time, pixel_cloud_time, cross_track)
+            roll.interpolate_roll_on_pixelcloud(
+                orbit_time, pixel_cloud_time, cross_track,
+                bounds_error=False, fill_value=None)
             delta_h_roll = (roll.roll1_err_cloud)
             delta_h += delta_h_roll
-            
         else:
             print("No roll error applied")
     except:
