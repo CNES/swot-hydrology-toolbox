@@ -76,13 +76,10 @@ def main():
     utc_start_crossover = datetime(2021, 9, 1)
     utc_end_crossover = datetime(2022, 9, 1)
     utc_ref_simu = datetime(2000, 1, 1)
-    utc_date_simu = datetime(2019, 2, 5)
+    utc_date_simu = datetime(2019, 2, 1)
     
     diff_between_date = (utc_start_crossover-utc_ref_simu).total_seconds()
     diff_between_simulation_and_reference_crossover = (utc_date_simu-utc_start_crossover).total_seconds()
-    
-    repeat_cycle_period = 1802697.1564
-    nb_cycle_shift = diff_between_simulation_and_reference_crossover//repeat_cycle_period+1
 
     if diff_between_simulation_and_reference_crossover<0:
         print("Warning, Simulation date (",utc_date_simu,") is below crossover simulated start time : ", utc_start_crossover)
@@ -94,8 +91,9 @@ def main():
             print("Applying roll residual error")
 
             roll = Roll_module(parameters['roll_repository_name'])
-            # ~ roll.get_roll_file_associated_to_orbit_and_cycle(pass_number, cycle_number, delta_time = diff_between_date)
-            roll.get_roll_file_associated_to_orbit_and_cycle(pass_number, cycle_number, delta_time = diff_between_date+nb_cycle_shift*repeat_cycle_period)
+            roll.get_roll_file_associated_to_orbit_and_cycle(
+                pass_number, cycle_number,
+                delta_time=(utc_date_simu-utc_ref_simu).total_seconds())
             
             roll.interpolate_roll_on_sensor_grid(orbit_time)
             
