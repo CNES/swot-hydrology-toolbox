@@ -63,12 +63,19 @@ def main():
 
     delta_h = 0.
 
-    tropo = Tropo_module(parameters['Tropo model'], min(col), max(col), min(az), max(az), \
-    float(parameters['Tropo error stdv']), float(parameters['Tropo error mean']), float(parameters['Tropo error correlation']), \
-    parameters['Tropo error map file'])
+    try:
+        tropo_seed = parameters['Tropo seed']
+    except KeyError:
+        tropo_seed = None
 
+    tropo = Tropo_module(parameters['Tropo model'],
+                         min(col), max(col), min(az), max(az), \
+                         float(parameters['Tropo error stdv']),
+                         float(parameters['Tropo error mean']),
+                         float(parameters['Tropo error correlation']), \
+                         parameters['Tropo error map file'],
+                         seed=tropo_seed)
     tropo.generate_tropo_field_over_pass(min(lat))
-
     tropo.apply_tropo_error_on_pixels(az, col)
     tropo_2d_field = tropo.tropo_2d_field
     delta_h += tropo_2d_field        

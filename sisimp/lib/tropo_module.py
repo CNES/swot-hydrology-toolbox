@@ -15,22 +15,28 @@ import lib.my_api as my_api
 
 class Tropo_module(object):
 
-    def __init__(self, tropo_model, rmin, rmax, azmin, azmax, tropo_error_stdv, tropo_error_mean, tropo_error_correlation, tropo_error_map_file):
+    def __init__(self, tropo_model, rmin, rmax, azmin, azmax, tropo_error_stdv,
+                 tropo_error_mean, tropo_error_correlation,
+                 tropo_error_map_file, seed=None):
         self.model = tropo_model
         self.rmin = rmin
         self.rmax = rmax
         self.azmin = azmin
-        self.azmax = azmax       
+        self.azmax = azmax
         self.tropo_error_stdv = tropo_error_stdv
         self.tropo_error_mean = tropo_error_mean
         self.tropo_error_correlation = tropo_error_correlation
         self.tropo_error_map_file = tropo_error_map_file
-        
-    def calculate_tropo_error_gaussian(self):
+        self.seed = seed
 
-        my_api.printInfo("Computing random tropo_error field on %d x %d image" % (self.azmax-self.azmin, self.rmax-self.rmin))
-        self.tropo_map_rg_az = height_model.generate_2d_profile_gaussian(1, self.azmin, self.azmax+1, 1, self.rmin, self.rmax+1, self.tropo_error_stdv, lcorr = self.tropo_error_correlation)+ self.tropo_error_mean
-             
+    def calculate_tropo_error_gaussian(self):
+        my_api.printInfo("Computing random tropo_error field on %d x %d image"
+                         % (self.azmax-self.azmin, self.rmax-self.rmin))
+        self.tropo_map_rg_az = height_model.generate_2d_profile_gaussian(
+            1, self.azmin, self.azmax+1, 1, self.rmin, self.rmax+1,
+            self.tropo_error_stdv, lcorr=self.tropo_error_correlation,
+            seed=self.seed) + self.tropo_error_mean
+
     def calculate_tropo_error_map(self, latmin):
 
         my_api.printInfo("Computing map tropo_error field on %d x %d image" % (self.azmax-self.azmin, self.rmax-self.rmin))
@@ -47,8 +53,10 @@ class Tropo_module(object):
                
         my_api.printInfo("%f cm mean biais and %f cm stv  estimated at latitude %f" % (delta_wtc_MEAN_local, delta_wtc_STD_local, latmin))
 
-        self.tropo_map_rg_az = height_model.generate_2d_profile_gaussian(1, self.azmin, self.azmax+1, 1, self.rmin, self.rmax+1, delta_wtc_STD_local*0.01, lcorr = self.tropo_error_correlation)+delta_wtc_MEAN_local*0.01
-        
+        self.tropo_map_rg_az = height_model.generate_2d_profile_gaussian(
+            1, self.azmin, self.azmax+1, 1, self.rmin, self.rmax+1,
+            delta_wtc_STD_local*0.01, lcorr=self.tropo_error_correlation,
+            seed=self.seed) + delta_wtc_MEAN_local*0.01
 
     def apply_tropo_error_on_pixels(self, az, r):
         self.tropo_2d_field = self.tropo_map_rg_az[az-self.azmin,r-self.rmin]
