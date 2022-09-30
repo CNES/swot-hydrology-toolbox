@@ -38,6 +38,7 @@ def main():
     pixc = Dataset(abspath(args['pixel_cloud_file']), 'r')
     final_pixc = Dataset(abspath(args['output_final_pixel_cloud']), 'a')
 
+    ifgram_size_range = pixc.groups['pixel_cloud'].interferogram_size_range
     az = pixc.groups['pixel_cloud'].variables['azimuth_index'][:]
     col = pixc.groups['pixel_cloud'].variables['range_index'][:]
     lat = pixc.groups['pixel_cloud'].variables['latitude'][:]
@@ -45,9 +46,11 @@ def main():
     height = pixc.groups['pixel_cloud'].variables['height'][:]
     pixel_cloud_time = pixc.groups['pixel_cloud'].variables['illumination_time'][:].filled()
     cross_track = pixc.groups['pixel_cloud'].variables['cross_track'][:]
-    
+    line_to_tvp = pixc.groups['pixel_cloud'].variables['pixc_line_to_tvp'][:]
+
+    record_counter = pixc.groups['tvp'].variables['record_counter'][:]
     orbit_time = pixc.groups['tvp'].variables['time'][:].filled()
-    
+
     cycle_number = pixc.getncattr('cycle_number')
     pass_number = pixc.getncattr('pass_number')
     swath_side = pixc.getncattr('swath_side')
@@ -60,26 +63,44 @@ def main():
     nominal_slant_range_spacing = pixc.getncattr('nominal_slant_range_spacing')
     
     ri = near_range + nominal_slant_range_spacing*col
+    records = record_counter[line_to_tvp[az].astype(int)]
 
     delta_h = 0.
 
-    try:
-        tropo_seed = parameters['Tropo seed']
-    except KeyError:
-        tropo_seed = None
+    if parameters['Tropo model'].lower() != 'none':
+        try:
+            min_record = int(parameters['Tropo first record index'])
+        except KeyError:
+            min_record = min(records)
 
-    tropo = Tropo_module(parameters['Tropo model'],
-                         min(col), max(col), min(az), max(az), \
-                         float(parameters['Tropo error stdv']),
-                         float(parameters['Tropo error mean']),
-                         float(parameters['Tropo error correlation']), \
-                         parameters['Tropo error map file'],
-                         seed=tropo_seed)
-    tropo.generate_tropo_field_over_pass(min(lat))
-    tropo.apply_tropo_error_on_pixels(az, col)
-    tropo_2d_field = tropo.tropo_2d_field
-    delta_h += tropo_2d_field        
-   
+        try:
+            max_record = int(parameters['Tropo last record index'])
+        except KeyError:
+            max_record = max(records)
+
+        try:
+            tropo_lat = float(parameters['Tropo lookup latitude'])
+        except KeyError:
+            tropo_lat = min(lat)
+
+        try:
+            tropo_seed = parameters['Tropo seed']
+        except KeyError:
+            tropo_seed = None
+
+        tropo = Tropo_module(parameters['Tropo model'],
+                             0, ifgram_size_range,
+                             min_record, max_record, \
+                             float(parameters['Tropo error stdv']),
+                             float(parameters['Tropo error mean']),
+                             float(parameters['Tropo error correlation']), \
+                             parameters['Tropo error map file'],
+                             seed=tropo_seed)
+        tropo.generate_tropo_field_over_pass(tropo_lat)
+        tropo.apply_tropo_error_on_pixels(records, col)
+        tropo_2d_field = tropo.tropo_2d_field
+        delta_h += tropo_2d_field
+
     utc_start_crossover = datetime(2021, 9, 1)
     utc_end_crossover = datetime(2022, 9, 1)
     utc_ref_simu = datetime(2000, 1, 1)
