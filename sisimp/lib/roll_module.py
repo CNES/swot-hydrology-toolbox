@@ -62,14 +62,7 @@ class Roll_module(object):
         self.roll1_err_sens = []
         self.lon_sens = []
         self.lat_sens = []
-<<<<<<< HEAD
-        
-        # ~ print(sensor_time)
-        # ~ print(self.time)
-        
-=======
 
->>>>>>> 1a232cd421db18af03a5cd6d5e81c675abb8a566
         for i in range(self.roll1_err.shape[1]):
             # Interpolate simulated roll variables on sensor time grid
             ensind=numpy.where(((self.time>=sensor_time[0]-2.) \
