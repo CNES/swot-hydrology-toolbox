@@ -89,9 +89,9 @@ Water flag = 4
 Dark water flag = 5
 
 
-###########################
+!##########################
 !# NOISE AND ERROR CONFIG #
-###########################
+!##########################
 
 !== Noise parameters ==
 Noise file path = $SWOT_HYDROLOGY_TOOLBOX/sisimp/data/height_noise_presum2.txt

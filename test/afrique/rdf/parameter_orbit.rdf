@@ -6,7 +6,7 @@ Mission start time = 2022-04-01
 !== Orbit parameters ==
 
 !Directory of theoretical orbit files
-Orbit repository = $SWOT_HYDROLOGY_TOOLBOX/select_orbit_cnes/swot_science_orbit_june_2015
+Orbit repository = $SWOT_HYDROLOGY_TOOLBOX/select_orbit_cnes/swot_science_orbit_march_2018
 
 !Studied area bounding box
 DEM south latitude (deg) = -0.3

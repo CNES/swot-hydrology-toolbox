@@ -16,7 +16,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import numpy as np
 import os
 import re
-import zipfile
 
 import lib.my_api as my_api
 import lib.my_filenames as my_names
