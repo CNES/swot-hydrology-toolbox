@@ -169,9 +169,19 @@ def main():
             recompute_doppler=True, recompute_range=True, verbose=False,
             max_iter_grad=1, height_goal=1.e-3)
 
-    final_pixc.groups['pixel_cloud'].variables['latitude'][:] = p_final_llh[:,0]
-    final_pixc.groups['pixel_cloud'].variables['longitude'][:] = p_final_llh[:,1]
-    final_pixc.groups['pixel_cloud'].variables['height'][:] = p_final_llh[:,2]
+    new_lat = p_final_llh[:,0]
+    new_lon = p_final_llh[:,1]
+    new_height = p_final_llh[:,2]
+    new_lat.mask = np.logical_or(
+        new_lat.mask, pixc.groups['pixel_cloud'].variables['latitude'][:].mask)
+    new_lon.mask = np.logical_or(
+        new_lon.mask, pixc.groups['pixel_cloud'].variables['longitude'][:].mask)
+    new_height.mask = np.logical_or(
+        new_height.mask, pixc.groups['pixel_cloud'].variables['height'][:].mask)
+
+    final_pixc.groups['pixel_cloud'].variables['latitude'][:] = new_lat
+    final_pixc.groups['pixel_cloud'].variables['longitude'][:] = new_lon
+    final_pixc.groups['pixel_cloud'].variables['height'][:] = new_height
 
     pixc.close()
     final_pixc.close()
