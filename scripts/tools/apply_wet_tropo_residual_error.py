@@ -120,9 +120,11 @@ def main():
         if parameters['roll_repository_name'].lower() != 'none':
             print("Applying roll residual error")
             roll = Roll_module(parameters['roll_repository_name'])
+
             roll.get_roll_file_associated_to_orbit_and_cycle(
                 pass_number, cycle_number,
                 delta_time=(utc_date_simu-utc_ref_simu).total_seconds())
+
             roll.interpolate_roll_on_sensor_grid(orbit_time)
             # Apply roll for each pixel
             roll.interpolate_roll_on_pixelcloud(
@@ -167,9 +169,9 @@ def main():
             recompute_doppler=True, recompute_range=True, verbose=False,
             max_iter_grad=1, height_goal=1.e-3)
 
-    final_pixc.groups['pixel_cloud'].variables['latitude'][:] = p_final_llh[:,0]
-    final_pixc.groups['pixel_cloud'].variables['longitude'][:] = p_final_llh[:,1]
-    final_pixc.groups['pixel_cloud'].variables['height'][:] = p_final_llh[:,2]
+    final_pixc.groups['pixel_cloud'].variables['latitude'].data = p_final_llh[:,0]
+    final_pixc.groups['pixel_cloud'].variables['longitude'].data = p_final_llh[:,1]
+    final_pixc.groups['pixel_cloud'].variables['height'].data = p_final_llh[:,2]
 
     pixc.close()
     final_pixc.close()
