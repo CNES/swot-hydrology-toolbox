@@ -306,7 +306,8 @@ class l2_hr_pixc(object):
         pixel_cloud_vars_val['geolocation_qual'] = np.zeros(self.nb_water_pix)
         pixel_cloud_vars_val['sig0_qual'] = np.zeros(self.nb_water_pix)
         pixel_cloud_vars_val['pixc_line_qual'] = np.zeros(self.nb_pix_azimuth)
-        
+        pixel_cloud_vars_val['pixc_line_to_tvp'] = np.zeros(self.nb_pix_azimuth)
+
         # ===============
         # == Group TVP ==
         # ===============
