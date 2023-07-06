@@ -1,6 +1,6 @@
 dask==0.11.0
 matplotlib==1.5.3
-scipy==0.18.1
+scipy==1.10.0
 numpy==1.11.1
 fiona==1.8a1
 geopandas==0.3.0
