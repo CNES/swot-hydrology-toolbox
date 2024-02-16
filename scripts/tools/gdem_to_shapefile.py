@@ -8,12 +8,12 @@ import rasterio.features
 import shapely.geometry as geometry
 from affine import Affine
 
-#~ input_name="/work/ALT/swot/swotpub/SWOT_Simulator_data/input_data/garonne_aval/gdem-dem-truth/gdem-dem-garonne_aval-0.nc"
-#~ input_name="/work/ALT/swot/swotpub/SWOT_Simulator_data/input_data/camargue/gdem-dem-truth/gdem-dem-camargue-0.nc"
-input_name="/work/ALT/swot/swotpub/SWOT_Simulator_data/input_data/sacramento/gdem-dem-truth/gdem-dem-sacramento-1.nc"
+#~ input_name="/work/SWOT/swotdev/swotpub/SWOT_Simulator_data/input_data/garonne_aval/gdem-dem-truth/gdem-dem-garonne_aval-0.nc"
+#~ input_name="/work/SWOT/swotdev/swotpub/SWOT_Simulator_data/input_data/camargue/gdem-dem-truth/gdem-dem-camargue-0.nc"
+input_name="/work/SWOT/swotdev/swotpub/SWOT_Simulator_data/input_data/sacramento/gdem-dem-truth/gdem-dem-sacramento-1.nc"
 
-#~ output_name="/work/ALT/swot/swotdev/desrochesd/swot-hydrology-toolbox/scripts/tools/camargue.shp"
-output_name="/work/ALT/swot/swotdev/desrochesd/swot-hydrology-toolbox/scripts/tools/sacramento.shp"
+#~ output_name="/work/SWOT/swotdev/swotdev/desrochesd/swot-hydrology-toolbox/scripts/tools/camargue.shp"
+output_name="/work/SWOT/swotdev/swotdev/desrochesd/swot-hydrology-toolbox/scripts/tools/sacramento.shp"
 
 source_driver = 'ESRI Shapefile'
 source_crs = {'init': 'epsg:4326'}

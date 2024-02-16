@@ -179,9 +179,9 @@ class Extract_Area(object):
         
 
             
-        # ~ shp.polygons_to_file("/work/ALT/swot/swotdev/desrochesd/floodplain/run/biglake150/output_dask/output_extract_area_interior.shp", list_poly, wse = list_wse)
-        # ~ shp.polygons_to_file("/work/ALT/swot/swotdev/desrochesd/floodplain/run/biglake150/output_dask/output_extract_area_interior2.shp", self.input_polygons[0::50], wse = self.wse[0::50])
-        # ~ shp.polygons_to_file("/work/ALT/swot/swotdev/desrochesd/floodplain/run/LacOrient/output/output_extract_area_exterior.shp", polygons_exterior)
+        # ~ shp.polygons_to_file("/work/SWOT/swotdev/swotdev/desrochesd/floodplain/run/biglake150/output_dask/output_extract_area_interior.shp", list_poly, wse = list_wse)
+        # ~ shp.polygons_to_file("/work/SWOT/swotdev/swotdev/desrochesd/floodplain/run/biglake150/output_dask/output_extract_area_interior2.shp", self.input_polygons[0::50], wse = self.wse[0::50])
+        # ~ shp.polygons_to_file("/work/SWOT/swotdev/swotdev/desrochesd/floodplain/run/LacOrient/output/output_extract_area_exterior.shp", polygons_exterior)
         
 
     def write_extract_area(self):

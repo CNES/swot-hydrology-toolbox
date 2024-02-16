@@ -239,7 +239,7 @@ def relabel_lake_using_segmentation_heigth(in_x, in_y, in_height, in_pix_area, m
         # # TO REMOVE WHEN TESTS ARE OK
         # if np.unique(out_labels).size > 1:
         #
-        #     fig_path = "/work/ALT/swot/swothr/users/cazalsc/Issue_70/Illustrations/figure_%d_pix.png" % (nb_pts)
+        #     fig_path = "/work/SWOT/swotdev/swothr/users/cazalsc/Issue_70/Illustrations/figure_%d_pix.png" % (nb_pts)
         #     i=1
         #
         #     while os.path.exists(fig_path):
@@ -580,7 +580,7 @@ def reorder_labels(in_labels):
 # from matplotlib.colors import ListedColormap
 # from matplotlib.colors import BoundaryNorm
 #
-# # color_array = np.load("/work/ALT/swot/swothr/users/cazalsc/Issue_70/color_plot.npz")["color_array"]
+# # color_array = np.load("/work/SWOT/swotdev/swothr/users/cazalsc/Issue_70/color_plot.npz")["color_array"]
 # # color_list = color_array
 # # cMap = ListedColormap(color_list)
 # #

@@ -159,11 +159,11 @@ Log file = False
 [CONFIG_OVERWRITE]
 
 # Lake a priori database
-LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20170905_France/priordb_lakes_france.shp
+LAKE_DB = /work/SWOT/swotdev/swotpub/BD/BD_lakes/20170905_France/priordb_lakes_france.shp
 # Lake identifier attribute name in the database
 LAKE_DB_ID = basin_id
 # Shapefile with polygons of continents
-CONTINENT_FILE = /work/ALT/swot/swotpub/BD/major_basins/FAO/major_hydrobasins.shp
+CONTINENT_FILE = /work/SWOT/swotdev/swotpub/BD/major_basins/FAO/major_hydrobasins.shp
 
 # Water flag: 3=water near land edge  4=interior water
 FLAG_WATER = 3;4

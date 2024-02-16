@@ -49,10 +49,10 @@ River database SWORD last version available here:
 http://gaia.geosci.unc.edu/SWORD/
 
 Don't forget to modify SWORD symbolic links with the last version:
-/work/ALT/swot/swotpub/BD/BD_rivers/SWORD
+/work/SWOT/swotdev/swotpub/BD/BD_rivers/SWORD
 
 If you want to use another SWORD version, you can modify parameter_river.rdf
-reach_db_path (-) = /work/ALT/swot/swotpub/BD/BD_rivers/SWORD/netcdf
+reach_db_path (-) = /work/SWOT/swotdev/swotpub/BD/BD_rivers/SWORD/netcdf
 
 You can also try to use a more recent RiverObs version, but don't forget to use the associated SWORD version.
 

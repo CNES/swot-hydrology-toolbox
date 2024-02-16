@@ -1,5 +1,5 @@
 # input filename
-input_file = /work/ALT/swot/swotpub/SWOT_Simulator_data/input_data/large_scale_sim_scene/leman_lake_5m.shp
+input_file = /work/SWOT/swotdev/swotpub/SWOT_Simulator_data/input_data/large_scale_sim_scene/leman_lake_5m.shp
 
 # prefix output filename
 output_filename = output_change_water/test

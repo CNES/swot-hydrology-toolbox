@@ -27,18 +27,18 @@ Output directory = <output_directory>
 
 [DATABASES]
 # OPTION 1: upper directory pointing to operational Prior Lake Database (PLD)
-LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/PLD
+LAKE_DB = /work/SWOT/swotdev/swotpub/BD/BD_lakes/PLD
 
 # OPTION 2: lake database in SQLite format
 # 2.1 - Filename starts with SWOT_PLD_ = operational Prior Lake Database (PLD)
 # 2.2 - Filename doesn't start with SWOT_PLD = personal lake database with model similar to operational PLD 
 #       ie containing the following tables: lake, lake_influence, basin
-#LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/PLD/Cal/SWOT_LakeDatabase_Cal_001_20000101T000000_20991231T235959_20211103T133032_v001.sqlite
-#LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/PLD/Nom/SWOT_LakeDatabase_Nom_001_20000101T000000_20991231T235959_20211103T133032_v001.sqlite
+#LAKE_DB = /work/SWOT/swotdev/swotpub/BD/BD_lakes/PLD/Cal/SWOT_LakeDatabase_Cal_001_20000101T000000_20991231T235959_20211103T133032_v001.sqlite
+#LAKE_DB = /work/SWOT/swotdev/swotpub/BD/BD_lakes/PLD/Nom/SWOT_LakeDatabase_Nom_001_20000101T000000_20991231T235959_20211103T133032_v001.sqlite
 
 # OPTION 3 : lake database in shapefile format
 # Filename
-# LAKE_DB = /work/ALT/swot/swotpub/BD/BD_lakes/20200702_PLD/PLD_EU.shp
+# LAKE_DB = /work/SWOT/swotdev/swotpub/BD/BD_lakes/20200702_PLD/PLD_EU.shp
 # Lake identifier attribute name in the prior lake database and influence_lake_db
 # LAKE_DB_ID = lake_id
 

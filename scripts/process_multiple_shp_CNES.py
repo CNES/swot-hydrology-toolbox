@@ -104,7 +104,7 @@ print('Checking passplan...')
 if not os.path.exists(planpath):
 	print('Passplan does not exist. Running parameter_orbit.rdf...')
 	print('...Stay tuned...')
-	os.system('python /work/ALT/swot/swotpub/modules/install/swot-hydrology-toolbox/select_orbit_cnes/select_orbit_cnes.py %s %s', %(orbit_rdf_path, output_orbit_path))
+	os.system('python /work/SWOT/swotdev/swotpub/modules/install/swot-hydrology-toolbox/select_orbit_cnes/select_orbit_cnes.py %s %s', %(orbit_rdf_path, output_orbit_path))
 
 ## Open passplan.txt to read orbit information
 cycle = np.genfromtxt(planpath, dtype=int, usecols=(1))
@@ -156,10 +156,10 @@ for i in range(ndates):
 
 	## Run CNES simulator (SISIMP) using modified parameter_sisimp.rdf
 	print('.....Processing with SISIMP.....')
-	os.system("python /work/ALT/swot/swotpub/modules/install/swot-hydrology-toolbox/sisimp/proc_sisimp.py %s" %(sisimp_rdf_path))
+	os.system("python /work/SWOT/swotdev/swotpub/modules/install/swot-hydrology-toolbox/sisimp/proc_sisimp.py %s" %(sisimp_rdf_path))
 	
 ## Run CNES simulator (Lake_Tile)
 print('.....Processing with Lake_Tile.....')
-os.system("python /work/ALT/swot/swotpub/modules/install/swot-hydrology-toolbox/processing/PGE/lake_tile/multi_lake_tile.py %s" %(lake_tile_cfg_path))
+os.system("python /work/SWOT/swotdev/swotpub/modules/install/swot-hydrology-toolbox/processing/PGE/lake_tile/multi_lake_tile.py %s" %(lake_tile_cfg_path))
 
 print('\n ALL SHAPEFILES HAVE BEEN PROCESSED ! ')

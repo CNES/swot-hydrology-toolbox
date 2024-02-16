@@ -7,7 +7,7 @@ import pyglet
 process = False
 
 if process:
-    pcd = o3d.io.read_point_cloud("/work/ALT/swot/swotdev/desrochesd/floodplain/run/po/output.ply")
+    pcd = o3d.io.read_point_cloud("/work/SWOT/swotdev/swotdev/desrochesd/floodplain/run/po/output.ply")
     pcd.estimate_normals()
 
     # estimate radius for rolling ball
@@ -19,14 +19,14 @@ if process:
     mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector([radius, radius * 2]))
 
     trimesh_obj = trimesh.Trimesh(np.asarray(mesh.vertices), np.asarray(mesh.triangles), vertex_normals=np.asarray(mesh.vertex_normals))
-    trimesh_obj.export('/work/ALT/swot/swotdev/desrochesd/floodplain/run/po/stuff.stl')
+    trimesh_obj.export('/work/SWOT/swotdev/swotdev/desrochesd/floodplain/run/po/stuff.stl')
 
 
 
 
 
-fuze_trimesh = trimesh.load('/work/ALT/swot/swotdev/desrochesd/floodplain/run/po/test_pyvista30_smooth.stl')
-# ~ fuze_trimesh = trimesh.load('/work/ALT/swot/swotdev/desrochesd/trimesh/models/fuze.obj')
+fuze_trimesh = trimesh.load('/work/SWOT/swotdev/swotdev/desrochesd/floodplain/run/po/test_pyvista30_smooth.stl')
+# ~ fuze_trimesh = trimesh.load('/work/SWOT/swotdev/swotdev/desrochesd/trimesh/models/fuze.obj')
 
                               
                                       

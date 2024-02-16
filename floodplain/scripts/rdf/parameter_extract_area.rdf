@@ -1,5 +1,5 @@
-input file = /work/ALT/swot/swotdev/desrochesd/floodplain/run/Comassa/output/SWOT_L2_HR_FPDEM_polygon.shp
-output file = /work/ALT/swot/swotdev/desrochesd/floodplain/run/Comassa/output/SWOT_L2_HR_FPDEM_extract_area.shp
+input file = /work/SWOT/swotdev/swotdev/desrochesd/floodplain/run/Comassa/output/SWOT_L2_HR_FPDEM_polygon.shp
+output file = /work/SWOT/swotdev/swotdev/desrochesd/floodplain/run/Comassa/output/SWOT_L2_HR_FPDEM_extract_area.shp
 method extract = intersection
 
 alpha = 5000000

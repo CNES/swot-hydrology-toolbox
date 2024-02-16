@@ -92,10 +92,10 @@ class Roll_module(object):
 
 if __name__ == "__main__":
 
-    #~ roll_file_err = '/work/ALT/swot/swototar/XOVERCAL/karin/GLOBAL_swot292_c16_p114.nc'
-    #~ roll_file_cor = '/work/ALT/swot/swototar/XOVERCAL/roll_phase/roll_phase_c016_p114.nc'
-    roll_file_err = '/work/ALT/swot/swototar/XOVERCAL/karin/GLOBAL_swot292_c16_p244.nc'
-    roll_file_cor = '/work/ALT/swot/swototar/XOVERCAL/roll_phase/roll_phase_c016_p244.nc'
+    #~ roll_file_err = '/work/SWOT/swotdev/swototar/XOVERCAL/karin/GLOBAL_swot292_c16_p114.nc'
+    #~ roll_file_cor = '/work/SWOT/swotdev/swototar/XOVERCAL/roll_phase/roll_phase_c016_p114.nc'
+    roll_file_err = '/work/SWOT/swotdev/swototar/XOVERCAL/karin/GLOBAL_swot292_c16_p244.nc'
+    roll_file_cor = '/work/SWOT/swotdev/swototar/XOVERCAL/roll_phase/roll_phase_c016_p244.nc'
 
     fid_err = nc.Dataset(roll_file_err, 'r')
     fid_cor = nc.Dataset(roll_file_cor, 'r')

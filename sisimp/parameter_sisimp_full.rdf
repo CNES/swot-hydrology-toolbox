@@ -120,9 +120,9 @@ Dark water correlation length = 50
 
 !Tropo model = map
 !Tropo error correlation = 5000
-!Tropo error map file = /work/ALT/swot/swotdev/desrochesd/swot-hydrology-toolbox/sisimp/data/tropo_map/zonal_delta_wtc_J2.nc
+!Tropo error map file = /work/SWOT/swotdev/swotdev/desrochesd/swot-hydrology-toolbox/sisimp/data/tropo_map/zonal_delta_wtc_J2.nc
 
 !== Cross-over residual roll error ==
-!roll_repository_name = /work/ALT/swot/swototar/XOVERCAL/lr_int_xcrosscal_tds/karin 
+!roll_repository_name = /work/SWOT/swotdev/swototar/XOVERCAL/lr_int_xcrosscal_tds/karin
 
 !//////////////////////////////////////////

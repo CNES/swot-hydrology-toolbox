@@ -25,8 +25,8 @@ Shapefile path - Output directory - Multiple_orbit - Orbit - Cycle number
 python $SWOT_HYDROLOGY_TOOLBOX/sisimp/proc_sisimp.py rdf/parameter_sisimp.rdf
 
 # 2.3 Lancer les scripts river & lake
-python $SWOT_HYDROLOGY_TOOLBOX/scripts/l2pixc_to_rivertile.py output/simu output/river /work/ALT/swot/swotdev/desrochesd/swot-hydrology-toolbox/test/river_and_lake/rdf/parameter_river.rdf
-python $SWOT_HYDROLOGY_TOOLBOX/scripts/rivertile_to_laketile.py output/river output/lake /work/ALT/swot/swotdev/desrochesd/swot-hydrology-toolbox/test/river_and_lake/rdf/parameter_laketile.cfg -output_dir_lakesp output/lakesp
+python $SWOT_HYDROLOGY_TOOLBOX/scripts/l2pixc_to_rivertile.py output/simu output/river /work/SWOT/swotdev/swotdev/desrochesd/swot-hydrology-toolbox/test/river_and_lake/rdf/parameter_river.rdf
+python $SWOT_HYDROLOGY_TOOLBOX/scripts/rivertile_to_laketile.py output/river output/lake /work/SWOT/swotdev/swotdev/desrochesd/swot-hydrology-toolbox/test/river_and_lake/rdf/parameter_laketile.cfg -output_dir_lakesp output/lakesp
 
 # 3. Exécution des scripts floodplain
 cd ../../../floodplain/scripts

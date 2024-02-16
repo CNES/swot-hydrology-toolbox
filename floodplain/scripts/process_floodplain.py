@@ -79,9 +79,9 @@ class Floodplain(object):
         self.n_cores_per_worker = 1
         self.processes = 1
         self.mem_per_worker = '{}GiB'.format(self.n_cores_per_worker * 60)   
-        self.floodplain_src_path = '/work/ALT/swot/swotdev/desrochesd/floodplain/src'
-        self.floodplain_scripts_path = '/work/ALT/swot/swotdev/desrochesd/floodplain/scripts'
-        self.floodplain_dem_env = '/work/ALT/swot/swotpub/modules/conda-envs/swot-floodplain-env-20190327'
+        self.floodplain_src_path = '/work/SWOT/swotdev/swotdev/desrochesd/floodplain/src'
+        self.floodplain_scripts_path = '/work/SWOT/swotdev/swotdev/desrochesd/floodplain/scripts'
+        self.floodplain_dem_env = '/work/SWOT/swotdev/swotpub/modules/conda-envs/swot-floodplain-env-20190327'
         self.walltime = '12:00:00'
         
 
