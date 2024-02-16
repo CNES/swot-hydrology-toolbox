@@ -133,11 +133,11 @@ def run_river_tile( args_and_pixc_ann_file):
     # For RiverTile products
     river_dir = os.path.abspath(os.path.join(args['output_dir'], 'rivertile'))
     if not os.path.isdir(river_dir) and not os.path.exists(river_dir):
-        os.makedirs(river_dir)
+        os.makedirs(river_dir, exist_ok=True)
     # For PIXCVec products
     pixcvec_dir = os.path.abspath(os.path.join(args['output_dir'], 'pixcvec'))
     if not os.path.isdir(pixcvec_dir) and not os.path.exists(pixcvec_dir):
-        os.makedirs(pixcvec_dir)
+        os.makedirs(pixcvec_dir, exist_ok=True)
 
     # Prepare args for l2pixc_to_rivertile.py
     # File path
