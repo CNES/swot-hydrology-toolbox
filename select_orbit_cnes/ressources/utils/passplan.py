@@ -78,7 +78,7 @@ class Passplan(object):
             raise ValueError("Invalid Mission start time")
             
         if self.simulation_start_time > self.simulation_stop_time:
-            raise ValueError("Simulation start time (%s) is AFTER the stop time (%s)" % (self.simulaiton_start_date, self.simulation_stop_date))
+            raise ValueError("Simulation start time (%s) is AFTER the stop time (%s)" % (self.simulation_start_time, self.simulation_stop_time))
             
         if self.mission_start_time > self.simulation_stop_time:
             raise ValueError(
