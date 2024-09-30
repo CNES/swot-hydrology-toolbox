@@ -112,6 +112,12 @@
         <integer name="/pixel_cloud/phase_unwrapping_region" shape="pixel_cloud_points_shape" width="32" signed="true">
           <annotation app="conformance" _FillValue="2147483647" long_name="phase unwrapping region index" units="1" valid_min="-1" valid_max="99999999" coordinates="longitude latitude" comment="Phase unwrapping region index."/>
         </integer>
+        <real name="/pixel_cloud/ambiguity_cost1" shape="pixel_cloud_points_shape" width="32" signed="true">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="phase ambiguity minimum cost" units="1" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Phase ambiguity minimum cost."/>
+        </real>
+        <real name="/pixel_cloud/ambiguity_cost2" shape="pixel_cloud_points_shape" width="32" signed="true">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="phase ambiguity 2nd minimum cost" units="1" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Phase ambiguity 2nd minimum cost."/>
+        </real>
         <real name="/pixel_cloud/instrument_range_cor" shape="pixel_cloud_points_shape" width="32">
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="instrument range correction" units="m" valid_min="-999999" valid_max="999999" coordinates="longitude latitude" comment="Term that incorporates all calibration corrections applied to range before geolocation."/>
         </real>
@@ -178,6 +184,18 @@
         </integer>
         <real name="/pixel_cloud/pixc_line_to_tvp" shape="pixel_cloud_num_pixc_lines_shape" width="32">
           <annotation app="conformance" _FillValue="9.96921e+36" long_name="pixel cloud rare line to tvp index" units="1" valid_min="0" valid_max="999999" comment="Pixel cloud rare radar grid line index to tvp index mapping"/>
+        </real>
+        <integer name="/pixel_cloud/data_window_first_valid" shape="pixel_cloud_num_pixc_lines_shape" width="32" signed="false">
+          <annotation app="conformance" _FillValue="2147483647" long_name="pixel cloud data window starting index" units="1" valid_min="0" valid_max="999999" comment="Pixel cloud data window starting index of first valid pixel in the range direction"/>
+        </integer>
+        <integer name="/pixel_cloud/data_window_last_valid" shape="pixel_cloud_num_pixc_lines_shape" width="32" signed="false">
+          <annotation app="conformance" _FillValue="2147483647" long_name="pixel cloud data window ending index" units="1" valid_min="0" valid_max="999999" comment="Pixel cloud data window ending index of last valid pixel in the range direction"/>
+        </integer>
+        <real name="/pixel_cloud/data_window_first_cross_track" shape="pixel_cloud_num_pixc_lines_shape" width="32" signed="true">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="pixel cloud data window starting cross-track distance" units="m" valid_min="-75000" valid_max="75000" comment="Pixel cloud data window starting cross-track distance in meters of first valid pixel in the range direction"/>
+        </real>
+        <real name="/pixel_cloud/data_window_last_cross_track" shape="pixel_cloud_num_pixc_lines_shape" width="32" signed="true">
+          <annotation app="conformance" _FillValue="9.96921e+36" long_name="pixel cloud data window ending cross-track distance" units="m" valid_min="-75000" valid_max="75000" comment="Pixel cloud data window ending cross-track distance in meters of last valid pixel in the range direction"/>
         </real>
         <string name="/pixel_cloud/@description" shape="Scalar" width="0">
           <annotation description="cloud of geolocated interferogram pixels"/>
@@ -446,8 +464,20 @@
         <string name="/@xref_reforbittrack_files" shape="Scalar" width="0">
           <annotation description="Names of input reference orbit track files."/>
         </string>
-        <string name="/@xref_meteorological_files" shape="Scalar" width="0">
-          <annotation description="Names of input meteorological files for computation of troposphere corrections."/>
+        <string name="/@xref_meteorological_orography_files" shape="Scalar" width="0">
+          <annotation description="Names of input meteorological model orography files."/>
+        </string>
+        <string name="/@xref_meteorological_specific_humidity_files" shape="Scalar" width="0">
+          <annotation description="Names of input meteorological model specific humidity profile files."/>
+        </string>
+        <string name="/@xref_meteorological_temperature_profile_files" shape="Scalar" width="0">
+          <annotation description="Names of input meteorological model temperature profile files."/>
+        </string>
+        <string name="/@xref_meteorological_specific_cloud_liquid_water_files" shape="Scalar" width="0">
+          <annotation description="Names of input meteorological model specific cloud liquid water profile files."/>
+        </string>
+        <string name="/@xref_meteorological_surface_pressure_files" shape="Scalar" width="0">
+          <annotation description="Names of input meteorological model uncorrected pressure files."/>
         </string>
         <string name="/@xref_gim_files" shape="Scalar" width="0">
           <annotation description="Names of input global ionosphere map (GIM) files."/>
