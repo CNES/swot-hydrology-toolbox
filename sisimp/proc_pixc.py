@@ -307,7 +307,10 @@ class l2_hr_pixc(object):
         pixel_cloud_vars_val['sig0_qual'] = np.zeros(self.nb_water_pix)
         pixel_cloud_vars_val['pixc_line_qual'] = np.zeros(self.nb_pix_azimuth)
         pixel_cloud_vars_val['pixc_line_to_tvp'] = np.zeros(self.nb_pix_azimuth)
-
+        pixel_cloud_vars_val['data_window_first_valid'] = np.zeros(self.nb_pix_azimuth)
+        pixel_cloud_vars_val['data_window_last_valid'] = np.full((self.nb_pix_azimuth), 999999)
+        pixel_cloud_vars_val['data_window_first_cross_track'] = np.full((self.nb_pix_azimuth), -75000)
+        pixel_cloud_vars_val['data_window_last_cross_track'] = np.full((self.nb_pix_azimuth), 75000)
         # ===============
         # == Group TVP ==
         # ===============
