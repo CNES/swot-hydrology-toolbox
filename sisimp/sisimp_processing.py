@@ -186,7 +186,7 @@ class Processing(object):
                         self.my_attributes.height_model_stdv = read_parameter(parameters, "Height 2d model stdv", my_var.HEIGHT_MODEL_STDV, float)
                     
                 elif self.my_attributes.height_model == "reference_height":
-                    self.my_attributes.height_name = read_parameter(parameters, "Height shp attribute name", "wse", str)
+                    self.my_attributes.height_name = read_parameter(parameters, "Height shp attribute name", "HEIGHT", str)
                     self.my_attributes.height_ref_multitemp = read_parameter(parameters, "Height ref multitemp", False, bool)
                     if self.my_attributes.height_ref_multitemp:
                         self.my_attributes.height_model_a = read_parameter(parameters, "Constant height model A", my_var.HEIGHT_MODEL_A, float)
@@ -333,7 +333,6 @@ class Processing(object):
                     try:
                         plan = my_plan.orbitPassplan(self.my_attributes.passplan_path)
                         TMP_new_orbit_list = [None] * len(plan.cycle_orbit_pairs)
-                        print(self.my_attributes.orbit_list)
                         for orbit_file in self.my_attributes.orbit_list:
                             for ind in plan.plan_orbit[orbit_file[1]]:
                                 TMP_new_orbit_list[ind] = [plan.cycle_orbit_pairs[ind][0], orbit_file[1], orbit_file[2]]
