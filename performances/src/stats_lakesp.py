@@ -139,7 +139,6 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal", fla
         metrix_name = "reference_wse_from_db"
         which_area = "prior"  # Area to be compared with: 'prior' for stats on WSE
 
-    basin_id_filter = None  # Option to filter by basin_id. Ex: basin_id_filter='783'
     flag_by_lake_size = "yes"  # to plot errors one sigma distribution as a function of lake size
     threshold = None  # Option to filter abnormal values. Ex: 1
     flag_along_swath = "yes"  # to plot errors one sigma distribution along the swath width
@@ -155,7 +154,6 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal", fla
                                          along_swath=flag_along_swath,
                                          which_area=which_area,
                                          outlier_lim=outlier_lim,
-                                         basin_id_filter=basin_id_filter,
                                          levelled=flag_levelled,
                                          gdf=df_data)
     except ValueError:

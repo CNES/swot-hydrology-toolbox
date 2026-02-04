@@ -302,35 +302,7 @@ class DiffData(object):
 
         return filter_by_scene_tile
 
-    def filter_basin_id(self, type_id='lake', basin_id=None):
-        """
-        Filter data by basin_id
-        :param type_id: 'reach' or 'lake'
-        :type type_id: str
-        :param basin_id: to filter by basin identifier; ex:232
-        :type basin_id: str
-        """
-        logger = logging.getLogger(self.__class__.__name__)
 
-        nb_lines = len(self.json)
-        if basin_id is not None:
-
-            if len(basin_id) != 3:
-                logger.debug("No line to remove: basin_id value must be on 3 digits")
-            else:
-                try:
-                    if type_id == 'lake':
-                        # Get basin_id from lake_id value. Example: '232' from 'ExtractEO_TP:2320000142'
-                        self.json = list(filter(lambda x: x['lake_id_compared'].split(':')[1][0:3] == basin_id,
-                                                self.json))
-                    else:
-                        # Get basin_id from reach_id value. Example: '232' from 'ExtractEO_TP:2320000142'
-                        self.json = list(filter(lambda x: x['reach'].split(':')[1][0:3] == basin_id,
-                                                self.json))
-                    logger.debug(
-                        "Keep %d / %d lines after filter by basin_id: %s" % (len(self.json), nb_lines, basin_id))
-                except:
-                    pass
 
 
 if __name__ == "__main__":

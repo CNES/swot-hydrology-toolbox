@@ -74,7 +74,6 @@ class LakeStatsManager(StatsManager):
                  along_swath=None,
                  which_area="total",
                  outlier_lim=None,
-                 basin_id_filter=None,
                  gdf=None,
                  levelled=True):
         """
@@ -102,8 +101,6 @@ class LakeStatsManager(StatsManager):
         :type which_area: string
         :param outlier_lim: outlier limits to clip (area_limit, wse_limit)
         :type outlier_lim: list
-        :param basin_id_filter: to filter by basin_id
-        :type basin_id_filter: string
         :param gdf: if DiffData comes from Hydro database, read gdf
         :type gdf: GeoDataFrame
         :param levelled: if levelled = True, only keep levelled data in stats, if False keep every data but remove mean(wse) of a given lake_id for each absolute_wse value 
@@ -154,9 +151,6 @@ class LakeStatsManager(StatsManager):
         # To filter by scene / tile / quality flag (if subdataset is not None)
         # (option only used with simulated data)
         filter_by_scene_tile = diff_data.filter_scenes_tiles(subdataset, subdataset_filter)
-
-        # To filter by basin_id (if basin_id_filter is not None)
-        diff_data.filter_basin_id('lake', basin_id_filter)
 
         # Initialize the base class
         StatsManager.__init__(self,
