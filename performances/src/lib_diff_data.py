@@ -24,8 +24,6 @@ Copyright (c) 2023 CNES. All rights reserved.
 import logging
 import json
 import os
-import geopandas as gpd
-from shapely.geometry import shape
 import datetime
 
 FV_REAL = -999999999999
@@ -139,19 +137,6 @@ class DiffData(object):
                            }
             self.json.append(dict_fields)
 
-        # creating json file (for debug)
-        # cur_date = datetime.datetime.now().strftime("%Y%m%d")
-        # username = os.environ.get("USERNAME")
-        # tmp_dir = "/work/scratch/data/{}/lakes_perfos_{}/stats/".format(username, cur_date)
-        # if not os.path.exists(tmp_dir):
-        #     print("[WARNING] %s directory doesn't exist => create it" % tmp_dir)
-        #     os.makedirs(tmp_dir)
-        # out_file = open(os.path.join(tmp_dir, "metrics_from_db.json"), "w")
-        # json.dump(self.json, out_file, indent=4)
-        # out_file.close()
-        # print("Data are printed to json file")
-        # print("%s measurements extracted" % len(self.json))
-
     def from_riversp_reach_diff_table(self, diff_observations, fields, which_area='total'):
         """
         Get data from hydro database (RiverSP_reach_diff table)
@@ -180,42 +165,6 @@ class DiffData(object):
                            fields[12]: str(diff_observations.loc[line, "dark_frac"])  # dark_frac
                            }
             self.json.append(dict_fields)
-
-        # # creating json file (for debug)
-        # cur_date = datetime.datetime.now().strftime("%Y%m%d")
-        # username = os.environ.get("USERNAME")
-        # tmp_dir = "/work/scratch/data/{}/rivers_perfos_{}/stats/".format(username, cur_date)
-        # if not os.path.exists(tmp_dir):
-        #     print("[WARNING] %s directory doesn't exist => create it" % tmp_dir)
-        #     os.makedirs(tmp_dir)
-        # out_file = open(os.path.join(tmp_dir, "metrics_from_db.json"), "w")
-        # json.dump(self.json, out_file, indent=4)
-        # out_file.close()
-        # print("Data are printed to json file")
-
-    def filter_dark_frac(self, dark_frac_threshold=None):
-        """
-        Filter data by dark_frac_threshold
-        :param dark_frac_threshold: to filter over fractional area of dark water in reference; ex:0.9, 0.8, etc.
-        :type dark_frac_threshold: float
-        """
-        logger = logging.getLogger(self.__class__.__name__)
-
-        nb_lines = len(self.json)
-        if dark_frac_threshold is not None:
-
-            if (dark_frac_threshold < 0) or (dark_frac_threshold > 1):
-                logger.debug("No line to remove: threshold of dark_frac must be between 0 and 1")
-            else:
-                try:
-                    self.json = list(filter(lambda x: float(x['dark_frac']) <= dark_frac_threshold,
-                                            self.json))
-                    logger.debug(
-                        "Keep %d / %d lines after filter over dark_frac threshold: %.2f" % (len(self.json),
-                                                                                            nb_lines,
-                                                                                            dark_frac_threshold))
-                except:
-                    pass
 
     def filter_levelled(self):
         """

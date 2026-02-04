@@ -73,7 +73,6 @@ class LakeStatsManager(StatsManager):
                  by_lake_size=None,
                  along_swath=None,
                  which_area="total",
-                 dark_frac_filter=None,
                  outlier_lim=None,
                  basin_id_filter=None,
                  gdf=None,
@@ -101,8 +100,6 @@ class LakeStatsManager(StatsManager):
         :type along_swath: string
         :param which_area: area type to be compared among 'detected' and 'total' (detected + dark water)
         :type which_area: string
-        :param dark_frac_filter: to filter over fractional area of dark water; ex:0.9, 0.8, etc.
-        :type dark_frac_filter: float
         :param outlier_lim: outlier limits to clip (area_limit, wse_limit)
         :type outlier_lim: list
         :param basin_id_filter: to filter by basin_id
@@ -152,8 +149,6 @@ class LakeStatsManager(StatsManager):
             else:
                 diff_data.convert_absolute_error_into_relative()
 
-        # To filter over fractional area of dark water (if dark_frac_filter is not None)
-        diff_data.filter_dark_frac(dark_frac_filter)
         # diff_data.filter_wse_fill_value()
 
         # To filter by scene / tile / quality flag (if subdataset is not None)
