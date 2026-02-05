@@ -24,9 +24,9 @@ def plot_nb_obj_as_a_function_of_water_body_size(water_bodies_size_tab, water_bo
     :type water_bodies_size_tab: list
     :param water_body: water body type, among 'river witdh' or 'lake size' (default)
     :type water_body: str
-    :param begin_slices_list: if by_water_body_size is set, then corresponds to list of begin of slices of water body sizes
+    :param begin_slices_list: list of begin of slices of water body sizes
     :type begin_slices_list: 1D-array of float
-    :param end_slices_list: if by_water_body_size is set, then corresponds to list of end of slices of water body sizes
+    :param end_slices_list: list of end of slices of water body sizes
             if len(end_slices_list) == len(begin_slices_list) - 1, the last slice corresponds to > begin_slices_list[-1]
     :type end_slices_list: 1D-array of float
     :return:
@@ -176,7 +176,7 @@ class RelativeErrors(object):
 
     #----------------------------------
 
-    def compute_error_one_sigma(self, threshold=None, by_water_body_size=None, begin_slices_list=None,
+    def compute_error_one_sigma(self, threshold=None, begin_slices_list=None,
                                 end_slices_list=None, water_body='river width', which_perfos='req'):
         """
         1-sigma error: computes the 68.27th percentile of the empirical
@@ -184,11 +184,9 @@ class RelativeErrors(object):
 
         :param threshold: defined threshold option to ignore abnormal error values
         :type threshold: float
-        :param by_water_body_size: to plot statistics as a function of water body size (river witdh or lake size)
-        :type by_water_body_size: str
-        :param begin_slices_list: if by_water_body_size is set, then corresponds to list of begin of slices of water body sizes
+        :param begin_slices_list: list of begin of slices of water body sizes
         :type begin_slices_list: 1D-array of float
-        :param end_slices_list: if by_water_body_size is set, then corresponds to list of end of slices of water body sizes
+        :param end_slices_list: list of end of slices of water body sizes
                 if len(end_slices_list) == len(begin_slices_list) - 1, the last slice corresponds to > begin_slices_list[-1]
         :type end_slices_list: 1D-array of float
         :param water_body: water body type, among 'river width' and 'lake size'
@@ -197,324 +195,200 @@ class RelativeErrors(object):
         :type which_perfos: str
         Set:
         self._errors_one_sigma: 1-sigma error
-        IF by_water_body_size is set: 1D-array of float, of size len(end_slices_list)+1; 1st value corresponds to the global 1sigma error
-        ELSE: numpy.float64
-        self._slices_title_list (if by_water_body_size is set): titles corresponding to list of slices
+        1D-array of float, of size len(end_slices_list)+1; 1st value corresponds to the global 1sigma error
+        self._slices_title_list : titles corresponding to list of slices
         """
         logger = logging.getLogger(self.__class__.__name__)
         
         abs_errors = abs(self._errors)
-        if by_water_body_size is None:
-            # No selection on water body size is done
-            # Only one 1sigma value is computed
-        
+
+        # 1 - Init variables
+        # Convert water_bodies_size list into array
+        water_bodies_size_tab = np.asarray(self._water_bodies_size)
+        # Selected index to compute globals 1sigma error
+        ind_for_global_1 = set() # indexes for rivers width < 100m and lake surface < (250m)² if metric_name='reference_surface_area'
+                                 # indexes for lake surface between (250m)² and 1km² if metric_name='reference_wse'
+        ind_for_global_2 = set() # indexes for rivers width > 100m and lake surface > (250m)² if metric_name='reference_surface_area'
+                                # indexes for lake surface > 1km² if metric_name='reference_wse'
+        ind_for_global_3 = set()  # indexes for lake surface > 1km² if metric_name='reference_surface_area'
+        ind_for_global = set() # set of indexes to compute global mean/median values
+        # Nb slices
+        nb_slices = len(begin_slices_list)
+        for s, cur_slice in enumerate(begin_slices_list):  # Loop over slices
+            # 2 - Consider criteria
+
+            # 2.1 - Select indices corresponding to the current slice of water body size
+            # Select water_bodies_size_tab index where size value is > begin slice
+            index_sup = (water_bodies_size_tab > np.int32(cur_slice))
+            if (s == nb_slices-1) and (end_slices_list[s] == "+"):
+                water_bodies_size_selection = index_sup
+            else:
+                # Select water_bodies_size_tab index where size value is <= end slice
+                index_inf = (water_bodies_size_tab <= np.int32(end_slices_list[s]))
+                # Select water_bodies_size_tab index where both conditions are gathered
+                water_bodies_size_selection = np.logical_and(index_sup, index_inf)
+
+            # 2.2 - Add criteria on the threshold (or not) and list indices of interest
             if threshold is None:
-                # Case A: All errors values are considered
-                error_one_sigma = np.percentile(abs_errors, 68.27)
-                logger.info("Case A - NO by_water_body_size / NO threshold")
-
-            elif threshold is not None:
-                # Case B: Delete abnormal errors values using a threshold
-                index_threshold = np.where(abs_errors<threshold)
-                error_one_sigma =  np.percentile(abs_errors[index_threshold], 68.27)
-                logger.info("Case B - NO by_water_body_size / threshold=%f" % threshold)
-
-            # Save value
-            self._errors_one_sigma.append(self.factor * error_one_sigma)
-
-        else:
-
-            # 3 - Init variables
-            # Convert water_bodies_size list into array
-            water_bodies_size_tab = np.asarray(self._water_bodies_size)
-            # Selected index to compute globals 1sigma error
-            ind_for_global_1 = set() # indexes for rivers width < 100m and lake surface < (250m)² if metric_name='reference_surface_area'
-                                     # indexes for lake surface between (250m)² and 1km² if metric_name='reference_wse'
-            ind_for_global_2 = set() # indexes for rivers width > 100m and lake surface > (250m)² if metric_name='reference_surface_area'
-                                    # indexes for lake surface > 1km² if metric_name='reference_wse'
-            ind_for_global_3 = set()  # indexes for lake surface > 1km² if metric_name='reference_surface_area'
-            ind_for_global = set() # set of indexes to compute global mean/median values
-            # Nb slices
-            nb_slices = len(begin_slices_list)
-            for s, cur_slice in enumerate(begin_slices_list):  # Loop over slices
-                # 4 - Consider criteria
-
-                # 4.1 - Select indices corresponding to the current slice of water body size
-                # Select water_bodies_size_tab index where size value is > begin slice
-                index_sup = (water_bodies_size_tab > np.int32(cur_slice))
-                if (s == nb_slices-1) and (end_slices_list[s] == "+"):
-                    water_bodies_size_selection = index_sup
-                else:
-                    # Select water_bodies_size_tab index where size value is <= end slice
-                    index_inf = (water_bodies_size_tab <= np.int32(end_slices_list[s]))
-                    # Select water_bodies_size_tab index where both conditions are gathered
-                    water_bodies_size_selection = np.logical_and(index_sup, index_inf)
-
-                # 4.2 - Add criteria on the threshold (or not) and list indices of interest
-                if threshold is None:
-                    # Case C: All errors values are considered
-                    index_selected = np.where(water_bodies_size_selection)
-                    if s==0:
-                        logger.info("Case C - by_water_body_size SET / NO threshold")
-                else:
-                    # Case D: Furthermore, delete abnormal errors values using a threshold
-                    index_selected = np.where(np.logical_and(water_bodies_size_selection, (abs_errors<threshold)))
+                # All errors values are considered
+                index_selected = np.where(water_bodies_size_selection)
+                if s==0:
+                    logger.info("NO threshold")
+            else:
+                # Furthermore, delete abnormal errors values using a threshold
+                index_selected = np.where(np.logical_and(water_bodies_size_selection, (abs_errors<threshold)))
+                if s == 0:
+                    logger.info("threshold=%f" % threshold)
+            # Save into self variable
+            self._index_sliced[s] = index_selected
+            # 2.3 - Save indices for global 1 sigma errors:
+            #  |--- if which_perfos='goal' : exclude 1st slice [50-100]/[100²-250²] to compute global 1 sigma error
+            #  |--- if which_perfos='req' : don't exclude 1st slice
+            #  |--- if metrix_name='reference_wse' (only for lakes) :
+            #                               compute ind_for_global_1 for lake surfaces between 250²m² and 1km2
+            #                               compute ind_for_global_2 for lake surfaces between > 1km2
+            logger.info("Perfos is computed in relation to %s" % which_perfos)
+            # which_perfos == 'goal'
+            if self._metrix_name == 'reference_surface_area':
+                if which_perfos == 'goal':
                     if s == 0:
-                        logger.info("Case D - by_water_body_size SET / threshold=%f" % threshold)
-                # Save into self variable
-                self._index_sliced[s] = index_selected
-                # 4.3 - Save indices for global 1 sigma errors:
-                #  |--- if which_perfos='goal' : exclude 1st slice [50-100]/[100²-250²] to compute global 1 sigma error
-                #  |--- if which_perfos='req' : don't exclude 1st slice
-                #  |--- if metrix_name='reference_wse' (only for lakes) :
-                #                               compute ind_for_global_1 for lake surfaces between 250²m² and 1km2
-                #                               compute ind_for_global_2 for lake surfaces between > 1km2
-                logger.info("Perfos is computed in relation to %s" % which_perfos)
-                # which_perfos == 'goal'
-                if self._metrix_name == 'reference_surface_area':
-                    if which_perfos == 'goal':
-                        if s == 0:
-                            # indexes for rivers width < 100m and lake surface < (250m)²
-                            pinfo="%s/%s - save indexes for rivers width < 100m and lake surface < (250m)²" % (self._metrix_name, which_perfos)
-                            ind_for_global_1=ind_for_global_1.union(list(index_selected[0]))
-                        else:
-                            # indexes for rivers width > 100m and lake surface > (250m)²
-                            pinfo="%s/%s - indexes for rivers width > 100m and lake surface > (250m)²" % (self._metrix_name, which_perfos)
-                            ind_for_global_2=ind_for_global_2.union(list(index_selected[0]))
-                        if s >= 3:
-                            pinfo = "%s/%s - indexes for lake surface > 1km²" % (self._metrix_name, which_perfos)
-                            ind_for_global_3 = ind_for_global_3.union(list(index_selected[0]))
+                        # indexes for rivers width < 100m and lake surface < (250m)²
+                        pinfo="%s/%s - save indexes for rivers width < 100m and lake surface < (250m)²" % (self._metrix_name, which_perfos)
+                        ind_for_global_1=ind_for_global_1.union(list(index_selected[0]))
                     else:
                         # indexes for rivers width > 100m and lake surface > (250m)²
                         pinfo="%s/%s - indexes for rivers width > 100m and lake surface > (250m)²" % (self._metrix_name, which_perfos)
-                        ind_for_global_2 = ind_for_global_2.union(list(index_selected[0]))
-                        ind_for_global_1 = ind_for_global_2 # not use
-
-                    # set requirement threshold legend
-                    if water_body == 'lake size':
-                        self._req_th_legend='(250m){0}'.format('\u00B2')  # (250m)²
-                    else: # for river width
-                        self._req_th_legend = '100m'
+                        ind_for_global_2=ind_for_global_2.union(list(index_selected[0]))
+                    if s >= 3:
+                        pinfo = "%s/%s - indexes for lake surface > 1km²" % (self._metrix_name, which_perfos)
+                        ind_for_global_3 = ind_for_global_3.union(list(index_selected[0]))
                 else:
-                    # self._metrix_name == 'reference_wse'
+                    # indexes for rivers width > 100m and lake surface > (250m)²
+                    pinfo="%s/%s - indexes for rivers width > 100m and lake surface > (250m)²" % (self._metrix_name, which_perfos)
+                    ind_for_global_2 = ind_for_global_2.union(list(index_selected[0]))
+                    ind_for_global_1 = ind_for_global_2 # not use
+
+                # set requirement threshold legend
+                if water_body == 'lake size':
+                    self._req_th_legend='(250m){0}'.format('\u00B2')  # (250m)²
+                else: # for river width
+                    self._req_th_legend = '100m'
+            else:
+                # self._metrix_name == 'reference_wse'
+                if which_perfos == 'goal':
+                    s_lim_max = 3 # 1km²
+                else:
+                    s_lim_max = 2 # 1km²
+                # ignore indexes < (250m)²
+                if s >= 0 and s < s_lim_max:
+                    # goal: indexes for lake surface between (100m)² and 1km²
+                    # req: indexes for lake surface between (250m)² and 1km²
                     if which_perfos == 'goal':
-                        s_lim_max = 3 # 1km²
+                        pinfo="%s/%s - indexes for lake surface between (100m)² and 1km²" % (self._metrix_name, which_perfos)
                     else:
-                        s_lim_max = 2 # 1km²
-                    # ignore indexes < (250m)²
-                    if s >= 0 and s < s_lim_max:
-                        # goal: indexes for lake surface between (100m)² and 1km²
-                        # req: indexes for lake surface between (250m)² and 1km²
-                        if which_perfos == 'goal':
-                            pinfo="%s/%s - indexes for lake surface between (100m)² and 1km²" % (self._metrix_name, which_perfos)
-                        else:
-                            pinfo = "%s/%s - indexes for lake surface between (250m)² and 1km²" % (
-                            self._metrix_name, which_perfos)
-                        ind_for_global_1 = ind_for_global_1.union(list(index_selected[0]))
-                    else:
-                        # indexes for lake surface > 1km²
-                        pinfo="%s/%s - indexes for lake surface > 1km²" % (self._metrix_name, which_perfos)
-                        ind_for_global_2 = ind_for_global_2.union(list(index_selected[0]))
-                    self._req_th_legend = '1km{0}'.format('\u00B2')  # 1km²
-
-                # 5 - Compute relative error one sigma for slice s
-                if len(abs_errors[index_selected]) == 0:
-                    error_one_sigma = 0  # No data found into this slice
+                        pinfo = "%s/%s - indexes for lake surface between (250m)² and 1km²" % (
+                        self._metrix_name, which_perfos)
+                    ind_for_global_1 = ind_for_global_1.union(list(index_selected[0]))
                 else:
-                    error_one_sigma = np.percentile(abs_errors[index_selected], 68.27)
-                # Add it to the list
-                self._errors_one_sigma.append(self.factor * error_one_sigma)
+                    # indexes for lake surface > 1km²
+                    pinfo="%s/%s - indexes for lake surface > 1km²" % (self._metrix_name, which_perfos)
+                    ind_for_global_2 = ind_for_global_2.union(list(index_selected[0]))
+                self._req_th_legend = '1km{0}'.format('\u00B2')  # 1km²
 
-                # 6 - Build text of water body size (for plotting X labels)
-                if (s == nb_slices-1) and (end_slices_list[s] == "+"):
-                    if water_body == 'lake size':
-                        slice_title = '[>{0}{1}]'.format(int(np.sqrt(cur_slice)),'\u00B2')  # for example: >1000\u00B2
-                    else:
-                        slice_title = '[>{0}]'.format(cur_slice)  # for example: >1000
+            # 3 - Compute relative error one sigma for slice s
+            if len(abs_errors[index_selected]) == 0:
+                error_one_sigma = 0  # No data found into this slice
+            else:
+                error_one_sigma = np.percentile(abs_errors[index_selected], 68.27)
+            # Add it to the list
+            self._errors_one_sigma.append(self.factor * error_one_sigma)
+
+            # 4 - Build text of water body size (for plotting X labels)
+            if (s == nb_slices-1) and (end_slices_list[s] == "+"):
+                if water_body == 'lake size':
+                    slice_title = '[>{0}{1}]'.format(int(np.sqrt(cur_slice)),'\u00B2')  # for example: >1000\u00B2
                 else:
-                    if water_body == 'lake size':
-                        slice_title = '[{0}{1}-{2:d}{3}]'.format(int(np.sqrt(cur_slice)),'\u00B2', int(np.sqrt(end_slices_list[s])),'\u00B2')  # for example: [50\u00B2-100\u00B2]
-                    else:
-                        slice_title = '[{0}-{1}]'.format(cur_slice, end_slices_list[s])  # for example: [50-100]
-                    
-                # Add slice title to the list
-                self._slices_title_list.append(slice_title)
-                # print("s {} - {} - slice_title {} - ind_1: {} ind_2: {}".format(s, pinfo, slice_title, len(ind_for_global_1), len(ind_for_global_2)))
-                # if s >= 3:
-                    # print("s {} - {} - slice_title {} - ind_3: {}".format(s, pinfo, slice_title, len(ind_for_global_3)))
-            # 7 - Compute global 1sigma error(s)
-            # print("> global 1s error (1) computed on %d / %d error values corresponding to required slices" % (len(ind_for_global_1), len(abs_errors)))
-            # print("> global 1s error (2) computed on %d / %d error values corresponding to required slices" % (len(ind_for_global_2), len(abs_errors)))
-            # print("> global 1s error (3) computed on %d / %d error values corresponding to required slices" % (len(ind_for_global_3), len(abs_errors)))
-            if len(ind_for_global_1) > 0:
-                global_1s_error_1 = np.percentile(abs_errors[np.asarray(list(ind_for_global_1))], 68.27)
+                    slice_title = '[>{0}]'.format(cur_slice)  # for example: >1000
             else:
-                global_1s_error_1 = 0
-            if len(ind_for_global_2) > 0:
-                global_1s_error_2 = np.percentile(abs_errors[np.asarray(list(ind_for_global_2))], 68.27)
-            else:
-                global_1s_error_2 = 0
-            if len(ind_for_global_3) > 0:
-                global_1s_error_3 = np.percentile(abs_errors[np.asarray(list(ind_for_global_3))], 68.27)
-            else:
-                global_1s_error_3 = 0
-            self._errors_one_sigma.insert(0, global_1s_error_1 * self.factor)
-            self._errors_one_sigma.insert(1, global_1s_error_2 * self.factor)
+                if water_body == 'lake size':
+                    slice_title = '[{0}{1}-{2:d}{3}]'.format(int(np.sqrt(cur_slice)),'\u00B2', int(np.sqrt(end_slices_list[s])),'\u00B2')  # for example: [50\u00B2-100\u00B2]
+                else:
+                    slice_title = '[{0}-{1}]'.format(cur_slice, end_slices_list[s])  # for example: [50-100]
 
-            # 8 - Print global mean/median values in log file
-            if self._metrix_name == 'reference_surface_area' and which_perfos == 'req':
-                logger.info("> Compute indexes for global mean/median: ind = ind2")
-                ind_for_global = ind_for_global_2
-            else:
-                logger.info("> Compute indexes for global mean/median: ind = ind2 + ind1")
-                ind_for_global = ind_for_global_2.union(ind_for_global_1)
-            logger.info("> ind 1 {} ind 2 {} global {}".format(len(ind_for_global_1), len(ind_for_global_2), len(ind_for_global)))
+            # Add slice title to the list
+            self._slices_title_list.append(slice_title)
+            # print("s {} - {} - slice_title {} - ind_1: {} ind_2: {}".format(s, pinfo, slice_title, len(ind_for_global_1), len(ind_for_global_2)))
+            # if s >= 3:
+                # print("s {} - {} - slice_title {} - ind_3: {}".format(s, pinfo, slice_title, len(ind_for_global_3)))
 
-            global_mean = mean(abs_errors[np.asarray(list(ind_for_global))])
-            global_median = median(abs_errors[np.asarray(list(ind_for_global))])
-
-            if len(ind_for_global_1) > 0:
-                global_mean_1 = mean(abs_errors[np.asarray(list(ind_for_global_1))])
-                global_median_1 = median(abs_errors[np.asarray(list(ind_for_global_1))])
-            else:
-                global_mean_1 = 0
-                global_median_1 = 0
-            if len(ind_for_global_2) > 0:
-                global_mean_2 = mean(abs_errors[np.asarray(list(ind_for_global_2))])
-                global_median_2 = median(abs_errors[np.asarray(list(ind_for_global_2))])
-            else:
-                global_mean_2 = 0
-                global_median_2 = 0
-
-            print("> {0} / {1} / global 1s error slices (1): {2:.03f} {3}".format(self._metrix_name, which_perfos,
-                                                                           global_1s_error_1 * self.factor, self.unit))
-            print("> {0} / {1} / global 1s error slices (2): {2:.03f} {3}".format(self._metrix_name, which_perfos,
-                                                                           global_1s_error_2 * self.factor, self.unit))
-            print("> {0} / {1} / global 1s error slices (3): {2:.03f} {3}".format(self._metrix_name, which_perfos,
-                                                                                        global_1s_error_3 * self.factor,
-                                                                                        self.unit))
-            # print("> {0} / {1} / global MEAN value : {2:.03f} {3}".format(self._metrix_name, which_perfos,
-            #                                                            global_mean * self.factor, self.unit))
-            # print("> {0} / {1} / global MEDIAN value : {2:.03f} {3}".format(self._metrix_name, which_perfos,
-            #                                                              global_median * self.factor, self.unit))
-            # print("> {0} / {1} / global MEAN value slices (1): {2:.03f} {3}".format(self._metrix_name, which_perfos,
-            #                                                                     global_mean_1 * self.factor, self.unit))
-            # print("> {0} / {1} / global MEDIAN value slices (1): {2:.03f} {3}".format(self._metrix_name, which_perfos,
-            #                                                                       global_median_1 * self.factor, self.unit))
-            # print("> {0} / {1} / global MEAN value slices (2): {2:.03f} {3}".format(self._metrix_name, which_perfos,
-            #                                                                               global_mean_2 * self.factor,
-            #                                                                               self.unit))
-            # print("> {0} / {1} / global MEDIAN value slices (2): {2:.03f} {3}".format(self._metrix_name, which_perfos,
-            #                                                                                 global_median_2 * self.factor,
-            #                                                                                 self.unit))
-
-    #----------------------------------
-
-    def plot_distribution(self, threshold=None):
-        """
-        Plot the errors distribution and display 1 sigma threshold requirement
-        
-        Args:
-            threshold (float): defined threshold option to ignore abnormal error values
-
-        Returns:
-            None
-        """
-
-        # Compute tab of surface area relative errors
-        relative_errors = self._errors
-        err_one_sigma =  self._errors_one_sigma[1]
-
-        # Initialize errors to plot
-        plot_errors = relative_errors.copy()
-
-        # Are there abnormal values to filter?
-        if threshold is not None:
-            index_threshold = np.where(plot_errors < threshold)
-
-        # Do we have to plot errors in pourcent?
-        plot_errors = relative_errors * self.factor
-
-        # Plot distribution
-        fig=plt.figure(figsize=(10, 4))
-        if threshold is None:
-            print("No threshold set. All errors values are plotted.")
-            plt.hist(plot_errors, bins=100)
-        else :
-            print("Filter abnormal errors values with a threshold level of: {} %".format(100*threshold))
-            plt.hist(plot_errors[index_threshold], bins=100)
-
-        # Display measured relative error one sigma
-        plt.axvline(err_one_sigma, color="blue", linestyle="--", label="Measured $1\sigma$")
-        # Display requirement value
-        plt.axvline(self.err_req, color="red", label="Requirement")
-
-        # Title and labels
-#        plt.legend(bbox_to_anchor=(0.9,1.01), loc=3, borderaxespad=0.)
-        plt.legend(loc=1)
-        plt.title('%s error histogram' % self.error_type)
-        xlabel = '{0} error {1}'.format(self.error_type, self.unit)
-        plt.xlabel(xlabel)
-        plt.ylabel('Occurrence')
-
-        return fig
-
-    def plot_as_a_function_of_water_body_size(self, water_body='river width', threshold=None, which_area='total'):
-        """
-        Plot the errors distribution as a function of water body size (river witdh or lake size)
-        
-        Args:
-            water_body (str): water body type, among 'river witdh' or 'lake size'
-            threshold (float): defined threshold option to ignore abnormal error values
-            which_area (str): 'total' or 'detected'
-        Returns:
-            None
-        """
-
-        # Compute tab of surface area relative errors
-        relative_errors = self._errors
-
-        # Initialization
-        water_bodies_size = np.asarray(self._water_bodies_size)
-
-        # Initialize errors to plot
-        plot_errors = relative_errors.copy()
-
-        # Are there abnormal values to filter?
-        if threshold is not None:
-            index_threshold = np.where(plot_errors < threshold)
-
-        plot_errors = relative_errors * self.factor
-
-        # Plot errors distribution as a function of water body size (river witdh or lake size)
-        fig=plt.figure(figsize=(10, 4))
-        if threshold is None:
-            plt.plot(water_bodies_size, plot_errors, 'o')
-        else :
-            plt.plot(water_bodies_size[index_threshold], plot_errors[index_threshold], 'o')
-
-        # Display requirement value
-        plt.axhline(self.err_req, color="red", label="Requirement")
-
-        # Title and labels
-        if self._metrix_name == "reference_wse":
-            title = 'Water surface elevation error as a function of {0}'.format(water_body)
+        # 5 - Compute global 1sigma error(s)
+        # print("> global 1s error (1) computed on %d / %d error values corresponding to required slices" % (len(ind_for_global_1), len(abs_errors)))
+        # print("> global 1s error (2) computed on %d / %d error values corresponding to required slices" % (len(ind_for_global_2), len(abs_errors)))
+        # print("> global 1s error (3) computed on %d / %d error values corresponding to required slices" % (len(ind_for_global_3), len(abs_errors)))
+        if len(ind_for_global_1) > 0:
+            global_1s_error_1 = np.percentile(abs_errors[np.asarray(list(ind_for_global_1))], 68.27)
         else:
-            title = 'Relative error in {0} surface area as a function of {1}'.format(which_area, water_body)
-        plt.title(title)
-        if water_body == 'river width':
-            water_body_unit = 'm'
-        else :
-            water_body_unit = 'm'+'\u00B2'
-        xlabel= '{0} ({1})'.format(water_body.capitalize(), water_body_unit)
-        plt.xlabel(xlabel)
-        if self._metrix_name == "reference_wse":
-            ylabel = 'Water surface elevation error ({0})'.format(self.unit)
+            global_1s_error_1 = 0
+        if len(ind_for_global_2) > 0:
+            global_1s_error_2 = np.percentile(abs_errors[np.asarray(list(ind_for_global_2))], 68.27)
         else:
-            ylabel = 'Relative area error ({0})'.format(self.unit)
-        plt.ylabel(ylabel)
+            global_1s_error_2 = 0
+        if len(ind_for_global_3) > 0:
+            global_1s_error_3 = np.percentile(abs_errors[np.asarray(list(ind_for_global_3))], 68.27)
+        else:
+            global_1s_error_3 = 0
+        self._errors_one_sigma.insert(0, global_1s_error_1 * self.factor)
+        self._errors_one_sigma.insert(1, global_1s_error_2 * self.factor)
 
-        return fig
+        # 6 - Print global mean/median values in log file
+        if self._metrix_name == 'reference_surface_area' and which_perfos == 'req':
+            logger.info("> Compute indexes for global mean/median: ind = ind2")
+            ind_for_global = ind_for_global_2
+        else:
+            logger.info("> Compute indexes for global mean/median: ind = ind2 + ind1")
+            ind_for_global = ind_for_global_2.union(ind_for_global_1)
+        logger.info("> ind 1 {} ind 2 {} global {}".format(len(ind_for_global_1), len(ind_for_global_2), len(ind_for_global)))
+
+        global_mean = mean(abs_errors[np.asarray(list(ind_for_global))])
+        global_median = median(abs_errors[np.asarray(list(ind_for_global))])
+
+        if len(ind_for_global_1) > 0:
+            global_mean_1 = mean(abs_errors[np.asarray(list(ind_for_global_1))])
+            global_median_1 = median(abs_errors[np.asarray(list(ind_for_global_1))])
+        else:
+            global_mean_1 = 0
+            global_median_1 = 0
+        if len(ind_for_global_2) > 0:
+            global_mean_2 = mean(abs_errors[np.asarray(list(ind_for_global_2))])
+            global_median_2 = median(abs_errors[np.asarray(list(ind_for_global_2))])
+        else:
+            global_mean_2 = 0
+            global_median_2 = 0
+
+        print("> {0} / {1} / global 1s error slices (1): {2:.03f} {3}".format(self._metrix_name, which_perfos,
+                                                                       global_1s_error_1 * self.factor, self.unit))
+        print("> {0} / {1} / global 1s error slices (2): {2:.03f} {3}".format(self._metrix_name, which_perfos,
+                                                                       global_1s_error_2 * self.factor, self.unit))
+        print("> {0} / {1} / global 1s error slices (3): {2:.03f} {3}".format(self._metrix_name, which_perfos,
+                                                                                    global_1s_error_3 * self.factor,
+                                                                                    self.unit))
+        # print("> {0} / {1} / global MEAN value : {2:.03f} {3}".format(self._metrix_name, which_perfos,
+        #                                                            global_mean * self.factor, self.unit))
+        # print("> {0} / {1} / global MEDIAN value : {2:.03f} {3}".format(self._metrix_name, which_perfos,
+        #                                                              global_median * self.factor, self.unit))
+        # print("> {0} / {1} / global MEAN value slices (1): {2:.03f} {3}".format(self._metrix_name, which_perfos,
+        #                                                                     global_mean_1 * self.factor, self.unit))
+        # print("> {0} / {1} / global MEDIAN value slices (1): {2:.03f} {3}".format(self._metrix_name, which_perfos,
+        #                                                                       global_median_1 * self.factor, self.unit))
+        # print("> {0} / {1} / global MEAN value slices (2): {2:.03f} {3}".format(self._metrix_name, which_perfos,
+        #                                                                               global_mean_2 * self.factor,
+        #                                                                               self.unit))
+        # print("> {0} / {1} / global MEDIAN value slices (2): {2:.03f} {3}".format(self._metrix_name, which_perfos,
+        #                                                                                 global_median_2 * self.factor,
+        #                                                                                 self.unit))
+
+#----------------------------------
+
 
     def plot_nb_obs_as_a_function_of_water_body_size(self, water_body='lake size'):
         """

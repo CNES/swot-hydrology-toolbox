@@ -90,7 +90,6 @@ class StatsManager(object):
                  tags_dict=None,
                  begin_slices_list=None,
                  end_slices_list=None,
-                 by_water_body_size=None,
                  water_body=None,
                  along_swath=None,
                  which_perfos='req',
@@ -106,7 +105,6 @@ class StatsManager(object):
             lines (str): text file lines (output of run_wd_estimation.py or run_wd_estimation.py)
             metrix_name (str): matrix name to consider: 'reference_surface_area' or 'reference_wse' (only for lakes)
             threshold (float): to filter abnormal values
-            by_water_body_size (str): to plot errors one sigma distribution as a function of water body size (river width or lake surface)
             along_swath (str): to plot errors one sigma distribution along the swath width
             which_perfos (str): to filter perfos over lake size / river width: 'req' (requirements) or 'goal'
             which_area (str): area type to be compared among 'detected' and 'total' (detected + dark water)
@@ -135,7 +133,6 @@ class StatsManager(object):
 
         self._metrix_name = metrix_name
         self._threshold = threshold
-        self._by_water_body_size = by_water_body_size
         self._water_body = water_body
         self._along_swath = along_swath
         self._tags_dict = tags_dict
@@ -214,43 +211,26 @@ class StatsManager(object):
             relative_errors = RelativeErrors(errors, metrix_name=self._metrix_name, water_bodies_size=water_body_size,
                                              xrange=xrange)
             # Compute relative error(s) one sigma
-            # (one value OR a list of values if self._by_water_body_size is activated)
-            relative_errors.compute_error_one_sigma(self._threshold, self._by_water_body_size, self._begin_slices_list,
+            relative_errors.compute_error_one_sigma(self._threshold, self._begin_slices_list,
                                                     self._end_slices_list, self._water_body, self._which_perfos)
 
-            if self._by_water_body_size is None:
-                logger.info(
-                    "{0} error one sigma : {1:.3f} {2}".format(error_type, 100 * relative_errors._errors_one_sigma[1],
-                                                               unit))
+            # Check that one slice is filled
+            for s, error in enumerate(relative_errors._errors_one_sigma[2:]):
+                logger.info("{0} error one sigma, slice {1}: {2:.3f} {3}".format(error_type,
+                                                                                 relative_errors._slices_title_list[
+                                                                                     s],
+                                                                                 relative_errors._errors_one_sigma[
+                                                                                     s + 1], unit))
+                if error != 0:
+                    is_one_slice_filled = 1
 
-                # Relative errors distribution
-                fig = relative_errors.plot_distribution(self._threshold)
+            # Bar plot of relative errors one sigma as a function of water body size (river width or lake surface)
+            if is_one_slice_filled != 0:
+                fig = relative_errors.plot_nb_obs_as_a_function_of_water_body_size(self._water_body)
                 fig_list.append(fig)
-
-                # For perf assessment based on RiverObs (using reaches), plot relative errors distribution
-                # as a function of water body size (river width or lake surface)
-                fig = relative_errors.plot_as_a_function_of_water_body_size(True, self._water_body, self._threshold,
-                                                                            self._which_area)
+                fig = relative_errors.plot_one_sigma_error_distribution(self._water_body, self._which_perfos,
+                                                                        self._which_area)
                 fig_list.append(fig)
-
-            else:
-                # Check that one slice is filled
-                for s, error in enumerate(relative_errors._errors_one_sigma[2:]):
-                    logger.info("{0} error one sigma, slice {1}: {2:.3f} {3}".format(error_type,
-                                                                                     relative_errors._slices_title_list[
-                                                                                         s],
-                                                                                     relative_errors._errors_one_sigma[
-                                                                                         s + 1], unit))
-                    if error != 0:
-                        is_one_slice_filled = 1
-
-                # Bar plot of relative errors one sigma as a function of water body size (river width or lake surface)
-                if is_one_slice_filled != 0:
-                    fig = relative_errors.plot_nb_obs_as_a_function_of_water_body_size(self._water_body)
-                    fig_list.append(fig)
-                    fig = relative_errors.plot_one_sigma_error_distribution(self._water_body, self._which_perfos,
-                                                                            self._which_area)
-                    fig_list.append(fig)
 
             if self._along_swath is not None:  # Statistics on rivers or lakes
                 # For perf assessment based on RiverObs (using reaches), plot relative errors distribution along swath's width

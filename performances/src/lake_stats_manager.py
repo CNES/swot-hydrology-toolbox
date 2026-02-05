@@ -84,8 +84,6 @@ class LakeStatsManager(StatsManager):
         :type which_perfos: string
         :param threshold: to filter abnormal values
         :type threshold: float
-        :param by_lake_size: to plot errors one sigma distribution as a function of lake size
-        :type by_lake_size: string
         :param along_swath: to plot errors one sigma distribution along the swath width
         :type along_swath: string
         :param which_area: area type to be compared among 'detected' and 'total' (detected + dark water)
@@ -135,7 +133,6 @@ class LakeStatsManager(StatsManager):
                               tags_dict=lake_tags_dict,
                               begin_slices_list=begin_slices_list,
                               end_slices_list=end_slices_list,
-                              by_water_body_size=by_lake_size,
                               water_body='lake size',
                               along_swath=along_swath,
                               which_perfos=which_perfos,
