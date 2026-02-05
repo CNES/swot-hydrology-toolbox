@@ -52,7 +52,6 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal", fla
         which_area = "prior"  # Area to be compared with: 'prior' for stats on WSE
 
     threshold = None  # Option to filter abnormal values. Ex: 1
-    flag_along_swath = "yes"  # to plot errors one sigma distribution along the swath width
     outlier_lim = None  # Outlier limits to clip on graphs (area_limit (%), wse_limit (m)). Ex: (200, 1)
 
     # 2.2 - Init LakeStatsManager object
@@ -61,7 +60,6 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal", fla
                                          metrix_name=metrix_name,
                                          which_perfos=which_perfos,
                                          threshold=threshold,
-                                         along_swath=flag_along_swath,
                                          which_area=which_area,
                                          outlier_lim=outlier_lim,
                                          levelled=flag_levelled,

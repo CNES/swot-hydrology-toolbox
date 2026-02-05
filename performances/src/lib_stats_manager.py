@@ -91,7 +91,6 @@ class StatsManager(object):
                  begin_slices_list=None,
                  end_slices_list=None,
                  water_body=None,
-                 along_swath=None,
                  which_perfos='req',
                  which_area='total',
                  filter_by_scene_tile='all',
@@ -105,7 +104,6 @@ class StatsManager(object):
             lines (str): text file lines (output of run_wd_estimation.py or run_wd_estimation.py)
             metrix_name (str): matrix name to consider: 'reference_surface_area' or 'reference_wse' (only for lakes)
             threshold (float): to filter abnormal values
-            along_swath (str): to plot errors one sigma distribution along the swath width
             which_perfos (str): to filter perfos over lake size / river width: 'req' (requirements) or 'goal'
             which_area (str): area type to be compared among 'detected' and 'total' (detected + dark water)
             filter_by_scene_tile (str): to know if data are filtered over a single scene or tile of a list of quality flags
@@ -134,7 +132,6 @@ class StatsManager(object):
         self._metrix_name = metrix_name
         self._threshold = threshold
         self._water_body = water_body
-        self._along_swath = along_swath
         self._tags_dict = tags_dict
         self._begin_slices_list = begin_slices_list
         self._end_slices_list = end_slices_list
@@ -232,13 +229,13 @@ class StatsManager(object):
                                                                         self._which_area)
                 fig_list.append(fig)
 
-            if self._along_swath is not None:  # Statistics on rivers or lakes
-                # For perf assessment based on RiverObs (using reaches), plot relative errors distribution along swath's width
-                fig = relative_errors.plot_along_swath(self._water_body, self._which_area,
-                                                       outlier_lim=self._outlier_lim)
-                fig_list.append(fig)
-                fig = relative_errors.plot_along_swath_popular(self._threshold, self._which_area)
-                fig_list.append(fig)
+            # Statistics on rivers or lakes
+            # For perf assessment based on RiverObs (using reaches), plot relative errors distribution along swath's width
+            fig = relative_errors.plot_along_swath(self._water_body, self._which_area,
+                                                   outlier_lim=self._outlier_lim)
+            fig_list.append(fig)
+            fig = relative_errors.plot_along_swath_popular(self._threshold, self._which_area)
+            fig_list.append(fig)
 
             if self._save_to_disk is None:
                 # Show figures

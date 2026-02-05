@@ -67,8 +67,6 @@ class LakeStatsManager(StatsManager):
                  metrix_name='reference_surface_area',
                  which_perfos="req",
                  threshold=None,
-                 by_lake_size=None,
-                 along_swath=None,
                  which_area="total",
                  outlier_lim=None,
                  gdf=None,
@@ -84,8 +82,6 @@ class LakeStatsManager(StatsManager):
         :type which_perfos: string
         :param threshold: to filter abnormal values
         :type threshold: float
-        :param along_swath: to plot errors one sigma distribution along the swath width
-        :type along_swath: string
         :param which_area: area type to be compared among 'detected' and 'total' (detected + dark water)
         :type which_area: string
         :param outlier_lim: outlier limits to clip (area_limit, wse_limit)
@@ -134,7 +130,6 @@ class LakeStatsManager(StatsManager):
                               begin_slices_list=begin_slices_list,
                               end_slices_list=end_slices_list,
                               water_body='lake size',
-                              along_swath=along_swath,
                               which_perfos=which_perfos,
                               which_area=which_area,
                               filter_by_scene_tile='all',
