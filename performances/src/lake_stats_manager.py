@@ -171,21 +171,18 @@ class LakeStatsManager(StatsManager):
 
         # Plot number of lakes
         df_filtered = pd.DataFrame(diff_data.json)
-        # print("LAKE_STATS_MANAGER - Number of UNIQUE _fuid: {}".format(
-        #     df_filtered['lake_id_ref'].nunique()))
-        print("LAKE_STATS_MANAGER - Number of UNIQUE lake_id: {}".format(df_filtered['lake_id_ref'].str.split(':').str[1].nunique()))
-        print("LAKE_STATS_MANAGER - Number of observations: {}".format(len(df_filtered['lake_id_ref'])))
+
+        print("Number of PLD lakes: {}".format(df_filtered['lake_id_ref'].str.split(':').str[1].nunique()))
+        print("Number of matchups: {}".format(len(df_filtered['lake_id_ref'])))
 
         df_filtered["lake_id"] = df_filtered["lake_id_ref"].str.extract(r":(\d+)$")[0].astype("Int64")
         df_data_unique = df_filtered.drop_duplicates(subset=["lake_id"])
-        # print("LAKE_STATS_MANAGER - Number of UNIQUE lake_id (CHECK): {}".format(len(df_data_unique)))
 
-        # fig = plot_nb_obj_as_a_function_of_water_body_size(np.array(df_data_unique["p_ref_area"]) * 1e6,
+        # Save to figure. Example: fig_surface-area_scene-all_swath-nominal_5.png
         fig = plot_nb_obj_as_a_function_of_water_body_size(np.array(df_data_unique['Reference_surface_area'].astype(float)) * 1e6,
                                                              "lake size", begin_slices_list, end_slices_list)
-        # Save to figure. Example: fig_surface-area_scene-all_swath-nominal_5.png
-        fig_name = 'fig_{}_scene-{}_swath-{}_5'.format(metrix_name.replace("reference_", "").replace("_from_db","").replace("_", "-"),
+        fig_name = 'fig_{}_scene-{}_swath-{}_4'.format(metrix_name.replace("reference_", "").replace("_from_db","").replace("_", "-"),
                                                        filter_by_scene_tile, "nominal")
         fig.savefig(os.path.join(output_dir, fig_name))
-        # print("Number of lakes figure is saved to the disk! Here: {0}".format(output_dir))
+        print("Number of lakes figure is saved to the disk! Here: {0}".format(os.path.join(output_dir, fig_name)))
         fig.clf()
