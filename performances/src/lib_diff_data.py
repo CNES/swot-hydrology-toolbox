@@ -40,54 +40,6 @@ class DiffData(object):
 
         self.json = []
 
-    def from_file(self, stat_file, fields):
-        """
-        Get data from metrics file .txt
-        :param stat_file: text file (output of run/run_lakes_estimation.py)
-        :param fields: line fields
-        :return: list of dictionary (json format)
-        """
-
-        logger = logging.getLogger(self.__class__.__name__)
-
-        # Read txt file and store data into a json structure
-        with open(stat_file) as fh:
-
-            for line in fh:
-
-                # reading line by line from the text file
-                description = line.strip().split(' - ', 15)
-
-                # for output see below
-                # print(description)
-
-                # loop variable
-                i = 0
-                # intermediate dictionary
-                dict_fields = {}
-                while i < len(fields):
-                    # creating dictionary for variable
-                    value = description[i].split(None, 3)
-                    dict_fields[fields[i]] = value[1]
-                    i += 1
-
-                # logger.debug('dict_fields[{}]: {}'.format(i, dict_fields))
-
-                self.json.append(dict_fields)
-
-        print(len(self.json))
-
-        # creating json file
-        cur_date = datetime.datetime.now().strftime("%Y%m%d")
-        username = os.environ.get("USERNAME") 
-        tmp_dir = "/work/scratch/data/{}/lakes_perfos_{}/stats/".format(username, cur_date)
-        if not os.path.exists(tmp_dir):
-            print("[WARNING] %s directory doesn't exist => create it" % tmp_dir)
-            os.makedirs(tmp_dir)
-        out_file = open(os.path.join(tmp_dir, "metrics_from_file.json"), "w")
-        json.dump(self.json, out_file, indent=4)
-        out_file.close()
-
     def from_lakesp_prior_diff_table(self, gdf_diff, fields, which_area, metrix_name):
         """
         Get data from hydro database (table LakeSP_Prior_diff)

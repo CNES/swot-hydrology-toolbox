@@ -64,7 +64,7 @@ class LakeStatsManager(StatsManager):
     Class for managing statistics on lakes
     """
 
-    def __init__(self, file_or_directory,
+    def __init__(self, working_dir,
                  metrix_name='reference_surface_area',
                  subdataset=None,
                  subdataset_filter=None,
@@ -79,8 +79,8 @@ class LakeStatsManager(StatsManager):
         """
         Initialize statistics manager
         
-        :param file_or_directory: text file (output of run/run_lakes_estimation.py) or directory (if metrics from referential hydro database)
-        :type file_or_directory: string
+        :param working_dir: working directory
+        :type working_dir: string
         :param metrix_name: metrics name to consider, among ('reference_surface_area', 'reference_wse')
         :type metrix_name: string
         :param subdataset: to filter over a single scene (value = scene_number),
@@ -115,14 +115,9 @@ class LakeStatsManager(StatsManager):
             end_slices_list = end_slices_list_4goal
 
         # Create output directory if it doesn't exist
-        if os.path.isfile(file_or_directory):
-            # Get data from metrics file .txt
-            output_dir = os.path.join(os.path.dirname(file_or_directory), which_perfos)
-        else:
-            # Get data from hydro database (table LakeSP_Prior_diff)
-            output_dir = os.path.join(file_or_directory, which_perfos)
+        output_dir = os.path.join(working_dir, which_perfos)
         if not os.path.exists(output_dir):
-            # print("[WARNING] %s directory doesn't exist => create it" % output_dir)
+            print("[WARNING] %s directory doesn't exist => create it" % output_dir)
             os.makedirs(output_dir)
 
         # Update surface area type
@@ -130,13 +125,8 @@ class LakeStatsManager(StatsManager):
 
         # Get diff data
         diff_data = DiffData()
-        if os.path.isfile(file_or_directory):
-            # print("Get data from metrics file .txt")
-            diff_data.from_file(file_or_directory, fields)
-        else:
-            # print("Get data from hydro database")
-            # print("gdf: {}".format(gdf))
-            diff_data.from_lakesp_prior_diff_table(gdf, fields, which_area, metrix_name)
+        # print("Get data from hydro database")
+        diff_data.from_lakesp_prior_diff_table(gdf, fields, which_area, metrix_name)
 
         # To filter
         if metrix_name == 'reference_wse_from_db':
