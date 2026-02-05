@@ -59,7 +59,7 @@ def check_metrix_name(first_line, metrix_name):
     # FOR RIVERS and LAKES
 
     # Performance assessment vs reference surface area
-    elif metrix_name == 'reference_surface_area' or metrix_name == 'reference_surface_area_from_db':
+    elif metrix_name == 'reference_surface_area':
         try:
             pos_study = first_line['Reference_surface_area']
         except KeyError:
@@ -68,7 +68,7 @@ def check_metrix_name(first_line, metrix_name):
     # ONLY FOR LAKES
 
     # Performance assessment vs water surface elevation
-    elif metrix_name == 'reference_wse' or metrix_name == 'reference_wse_from_db':
+    elif metrix_name == 'reference_wse':
         try:
             pos_study = first_line['Reference_WSE']
         except KeyError:
@@ -220,10 +220,8 @@ class StatsManager(object):
                         water_body_size = [i * 1e6 for i in
                                            water_body_size]  # lake surface area are in km2 => convert in m2
                     xrange = tags_values_list[3]
-                    if self._metrix_name == 'reference_surface_area_from_db' \
-                            or self._metrix_name == 'reference_wse_from_db':
-                        # Read directly relative_error or absolute_error
-                        errors = np.asarray(tags_values_list[4])
+                    # Read relative_error or absolute_error
+                    errors = np.asarray(tags_values_list[4])
                 except:
                     logger.error("Error when retrieving tag''s values with metrix from {0}".format(self._metrix_name))
 
@@ -232,25 +230,11 @@ class StatsManager(object):
         # If metrix object is well initialized:
         if is_nan != 0 and metrix is not None:
 
-            # Compute array of errors
-            # Absolute errors for wse
-            if self._metrix_name == 'reference_wse_from_db':
-                # print("Get absolute errors from diff table with metrix {0}".format(self._metrix_name))
-                # Then process as a 'reference_wse' metrix
-                self._metrix_name = 'reference_wse'
-                error_type = "Absolute"
-                unit = "m"
-            elif self._metrix_name == 'reference_wse':
-                errors = metrix.compute_absolute_errors()
+            # Type of errors
+            if self._metrix_name == 'reference_wse':
                 error_type = "Absolute"
                 unit = "m"
             else:
-                if self._metrix_name == 'reference_surface_area_from_db':
-                    # print("Get relative errors from diff table with metrix {0}".format(self._metrix_name))
-                    # Then process as a 'reference_surface_area' metrix
-                    self._metrix_name = 'reference_surface_area'
-                else:
-                    errors = metrix.compute_relative_errors()
                 error_type = "Relative"
                 unit = "%"
                 

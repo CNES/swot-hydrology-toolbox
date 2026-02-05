@@ -42,7 +42,7 @@ class DiffData(object):
         :param gdf_diff: geodataframe
         :param fields: line fields
         :param which_area: 'total', 'detected' or 'geom'
-        :param metrix_name: 'reference_surface_area_from_db' or 'reference_wse_from_db'
+        :param metrix_name: 'reference_surface_area' or 'reference_wse'
         :return: list of dictionary (json format)
         """
 
@@ -54,12 +54,12 @@ class DiffData(object):
             # Create a dictionary for all variables
             # Note that Total_surface_area is set to Reference_surface_area (not used to compute relative error)
             # Note that Detected_WSE and Reference_WSE are not used to compute absolute error
-            if metrix_name == 'reference_surface_area_from_db':
+            if metrix_name == 'reference_surface_area':
                 relative_error = str(diff_observations.loc[line, "area_{}".format(which_area)])
                 absolute_error = "None"
                 wse_levelled = False  # parameter is not used for surface area stats
             else:
-                # reference_wse_from_db
+                # reference_wse
                 relative_error = "None"
                 absolute_error = str(diff_observations.loc[line, "wse"])
                 wse_levelled = bool(diff_observations.loc[line, "wse_levelled"])

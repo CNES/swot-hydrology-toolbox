@@ -44,11 +44,11 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal", fla
 
     # 2.1 - Build input parameters
     if which_stats == "surface-area":
-        metrix_name = "reference_surface_area_from_db"
+        metrix_name = "reference_surface_area"
         which_area = "total"  # Area to be compared with: 'total', 'detected' or 'geom' for stats on AREA
 
     else:
-        metrix_name = "reference_wse_from_db"
+        metrix_name = "reference_wse"
         which_area = "prior"  # Area to be compared with: 'prior' for stats on WSE
 
     flag_by_lake_size = "yes"  # to plot errors one sigma distribution as a function of lake size
