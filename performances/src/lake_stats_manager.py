@@ -5,12 +5,8 @@ Class for handling lakes statistics computation and visualization
 
 Copyright (c) 2020 CNES.
 """
-import os
-import numpy as np
 from src.lib_stats_manager import StatsManager
 from src.lib_diff_data import DiffData
-from src.lib_relative_errors import plot_nb_obj_as_a_function_of_water_body_size
-import pandas as pd
 
 # Define slices to plot errors one sigma evolution depending on lake size
 begin_slices_list_4goal = [10000, 62500, 250000, 1000000, 4000000]  # m2
@@ -92,12 +88,6 @@ class LakeStatsManager(StatsManager):
             begin_slices_list = begin_slices_list_4goal
             end_slices_list = end_slices_list_4goal
 
-        # Create output directory if it doesn't exist
-        output_dir = os.path.join(working_dir, which_perfos)
-        if not os.path.exists(output_dir):
-            print("[WARNING] %s directory doesn't exist => create it" % output_dir)
-            os.makedirs(output_dir)
-
         # Update surface area type
         lake_tags_dict, fields = get_tags()
 
@@ -125,24 +115,5 @@ class LakeStatsManager(StatsManager):
                               water_body='lake size',
                               which_perfos=which_perfos,
                               which_area=which_area,
-                              filter_by_scene_tile='all',
                               outlier_lim=outlier_lim,
-                              save_to_disk=output_dir)
-
-        # Plot number of lakes
-        df_filtered = pd.DataFrame(diff_data.json)
-
-        print("Number of PLD lakes: {}".format(df_filtered['lake_id'].str.split(':').str[1].nunique()))
-        print("Number of matchups: {}".format(len(df_filtered['lake_id'])))
-
-        df_filtered["lake_id_subset"] = df_filtered["lake_id"].str.extract(r":(\d+)$")[0].astype("Int64")
-        df_data_unique = df_filtered.drop_duplicates(subset=["lake_id_subset"])
-
-        # Save to figure. Example: fig_surface-area_scene-all_swath-nominal_5.png
-        fig = plot_nb_obj_as_a_function_of_water_body_size(np.array(df_data_unique['Reference_surface_area'].astype(float)) * 1e6,
-                                                             "lake size", begin_slices_list, end_slices_list)
-        fig_name = 'fig_{}_scene-{}_swath-{}_4'.format(metrix_name.replace("reference_", "").replace("_", "-"),
-                                                       'all', "nominal")
-        fig.savefig(os.path.join(output_dir, fig_name))
-        print("Number of lakes figure is saved to the disk! Here: {0}".format(os.path.join(output_dir, fig_name)))
-        fig.clf()
+                              save_to_disk=working_dir)

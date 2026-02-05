@@ -28,7 +28,8 @@ if os.environ.get('DISPLAY', '') == '':
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
-from src.lib_relative_errors import RelativeErrors
+from src.lib_relative_errors import RelativeErrors, plot_nb_obj_as_a_function_of_water_body_size
+import pandas as pd
 
 print_debug = False
 
@@ -51,7 +52,6 @@ class StatsManager(object):
                  water_body=None,
                  which_perfos='req',
                  which_area='total',
-                 filter_by_scene_tile='all',
                  outlier_lim=None,
                  save_to_disk=None
                  ):
@@ -64,16 +64,12 @@ class StatsManager(object):
             threshold (float): to filter abnormal values
             which_perfos (str): to filter perfos over lake size / river width: 'req' (requirements) or 'goal'
             which_area (str): area type to be compared among 'detected' and 'total' (detected + dark water)
-            filter_by_scene_tile (str): to know if data are filtered over a single scene or tile of a list of quality flags
             outlier_lim (list): outlier limits to clip
         """
         logger = logging.getLogger(self.__class__.__name__)
 
         # Diff data stored into a json structure
         self._lines = lines
-
-        # Filter by scene and tile
-        self.filter_by_scene_tile = filter_by_scene_tile
 
         # Exit if no line left
         if len(self._lines) == 0:
@@ -96,12 +92,9 @@ class StatsManager(object):
 
     # -------------------------------------------
 
-    def compute_statistics(self, shp_type=None):
+    def compute_statistics(self):
         """
         Compute statistics and visualize errors distribution
-
-        Args:
-            sh_type (str): lake shapefile type, among 'Obs', 'Prior', and 'Unassigned'
         """
         logger = logging.getLogger(self.__class__.__name__)
 
@@ -186,24 +179,31 @@ class StatsManager(object):
             fig = relative_errors.plot_along_swath_popular(self._threshold, self._which_area)
             fig_list.append(fig)
 
+            # Plot number of lakes
+            df_filtered = pd.DataFrame(self._lines)
+            print("Number of PLD lakes: {}".format(df_filtered['lake_id'].str.split(':').str[1].nunique()))
+            print("Number of matchups: {}".format(len(df_filtered['lake_id'])))
+
+            df_filtered["lake_id_subset"] = df_filtered["lake_id"].str.extract(r":(\d+)$")[0].astype("Int64")
+            df_data_unique = df_filtered.drop_duplicates(subset=["lake_id_subset"])
+
+            fig = plot_nb_obj_as_a_function_of_water_body_size(
+                np.array(df_data_unique['Reference_surface_area'].astype(float)) * 1e6,
+                "lake size", self._begin_slices_list, self._end_slices_list)
+            fig_list.append(fig)
+
             if self._save_to_disk is None:
                 # Show figures
                 plt.show()
             else:
                 # Save figures to the disk
-                for i, fig in enumerate(fig_list):
-                    if shp_type is None:
-                        fig_name = 'fig_{}_scene-{}_swath-{}_{}'.format(
-                            self._metrix_name.replace("reference_", "").replace("_", "-"),
-                            self.filter_by_scene_tile, "nominal", i)
-                    else:
-                        fig_name = 'fig_{}_{}_scene-{}_swath-{}_{}'.format(
-                            shp_type, self._metrix_name.replace("reference_", "").replace("_", "-"),
-                            self.filter_by_scene_tile, "nominal", i)
+                new_names = ["nb_diff_per_size", "1s_error_per_size", "error_per_xtrack", "med_error_per_xtrack",
+                             "nb_lakes_per_size"]
+                for i, (fig, new_name) in enumerate(zip(fig_list, new_names)):
+                    fig_name = f"{i+1}_{new_name}.png"
                     fig.savefig(os.path.join(self._dirname, fig_name))
-                    logger.info("Figures are saved to the disk! Here: {0}".format(self._dirname))
+                    print(f"Figure saved: {fig_name} in {self._dirname}")
                     plt.close(fig)
-                    # fig.clf()
 
         else:
             logger.info("No data found. Error one sigma is not computed.")

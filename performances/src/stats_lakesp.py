@@ -35,24 +35,15 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal", fla
     if not os.path.exists(working_dir):
         os.makedirs(working_dir)
     
-    # 1 - Plot histo with nb of lakes wrt lake size
-    if (which_stats == "wse") and flag_levelled:
-        df_data_tmp = df_data[df_data["wse_levelled"]]
-        df_data_uniq = df_data_tmp.drop_duplicates(subset=["lake_id"])
-    else:
-        df_data_uniq = df_data.drop_duplicates(subset=["lake_id"])
-
-    # 2.1 - Build input parameters
+    # 1 - Build input parameters
+    threshold = None  # Option to filter abnormal values. Ex: 1
+    outlier_lim = None  # Outlier limits to clip on graphs (area_limit (%), wse_limit (m)). Ex: (200, 1)
     if which_stats == "area":
         which_area = "total"  # Area to be compared with: 'total', 'detected' or 'geom' for stats on AREA
-
     else:
         which_area = "prior"  # Area to be compared with: 'prior' for stats on WSE
 
-    threshold = None  # Option to filter abnormal values. Ex: 1
-    outlier_lim = None  # Outlier limits to clip on graphs (area_limit (%), wse_limit (m)). Ex: (200, 1)
-
-    # 2.2 - Init LakeStatsManager object
+    # 2.1 - Init LakeStatsManager object
     try:
         stats_manager = LakeStatsManager(working_dir,
                                          metrix_name=which_stats,
@@ -66,15 +57,9 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal", fla
         LOGGER.error("CANNOT compute stats")
         return
 
-    # 2.3 - Compute statistics
+    # 2.2 - Compute statistics
     stats_manager.compute_statistics()
-    
-    # 3 - Move and changes filenames
-    for ind, new_name in enumerate(["nb_diff_per_size", "1s_error_per_size", "error_per_xtrack", "med_error_per_xtrack", "nb_lakes_per_size"]):
-        os.replace(os.path.join(working_dir, which_perfos, "fig_%s_scene-all_swath-nominal_%d.png" % (which_stats, ind)),
-                   os.path.join(working_dir, "%d_%s.png" % (ind+1, new_name)))
-    shutil.rmtree(os.path.join(working_dir, which_perfos))
-    
+
     
 #################################################
     
