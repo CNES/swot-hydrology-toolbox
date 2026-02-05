@@ -22,10 +22,6 @@
 Copyright (c) 2023 CNES. All rights reserved.
 """
 import logging
-import json
-import os
-import datetime
-
 FV_REAL = -999999999999
 
 class DiffData(object):
@@ -148,114 +144,6 @@ class DiffData(object):
         for (indl, cur_line) in enumerate(self.json):
             cur_line["Absolute_error"] = str(float(cur_line["Absolute_error"]) - dict_mean[cur_line["lake_id_ref"]])
             
-    def filter_wse_fill_value(self):
-        """
-        Filter data where Detected WSE = -999999999999 (fill_value)
-        """
-        logger = logging.getLogger(self.__class__.__name__)
-
-        nb_lines = len(self.json)
-        try:
-            self.json = list(filter(lambda x: float(x['Detected_WSE']) == FV_REAL, self.json))
-            logger.info("Keep %d / %d lines after filter WSE fill value: %d" % (len(self.json), nb_lines,
-                                                                                FV_REAL))
-        except:
-            pass
-
-    def filter_scenes_tiles(self, subdataset=None, subdataset_filter=None):
-        """
-        Filter data by:
-        - specific scene IF subdataset represents a scene number or name
-        - specific tile IF subdataset = <scene_number>;<pppp>_<tttt>
-        - listing of scenes and tiles IF subdataset is an existing file; in this case,
-        filter (scene, tile) pairs with quality > subdataset_filter
-        Available quality values =
-        0 : No particular problems (especially favorable case)
-        1 : Moderate phenomenology-related difficulties
-        2 : Major phenomenology-related difficulties (severe layover, only near/far range...)
-        3 : Simulation/truth problems with limited impact
-        4 : Simulation/truth problems with major impact
-        :param subdataset: to filter over a single scene (value = scene_number),
-        a single tile (value = scene_number;<pppp>_<tttt>) or wrt a listing of tile quality or by basin_id
-        :type subdataset: str
-        :param subdataset_filter: to filter over tile quality if subdataset is a listing file; ex: 0-1, 0-1-3
-        :type subdataset_filter: str
-        """
-        logger = logging.getLogger(self.__class__.__name__)
-
-        # By default, no filter
-        filter_by_scene_tile = "all"
-
-        # 0 - Filter by scene and tile
-        if subdataset is not None:
-            # 1 - Build dict listing tiles to process for all specified scenes
-            list_scene_tiles = dict()
-            if os.path.isfile(subdataset):
-                list_filter = subdataset_filter.split("-")
-                cpt_keep = 0
-                cpt_remove = 0
-                reader = open(subdataset, "r")
-                for cur_line in reader:
-                    tmp_split = cur_line.split(";")
-                    scene_number = tmp_split[0]
-                    tile_ref = tmp_split[1]
-                    quality = tmp_split[2][0]
-                    if quality in list_filter:
-                        logger.debug("Keep in listing / scene = %s and tile = %s" % (scene_number, tile_ref))
-                        cpt_keep += 1
-                        if scene_number in list_scene_tiles.keys():
-                            list_scene_tiles[scene_number] += ";%s" % tile_ref
-                        else:
-                            list_scene_tiles[scene_number] = "%s" % tile_ref
-                    else:
-                        logger.debug("Remove from listing / scene = %s and tile = %s" % (scene_number, tile_ref))
-                        cpt_remove += 1
-                reader.close()
-                filter_by_scene_tile = "listing-filter-%s" % subdataset_filter
-                logger.info("Keep %d / %d (scene, tile) pairs" % (cpt_keep, cpt_keep + cpt_remove))
-
-            elif ";" in subdataset:
-                scene_number = subdataset.split(";")[0]
-                tile_number = subdataset.split(";")[1]
-                list_scene_tiles[scene_number] = tile_number
-                filter_by_scene_tile = "%s_tile-%s" % (str(scene_number), str(tile_number))
-
-            else:
-                list_scene_tiles[subdataset] = "all"
-                filter_by_scene_tile = str(subdataset)
-
-            # 2 - Keep wanted tiles
-            tmp_json = []  # Init list of indices of lines to keep
-
-            # 2.1 - Loop over all lines
-
-            for (indl, cur_line) in enumerate(self.json):
-                scene_number = cur_line['scene']
-                if scene_number in list_scene_tiles.keys():
-                    if list_scene_tiles[scene_number] != "all":
-                        tile_number = "{}_{}".format(cur_line['pass'], cur_line['tile'])
-                        if tile_number not in list_scene_tiles[scene_number]:
-                            logger.debug(
-                                "Remove line with scene number %s and tile %s = %s" % (scene_number, tile_number, cur_line))
-                        else:
-                            logger.debug(
-                                "KEEP line with scene number %s and tile %s = %s" % (scene_number, tile_number, cur_line))
-                            tmp_json.append(cur_line)
-                    else:
-                        logger.debug("KEEP line with scene number %s = %s" % (scene_number, cur_line))
-                        tmp_json.append(cur_line)
-                else:
-                    logger.debug("Remove line with scene number %s = %s" % (scene_number, cur_line))
-
-            logger.info("Keep %d / %d lines after filter over scenes and tiles " % (len(tmp_json), len(self.json)))
-
-            # 2.2 - Keep only selected lines
-            self.json = tmp_json
-
-        return filter_by_scene_tile
-
-
-
 
 if __name__ == "__main__":
     # Exampple of input metrics file

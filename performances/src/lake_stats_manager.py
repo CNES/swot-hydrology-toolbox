@@ -136,12 +136,6 @@ class LakeStatsManager(StatsManager):
             else:
                 diff_data.convert_absolute_error_into_relative()
 
-        # diff_data.filter_wse_fill_value()
-
-        # To filter by scene / tile / quality flag (if subdataset is not None)
-        # (option only used with simulated data)
-        filter_by_scene_tile = diff_data.filter_scenes_tiles(subdataset, subdataset_filter)
-
         # Initialize the base class
         StatsManager.__init__(self,
                               lines=diff_data.json,
@@ -155,7 +149,7 @@ class LakeStatsManager(StatsManager):
                               along_swath=along_swath,
                               which_perfos=which_perfos,
                               which_area=which_area,
-                              filter_by_scene_tile=filter_by_scene_tile,
+                              filter_by_scene_tile='all',
                               outlier_lim=outlier_lim,
                               save_to_disk=output_dir)
 
