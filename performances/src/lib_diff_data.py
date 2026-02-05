@@ -22,6 +22,7 @@
 Copyright (c) 2023 CNES. All rights reserved.
 """
 import logging
+import pandas as pd
 FV_REAL = -999999999999
 
 class DiffData(object):
@@ -35,6 +36,46 @@ class DiffData(object):
         """
 
         self.json = []
+
+    def from_file(self, csv_path, fields, which_area, metrix_name):
+        """
+        Get data from a CSV file and store it in a JSON format.
+
+        :param csv_path: Path to the CSV file
+        :param fields: List of field names for the output dictionary
+        :param which_area: 'total', 'detected' or 'geom'
+        :param metrix_name: 'reference_surface_area' or 'reference_wse'
+        :return: list of dictionary (json format)
+        """
+
+        # Read CSV file into a DataFrame
+        df = pd.read_csv(csv_path)
+
+        # Iterate over each line in the DataFrame
+        for line in df.index:
+            # Create a dictionary for all variables
+            if metrix_name == 'reference_surface_area':
+                relative_error = str(df.loc[line, f"area_{which_area}"])
+                absolute_error = "None"
+                wse_levelled = False  # parameter is not used for surface area stats
+            else:
+                # reference_wse
+                relative_error = "None"
+                absolute_error = str(df.loc[line, "wse"])
+                wse_levelled = bool(df.loc[line, "wse_levelled"])
+
+            dict_fields = {
+                fields[0]: str(df.loc[line, "cycle_number"]),  # cycle
+                fields[1]: str(df.loc[line, "pass_number"]),  # pass
+                fields[2]: str(df.loc[line, "_fuid"]),  # lake_id
+                fields[3]: str(int(df.loc[line, "xtrk_dist"] * 1e-3)),  # XLocMean in km
+                fields[4]: str(df.loc[line, "p_ref_area"]),  # Reference_surface_area
+                fields[5]: relative_error,  # Relative_error
+                fields[6]: absolute_error,  # Absolute_error
+                fields[7]: str(df.loc[line, "dark_frac"]),  # dark_frac
+                fields[8]: wse_levelled  # wse_levelled
+            }
+            self.json.append(dict_fields)
 
     def from_lakesp_prior_diff_table(self, gdf_diff, fields, which_area, metrix_name):
         """
@@ -52,8 +93,6 @@ class DiffData(object):
         # Reading line by line from GeoDataFrame
         for line in diff_observations.index:
             # Create a dictionary for all variables
-            # Note that Total_surface_area is set to Reference_surface_area (not used to compute relative error)
-            # Note that Detected_WSE and Reference_WSE are not used to compute absolute error
             if metrix_name == 'reference_surface_area':
                 relative_error = str(diff_observations.loc[line, "area_{}".format(which_area)])
                 absolute_error = "None"
@@ -64,53 +103,15 @@ class DiffData(object):
                 absolute_error = str(diff_observations.loc[line, "wse"])
                 wse_levelled = bool(diff_observations.loc[line, "wse_levelled"])
 
-            dict_fields = {fields[0]: "None",  # scene
-                           fields[1]: str(diff_observations.loc[line, "cycle_number"]),  # cycle
-                           fields[2]: str(diff_observations.loc[line, "pass_number"]),  # pass
-                           fields[3]: "None",  # tile
-                           fields[4]: "WC",  # case
-                           # fields[5]: str(line[0]),  # lake_id_compared (index 0 is feature_id) API v1.6
-                           # fields[6]: str(line[0]),  # lake_id_ref
-                           fields[5]: str(diff_observations.loc[line, "_fuid"]),  # lake_id_compared API v1.7
-                           fields[6]: str(diff_observations.loc[line, "_fuid"]),  # lake_id_ref
-                           fields[7]: str(int(diff_observations.loc[line, "xtrk_dist"] * 1e-3)),  # XLocMean in km
-                           fields[8]: str(diff_observations.loc[line, "p_ref_area"]),  # Total_surface_area
-                           fields[9]: str(diff_observations.loc[line, "p_ref_area"]),  # Reference_surface_area
-                           fields[10]: relative_error,  # Relative_error
-                           fields[11]: 999,  # Detected_WSE
-                           fields[12]: 999,  # Reference_WSE
-                           fields[13]: absolute_error,  # Absolute_error
-                           fields[14]: str(diff_observations.loc[line, "dark_frac"]),  # dark_frac
-                           fields[15]: wse_levelled  # wse_levelled
-                           }
-            self.json.append(dict_fields)
-
-    def from_riversp_reach_diff_table(self, diff_observations, fields, which_area='total'):
-        """
-        Get data from hydro database (RiverSP_reach_diff table)
-        :param diff_observations: dataframe
-        :param fields: line fields
-        :param which_area: 'total', 'detected' or 'geom'
-        :return: list of dictionary (json format)
-        """
-
-        # Reading line by line from DataFrame
-        for line in range(len(diff_observations)):
-            # Create a dictionary for all variables
-            # Note that Total|Detected|Reference_surface_area are not used to compute relative error
-            dict_fields = {fields[0]: "None",  # scene
-                           fields[1]: str(diff_observations.loc[line, "cycle_number"]),  # cycle
-                           fields[2]: str(diff_observations.loc[line, "pass_number"]),  # pass
-                           fields[3]: "None",  # tile
-                           fields[4]: "WC",  # case
-                           fields[5]: str(diff_observations.loc[line, "_fuid"]),  # reach
-                           fields[6]: str(int(diff_observations.loc[line, "xtrk_dist"] * 1e-3)),  # XLocMean in km
-                           fields[7]: 999,  # length (not used)
-                           fields[8]: str(diff_observations.loc[line, "p_width"]),  # p_width
-                           fields[9]: 999,  # Total|Detected_surface_area (not used)
-                           fields[10]: 999,  # Reference_surface_area (not used)
-                           fields[11]: str(diff_observations.loc[line, "area_{}".format(which_area)]),  # Relative_error
-                           fields[12]: str(diff_observations.loc[line, "dark_frac"])  # dark_frac
+            dict_fields = {fields[0]: str(diff_observations.loc[line, "cycle_number"]),  # cycle
+                           fields[1]: str(diff_observations.loc[line, "pass_number"]),  # pass
+                           fields[2]: str(diff_observations.loc[line, "_fuid"]),  # lake_id
+                           fields[3]: str(int(diff_observations.loc[line, "xtrk_dist"] * 1e-3)),  # XLocMean in km
+                           fields[4]: str(diff_observations.loc[line, "p_ref_area"]),  # Reference_surface_area
+                           fields[5]: relative_error,  # Relative_error
+                           fields[6]: absolute_error,  # Absolute_error
+                           fields[7]: str(diff_observations.loc[line, "dark_frac"]),  # dark_frac
+                           fields[8]: wse_levelled  # wse_levelled
                            }
             self.json.append(dict_fields)
 
@@ -146,14 +147,15 @@ class DiffData(object):
             
 
 if __name__ == "__main__":
-    # Exampple of input metrics file
-    stat_file = "/work/EXPERT_CENTER/mwec/workspace/HR/labatl/scripts/perfos/output/lakes/nominal-nominal_wrt_truth_20231019/stats/metrics_on_nominal-nominal_wrt_truth_20231019_tot_Prior.txt"
+
+    # Example of csv loading file
+    stat_file = "/work/EXPERT_CENTER/mwec/workspace/HR/labatl/scripts/swot-hydrology-toolbox/performances/examples/" \
+                "input/diff_area.csv"
 
     # Example of fields (for lake statistics)
-    fields = ['scene', 'cycle', 'pass', 'tile', 'case', 'lake_id_compared', 'lake_id_ref', 'XLocMean',
-              'Total_surface_area', 'Reference_surface_area', 'Relative_error',
-              'Detected_WSE', 'Reference_WSE', 'Absolute_error', 'dark_frac']
+    fields = ['cycle', 'pass', 'lake_id', 'XLocMean', 'Reference_surface_area', 'Relative_error',
+              'Absolute_error', 'dark_frac', 'wse_levelled']
 
     diff_data = DiffData(fields)
 
-    diff_data.from_file(stat_file)
+    diff_data.from_file(stat_file, fields, 'total', 'reference_surface_area')

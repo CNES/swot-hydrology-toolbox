@@ -21,26 +21,22 @@ end_slices_list_4req = [250000, 1000000, 4000000, "+"]  # m2
 # end_slices_list = [0.0625, 0.25, 1, 4, 25]  # km2
 
 
-def get_tags(which_area="total"):
+def get_tags():
+
     """
     Get lake tags list
-    :param which_area: area type to be compared among 'detected' and 'total' (detected + dark water)
-    :type which_area: string
     :return: dict
     """
-
-    area = which_area.capitalize()  # 'Detected' or 'Total'
 
     # Define tags to find wanted info in the lake metrics file
 
     # Define tags list when performance assessment is based on surface area:
-    # Detected/Total surface area, reference surface area, reference lake size, polygon-centroid position
-    area_tags = ('{}_surface_area'.format(area), 'Reference_surface_area', 'Reference_surface_area', 'XLocMean',
-                 'Relative_error')
+    # PLD reference lake size, polygon-centroid position, relative error
+    area_tags = ('Reference_surface_area', 'XLocMean', 'Relative_error')
 
     # Define tags list when performance assessment is based on WSE
-    # Detected WSE, reference WSE, reference lake size, polygon-centroid position
-    wse_tags = ('Detected_WSE', 'Reference_WSE', 'Reference_surface_area', 'XLocMean', 'Absolute_error')
+    # PLD reference lake size, polygon-centroid position, absolute error
+    wse_tags = ('Reference_surface_area', 'XLocMean', 'Absolute_error')
 
     # Define a dictionary containing begin and end tags
     lake_tags_dict = {'reference_surface_area': area_tags,
@@ -48,9 +44,8 @@ def get_tags(which_area="total"):
                       }
 
     # Fields of a line of metrics file
-    fields = ['scene', 'cycle', 'pass', 'tile', 'case', 'lake_id_compared', 'lake_id_ref', 'XLocMean',
-              '{}_surface_area'.format(area), 'Reference_surface_area', 'Relative_error',
-              'Detected_WSE', 'Reference_WSE', 'Absolute_error', 'dark_frac', 'wse_levelled']
+    fields = ['cycle', 'pass', 'lake_id', 'XLocMean', 'Reference_surface_area', 'Relative_error',
+              'Absolute_error', 'dark_frac', 'wse_levelled']
 
     return lake_tags_dict, fields
 
@@ -106,7 +101,7 @@ class LakeStatsManager(StatsManager):
             os.makedirs(output_dir)
 
         # Update surface area type
-        lake_tags_dict, fields = get_tags(which_area)
+        lake_tags_dict, fields = get_tags()
 
         # Get diff data
         diff_data = DiffData()
@@ -139,11 +134,11 @@ class LakeStatsManager(StatsManager):
         # Plot number of lakes
         df_filtered = pd.DataFrame(diff_data.json)
 
-        print("Number of PLD lakes: {}".format(df_filtered['lake_id_ref'].str.split(':').str[1].nunique()))
-        print("Number of matchups: {}".format(len(df_filtered['lake_id_ref'])))
+        print("Number of PLD lakes: {}".format(df_filtered['lake_id'].str.split(':').str[1].nunique()))
+        print("Number of matchups: {}".format(len(df_filtered['lake_id'])))
 
-        df_filtered["lake_id"] = df_filtered["lake_id_ref"].str.extract(r":(\d+)$")[0].astype("Int64")
-        df_data_unique = df_filtered.drop_duplicates(subset=["lake_id"])
+        df_filtered["lake_id_subset"] = df_filtered["lake_id"].str.extract(r":(\d+)$")[0].astype("Int64")
+        df_data_unique = df_filtered.drop_duplicates(subset=["lake_id_subset"])
 
         # Save to figure. Example: fig_surface-area_scene-all_swath-nominal_5.png
         fig = plot_nb_obj_as_a_function_of_water_body_size(np.array(df_data_unique['Reference_surface_area'].astype(float)) * 1e6,

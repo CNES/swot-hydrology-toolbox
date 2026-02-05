@@ -67,7 +67,7 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal", fla
     except ValueError:
         LOGGER.error("CANNOT compute stats")
         return
-    
+
     # 2.3 - Compute statistics
     stats_manager.compute_statistics()
     

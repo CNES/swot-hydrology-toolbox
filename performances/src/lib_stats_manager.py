@@ -33,48 +33,6 @@ from src.lib_relative_errors import RelativeErrors
 print_debug = False
 
 
-def check_metrix_name(first_line, metrix_name):
-    """
-    Check the metrix's name
-
-    Args:
-        first_line (str): first data line from file
-        metrix_name (str): metrix name to consider: 'reference_surface_area' or 'reference_wse' (only for lakes)
-
-    Returns:
-        (boolean): True if control is OK else False
-    """
-
-    is_ok = False
-
-    # FOR RIVERS and LAKES
-
-    # Performance assessment vs reference surface area
-    if metrix_name == 'reference_surface_area':
-        try:
-            pos_study = first_line['Reference_surface_area']
-        except KeyError:
-            pos_study = -1
-
-    # ONLY FOR LAKES
-
-    # Performance assessment vs water surface elevation
-    elif metrix_name == 'reference_wse':
-        try:
-            pos_study = first_line['Reference_WSE']
-        except KeyError:
-            pos_study = -1
-
-    else:
-        pos_study = -1
-
-    # Matching control
-    if pos_study != -1:
-        is_ok = True
-
-    return is_ok
-
-
 ######################################
 
 
@@ -101,7 +59,7 @@ class StatsManager(object):
         Initialize statistics manager
 
         Args:
-            lines (str): text file lines (output of run_wd_estimation.py or run_wd_estimation.py)
+            lines (str): jon text file lines
             metrix_name (str): matrix name to consider: 'reference_surface_area' or 'reference_wse' (only for lakes)
             threshold (float): to filter abnormal values
             which_perfos (str): to filter perfos over lake size / river width: 'req' (requirements) or 'goal'
@@ -121,13 +79,6 @@ class StatsManager(object):
         if len(self._lines) == 0:
             logger.error("No info left to compute statistics")
             sys.exit(0)
-
-        # Check that metrix_name matches the contents file
-        is_ok = check_metrix_name(self._lines[0], metrix_name)
-
-        if is_ok is False:
-            message = 'Contents file doesn''t match {0} request. PLEASE CHANGE metrix_name.'.format(metrix_name)
-            raise ValueError(message)
 
         self._metrix_name = metrix_name
         self._threshold = threshold
@@ -183,16 +134,14 @@ class StatsManager(object):
         if is_nan != 0:
 
             try:
-                # Retrieve list of tag's values
-                compared = tags_values_list[0]
-                reference = tags_values_list[1]
-                water_body_size = tags_values_list[2]  # river width or lake size
+                # river width or lake size
+                water_body_size = tags_values_list[0]
                 if self._water_body == 'lake size':
-                    water_body_size = [i * 1e6 for i in
-                                       water_body_size]  # lake surface area are in km2 => convert in m2
-                xrange = tags_values_list[3]
-                # Read relative_error or absolute_error
-                errors = np.asarray(tags_values_list[4])
+                    # lake surface area are in km2 => convert in m2
+                    water_body_size = [i * 1e6 for i in water_body_size]
+                xrange = tags_values_list[1]
+                # relative_error (for AREA) or absolute_error (for WSE)
+                errors = np.asarray(tags_values_list[2])
             except:
                 logger.error("Error when retrieving tag''s values with metrix from {0}".format(self._metrix_name))
 
