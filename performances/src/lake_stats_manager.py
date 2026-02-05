@@ -80,12 +80,6 @@ class LakeStatsManager(StatsManager):
         :type working_dir: string
         :param metrix_name: metrics name to consider, among ('reference_surface_area', 'reference_wse')
         :type metrix_name: string
-        :param subdataset: to filter over a single scene (value = scene_number),
-                                      or  a single tile (value = scene_number;<pppp>_<tttt>)
-                                      or wrt a listing of tile quality
-        :type subdataset: string
-        :param subdataset_filter: to filter over tile quality if subdataset is a listing file; ex: 0-1, 0-1-3
-        :type subdataset_filter: string
         :param which_perfos: to filter over lake size: 'goal'=lakes bigger than 100mx100m; 'req'=lakes bigger than 250mx250m (default)
         :type which_perfos: string
         :param threshold: to filter abnormal values

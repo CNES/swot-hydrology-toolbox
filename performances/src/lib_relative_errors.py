@@ -118,7 +118,7 @@ class RelativeErrors(object):
 
         Args:
             errors (list): list of errors
-            metrix_name: metrix_name, among 'reference_water_area' (default), 'confusion_matrix', 'reference_surface_area', 'reference_wse'
+            metrix_name: metrix_name, among 'reference_water_area' (default), 'reference_surface_area', 'reference_wse'
             water_bodies_size (list): list of water body size (river witdh or lake size)
             xrange (list): crosstrack distance of centroid of water feature; one-to-one linked to errors
         """
@@ -143,10 +143,7 @@ class RelativeErrors(object):
             self.unit = 'm'
             self.factor = 1
         else:
-            if self._metrix_name == 'confusion_matrix':
-                self.metrix_long_name = "confusion matrix"
-            else:
-                self.metrix_long_name = "water surface area"
+            self.metrix_long_name = "water surface area"
             self.error_type = 'Relative'
             self.err_req = 0.15 * 100 # Requirement level for river width > 100m or lake surface > 250²m²
             self.err_goal = 0.25 * 100  # Goal level  for river width between [50-100]m or lake surface [100²-250²]m²

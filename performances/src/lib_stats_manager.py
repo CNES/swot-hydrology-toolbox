@@ -28,8 +28,6 @@ if os.environ.get('DISPLAY', '') == '':
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
-
-from src.lib_metrix import Metrix
 from src.lib_relative_errors import RelativeErrors
 
 print_debug = False
@@ -41,7 +39,7 @@ def check_metrix_name(first_line, metrix_name):
 
     Args:
         first_line (str): first data line from file
-        metrix_name (str): metrix name to consider: 'confusion_matrix'; 'reference_surface_area' or 'reference_wse' (only for lakes)
+        metrix_name (str): metrix name to consider: 'reference_surface_area' or 'reference_wse' (only for lakes)
 
     Returns:
         (boolean): True if control is OK else False
@@ -49,17 +47,10 @@ def check_metrix_name(first_line, metrix_name):
 
     is_ok = False
 
-    # Performance assessment with confusion matrix
-    if metrix_name == 'confusion_matrix':
-        try:
-            pos_study = first_line['TPR']
-        except KeyError:
-            pos_study = -1
-
     # FOR RIVERS and LAKES
 
     # Performance assessment vs reference surface area
-    elif metrix_name == 'reference_surface_area':
+    if metrix_name == 'reference_surface_area':
         try:
             pos_study = first_line['Reference_surface_area']
         except KeyError:
@@ -113,7 +104,7 @@ class StatsManager(object):
 
         Args:
             lines (str): text file lines (output of run_wd_estimation.py or run_wd_estimation.py)
-            metrix_name (str): matrix name to consider: 'confusion_matrix'; 'reference_surface_area' or 'reference_wse' (only for lakes)
+            metrix_name (str): matrix name to consider: 'reference_surface_area' or 'reference_wse' (only for lakes)
             threshold (float): to filter abnormal values
             by_water_body_size (str): to plot errors one sigma distribution as a function of water body size (river width or lake surface)
             along_swath (str): to plot errors one sigma distribution along the swath width
@@ -191,44 +182,25 @@ class StatsManager(object):
                 is_nan = 1
 
         # Initialization
-        metrix = None
         water_body_size = None
         xrange = None
         fig_list = []
 
-        # Initialize Metrix object depending on metrix to use (surface areas or pixellique)
         if is_nan != 0:
 
-            if self._metrix_name == 'confusion_matrix':
-                try:
-                    # Retrieve list of tag's values
-                    tp = tags_values_list[0]
-                    fp = tags_values_list[1]
-                    fn = tags_values_list[2]
-                except:
-                    logger.error("Error when retrieving tag''s values with metrix from {0}".format(self._metrix_name))
-
-                metrix = Metrix(name=self._metrix_name, tp=tp, fp=fp, fn=fn)
-
-            else:  # self._metrix_name == 'reference_surface_area' or 'reference_wse'
-                try:
-                    # Retrieve list of tag's values
-                    compared = tags_values_list[0]
-                    reference = tags_values_list[1]
-                    water_body_size = tags_values_list[2]  # river width or lake size
-                    if self._water_body == 'lake size':
-                        water_body_size = [i * 1e6 for i in
-                                           water_body_size]  # lake surface area are in km2 => convert in m2
-                    xrange = tags_values_list[3]
-                    # Read relative_error or absolute_error
-                    errors = np.asarray(tags_values_list[4])
-                except:
-                    logger.error("Error when retrieving tag''s values with metrix from {0}".format(self._metrix_name))
-
-                metrix = Metrix(name=self._metrix_name, reference=reference, compared=compared)
-
-        # If metrix object is well initialized:
-        if is_nan != 0 and metrix is not None:
+            try:
+                # Retrieve list of tag's values
+                compared = tags_values_list[0]
+                reference = tags_values_list[1]
+                water_body_size = tags_values_list[2]  # river width or lake size
+                if self._water_body == 'lake size':
+                    water_body_size = [i * 1e6 for i in
+                                       water_body_size]  # lake surface area are in km2 => convert in m2
+                xrange = tags_values_list[3]
+                # Read relative_error or absolute_error
+                errors = np.asarray(tags_values_list[4])
+            except:
+                logger.error("Error when retrieving tag''s values with metrix from {0}".format(self._metrix_name))
 
             # Type of errors
             if self._metrix_name == 'reference_wse':
@@ -241,7 +213,8 @@ class StatsManager(object):
             #  Initialize RelativeErrors object
             relative_errors = RelativeErrors(errors, metrix_name=self._metrix_name, water_bodies_size=water_body_size,
                                              xrange=xrange)
-            # Compute relative error(s) one sigma (one value OR a list of values if self._by_water_body_size is activated)
+            # Compute relative error(s) one sigma
+            # (one value OR a list of values if self._by_water_body_size is activated)
             relative_errors.compute_error_one_sigma(self._threshold, self._by_water_body_size, self._begin_slices_list,
                                                     self._end_slices_list, self._water_body, self._which_perfos)
 
@@ -254,11 +227,11 @@ class StatsManager(object):
                 fig = relative_errors.plot_distribution(self._threshold)
                 fig_list.append(fig)
 
-                # For perf assessment based on RiverObs (using reaches), plot relative errors distribution as a function of water body size (river width or lake surface)
-                if self._metrix_name != 'confusion_matrix':
-                    fig = relative_errors.plot_as_a_function_of_water_body_size(True, self._water_body, self._threshold,
-                                                                                self._which_area)
-                    fig_list.append(fig)
+                # For perf assessment based on RiverObs (using reaches), plot relative errors distribution
+                # as a function of water body size (river width or lake surface)
+                fig = relative_errors.plot_as_a_function_of_water_body_size(True, self._water_body, self._threshold,
+                                                                            self._which_area)
+                fig_list.append(fig)
 
             else:
                 # Check that one slice is filled
