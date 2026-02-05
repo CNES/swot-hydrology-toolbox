@@ -44,7 +44,7 @@ class DiffData(object):
         :param csv_path: Path to the CSV file
         :param fields: List of field names for the output dictionary
         :param which_area: 'total', 'detected' or 'geom'
-        :param metrix_name: 'reference_surface_area' or 'reference_wse'
+        :param metrix_name: 'area' or 'wse'
         :return: list of dictionary (json format)
         """
 
@@ -54,12 +54,12 @@ class DiffData(object):
         # Iterate over each line in the DataFrame
         for line in df.index:
             # Create a dictionary for all variables
-            if metrix_name == 'reference_surface_area':
+            if metrix_name == 'area':
                 relative_error = str(df.loc[line, f"area_{which_area}"])
                 absolute_error = "None"
                 wse_levelled = False  # parameter is not used for surface area stats
             else:
-                # reference_wse
+                # wse
                 relative_error = "None"
                 absolute_error = str(df.loc[line, "wse"])
                 wse_levelled = bool(df.loc[line, "wse_levelled"])
@@ -83,7 +83,7 @@ class DiffData(object):
         :param gdf_diff: geodataframe
         :param fields: line fields
         :param which_area: 'total', 'detected' or 'geom'
-        :param metrix_name: 'reference_surface_area' or 'reference_wse'
+        :param metrix_name: 'area' or 'wse'
         :return: list of dictionary (json format)
         """
 
@@ -93,12 +93,12 @@ class DiffData(object):
         # Reading line by line from GeoDataFrame
         for line in diff_observations.index:
             # Create a dictionary for all variables
-            if metrix_name == 'reference_surface_area':
+            if metrix_name == 'area':
                 relative_error = str(diff_observations.loc[line, "area_{}".format(which_area)])
                 absolute_error = "None"
                 wse_levelled = False  # parameter is not used for surface area stats
             else:
-                # reference_wse
+                # wse
                 relative_error = "None"
                 absolute_error = str(diff_observations.loc[line, "wse"])
                 wse_levelled = bool(diff_observations.loc[line, "wse_levelled"])
@@ -158,4 +158,4 @@ if __name__ == "__main__":
 
     diff_data = DiffData(fields)
 
-    diff_data.from_file(stat_file, fields, 'total', 'reference_surface_area')
+    diff_data.from_file(stat_file, fields, 'total', 'area')

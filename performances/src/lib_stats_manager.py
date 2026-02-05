@@ -43,7 +43,7 @@ class StatsManager(object):
 
     def __init__(self,
                  lines,
-                 metrix_name='reference_surface_area',
+                 metrix_name='area',
                  threshold=None,
                  tags_dict=None,
                  begin_slices_list=None,
@@ -60,7 +60,7 @@ class StatsManager(object):
 
         Args:
             lines (str): jon text file lines
-            metrix_name (str): matrix name to consider: 'reference_surface_area' or 'reference_wse' (only for lakes)
+            metrix_name (str): matrix name to consider: 'area' or 'wse' (only for lakes)
             threshold (float): to filter abnormal values
             which_perfos (str): to filter perfos over lake size / river width: 'req' (requirements) or 'goal'
             which_area (str): area type to be compared among 'detected' and 'total' (detected + dark water)
@@ -146,7 +146,7 @@ class StatsManager(object):
                 logger.error("Error when retrieving tag''s values with metrix from {0}".format(self._metrix_name))
 
             # Type of errors
-            if self._metrix_name == 'reference_wse':
+            if self._metrix_name == 'wse':
                 error_type = "Absolute"
                 unit = "m"
             else:

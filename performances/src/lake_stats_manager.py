@@ -39,9 +39,7 @@ def get_tags():
     wse_tags = ('Reference_surface_area', 'XLocMean', 'Absolute_error')
 
     # Define a dictionary containing begin and end tags
-    lake_tags_dict = {'reference_surface_area': area_tags,
-                      'reference_wse': wse_tags
-                      }
+    lake_tags_dict = {'area': area_tags, 'wse': wse_tags}
 
     # Fields of a line of metrics file
     fields = ['cycle', 'pass', 'lake_id', 'XLocMean', 'Reference_surface_area', 'Relative_error',
@@ -59,7 +57,7 @@ class LakeStatsManager(StatsManager):
     """
 
     def __init__(self, working_dir,
-                 metrix_name='reference_surface_area',
+                 metrix_name='area',
                  which_perfos="req",
                  threshold=None,
                  which_area="total",
@@ -71,7 +69,7 @@ class LakeStatsManager(StatsManager):
         
         :param working_dir: working directory
         :type working_dir: string
-        :param metrix_name: metrics name to consider, among ('reference_surface_area', 'reference_wse')
+        :param metrix_name: metrics name to consider, among ('area', 'wse')
         :type metrix_name: string
         :param which_perfos: to filter over lake size: 'goal'=lakes bigger than 100mx100m; 'req'=lakes bigger than 250mx250m (default)
         :type which_perfos: string
@@ -109,7 +107,7 @@ class LakeStatsManager(StatsManager):
         diff_data.from_lakesp_prior_diff_table(gdf, fields, which_area, metrix_name)
 
         # To filter
-        if metrix_name == 'reference_wse':
+        if metrix_name == 'wse':
             # to keep only nivelled stations
             if levelled:
                 diff_data.filter_levelled()

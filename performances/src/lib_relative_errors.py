@@ -118,7 +118,7 @@ class RelativeErrors(object):
 
         Args:
             errors (list): list of errors
-            metrix_name: metrix_name, among 'reference_water_area' (default), 'reference_surface_area', 'reference_wse'
+            metrix_name: metrix_name, among 'reference_water_area' (default), 'area', 'wse'
             water_bodies_size (list): list of water body size (river witdh or lake size)
             xrange (list): crosstrack distance of centroid of water feature; one-to-one linked to errors
         """
@@ -135,7 +135,7 @@ class RelativeErrors(object):
         self._slices_title_list = []
         self._req_th_legend=None
         # Depending on metric
-        if self._metrix_name == 'reference_wse':
+        if self._metrix_name == 'wse':
             self.metrix_long_name = "water surface elevation"
             self.error_type = ''  # Absolute but don't write it in graphs
             self.err_req = 0.10  # Requirement level = 10cm for lakes surface > 1km²
@@ -164,7 +164,7 @@ class RelativeErrors(object):
         """
         
         # 1 - Set the correct decimal approximation
-        if self._metrix_name == 'reference_wse':
+        if self._metrix_name == 'wse':
             out_str_value = "%.2f" % float(in_value)
         else:
             out_str_value = "%.0f" % float(in_value)
@@ -206,11 +206,11 @@ class RelativeErrors(object):
         # Convert water_bodies_size list into array
         water_bodies_size_tab = np.asarray(self._water_bodies_size)
         # Selected index to compute globals 1sigma error
-        ind_for_global_1 = set() # indexes for rivers width < 100m and lake surface < (250m)² if metric_name='reference_surface_area'
-                                 # indexes for lake surface between (250m)² and 1km² if metric_name='reference_wse'
-        ind_for_global_2 = set() # indexes for rivers width > 100m and lake surface > (250m)² if metric_name='reference_surface_area'
-                                # indexes for lake surface > 1km² if metric_name='reference_wse'
-        ind_for_global_3 = set()  # indexes for lake surface > 1km² if metric_name='reference_surface_area'
+        ind_for_global_1 = set() # indexes for rivers width < 100m and lake surface < (250m)² if metric_name='area'
+                                 # indexes for lake surface between (250m)² and 1km² if metric_name='wse'
+        ind_for_global_2 = set() # indexes for rivers width > 100m and lake surface > (250m)² if metric_name='area'
+                                # indexes for lake surface > 1km² if metric_name='wse'
+        ind_for_global_3 = set()  # indexes for lake surface > 1km² if metric_name='area'
         ind_for_global = set() # set of indexes to compute global mean/median values
         # Nb slices
         nb_slices = len(begin_slices_list)
@@ -244,12 +244,12 @@ class RelativeErrors(object):
             # 2.3 - Save indices for global 1 sigma errors:
             #  |--- if which_perfos='goal' : exclude 1st slice [50-100]/[100²-250²] to compute global 1 sigma error
             #  |--- if which_perfos='req' : don't exclude 1st slice
-            #  |--- if metrix_name='reference_wse' (only for lakes) :
+            #  |--- if metrix_name='wse' (only for lakes) :
             #                               compute ind_for_global_1 for lake surfaces between 250²m² and 1km2
             #                               compute ind_for_global_2 for lake surfaces between > 1km2
             logger.info("Perfos is computed in relation to %s" % which_perfos)
             # which_perfos == 'goal'
-            if self._metrix_name == 'reference_surface_area':
+            if self._metrix_name == 'area':
                 if which_perfos == 'goal':
                     if s == 0:
                         # indexes for rivers width < 100m and lake surface < (250m)²
@@ -274,7 +274,7 @@ class RelativeErrors(object):
                 else: # for river width
                     self._req_th_legend = '100m'
             else:
-                # self._metrix_name == 'reference_wse'
+                # self._metrix_name == 'wse'
                 if which_perfos == 'goal':
                     s_lim_max = 3 # 1km²
                 else:
@@ -341,7 +341,7 @@ class RelativeErrors(object):
         self._errors_one_sigma.insert(1, global_1s_error_2 * self.factor)
 
         # 6 - Print global mean/median values in log file
-        if self._metrix_name == 'reference_surface_area' and which_perfos == 'req':
+        if self._metrix_name == 'area' and which_perfos == 'req':
             logger.info("> Compute indexes for global mean/median: ind = ind2")
             ind_for_global = ind_for_global_2
         else:
@@ -487,7 +487,7 @@ class RelativeErrors(object):
             
             # Clip outliers and plot them with different marker
             if outlier_lim is not None:
-                if self._metrix_name == "reference_wse":
+                if self._metrix_name == "wse":
                     clipped_value = outlier_lim[1]
                 else:
                     clipped_value = outlier_lim[0]
@@ -523,13 +523,13 @@ class RelativeErrors(object):
             plt.axhline(0, color="black")
 
         # 3.3 - Title and labels
-        if self._metrix_name == "reference_wse":
+        if self._metrix_name == "wse":
             title = 'Error in water surface elevation as a function of swath position'
         else:
             title = 'Relative error in {} surface area as a function of swath position'.format(which_area)
         plt.title(title)
         plt.xlabel('Cross-track distance from nadir (km)')
-        if self._metrix_name == "reference_wse":
+        if self._metrix_name == "wse":
             ylabel = 'WSE error ({0})'.format(self.unit)
         else:
             ylabel = 'Relative area error ({0})'.format(self.unit)
@@ -592,7 +592,7 @@ class RelativeErrors(object):
         # 4.2 - Label X
         plt.xlabel('Cross-track distance from nadir (km)')
         # 4.3 - Label Y
-        if self._metrix_name == "reference_wse":
+        if self._metrix_name == "wse":
             plt.ylabel('Median WSE error (m)')
             title = 'Median error in water surface elevation as a function of swath position'
         else:
@@ -640,7 +640,7 @@ class RelativeErrors(object):
         else:
             x_min=0
             x_th=1/len(ind_x)*2
-        if self._metrix_name == 'reference_surface_area':
+        if self._metrix_name == 'area':
             # 3.1 - Display measured relative error one sigma:
             # only measured > self._req_th_legend (100m for rivers, 250²m² for lakes)
             plt.axhline(self._errors_one_sigma[1], xmin=x_min, xmax=1, color="blue", linestyle="--",
@@ -674,7 +674,7 @@ class RelativeErrors(object):
 
         # 4 - Add title and labels
         # 4.1 - Title
-        if self._metrix_name == "reference_wse":
+        if self._metrix_name == "wse":
             title = '|Error| in %s (1$\sigma$) as a function of %s' % (self.metrix_long_name, water_body)
         else:
             title = '|%s error| in %s %s (1$\sigma$) as a function of %s' % (
@@ -688,7 +688,7 @@ class RelativeErrors(object):
         xlabel='{0} ({1})'.format(water_body.capitalize(), water_body_unit)
         plt.xlabel(xlabel)
         # 4.3 - Label Y
-        if self._metrix_name == "reference_wse":
+        if self._metrix_name == "wse":
             ylabel = '$1\sigma$ |WSE error| ({0})'.format(self.unit)
         else:
             ylabel = '$1\sigma$ |relative area error| ({0})'.format(self.unit)

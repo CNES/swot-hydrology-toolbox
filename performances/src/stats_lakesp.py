@@ -24,7 +24,7 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal", fla
 
     :param working_dir:
     :param df_data:
-    :param which_stats:
+    :param which_stats: 'area' or 'wse'
     :param which_perfos:
     :param flag_levelled: if True, only keep levelled data for stats / if False, use every data and compute
     relative error (remove mean) - option not used for SURFACE AREA perfos
@@ -43,12 +43,10 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal", fla
         df_data_uniq = df_data.drop_duplicates(subset=["lake_id"])
 
     # 2.1 - Build input parameters
-    if which_stats == "surface-area":
-        metrix_name = "reference_surface_area"
+    if which_stats == "area":
         which_area = "total"  # Area to be compared with: 'total', 'detected' or 'geom' for stats on AREA
 
     else:
-        metrix_name = "reference_wse"
         which_area = "prior"  # Area to be compared with: 'prior' for stats on WSE
 
     threshold = None  # Option to filter abnormal values. Ex: 1
@@ -57,7 +55,7 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal", fla
     # 2.2 - Init LakeStatsManager object
     try:
         stats_manager = LakeStatsManager(working_dir,
-                                         metrix_name=metrix_name,
+                                         metrix_name=which_stats,
                                          which_perfos=which_perfos,
                                          threshold=threshold,
                                          which_area=which_area,
@@ -86,7 +84,7 @@ if __name__ == "__main__":
     # TODO: à revoir
     parser = argparse.ArgumentParser(description="Compute perfos per source")
     parser.add_argument('--working_dir', help='full path of working directory', nargs='?', type=str, default="/work/EXPERT_CENTER/mwec/workspace/HR/%s/perfos_lakesp" % getpass.getuser())
-    parser.add_argument('--which_stats', help='variable for perfors among wse (default) and area_total', choices=['wse', 'surface_area'], nargs='?', type=str, default="wse")
+    parser.add_argument('--which_stats', help='variable for perfos among wse (default) and area_total', choices=['wse', 'area'], nargs='?', type=str, default="wse")
     parser.add_argument('--input_csv', help='input CSV with diff with prefarea', nargs='?', type=str)
     args = vars(parser.parse_args())
     
