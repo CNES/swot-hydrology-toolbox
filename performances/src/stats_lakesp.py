@@ -34,17 +34,11 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal", fla
     if not os.path.exists(working_dir):
         os.makedirs(working_dir)
     
-    # 1 - Build input parameters
-    threshold = None  # Option to filter abnormal values. Ex: 1
-    outlier_lim = None  # Outlier limits to clip on graphs (area_limit (%), wse_limit (m)). Ex: (200, 1)
-
     # 2.1 - Init LakeStatsManager object
     try:
         stats_manager = LakeStatsManager(working_dir,
                                          metrix_name=which_stats,
                                          which_perfos=which_perfos,
-                                         threshold=threshold,
-                                         outlier_lim=outlier_lim,
                                          levelled=flag_levelled,
                                          gdf=df_data)
     except ValueError:
