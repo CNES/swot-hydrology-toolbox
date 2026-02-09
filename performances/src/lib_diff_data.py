@@ -120,7 +120,7 @@ class DiffData(object):
         logger = logging.getLogger(self.__class__.__name__)
         nb_lines = len(self.json)
         self.json = list(filter(lambda x: bool(x['wse_levelled']) == True, self.json))
-        print("Keep %d / %d lines after filter over filter_nivelled" % (len(self.json), nb_lines))
+        print("Keep %d / %d lines after filter over nivelled insitu data" % (len(self.json), nb_lines))
 
     def convert_absolute_error_into_relative(self):
         # to be optimized
