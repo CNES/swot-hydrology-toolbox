@@ -37,14 +37,13 @@ class DiffData(object):
 
         self.json = []
 
-    def from_file(self, csv_path, fields, which_area, metrix_name):
+    def from_file(self, csv_path, fields, metrix_name):
         """
         Get data from a CSV file and store it in a JSON format.
 
         :param csv_path: Path to the CSV file
         :param fields: List of field names for the output dictionary
-        :param which_area: 'total', 'detected' or 'geom'
-        :param metrix_name: 'area' or 'wse'
+        :param metrix_name: 'wse' or 'area_total' or 'area_geom'
         :return: list of dictionary (json format)
         """
 
@@ -54,8 +53,8 @@ class DiffData(object):
         # Iterate over each line in the DataFrame
         for line in df.index:
             # Create a dictionary for all variables
-            if metrix_name == 'area':
-                relative_error = str(df.loc[line, f"area_{which_area}"])
+            if metrix_name.startswith("area_"):
+                relative_error = str(df.loc[line, f"{metrix_name}"])
                 absolute_error = "None"
                 wse_levelled = False  # parameter is not used for surface area stats
             else:
@@ -77,13 +76,12 @@ class DiffData(object):
             }
             self.json.append(dict_fields)
 
-    def from_lakesp_prior_diff_table(self, gdf_diff, fields, which_area, metrix_name):
+    def from_lakesp_prior_diff_table(self, gdf_diff, fields, metrix_name):
         """
         Get data from hydro database (table LakeSP_Prior_diff)
         :param gdf_diff: geodataframe
         :param fields: line fields
-        :param which_area: 'total', 'detected' or 'geom'
-        :param metrix_name: 'area' or 'wse'
+        :param metrix_name: 'wse' or 'area_total' or 'area_geom'
         :return: list of dictionary (json format)
         """
 
@@ -93,8 +91,8 @@ class DiffData(object):
         # Reading line by line from GeoDataFrame
         for line in diff_observations.index:
             # Create a dictionary for all variables
-            if metrix_name == 'area':
-                relative_error = str(diff_observations.loc[line, "area_{}".format(which_area)])
+            if metrix_name.startswith("area_"):
+                relative_error = str(diff_observations.loc[line, "{}".format(metrix_name)])
                 absolute_error = "None"
                 wse_levelled = False  # parameter is not used for surface area stats
             else:

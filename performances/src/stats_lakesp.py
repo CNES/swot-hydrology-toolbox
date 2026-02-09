@@ -9,7 +9,6 @@
 import argparse
 import getpass
 import os
-import shutil
 
 import logging
 LOGGER = logging.getLogger(__name__)
@@ -24,7 +23,7 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal", fla
 
     :param working_dir:
     :param df_data:
-    :param which_stats: 'area' or 'wse'
+    :param which_stats: 'wse' or 'area_total' or 'area_geom'
     :param which_perfos:
     :param flag_levelled: if True, only keep levelled data for stats / if False, use every data and compute
     relative error (remove mean) - option not used for SURFACE AREA perfos
@@ -38,10 +37,6 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal", fla
     # 1 - Build input parameters
     threshold = None  # Option to filter abnormal values. Ex: 1
     outlier_lim = None  # Outlier limits to clip on graphs (area_limit (%), wse_limit (m)). Ex: (200, 1)
-    if which_stats == "area":
-        which_area = "total"  # Area to be compared with: 'total', 'detected' or 'geom' for stats on AREA
-    else:
-        which_area = "prior"  # Area to be compared with: 'prior' for stats on WSE
 
     # 2.1 - Init LakeStatsManager object
     try:
@@ -49,7 +44,6 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal", fla
                                          metrix_name=which_stats,
                                          which_perfos=which_perfos,
                                          threshold=threshold,
-                                         which_area=which_area,
                                          outlier_lim=outlier_lim,
                                          levelled=flag_levelled,
                                          gdf=df_data)

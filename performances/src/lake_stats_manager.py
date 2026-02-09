@@ -35,7 +35,7 @@ def get_tags():
     wse_tags = ('Reference_surface_area', 'XLocMean', 'Absolute_error')
 
     # Define a dictionary containing begin and end tags
-    lake_tags_dict = {'area': area_tags, 'wse': wse_tags}
+    lake_tags_dict = {'area_total': area_tags, 'area_geom': area_tags, 'wse': wse_tags}
 
     # Fields of a line of metrics file
     fields = ['cycle', 'pass', 'lake_id', 'XLocMean', 'Reference_surface_area', 'Relative_error',
@@ -53,10 +53,9 @@ class LakeStatsManager(StatsManager):
     """
 
     def __init__(self, working_dir,
-                 metrix_name='area',
+                 metrix_name='area_total',
                  which_perfos="req",
                  threshold=None,
-                 which_area="total",
                  outlier_lim=None,
                  gdf=None,
                  levelled=True):
@@ -65,14 +64,12 @@ class LakeStatsManager(StatsManager):
         
         :param working_dir: working directory
         :type working_dir: string
-        :param metrix_name: metrics name to consider, among ('area', 'wse')
+        :param metrix_name: metrics name to consider, among ('wse' or 'area_total' or 'area_geom')
         :type metrix_name: string
         :param which_perfos: to filter over lake size: 'goal'=lakes bigger than 100mx100m; 'req'=lakes bigger than 250mx250m (default)
         :type which_perfos: string
         :param threshold: to filter abnormal values
         :type threshold: float
-        :param which_area: area type to be compared among 'detected' and 'total' (detected + dark water)
-        :type which_area: string
         :param outlier_lim: outlier limits to clip (area_limit, wse_limit)
         :type outlier_lim: list
         :param gdf: if DiffData comes from Hydro database, read gdf
@@ -94,7 +91,7 @@ class LakeStatsManager(StatsManager):
         # Get diff data
         diff_data = DiffData()
         # print("Get data from hydro database")
-        diff_data.from_lakesp_prior_diff_table(gdf, fields, which_area, metrix_name)
+        diff_data.from_lakesp_prior_diff_table(gdf, fields, metrix_name)
 
         # To filter
         if metrix_name == 'wse':
@@ -114,6 +111,5 @@ class LakeStatsManager(StatsManager):
                               end_slices_list=end_slices_list,
                               water_body='lake size',
                               which_perfos=which_perfos,
-                              which_area=which_area,
                               outlier_lim=outlier_lim,
                               save_to_disk=working_dir)

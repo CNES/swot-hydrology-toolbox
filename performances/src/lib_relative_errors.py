@@ -112,13 +112,13 @@ class RelativeErrors(object):
 
     """ Class for displaying relative errors, computing one sigma error(s)"""
 
-    def __init__(self, errors, metrix_name='reference_water_area', water_bodies_size=None, xrange=None):
+    def __init__(self, errors, metrix_name='area_total', water_bodies_size=None, xrange=None):
         """
         Initialize relative errors
 
         Args:
             errors (list): list of errors
-            metrix_name: metrix_name, among 'reference_water_area' (default), 'area', 'wse'
+            metrix_name: metrix_name, among 'wse' or 'area_total' or 'area_geom'
             water_bodies_size (list): list of water body size (river witdh or lake size)
             xrange (list): crosstrack distance of centroid of water feature; one-to-one linked to errors
         """
@@ -249,7 +249,7 @@ class RelativeErrors(object):
             #                               compute ind_for_global_2 for lake surfaces between > 1km2
             logger.info("Perfos is computed in relation to %s" % which_perfos)
             # which_perfos == 'goal'
-            if self._metrix_name == 'area':
+            if self._metrix_name.startswith("area_"):
                 if which_perfos == 'goal':
                     if s == 0:
                         # indexes for rivers width < 100m and lake surface < (250m)²
@@ -341,7 +341,7 @@ class RelativeErrors(object):
         self._errors_one_sigma.insert(1, global_1s_error_2 * self.factor)
 
         # 6 - Print global mean/median values in log file
-        if self._metrix_name == 'area' and which_perfos == 'req':
+        if self._metrix_name.startswith("area_"):
             logger.info("> Compute indexes for global mean/median: ind = ind2")
             ind_for_global = ind_for_global_2
         else:
@@ -448,13 +448,12 @@ class RelativeErrors(object):
 
         return fig
 
-    def plot_along_swath(self, water_body='river width', which_area='total', outlier_lim=None):
+    def plot_along_swath(self, water_body='river width', outlier_lim=None):
         """
         Plot the errors distribution along swath width
         
         Args:
             water_body (str): water body type, among 'lake size' or 'river width'
-            which_area (str): 'total' or 'detected'
             outlier_lim (list): define outlier limits. Examples: Area: +/-200 %, WSE: +/-10m
         Returns:
             None
@@ -526,7 +525,7 @@ class RelativeErrors(object):
         if self._metrix_name == "wse":
             title = 'Error in water surface elevation as a function of swath position'
         else:
-            title = 'Relative error in {} surface area as a function of swath position'.format(which_area)
+            title = 'Relative error in {} surface area as a function of swath position'.format(self._metrix_name.split('_')[-1])
         plt.title(title)
         plt.xlabel('Cross-track distance from nadir (km)')
         if self._metrix_name == "wse":
@@ -537,12 +536,11 @@ class RelativeErrors(object):
 
         return fig
 
-    def plot_along_swath_popular(self, threshold=None, which_area='total'):
+    def plot_along_swath_popular(self, threshold=None):
         """
         Plot the errors distribution along swath width
         Args:
             threshold (float): defined threshold option to ignore abnormal error values
-            which_area (str): 'total' or 'detected'
         Returns:
             None
         """
@@ -597,19 +595,18 @@ class RelativeErrors(object):
             title = 'Median error in water surface elevation as a function of swath position'
         else:
             plt.ylabel('Median relative area error (%)')
-            title = 'Median relative error in {} surface area as a function of swath position'.format(which_area)
+            title = 'Median relative error in {} surface area as a function of swath position'.format(self._metrix_name.split('_')[-1])
         # plt.title(title)
 
         return fig
 
-    def plot_one_sigma_error_distribution(self, water_body='river width', which_perfos='req', which_area='total'):
+    def plot_one_sigma_error_distribution(self, water_body='river width', which_perfos='req'):
         """
         Plot the relative error one sigma by slices of water body size
 
         Args:
             water_body (str): water body type, among 'lake size' or 'river width'
             which_perfos (str): 'req' or 'goal'
-            which_area (str): 'total' or 'detected'
         Returns:
             None
         """
@@ -640,7 +637,7 @@ class RelativeErrors(object):
         else:
             x_min=0
             x_th=1/len(ind_x)*2
-        if self._metrix_name == 'area':
+        if self._metrix_name.startswith("area_"):
             # 3.1 - Display measured relative error one sigma:
             # only measured > self._req_th_legend (100m for rivers, 250²m² for lakes)
             plt.axhline(self._errors_one_sigma[1], xmin=x_min, xmax=1, color="blue", linestyle="--",
@@ -678,7 +675,7 @@ class RelativeErrors(object):
             title = '|Error| in %s (1$\sigma$) as a function of %s' % (self.metrix_long_name, water_body)
         else:
             title = '|%s error| in %s %s (1$\sigma$) as a function of %s' % (
-            self.error_type, which_area, self.metrix_long_name, water_body)
+            self.error_type, self._metrix_name.split('_')[-1], self.metrix_long_name, water_body)
         plt.title(title)
         # 4.2 - Label X
         if water_body== 'river width':

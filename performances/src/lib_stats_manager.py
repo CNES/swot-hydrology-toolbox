@@ -44,14 +44,13 @@ class StatsManager(object):
 
     def __init__(self,
                  lines,
-                 metrix_name='area',
+                 metrix_name='area_total',
                  threshold=None,
                  tags_dict=None,
                  begin_slices_list=None,
                  end_slices_list=None,
                  water_body=None,
                  which_perfos='req',
-                 which_area='total',
                  outlier_lim=None,
                  save_to_disk=None
                  ):
@@ -60,10 +59,9 @@ class StatsManager(object):
 
         Args:
             lines (str): jon text file lines
-            metrix_name (str): matrix name to consider: 'area' or 'wse' (only for lakes)
+            metrix_name (str): matrix name to consider: 'wse' (only for lakes) or 'area_total' or 'area_geom'
             threshold (float): to filter abnormal values
             which_perfos (str): to filter perfos over lake size / river width: 'req' (requirements) or 'goal'
-            which_area (str): area type to be compared among 'detected' and 'total' (detected + dark water)
             outlier_lim (list): outlier limits to clip
         """
         logger = logging.getLogger(self.__class__.__name__)
@@ -83,7 +81,6 @@ class StatsManager(object):
         self._begin_slices_list = begin_slices_list
         self._end_slices_list = end_slices_list
         self._which_perfos = which_perfos
-        self._which_area = which_area
         self._outlier_lim = outlier_lim
         if save_to_disk is not None:
             if os.path.exists(save_to_disk):
@@ -167,16 +164,14 @@ class StatsManager(object):
             if is_one_slice_filled != 0:
                 fig = relative_errors.plot_nb_obs_as_a_function_of_water_body_size(self._water_body)
                 fig_list.append(fig)
-                fig = relative_errors.plot_one_sigma_error_distribution(self._water_body, self._which_perfos,
-                                                                        self._which_area)
+                fig = relative_errors.plot_one_sigma_error_distribution(self._water_body, self._which_perfos)
                 fig_list.append(fig)
 
             # Statistics on rivers or lakes
             # For perf assessment based on RiverObs (using reaches), plot relative errors distribution along swath's width
-            fig = relative_errors.plot_along_swath(self._water_body, self._which_area,
-                                                   outlier_lim=self._outlier_lim)
+            fig = relative_errors.plot_along_swath(self._water_body, outlier_lim=self._outlier_lim)
             fig_list.append(fig)
-            fig = relative_errors.plot_along_swath_popular(self._threshold, self._which_area)
+            fig = relative_errors.plot_along_swath_popular(self._threshold)
             fig_list.append(fig)
 
             # Plot number of lakes
