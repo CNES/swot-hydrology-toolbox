@@ -105,12 +105,12 @@ def plot_nb_obj_as_a_function_of_water_body_size(water_bodies_size_tab, water_bo
     return fig
 
 
-class RelativeErrors(object):
-    """ Class for displaying relative errors, computing one sigma error(s)"""
+class MeasurementError(object):
+    """ Class for displaying measurement errors, computing one sigma error(s)"""
 
     def __init__(self, errors, metrix_name='area_total', water_bodies_size=None, xrange=None):
         """
-        Initialize relative errors
+        Initialize measurement errors
 
         Args:
             errors (list): list of errors
@@ -291,7 +291,7 @@ class RelativeErrors(object):
                     ind_for_global_2 = ind_for_global_2.union(list(index_selected[0]))
                 self._req_th_legend = '1km{0}'.format('\u00B2')  # 1km²
 
-            # 3 - Compute relative error one sigma for slice s
+            # 3 - Compute measurement error one sigma for slice s
             if len(abs_errors[index_selected]) == 0:
                 error_one_sigma = 0  # No data found into this slice
             else:
@@ -568,7 +568,7 @@ class RelativeErrors(object):
 
     def plot_one_sigma_error_distribution(self, water_body='river width', which_perfos='req'):
         """
-        Plot the relative error one sigma by slices of water body size
+        Plot the measurement error one sigma by slices of water body size
 
         Args:
             water_body (str): water body type, among 'lake size' or 'river width'

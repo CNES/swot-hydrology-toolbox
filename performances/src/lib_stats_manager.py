@@ -17,7 +17,7 @@ if os.environ.get('DISPLAY', '') == '':
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
-from src.lib_relative_errors import RelativeErrors, plot_nb_obj_as_a_function_of_water_body_size
+from src.lib_measurement_error import MeasurementError, plot_nb_obj_as_a_function_of_water_body_size
 import pandas as pd
 
 
@@ -135,19 +135,19 @@ class StatsManager(object):
                 error_type = "Relative"
                 unit = "%"
                 
-            #  Initialize RelativeErrors object
-            relative_errors = RelativeErrors(errors, metrix_name=self._metrix_name, water_bodies_size=water_body_size,
+            #  Initialize MeasurementError object
+            meas_errors = MeasurementError(errors, metrix_name=self._metrix_name, water_bodies_size=water_body_size,
                                              xrange=xrange)
-            # Compute relative error(s) one sigma
-            relative_errors.compute_error_one_sigma(self._threshold, self._begin_slices_list,
+            # Compute measurement error(s) one sigma
+            meas_errors.compute_error_one_sigma(self._threshold, self._begin_slices_list,
                                                     self._end_slices_list, self._water_body, self._which_perfos)
 
             # Check that one slice is filled
-            for s, error in enumerate(relative_errors._errors_one_sigma[2:]):
+            for s, error in enumerate(meas_errors._errors_one_sigma[2:]):
                 logger.info("{0} error one sigma, slice {1}: {2:.3f} {3}".format(error_type,
-                                                                                 relative_errors._slices_title_list[
+                                                                                 meas_errors._slices_title_list[
                                                                                      s],
-                                                                                 relative_errors._errors_one_sigma[
+                                                                                 meas_errors._errors_one_sigma[
                                                                                      s + 1], unit))
                 if error != 0:
                     is_one_slice_filled = 1
@@ -155,18 +155,18 @@ class StatsManager(object):
             # Statistics on rivers or lakes
             if is_one_slice_filled != 0:
                 # Number of matching observations as a function of water body size (1_nb_diff_per_size.png)
-                fig = relative_errors.plot_nb_obs_as_a_function_of_water_body_size(self._water_body)
+                fig = meas_errors.plot_nb_obs_as_a_function_of_water_body_size(self._water_body)
                 fig_list.append(fig)
 
                 # Bar plot of one sigma errors as a function of water body size (2_1s_error_per_size.png)
-                fig = relative_errors.plot_one_sigma_error_distribution(self._water_body, self._which_perfos)
+                fig = meas_errors.plot_one_sigma_error_distribution(self._water_body, self._which_perfos)
                 fig_list.append(fig)
 
             # Plot errors distribution along swath position (3_error_per_xtrack.png)
-            fig = relative_errors.plot_along_swath(self._water_body, outlier_lim=self._outlier_lim)
+            fig = meas_errors.plot_along_swath(self._water_body, outlier_lim=self._outlier_lim)
             fig_list.append(fig)
             # Plot median error distribution along swath position (4_med_error_per_xtrack.png)
-            fig = relative_errors.plot_along_swath_popular(self._threshold)
+            fig = meas_errors.plot_along_swath_popular(self._threshold)
             fig_list.append(fig)
 
             df_filtered = pd.DataFrame(self._lines)
@@ -212,7 +212,7 @@ class StatsManager(object):
 
         list_values = []
 
-        # Loop on lines, read relative error values
+        # Loop on lines, read measurement error values
         for i, line in enumerate(self._lines):
             value = line[tag]
             if value != "NA":
