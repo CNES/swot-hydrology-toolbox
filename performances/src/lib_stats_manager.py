@@ -1,23 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-# ======================================================
-#
-# Project : SWOT KARIN
-#
-# ======================================================
-# HISTORIQUE
-# VERSION:1.0.0:::2020/09/11: initial version
-# FIN-HISTORIQUE
-# ======================================================
 """
-.. module lib_stats_manager.py
-    :synopsis: Class for handling statistics computation and visualization
-
-.. moduleauthor: CNES (L. Labat-Allee)
-
-Copyright (c) 2020 CNES. All rights reserved.
+ This file is part of the SWOT Hydrology Toolbox
+ Copyright (c) 2026 CNES
+ This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY,
+ read LICENSE.txt for further details.
 """
+
 import logging
 import os
 import matplotlib as mpl
@@ -30,8 +19,6 @@ import numpy as np
 import sys
 from src.lib_relative_errors import RelativeErrors, plot_nb_obj_as_a_function_of_water_body_size
 import pandas as pd
-
-print_debug = False
 
 
 ######################################
@@ -61,8 +48,14 @@ class StatsManager(object):
             lines (str): jon text file lines
             metrix_name (str): matrix name to consider: 'wse' (only for lakes) or 'area_total' or 'area_geom'
             threshold (float): to filter abnormal values
-            which_perfos (str): to filter perfos over lake size / river width: 'req' (requirements) or 'goal'
-            outlier_lim (list): outlier limits to clip
+            tags_dict (dict): tags to extract
+            begin_slices_list (list): list of begin slices
+            end_slices_list (list): list of end slices
+            water_body (str): water body: 'lake size' or 'river width'
+            which_perfos (str): to filter data according to water body size and scientific specifications:
+                                'req' (requirements) or 'goal'
+            outlier_lim (list): outlier limits to clip on graphs
+            save_to_disk (str): path to save statistics figures on disk
         """
         logger = logging.getLogger(self.__class__.__name__)
 
@@ -101,7 +94,6 @@ class StatsManager(object):
 
         # Loop on lines, read all tag values
         for t, tag in enumerate(tags):
-            # print("tags[{0}]: {1}".format(t, tag))
             tag_values_list = self.extract_values(tag)
             tags_values_list.append(tag_values_list)
 
@@ -160,28 +152,30 @@ class StatsManager(object):
                 if error != 0:
                     is_one_slice_filled = 1
 
-            # Bar plot of relative errors one sigma as a function of water body size (river width or lake surface)
+            # Statistics on rivers or lakes
             if is_one_slice_filled != 0:
+                # Number of matching observations as a function of water body size (1_nb_diff_per_size.png)
                 fig = relative_errors.plot_nb_obs_as_a_function_of_water_body_size(self._water_body)
                 fig_list.append(fig)
+
+                # Bar plot of one sigma errors as a function of water body size (2_1s_error_per_size.png)
                 fig = relative_errors.plot_one_sigma_error_distribution(self._water_body, self._which_perfos)
                 fig_list.append(fig)
 
-            # Statistics on rivers or lakes
-            # For perf assessment based on RiverObs (using reaches), plot relative errors distribution along swath's width
+            # Plot errors distribution along swath position (3_error_per_xtrack.png)
             fig = relative_errors.plot_along_swath(self._water_body, outlier_lim=self._outlier_lim)
             fig_list.append(fig)
+            # Plot median error distribution along swath position (4_med_error_per_xtrack.png)
             fig = relative_errors.plot_along_swath_popular(self._threshold)
             fig_list.append(fig)
 
-            # Plot number of lakes
             df_filtered = pd.DataFrame(self._lines)
             print("Number of PLD lakes: {}".format(df_filtered['lake_id'].str.split(':').str[1].nunique()))
             print("Number of matchups: {}".format(len(df_filtered['lake_id'])))
 
+            # Plot number of lakes as a function of water body size (5_nb_lakes_per_size.png)
             df_filtered["lake_id_subset"] = df_filtered["lake_id"].str.extract(r":(\d+)$")[0].astype("Int64")
             df_data_unique = df_filtered.drop_duplicates(subset=["lake_id_subset"])
-
             fig = plot_nb_obj_as_a_function_of_water_body_size(
                 np.array(df_data_unique['Reference_surface_area'].astype(float)) * 1e6,
                 "lake size", self._begin_slices_list, self._end_slices_list)
@@ -194,10 +188,11 @@ class StatsManager(object):
                 # Save figures to the disk
                 new_names = ["nb_diff_per_size", "1s_error_per_size", "error_per_xtrack", "med_error_per_xtrack",
                              "nb_lakes_per_size"]
+                print(f"Save the images to disk: {self._dirname}")
                 for i, (fig, new_name) in enumerate(zip(fig_list, new_names)):
                     fig_name = f"{i+1}_{new_name}.png"
                     fig.savefig(os.path.join(self._dirname, fig_name))
-                    print(f"Figure saved: {fig_name} in {self._dirname}")
+                    # print(f"{fig_name} is saved!")
                     plt.close(fig)
 
         else:

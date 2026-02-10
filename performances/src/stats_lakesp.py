@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-.. module:: stats_lakesp.py
-    :synopsis: compute performances over LakeSP product
-    Created on Mon Feb 9 08:47:18 2026
-
-.. moduleauthor: Claire POTTIER (CNES DTN/TPI/TR), Lucie LABAT-ALLEE (CS-GROUP)
+ This file is part of the SWOT Hydrology Toolbox
+ Copyright (c) 2026 CNES
+ This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY,
+ read LICENSE.txt for further details.
 """
+
 import argparse
 import getpass
 import os
@@ -18,7 +18,7 @@ from src.lake_stats_manager import LakeStatsManager
 
 def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal"):
     """
-
+    Compute statistics and save errors distribution figures
     :param working_dir: output working directory to store output figures
     :param df_data: diff dataframe
     :param which_stats: 'wse' or 'area_total' or 'area_geom'
@@ -30,7 +30,7 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal"):
     if not os.path.exists(working_dir):
         os.makedirs(working_dir)
     
-    # 2.1 - Init LakeStatsManager object
+    # 1 - Init LakeStatsManager object
     try:
         stats_manager = LakeStatsManager(working_dir,
                                          metrix_name=which_stats,
@@ -40,7 +40,7 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal"):
         LOGGER.error("CANNOT compute stats")
         return
 
-    # 2.2 - Compute statistics
+    # 2 - Compute statistics
     stats_manager.compute_statistics()
 
     

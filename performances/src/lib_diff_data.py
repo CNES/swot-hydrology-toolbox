@@ -1,29 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-# ======================================================
-#
-# Project : SWOT KARIN
-#
-# ======================================================
-# HISTORIQUE
-# VERSION:1.0.0:::2023/10/19: initial version
-# FIN-HISTORIQUE
-# ======================================================
 """
-.. module lib_diff_data.py
-    :synopsis: Class for getting DiffData, from:
-    - metrics.txt file for SWOT simulated data
-    - hydro database, for SWOT real data
-    Convert input data to a common format: json
-
-.. moduleauthor: CNES (L. Labat-Allee)
-
-Copyright (c) 2023 CNES. All rights reserved.
+ This file is part of the SWOT Hydrology Toolbox
+ Copyright (c) 2026 CNES
+ This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY,
+ read LICENSE.txt for further details.
 """
 import logging
 import pandas as pd
-FV_REAL = -999999999999
+
 
 class DiffData(object):
     """
@@ -78,7 +63,7 @@ class DiffData(object):
 
     def from_lakesp_prior_diff_table(self, gdf_diff, fields, metrix_name):
         """
-        Get data from hydro database (table LakeSP_Prior_diff)
+        Get data from hydro database (table swot_lakesp_pxd0_diff_ts)
         :param gdf_diff: geodataframe
         :param fields: line fields
         :param metrix_name: 'wse' or 'area_total' or 'area_geom'
@@ -127,25 +112,26 @@ class DiffData(object):
         """
         Compute relative error by removing height mean value  
         """
-        logger = logging.getLogger(self.__class__.__name__)    
+        logger = logging.getLogger(self.__class__.__name__)
         dict_mean = {}
         for (indl, cur_line) in enumerate(self.json):
-            if cur_line["lake_id_ref"] not in dict_mean :
-                dict_mean[cur_line["lake_id_ref"]]= [float(cur_line["Absolute_error"]), 1]
+            if cur_line["lake_id_ref"] not in dict_mean:
+                dict_mean[cur_line["lake_id_ref"]] = [float(cur_line["Absolute_error"]), 1]
             else:
-                dict_mean[cur_line["lake_id_ref"]] = [dict_mean[cur_line["lake_id_ref"]][0] + float(cur_line["Absolute_error"]), dict_mean[cur_line["lake_id_ref"]][1] + 1]
-            
+                dict_mean[cur_line["lake_id_ref"]] = [
+                    dict_mean[cur_line["lake_id_ref"]][0] + float(cur_line["Absolute_error"]),
+                    dict_mean[cur_line["lake_id_ref"]][1] + 1]
+
         # compute mean height for a given serie
-        for key in dict_mean.keys():   
-            dict_mean[key] = dict_mean[key][0]/float(dict_mean[key][1])
-        
-        # for each absolute error wse, remove mean height (name remains absolute error, that is not really good)
+        for key in dict_mean.keys():
+            dict_mean[key] = dict_mean[key][0] / float(dict_mean[key][1])
+
+        # for each absolute error wse, remove mean height (name remains absolute error, that is not perfect)
         for (indl, cur_line) in enumerate(self.json):
             cur_line["Absolute_error"] = str(float(cur_line["Absolute_error"]) - dict_mean[cur_line["lake_id_ref"]])
-            
+
 
 if __name__ == "__main__":
-
     # Example of csv loading file
     stat_file = "/work/EXPERT_CENTER/mwec/workspace/HR/labatl/scripts/swot-hydrology-toolbox/performances/examples/" \
                 "input/diff_area.csv"
@@ -156,4 +142,4 @@ if __name__ == "__main__":
 
     diff_data = DiffData(fields)
 
-    diff_data.from_file(stat_file, fields, 'total', 'area')
+    diff_data.from_file(stat_file, fields, 'area_total')

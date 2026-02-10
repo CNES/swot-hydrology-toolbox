@@ -1,20 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Class for handling lakes statistics computation and visualization
-
-Copyright (c) 2020 CNES.
+ This file is part of the SWOT Hydrology Toolbox
+ Copyright (c) 2026 CNES
+ This software is released under open source license LGPL v.3 and is distributed WITHOUT ANY WARRANTY,
+ read LICENSE.txt for further details.
 """
+
 from src.lib_stats_manager import StatsManager
 from src.lib_diff_data import DiffData
 
 # Define slices to plot errors one sigma evolution depending on lake size
+# GOAL
 begin_slices_list_4goal = [10000, 62500, 250000, 1000000, 4000000]  # m2
 end_slices_list_4goal = [62500, 250000, 1000000, 4000000, "+"]  # m2
+# REQ (for requirement)
 begin_slices_list_4req = [62500, 250000, 1000000, 4000000]  # m2
 end_slices_list_4req = [250000, 1000000, 4000000, "+"]  # m2
-# begin_slices_list = [0.01, 0.0625, 0.25, 1, 4]  # km2
-# end_slices_list = [0.0625, 0.25, 1, 4, 25]  # km2
 
 
 def get_tags():
@@ -64,9 +66,10 @@ class LakeStatsManager(StatsManager):
         
         :param working_dir: working directory
         :type working_dir: string
-        :param metrix_name: metrics name to consider, among ('wse' or 'area_total' or 'area_geom')
+        :param metrix_name: metrics name to consider, among 'wse' or 'area_total' or 'area_geom'
         :type metrix_name: string
-        :param which_perfos: to filter over lake size: 'goal'=lakes bigger than 100mx100m; 'req'=lakes bigger than 250mx250m (default)
+        :param which_perfos: to filter over lake size: 'goal'=lakes bigger than 100mx100m
+                                                        'req'=lakes bigger than 250mx250m (default)
         :type which_perfos: string
         :param threshold: to filter abnormal values
         :type threshold: float
@@ -74,7 +77,9 @@ class LakeStatsManager(StatsManager):
         :type outlier_lim: list
         :param gdf: if DiffData comes from Hydro database, read gdf
         :type gdf: GeoDataFrame
-        :param levelled: if levelled = True, only keep levelled data in stats, if False keep every data but remove mean(wse) of a given lake_id for each absolute_wse value 
+        :param levelled: if levelled = True, only keep levelled insitu data in stats
+                         if levelled = False, keep every data but remove mean(wse) of a given lake_id
+                         for each absolute_wse value
         :type gdf: GeoDataFrame
         """
 
@@ -85,23 +90,21 @@ class LakeStatsManager(StatsManager):
             begin_slices_list = begin_slices_list_4goal
             end_slices_list = end_slices_list_4goal
 
-        # Update surface area type
+        # Get tags
         lake_tags_dict, fields = get_tags()
 
-        # Get diff data
+        # Initialize diff data
         diff_data = DiffData()
-        # print("Get data from hydro database")
         diff_data.from_lakesp_prior_diff_table(gdf, fields, metrix_name)
 
-        # To filter
+        # Filter levelled stations
         if metrix_name == 'wse':
-            # to keep only nivelled stations
             if levelled:
                 diff_data.filter_levelled()
             else:
                 diff_data.convert_absolute_error_into_relative()
 
-        # Initialize the base class
+        # Initialize statistics manager
         StatsManager.__init__(self,
                               lines=diff_data.json,
                               metrix_name=metrix_name,
