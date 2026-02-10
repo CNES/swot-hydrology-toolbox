@@ -7,8 +7,9 @@
 """
 
 import argparse
-import getpass
+import pandas as pd
 import os
+from datetime import date
 
 import logging
 LOGGER = logging.getLogger(__name__)
@@ -46,18 +47,44 @@ def plot_stats(working_dir, df_data, which_stats="wse", which_perfos="goal"):
     
 #################################################
     
+def main():
+    parser = argparse.ArgumentParser(description="Compute statistics for LakeSP product")
+    parser.add_argument('--working_dir', help='working directory', nargs='?', type=str,
+                        default="/work/EXPERT_CENTER/mwec/workspace/HR/labatl/scripts/swot-hydrology-toolbox"
+                                "/performances/examples/output")
+    parser.add_argument('--which_stats', help='which variable need to be evaluate: wse or area_total',
+                        choices=['wse', 'area_total', 'area_geom'], nargs='?', type=str, default="wse")
+    parser.add_argument('--which_perfos', help='compare the statistics with the scientific specifications: '
+                                               'requirement or goal',
+                        choices=['goal', 'req'], nargs='?', type=str, default="req")
+    parser.add_argument('--csv', help='input file containing diff data', nargs='?', type=str)
+    args = vars(parser.parse_args())
+
+    LOGGER.info("===== stats_lakesp = BEGIN =====")
+
+    LOGGER.info("> Working directory = %s" % args["working_dir"])
+    LOGGER.info("> Compute the statistics on %s variable" % args["which_stats"].upper())
+    LOGGER.info("> Compare the statistics with the scientific specifications : %s" % args["which_perfos"].upper())
+
+    # Get csv diff dataset
+    df_diff = pd.read_csv(args["csv"], sep=";")
+
+    # Get today date
+    today = date.today()
+    cur_date = today.strftime("%Y%m%d")
+
+    # Output directory to save statistics images to the disk
+    output_dir = os.path.join(args["working_dir"], "lakes_perfos_{}_{}".format(args["which_stats"], cur_date))
+
+    # Run statistics
+    plot_stats(output_dir, df_diff, which_stats=args["which_stats"], which_perfos=args["which_perfos"])
+
+    LOGGER.info("===== stats_lakesp = END =====")
+
 
 if __name__ == "__main__":
 
-    # TODO: à revoir
-    parser = argparse.ArgumentParser(description="Compute perfos per source")
-    parser.add_argument('--working_dir', help='full path of working directory', nargs='?', type=str, default="/work/EXPERT_CENTER/mwec/workspace/HR/%s/perfos_lakesp" % getpass.getuser())
-    parser.add_argument('--which_stats', help='variable for perfos among wse (default) and area_total', choices=['wse', 'area_total', 'area_geom'], nargs='?', type=str, default="wse")
-    parser.add_argument('--input_csv', help='input CSV with diff with prefarea', nargs='?', type=str)
-    args = vars(parser.parse_args())
-    
-    LOGGER.info("===== RUN perfos_lakesp =====")
-    LOGGER.info("> working directory = %s" % args["working_dir"])
-    LOGGER.info("> variable on which to compute perfos = %s" % args["which_stats"])
-    LOGGER.info("===== END OF perfos_lakesp =====")
+    main()
+
+
     
