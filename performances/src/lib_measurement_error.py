@@ -10,8 +10,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-print_debug = False
-
 
 def plot_nb_obj_as_a_function_of_water_body_size(water_bodies_size_tab, water_body='river width',
                                                  begin_slices_list=None, end_slices_list=None):
@@ -246,12 +244,12 @@ class MeasurementError(object):
                     if s == 0:
                         # indexes for rivers width < 100m and lake surface < (250m)²
                         pinfo = "%s/%s - indexes for rivers width < 100m and lake surface < (250m)²" % (
-                        self._metrix_name, which_perfos)
+                            self._metrix_name, which_perfos)
                         ind_for_global_1 = ind_for_global_1.union(list(index_selected[0]))
                     else:
                         # indexes for rivers width > 100m and lake surface > (250m)²
                         pinfo = "%s/%s - indexes for rivers width > 100m and lake surface > (250m)²" % (
-                        self._metrix_name, which_perfos)
+                            self._metrix_name, which_perfos)
                         ind_for_global_2 = ind_for_global_2.union(list(index_selected[0]))
                     if s >= 3:
                         pinfo = "%s/%s - indexes for lake surface > 1km²" % (self._metrix_name, which_perfos)
@@ -259,7 +257,7 @@ class MeasurementError(object):
                 else:
                     # indexes for rivers width > 100m and lake surface > (250m)²
                     pinfo = "%s/%s - indexes for rivers width > 100m and lake surface > (250m)²" % (
-                    self._metrix_name, which_perfos)
+                        self._metrix_name, which_perfos)
                     ind_for_global_2 = ind_for_global_2.union(list(index_selected[0]))
                     ind_for_global_1 = ind_for_global_2  # not use
 
@@ -280,7 +278,7 @@ class MeasurementError(object):
                     # req: indexes for lake surface between (250m)² and 1km²
                     if which_perfos == 'goal':
                         pinfo = "%s/%s - indexes for lake surface between (100m)² and 1km²" % (
-                        self._metrix_name, which_perfos)
+                            self._metrix_name, which_perfos)
                     else:
                         pinfo = "%s/%s - indexes for lake surface between (250m)² and 1km²" % (
                             self._metrix_name, which_perfos)
@@ -342,15 +340,15 @@ class MeasurementError(object):
         logger.info(
             "> ind 1 {} ind 2 {} global {}".format(len(ind_for_global_1), len(ind_for_global_2), len(ind_for_global)))
 
-        print("> {0} / {1} / global 1s error slices (1): {2:.03f} {3}".format(self._metrix_name, which_perfos,
-                                                                              global_1s_error_1 * self.factor,
-                                                                              self.unit))
-        print("> {0} / {1} / global 1s error slices (2): {2:.03f} {3}".format(self._metrix_name, which_perfos,
-                                                                              global_1s_error_2 * self.factor,
-                                                                              self.unit))
-        print("> {0} / {1} / global 1s error slices (3): {2:.03f} {3}".format(self._metrix_name, which_perfos,
-                                                                              global_1s_error_3 * self.factor,
-                                                                              self.unit))
+        logger.info("> {0} / {1} / global 1s error slices (1): {2:.03f} {3}".format(self._metrix_name, which_perfos,
+                                                                                    global_1s_error_1 * self.factor,
+                                                                                    self.unit))
+        logger.info("> {0} / {1} / global 1s error slices (2): {2:.03f} {3}".format(self._metrix_name, which_perfos,
+                                                                                    global_1s_error_2 * self.factor,
+                                                                                    self.unit))
+        logger.info("> {0} / {1} / global 1s error slices (3): {2:.03f} {3}".format(self._metrix_name, which_perfos,
+                                                                                    global_1s_error_3 * self.factor,
+                                                                                    self.unit))
 
     # ----------------------------------
 
@@ -473,7 +471,7 @@ class MeasurementError(object):
                         plt.scatter(indep[outliers], dep[outliers], c=colorbar[s],
                                     label="(outliers clipped)", marker='+')
 
-        # 3.1 - Dispay legend
+        # 3.1 - Display legend
         if water_body == 'river width':
             water_body_unit = 'm'
         else:
@@ -522,7 +520,7 @@ class MeasurementError(object):
         logger.info('plot_errors MAX: {}'.format(max_error))
 
         ##xrange = np.round(xrange/5.)*5.
-        # xrange = np.round((xrange+2.55)/5.)*5.-2.5 ## POUR L'ARTICLE
+        # xrange = np.round((xrange+2.55)/5.)*5.-2.5 ## Comment for publication
 
         # 2 - Build DataFrame wrt to threshold or not
         if threshold is not None:
@@ -537,7 +535,7 @@ class MeasurementError(object):
         fig = plt.figure(figsize=(10, 4))
         # plt.bar(indexes, df['y'])
         plt.bar(df.index, df['y'])
-        # plt.bar(df.index, df['y'], width=4.5) ## POUR L'ARTICLE
+        # plt.bar(df.index, df['y'], width=4.5) ## Comment for publication
         # 4 - Plot measured and required 1sigma error
         # 4.1 - Display measured relative error one sigma
         # plt.axhline(self._errors_one_sigma[0], color="blue", linestyle="--",
@@ -632,7 +630,7 @@ class MeasurementError(object):
             label = "Requirement > %s (%s)" % (self._req_th_legend, self.print_metrix_value(self.err_req))
             plt.axhline(y=self.err_req, xmin=x_th, xmax=1, color="red", label=label)
         logging.info("Error 1 sigma for %s for %s : %f %f" % (
-        self._metrix_name, which_perfos, self._errors_one_sigma[0], self._errors_one_sigma[1]))
+            self._metrix_name, which_perfos, self._errors_one_sigma[0], self._errors_one_sigma[1]))
         # 3.4 - Add legend
         plt.legend()
 

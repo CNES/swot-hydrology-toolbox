@@ -134,13 +134,13 @@ class StatsManager(object):
             else:
                 error_type = "Relative"
                 unit = "%"
-                
+
             #  Initialize MeasurementError object
             meas_errors = MeasurementError(errors, metrix_name=self._metrix_name, water_bodies_size=water_body_size,
-                                             xrange=xrange)
+                                           xrange=xrange)
             # Compute measurement error(s) one sigma
             meas_errors.compute_error_one_sigma(self._threshold, self._begin_slices_list,
-                                                    self._end_slices_list, self._water_body, self._which_perfos)
+                                                self._end_slices_list, self._water_body, self._which_perfos)
 
             # Check that one slice is filled
             for s, error in enumerate(meas_errors._errors_one_sigma[2:]):
@@ -170,8 +170,8 @@ class StatsManager(object):
             fig_list.append(fig)
 
             df_filtered = pd.DataFrame(self._lines)
-            print("Number of PLD lakes: {}".format(df_filtered['lake_id'].str.split(':').str[1].nunique()))
-            print("Number of matchups: {}".format(len(df_filtered['lake_id'])))
+            logger.info("Number of PLD lakes: {}".format(df_filtered['lake_id'].str.split(':').str[1].nunique()))
+            logger.info("Number of matchups: {}".format(len(df_filtered['lake_id'])))
 
             # Plot number of lakes as a function of water body size (5_nb_lakes_per_size.png)
             df_filtered["lake_id_subset"] = df_filtered["lake_id"].str.extract(r":(\d+)$")[0].astype("Int64")
@@ -188,15 +188,15 @@ class StatsManager(object):
                 # Save figures to the disk
                 new_names = ["nb_diff_per_size", "1s_error_per_size", "error_per_xtrack", "med_error_per_xtrack",
                              "nb_lakes_per_size"]
-                print(f"Save the images to disk: {self._dirname}")
+                print(f"Statistics images are saved to the disk: {self._dirname}")
                 for i, (fig, new_name) in enumerate(zip(fig_list, new_names)):
-                    fig_name = f"{i+1}_{new_name}.png"
+                    fig_name = f"{i + 1}_{new_name}.png"
                     fig.savefig(os.path.join(self._dirname, fig_name))
-                    # print(f"{fig_name} is saved!")
+                    # logger.info(f"{fig_name} is saved!")
                     plt.close(fig)
 
         else:
-            logger.info("No data found. Error one sigma is not computed.")
+            logger.info("No data found. One sigma error can not be computed.")
 
     def extract_values(self, tag):
         """

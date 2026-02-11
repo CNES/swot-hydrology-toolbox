@@ -31,6 +31,8 @@ class DiffData(object):
         :param metrix_name: 'wse' or 'area_total' or 'area_geom'
         :return: list of dictionary (json format)
         """
+        logger = logging.getLogger(self.__class__.__name__)
+        logger.info("Get diff data from csv file")
 
         # Read CSV file into a DataFrame
         df = pd.read_csv(csv_path)
@@ -70,8 +72,10 @@ class DiffData(object):
         :return: list of dictionary (json format)
         """
 
+        logger = logging.getLogger(self.__class__.__name__)
         # Read GeoDataFrame
         diff_observations = gdf_diff
+        logger.info("Get diff data from LakeSP Prior diff table (hydro database)")
 
         # Reading line by line from GeoDataFrame
         for line in diff_observations.index:
@@ -105,7 +109,7 @@ class DiffData(object):
         logger = logging.getLogger(self.__class__.__name__)
         nb_lines = len(self.json)
         self.json = list(filter(lambda x: bool(x['wse_levelled']) == True, self.json))
-        print("Keep %d / %d lines after filter over nivelled insitu data" % (len(self.json), nb_lines))
+        logger.info("Keep %d / %d lines after filter over nivelled insitu data" % (len(self.json), nb_lines))
 
     def convert_absolute_error_into_relative(self):
         # to be optimized
@@ -113,6 +117,8 @@ class DiffData(object):
         Compute relative error by removing height mean value  
         """
         logger = logging.getLogger(self.__class__.__name__)
+        logger.info("Convert absolute error into relative error, by removing height mean value")
+
         dict_mean = {}
         for (indl, cur_line) in enumerate(self.json):
             if cur_line["lake_id_ref"] not in dict_mean:
