@@ -520,7 +520,7 @@ class MeasurementError(object):
         logger.info('plot_errors MAX: {}'.format(max_error))
 
         ##xrange = np.round(xrange/5.)*5.
-        # xrange = np.round((xrange+2.55)/5.)*5.-2.5 ## Comment for publication
+        xrange = np.round((xrange+2.55)/5.)*5.-2.5  # Comment for publication
 
         # 2 - Build DataFrame wrt to threshold or not
         if threshold is not None:
@@ -533,9 +533,8 @@ class MeasurementError(object):
 
         # 3 - Init figure
         fig = plt.figure(figsize=(10, 4))
-        # plt.bar(indexes, df['y'])
-        plt.bar(df.index, df['y'])
-        # plt.bar(df.index, df['y'], width=4.5) ## Comment for publication
+        # plt.bar(df.index, df['y'])
+        plt.bar(df.index, df['y'], width=4.5)  # Comment for publication
         # 4 - Plot measured and required 1sigma error
         # 4.1 - Display measured relative error one sigma
         # plt.axhline(self._errors_one_sigma[0], color="blue", linestyle="--",
@@ -601,38 +600,39 @@ class MeasurementError(object):
         else:
             x_min = 0
             x_th = 1 / len(ind_x) * 2
-        if self._metrix_name.startswith("area_"):
-            # 3.1 - Display measured relative error one sigma:
-            # only measured > self._req_th_legend (100m for rivers, 250²m² for lakes)
-            plt.axhline(self._errors_one_sigma[1], xmin=x_min, xmax=1, color="blue", linestyle="--",
-                        label="Measured > %s (%.3f)" % (
-                            self._req_th_legend, self._errors_one_sigma[1]))
-            # 3.2 - Display requirement value
-            plt.axhline(y=self.err_req, xmin=x_min, xmax=1, color="red",
-                        label="Requirement > %s (%s)" % (
-                            self._req_th_legend, self.print_metrix_value(self.err_req)))
-            if which_perfos == 'goal':
-                # 3.3 - Display goal value
-                label = "Goal < %s (%s)" % (
-                    self._req_th_legend, self.print_metrix_value(self.err_goal))
-                plt.axhline(y=self.err_goal, xmin=0, xmax=x_min, color="red", linestyle=":", label=label)
-        else:
-            # 3.1 - Display measured value for lakes surface < 1km²
-            label = "Measured < %s (%s)" % (self._req_th_legend, self.print_metrix_value(self._errors_one_sigma[0]))
-            plt.axhline(self._errors_one_sigma[0], xmin=x_min, xmax=x_th, color="blue", linestyle=":", label=label)
-            # 3.2 - Display requirement value for lakes surface < 1km²
-            label = "Requirement < %s (%s)" % (self._req_th_legend, self.print_metrix_value(self.err_goal))
-            plt.axhline(y=self.err_goal, xmin=x_min, xmax=x_th, color="red", linestyle=":", label=label)
-            # 3.3 - Display measured value for lakes surface > 1km²
-            label = "Measured > %s (%s)" % (self._req_th_legend, self.print_metrix_value(self._errors_one_sigma[1]))
-            plt.axhline(self._errors_one_sigma[1], xmin=x_th, xmax=1, color="blue", linestyle="--", label=label)
-            # 3.4 - Display requirement value for lakes surface > 1km²
-            label = "Requirement > %s (%s)" % (self._req_th_legend, self.print_metrix_value(self.err_req))
-            plt.axhline(y=self.err_req, xmin=x_th, xmax=1, color="red", label=label)
+        # Comment for publication
+        # if self._metrix_name.startswith("area_"):
+        #     # 3.1 - Display measured relative error one sigma:
+        #     # only measured > self._req_th_legend (100m for rivers, 250²m² for lakes)
+        #     plt.axhline(self._errors_one_sigma[1], xmin=x_min, xmax=1, color="blue", linestyle="--",
+        #                 label="Measured > %s (%.3f)" % (
+        #                     self._req_th_legend, self._errors_one_sigma[1]))
+        #     # 3.2 - Display requirement value
+        #     plt.axhline(y=self.err_req, xmin=x_min, xmax=1, color="red",
+        #                 label="Requirement > %s (%s)" % (
+        #                     self._req_th_legend, self.print_metrix_value(self.err_req)))
+        #     if which_perfos == 'goal':
+        #         # 3.3 - Display goal value
+        #         label = "Goal < %s (%s)" % (
+        #             self._req_th_legend, self.print_metrix_value(self.err_goal))
+        #         plt.axhline(y=self.err_goal, xmin=0, xmax=x_min, color="red", linestyle=":", label=label)
+        # else:
+        #     # 3.1 - Display measured value for lakes surface < 1km²
+        #     label = "Measured < %s (%s)" % (self._req_th_legend, self.print_metrix_value(self._errors_one_sigma[0]))
+        #     plt.axhline(self._errors_one_sigma[0], xmin=x_min, xmax=x_th, color="blue", linestyle=":", label=label)
+        #     # 3.2 - Display requirement value for lakes surface < 1km²
+        #     label = "Requirement < %s (%s)" % (self._req_th_legend, self.print_metrix_value(self.err_goal))
+        #     plt.axhline(y=self.err_goal, xmin=x_min, xmax=x_th, color="red", linestyle=":", label=label)
+        #     # 3.3 - Display measured value for lakes surface > 1km²
+        #     label = "Measured > %s (%s)" % (self._req_th_legend, self.print_metrix_value(self._errors_one_sigma[1]))
+        #     plt.axhline(self._errors_one_sigma[1], xmin=x_th, xmax=1, color="blue", linestyle="--", label=label)
+        #     # 3.4 - Display requirement value for lakes surface > 1km²
+        #     label = "Requirement > %s (%s)" % (self._req_th_legend, self.print_metrix_value(self.err_req))
+        #     plt.axhline(y=self.err_req, xmin=x_th, xmax=1, color="red", label=label)
         logging.info("Error 1 sigma for %s for %s : %f %f" % (
             self._metrix_name, which_perfos, self._errors_one_sigma[0], self._errors_one_sigma[1]))
         # 3.4 - Add legend
-        plt.legend()
+        # plt.legend() # do not display legend for publication
 
         # 4 - Add title and labels
         # 4.1 - Title
@@ -641,7 +641,7 @@ class MeasurementError(object):
         else:
             title = '|%s error| in %s %s (1$\sigma$) as a function of %s' % (
                 self.error_type, self._metrix_name.split('_')[-1], self.metrix_long_name, water_body)
-        plt.title(title)
+        # plt.title(title) # do not display legend for publication
         # 4.2 - Label X
         if water_body == 'river width':
             water_body_unit = 'm'
