@@ -188,7 +188,8 @@ class StatsManager(object):
                 # Save figures to the disk
                 new_names = ["nb_diff_per_size", "1s_error_per_size", "error_per_xtrack", "med_error_per_xtrack",
                              "nb_lakes_per_size"]
-                print(f"Statistics images are saved to the disk: {self._dirname}")
+                sht_path = os.environ["SWOT_HYDROLOGY_TOOLBOX"]
+                print(f"Statistics images are saved to the disk: {os.path.relpath(self._dirname, start=sht_path)}")
                 for i, (fig, new_name) in enumerate(zip(fig_list, new_names)):
                     fig_name = f"{i + 1}_{new_name}.png"
                     fig.savefig(os.path.join(self._dirname, fig_name))
