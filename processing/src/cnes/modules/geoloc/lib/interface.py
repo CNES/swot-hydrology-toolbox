@@ -9,6 +9,7 @@
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.3.0:DM:#91:2024/09/20:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 '''
@@ -22,7 +23,7 @@
 
 import numpy as np
 import os.path
-import collections
+import collections.abc
 import fiona
 import copy
 import logging
@@ -417,9 +418,11 @@ class PixcvecRiver(object):
             self.cross_reach = np.array(pixc_main.variables["cross_reach"])
             self.distance_to_node = np.array(pixc_main.variables["distance_to_node"])
             self.range_spacing = pixc_main.getncattr("nominal_slant_range_spacing")
+            
+            self.swath_side = pixc_main.getncattr("swath_side")
 
             near_range = pixc_main.getncattr("near_range")
-            if isinstance(near_range, collections.Iterable):
+            if isinstance(near_range, collections.abc.Iterable):
                 print("Warning, near_range is a list.")
                 self.near_range = 0
             else:

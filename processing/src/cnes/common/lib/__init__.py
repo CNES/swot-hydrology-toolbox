@@ -19,39 +19,45 @@ my_netcdf_file
    :special-members:
 
 my_timer
-==============
+========
 .. automodule:: cnes.common.lib.my_timer
    :members:
    :private-members:
    :special-members:
 
 my_variables
-==============
+============
 .. automodule:: cnes.common.lib.my_variables
    :members:
    :private-members:
    :special-members:
 
 my_hull
-==============
+=======
 .. automodule:: cnes.common.lib.my_hull
    :members:
    :private-members:
    :special-members:
 
 my_shp_file
-==============
+===========
 .. automodule:: cnes.common.lib.my_shp_file
    :members:
    :private-members:
    :special-members:
 
 my_tools
-==============
+========
 .. automodule:: cnes.common.lib.my_tools
    :members:
    :private-members:
    :special-members:
 
+my_segmentation
+===============
+.. automodule:: cnes.common.lib.my_segmentation
+   :members:
+   :private-members:
+   :special-members:
 
 """

@@ -17,6 +17,15 @@
       <real name="/height_vectorproc" shape="points_shape" width="32">
         <annotation _FillValue="9.96921e+36" long_name="height above reference ellipsoid" units="m" valid_min="-1500" valid_max="15000" coordinates="longitude_vectorproc latitude_vectorproc" comment="Height-constrained height of the pixel above the reference ellipsoid."/>
       </real>
+      <real name="/delta_mean_lake_surface" shape="points_shape" width="32">
+        <annotation _FillValue="9.96921e+36" long_name="difference between EGM2008 geoid model and SWOT mean lake surface" units="m" valid_min="-1500" valid_max="15000" source="Yanez et al. (2026)" coordinates="longitude_vectorproc latitude_vectorproc" comment="Difference between EGM2008 geoid model and SWOT-based mean lake surface. Provided for the majority of PLD lakes &gt;100 km2 (~1400 lakes), it is used to refine the EGM2008 geoid for them when computing the constrained water surface elevation in the L2_HR_LakeSP PLD-oriented shapefile (wse2)."/>
+      </real>
+      <integer name="/used_for_lake_wse" shape="points_shape" width="8" signed="true">
+        <annotation _FillValue="127" long_name="used for wse computation flag" standard_name="status_flag" flag_meanings="not_used used" flag_values="0 1" valid_min="0" valid_max="1" coordinates="longitude_vectorproc latitude_vectorproc" comment="Flag indicating whether the pixel has been used to compute the water surface elevation in the LakeSP PLD-oriented shapefile (wse) or not."/>
+      </integer>
+      <integer name="/used_for_lake_wse2" shape="points_shape" width="8" signed="true">
+        <annotation _FillValue="127" long_name="used for wse2 computation flag" standard_name="status_flag" flag_meanings="not_used used" flag_values="0 1" valid_min="0" valid_max="1" coordinates="longitude_vectorproc latitude_vectorproc" comment="Flag indicating whether the pixel has been used to compute the constrained water surface elevation in the LakeSP PLD-oriented shapefile (wse2) or not."/>
+      </integer>
       <string name="/reach_id" shape="points_nchar_reach_id_shape" width="0">
         <annotation _FillValue="" long_name="identifier of the associated prior river reach" coordinates="longitude_vectorproc latitude_vectorproc" comment="Unique reach identifier from the prior river database. The format of the identifier is CBBBBBRRRRT, where C=continent, B=basin, R=reach, T=type."/>
       </string>
@@ -30,10 +39,10 @@
         <annotation _FillValue="" long_name="identifier of the observed feature" coordinates="longitude_vectorproc latitude_vectorproc" comment="Tile-specific identifier of the observed feature associated to the pixel. The format of the identifier is CBBTTTSNNNNNN, where C=continent, B=basin, T=tile number, S=swath side, N=lake counter within the PIXC tile."/>
       </string>
       <integer name="/ice_clim_f" shape="points_shape" width="8" signed="true">
-        <annotation _FillValue="127" long_name="climatological ice cover flag" flag_meanings="no_ice_cover uncertain_ice_cover full_ice_cover" flag_values="0 1 2" institution="University of North Carolina" coordinates="longitude_vectorproc latitude_vectorproc" comment="Climatological ice cover flag indicating whether the pixel is ice-covered on the day of the observation based on external climatological information (not the SWOT measurement). Values of 0, 1, and 2 indicate that the surface is not ice covered, may or may not be partially or fully ice covered, and fully ice covered, respectively. A value of 255 indicates that this flag is not available."/>
+        <annotation _FillValue="127" long_name="climatological ice cover flag" standard_name="status_flag" flag_meanings="no_ice_cover uncertain_ice_cover full_ice_cover" flag_values="0 1 2" valid_min="0" valid_max="2" source="Yang et al. (2020)" coordinates="longitude_vectorproc latitude_vectorproc" comment="Climatological ice cover flag indicating whether the pixel is ice-covered on the day of the observation based on external climatological information (not the SWOT measurement). Values of 0, 1, and 2 indicate that the surface is likely not ice covered, may or may not be partially or fully ice covered, and likely fully ice covered, respectively."/>
       </integer>
       <integer name="/ice_dyn_f" shape="points_shape" width="8" signed="true">
-        <annotation _FillValue="127" long_name="dynamical ice cover flag" flag_meanings="no_ice_cover partial_ice_cover full_ice_cover" flag_values="0 1 2" institution="University of North Carolina" coordinates="longitude_vectorproc latitude_vectorproc" comment="Dynamic ice cover flag indicating whether the pixel is ice-covered on the day of the observation based on analysis of external satellite optical data. Values of 0, 1, and 2 indicate that the surface is not ice covered, partially ice covered, and fully ice covered, respectively. A value of 255 indicates that this flag is not available."/>
+        <annotation _FillValue="127" long_name="dynamical ice cover flag" standard_name="status_flag" flag_meanings="no_ice_cover uncertain_ice_cover full_ice_cover" flag_values="0 1 2" valid_min="0" valid_max="2" source="Trudel et al. (2026)" coordinates="longitude_vectorproc latitude_vectorproc" comment="Dynamic ice cover flag indicating whether the pixel is ice-covered on the day of the observation, based on a classification method using SWOT radar signal characteristics. Values of 0, 1, and 2 indicate that the surface is likely not ice covered, may or may not be partially or fully ice covered, and likely fully ice covered, respectively."/>
       </integer>
       <string name="/@Conventions" shape="Scalar" width="0">
         <annotation description="NetCDF-4 conventions adopted in this product. This attribute should be set to CF-1.7 to indicate that the product is compliant with the Climate and Forecast NetCDF conventions."/>
@@ -60,10 +69,10 @@
         <annotation description="SWOT"/>
       </string>
       <string name="/@references" shape="Scalar" width="0">
-        <annotation description="SWOT-TN-CDM-0672-CNES_Product_Description_L2_HR_LakeTile - Revision A - 20220531"/>
+        <annotation description="SWOT-DD-CDM-0561-CNES_SAS_Design_L2_HR_LakeTile - Revision D (draft) - 20260526"/>
       </string>
       <string name="/@reference_document" shape="Scalar" width="0">
-        <annotation description="SWOT-DD-CDM-0561-CNES_SAS_Design_L2_HR_LakeTile - Revision A - 20220531"/>
+        <annotation description="SWOT-TN-CDM-0672-CNES_Product_Description_L2_HR_LakeTile - Revision D (draft) - 20260526"/>
       </string>
       <string name="/@product_version" shape="Scalar" width="0">
         <annotation description="Version identifier of this data file"/>
@@ -160,6 +169,12 @@
       </string>
       <string name="/@xref_prior_lake_db_file" shape="Scalar" width="0">
         <annotation description="Name of input prior lake database file."/>
+      </string>
+      <string name="/@xref_mls_file" shape="Scalar" width="0">
+        <annotation description="Name of input mean lake surfaces file."/>
+      </string>
+      <string name="/@xref_ice_model_file" shape="Scalar" width="0">
+        <annotation description="Name of input ice model file used to compute ice_dyn_f attribute."/>
       </string>
       <string name="/@xref_reforbittrack_files" shape="Scalar" width="0">
         <annotation description="Names of input reference orbit track files."/>

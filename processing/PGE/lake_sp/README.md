@@ -26,6 +26,9 @@ LakeTile directory = <full_path_to_LakeTile_directory>
 Output directory = <output_directory>
 
 [DATABASES]
+
+##### Lake database #####
+
 # OPTION 1: upper directory pointing to operational Prior Lake Database (PLD)
 LAKE_DB = /work/SWOT/swotdev/swotpub/BD/BD_lakes/PLD
 
@@ -42,22 +45,36 @@ LAKE_DB = /work/SWOT/swotdev/swotpub/BD/BD_lakes/PLD
 # Lake identifier attribute name in the prior lake database and influence_lake_db
 # LAKE_DB_ID = lake_id
 
+##### Mean lake surfaces database #####
+
+# OPTION 1: upper directory pointing to operational Mean Lake Surfaces (MLS)
+MLS = /work/SWOT/swotdev/swotpub/BD/MLS/MLS_v001
+
+# OPTION 2: MLS files stored in a TAR 
+# Filename should starts with SWOT_MeanLakeSurface_ = operational Mean Lake Surfaces (MLS)
+#MLS = /work/SWOT/swotdev/swotpub/BD/MLS/MLS_v001/Cal/SWOT_MeanLakeSurface_Cal_001_20000101T000000_20991231T235959_20261111T120000_v001.tar
+#MLS = /work/SWOT/swotdev/swotpub/BD/MLS/MLS_v001/Nom/SWOT_MeanLakeSurface_Nom_001_20000101T000000_20991231T235959_20261111T120000_v001.tar
+
 [TILES_INFOS]
 Cycle number = <cycle_number>
 Pass number = <pass_number>
 Continent = <continent_code>
 
 [OPTIONS]
-# To also produce LakeTile_Edge and LakeTile_PIXCVec as shapefiles (=True); else=False (default)
+# To force PIXCVec generation (=True) or not (=False, default) in case LakeSP processing crashes
+Force PIXCVec generation = <True|False>
+# To also produce PIXCVec products as shapefiles (=True); else=False (default)
 Produce shp = <True|False>
+# To save intermediate data for detailed investigation or not (default)
+Save intermediate data = <True|False>
 # To increment the file counter in the output filenames (=True, default); else=False
 Increment file counter = <True|False>
 # To write full path in global attributes (=True); to write only basename=False
 Write full path = <True|False>
 # Number of processors to use (default=1, max=2)
 Nb_proc = <int>
-# To delete temporary swath LakeSP shapefiles (=True, default) or not (=False)
-Delete temporary shp = <True|False>
+# To delete temporary files (=True, default) or not (=False)
+Delete temporary files = <True|False>
 
 [LOGGING]
 # Error file full path

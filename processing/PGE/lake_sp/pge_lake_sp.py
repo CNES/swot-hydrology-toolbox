@@ -12,6 +12,15 @@
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # VERSION:3.2.0:DM:#91:2021/10/27:Poursuite industrialisation
+# VERSION:5.0.0:DM:#91:2022/12/08:Poursuite industrialisation
+# VERSION:5.0.1:DM:#91:2023/02/24:Poursuite industrialisation
+# VERSION:5.1.0:DM:#91:2023/05/23:Poursuite industrialisation
+# VERSION:5.1.1:DM:#91:2023/07/24:Poursuite industrialisation
+# VERSION:5.2.0:DM:#91:2023/10/04:Poursuite industrialisation
+# VERSION:5.3.0:DM:#91:2024/09/20:Poursuite industrialisation
+# VERSION:6.2.0:DM:#91:2024/11/29:Poursuite industrialisation
+# VERSION:6.2.3:DM:#900:2026/07/06: [PGE] [LAKES] Ajout d'une interface niveau moyen des lacs
+# VERSION:6.2.3:DM:#900:2026/07/06:SSALTO-565 [PGE] [LAKES] Ajout d'une interface coeff NN pour calcul ice_dyn_f
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -36,7 +45,6 @@ import datetime
 import logging
 from lxml import etree as ET
 import multiprocessing
-import numpy as np
 import os
 
 import cnes.common.service_config_file as service_config_file
@@ -50,6 +58,7 @@ import cnes.common.lib_lake.lake_db as lake_db
 import cnes.common.lib_lake.locnes_filenames as locnes_filenames
 import cnes.common.lib_lake.locnes_products_shapefile as locnes_products_shapefile
 import cnes.common.lib_lake.proc_lake as proc_lake
+import cnes.common.lib_lake.proc_mls as proc_mls
 
 import cnes.sas.lake_sp.proc_pixc_sp as proc_pixc_sp
 import cnes.sas.lake_sp.proc_pixc_vec_sp as proc_pixc_vec_sp
@@ -93,10 +102,12 @@ class PGELakeSP():
         # 2.2 - Put command parameter inside cfg
         self._put_cmd_value(my_params)
         # 2.3 - Retrieve parameters which are optionnal
+        self.flag_generate_pixcvec = self.cfg.getboolean("OPTIONS", "Force PIXCVec generation")
         self.flag_prod_shp = self.cfg.getboolean("OPTIONS", "Produce shp")
+        self.flag_save_inter = self.cfg.getboolean("OPTIONS", "Save intermediate data")
         self.flag_inc_file_counter = self.cfg.getboolean("OPTIONS", "Increment file counter")
         self.flag_write_full_path = self.cfg.getboolean("OPTIONS", "Write full path")
-        self.flag_del_tmp_shp = self.cfg.getboolean("OPTIONS", "Delete temporary shp")
+        self.flag_del_tmp = self.cfg.getboolean("OPTIONS", "Delete temporary files")
 
         # 3 - Set log filenames
         self.logfile = self.cfg.get('LOGGING', 'logFile')
@@ -122,6 +133,9 @@ class PGELakeSP():
         self.list_tmp_lakesp_shp["obs"] = list()  # List of temporary LakeSP_Obs shapefiles (to be later combined)
         self.list_tmp_lakesp_shp["prior"] = list()  # List of temporary LakeSP_Prior shapefiles (to be later combined)
         self.list_tmp_lakesp_shp["unknown"] = list()  # List of temporary LakeSP_Unassigned shapefiles (to be later combined)
+        self.update_pixcvec_ok = dict()  # For each swath: =True if the LakeTile_PIXCVec files have been updated to become the PIXCVec products; =False otherwise
+        for cur_swath_side in self.list_swath_sides:
+            self.update_pixcvec_ok[cur_swath_side] = False
 
         # 5 - Initiate logging service
         service_logger.ServiceLogger()
@@ -144,7 +158,7 @@ class PGELakeSP():
 
         # 8 - Form processing metadata dictionary
         self.proc_metadata = {}
-        self.proc_metadata["history"] = "%sZ: Creation" % my_tools.swot_timeformat(datetime.datetime.utcnow(), in_format=3)
+        self.proc_metadata["history"] = "%sZ: Creation" % my_tools.swot_timeformat(datetime.datetime.now(datetime.UTC), in_format=3)
         self.proc_metadata["cycle_number"] = "%03d" % self.cycle_num
         self.proc_metadata["pass_number"] = "%03d" % self.pass_num
         self.proc_metadata["continent_id"] = self.continent_id
@@ -153,6 +167,10 @@ class PGELakeSP():
             self.proc_metadata["xref_prior_lake_db_file"] = self.cfg.get("DATABASES", "LAKE_DB")
         else:
             self.proc_metadata["xref_prior_lake_db_file"] = ""
+        if self.cfg.get("DATABASES", "MLS") is not None:
+            self.proc_metadata["xref_mls_file"] = self.cfg.get("DATABASES", "MLS")
+        else:
+            self.proc_metadata["xref_mls_file"] = ""
 
         logger.info("")
         
@@ -169,11 +187,13 @@ class PGELakeSP():
         # 0 - Init output dictionary
         out_params = {}
         # Default values
+        out_params["flag_generate_pixcvec"] = "False"
         out_params["flag_prod_shp"] = "False"
+        out_params["flag_save_inter"] = "False"
         out_params["flag_inc_file_counter"] = "True"
         out_params["flag_write_full_path"] = "False"
         out_params["nb_proc"] = 1
-        out_params["flag_del_tmp_shp"] = "True"
+        out_params["flag_del_tmp"] = "True"
 
         # 1 - Read parameter file
         config = configparser.ConfigParser()
@@ -186,14 +206,18 @@ class PGELakeSP():
         # 3 - Retrieve DATABASES
         out_params["LAKE_DB"] = None
         out_params["LAKE_DB_ID"] = None
+        out_params["MLS"] = None
         # TODO : None in filename if no lake DATABASES or basins file
         if "DATABASES" in config.sections():
             list_db = config.options("DATABASES")
-            # Prior lake database
+            # 3.1 - Prior lake database
             if "lake_db" in list_db:
                 out_params["LAKE_DB"] = config.get("DATABASES", "LAKE_DB")
             if "lake_db_id" in list_db:
                 out_params["LAKE_DB_ID"] = config.get("DATABASES", "LAKE_DB_ID")
+            # 3.2 - Mean lake surfaces database
+            if "mls" in list_db:
+                out_params["MLS"] = config.get("DATABASES", "MLS")
 
         # 4 - Retrieve cycle and pass number
         out_params["cycle_num"] = config.getint("TILES_INFOS", "Cycle number")
@@ -207,9 +231,15 @@ class PGELakeSP():
         # 5 - Retrieve OPTIONS
         if "OPTIONS" in config.sections():
             list_options = config.options("OPTIONS")
+            # Flag to force PIXCVec generation (=True) or not (=False, default) in case LakeSP processing crashes
+            if "force pixcvec generation" in list_options:
+                out_params["flag_generate_pixcvec"] = config.get("OPTIONS", "Force PIXCVec generation")
             # Flag to also produce LakeTile_Edge and LakeTile_PIXCVec as shapefiles (=True); else=False (default)
             if "produce shp" in list_options:
                 out_params["flag_prod_shp"] = config.get("OPTIONS", "Produce shp")
+            # Flag to save intermediate data for detailed investigation or not (default)
+            if "save intermediate data" in list_options:
+                out_params["flag_save_inter"] = config.get("OPTIONS", "Save intermediate data")
             # Flag to increment the file counter in the output filenames (=True, default); else=False
             if "increment file counter" in list_options:
                 out_params["flag_inc_file_counter"] = config.get("OPTIONS", "Increment file counter")
@@ -221,9 +251,9 @@ class PGELakeSP():
                 out_params["nb_proc"] = config.getint("OPTIONS", "Nb_proc")
                 if out_params["nb_proc"] > 2:
                     out_params["nb_proc"] = 2
-            # Flag to delete temporary swath LakeSP shapefiles (=True, default) or not (=False)
-            if "delete temporary shp" in list_options:
-                out_params["flag_del_tmp_shp"] = config.get("OPTIONS", "Delete temporary shp")
+            # Flag to delete temporary files (=True, default) or not (=False)
+            if "delete temporary files" in list_options:
+                out_params["flag_del_tmp"] = config.get("OPTIONS", "Delete temporary files")
 
         # 6 - Retrieve LOGGING
         error_file = config.get("LOGGING", "errorFile")
@@ -282,6 +312,7 @@ class PGELakeSP():
             self.cfg.add_section(section)
             self.cfg.set(section, "LAKE_DB", param_list["LAKE_DB"])
             self.cfg.set(section, "LAKE_DB_ID", param_list["LAKE_DB_ID"])
+            self.cfg.set(section, "MLS", param_list["MLS"])
 
             # Add TILES INFOS section and parameters
             section = "TILES_INFOS"
@@ -293,11 +324,13 @@ class PGELakeSP():
             # Add OPTIONS section and parameters
             section = "OPTIONS"
             self.cfg.add_section(section)
+            self.cfg.set(section, "Force PIXCVec generation", param_list["flag_generate_pixcvec"])
             self.cfg.set(section, "Produce shp", param_list["flag_prod_shp"])
+            self.cfg.set(section, "Save intermediate data", param_list["flag_save_inter"])
             self.cfg.set(section, "Increment file counter", param_list["flag_inc_file_counter"])
             self.cfg.set(section, "Write full path", param_list["flag_write_full_path"])
             self.cfg.set(section, "Nb_proc", param_list["nb_proc"])
-            self.cfg.set(section, "Delete temporary shp", param_list["flag_del_tmp_shp"])
+            self.cfg.set(section, "Delete temporary files", param_list["flag_del_tmp"])
             
             # Add section FILE_INFORMATION
             section = "FILE_INFORMATION"
@@ -308,6 +341,7 @@ class PGELakeSP():
             self.cfg.set(section, "CRID_LAKESP", param_list["CRID_LAKESP"])
             self.cfg.set(section, "PGE_VERSION", param_list["PGE_VERSION"])
             self.cfg.set(section, "CONTACT", param_list["CONTACT"])
+            self.cfg.set(section, "PRODUCT_COUNTER", "01")
 
         except Exception:
             print("Something wrong happened in _put_cmd_value !")
@@ -361,6 +395,19 @@ class PGELakeSP():
                 logger.debug('OK - LAKE_DB directory = ' + str(self.cfg.get('DATABASES', 'LAKE_DB')))
             else:
                 logger.debug('WARNING - Unknown LAKE_DB file format for file: %s => LakeSP product not linked to a lake database' % self.cfg.get('DATABASES', 'LAKE_DB'))
+            # Mean lake surfaces database full path
+            if self.cfg.get('DATABASES', 'MLS') is None:
+                logger.debug('WARNING - MLS not filled => LakeSP produced without correction of geoid for large lakes')
+            elif self.cfg.get('DATABASES', 'MLS').endswith(".tar"):
+                self.cfg.test_var_config_file('DATABASES', 'MLS', str, logger=logger)
+                my_tools.test_file(self.cfg.get('DATABASES', 'MLS'))
+                logger.debug('OK - MLS = ' + str(self.cfg.get('DATABASES', 'MLS')))
+            elif os.path.isdir(self.cfg.get('DATABASES', 'MLS')):
+                self.cfg.test_var_config_file('DATABASES', 'MLS', str, logger=logger)
+                my_tools.test_dir(self.cfg.get('DATABASES', 'MLS'))
+                logger.debug('OK - MLS directory = ' + str(self.cfg.get('DATABASES', 'MLS')))
+            else:
+                logger.debug('WARNING - Unknown MLS file format for: %s => LakeSP produced without correction of geoid for large lakes' % self.cfg.get('DATABASES', 'MLS'))
               
             # 3 - TILES_INFO section
             # Cycle number
@@ -374,9 +421,15 @@ class PGELakeSP():
             logger.debug('OK - Continent identifier = ' + str(self.cfg.get('TILES_INFOS', 'Continent identifier')))
             
             # 4 - OPTIONS section
+            # Force PIXCVec generation in case LakeSP processing crashes
+            self.cfg.test_var_config_file('OPTIONS', 'Force PIXCVec generation', bool, logger=logger)
+            logger.debug('OK - Force PIXCVec generation = ' + str(self.cfg.get('OPTIONS', 'Force PIXCVec generation')))
             # Shapefile production
             self.cfg.test_var_config_file('OPTIONS', 'Produce shp', bool, logger=logger)
             logger.debug('OK - Produce shp = ' + str(self.cfg.get('OPTIONS', 'Produce shp')))
+            # Save intermediate data
+            self.cfg.test_var_config_file('OPTIONS', 'Save intermediate data', bool, logger=logger)
+            logger.debug('OK - Save intermediate data = ' + str(self.cfg.get('OPTIONS', 'Save intermediate data')))
             # Increment output file counter
             self.cfg.test_var_config_file('OPTIONS', 'Increment file counter', bool, logger=logger)
             logger.debug('OK - Increment file counter = ' + str(self.cfg.get('OPTIONS', 'Increment file counter')))
@@ -386,9 +439,9 @@ class PGELakeSP():
             # Number of processors to use 
             self.cfg.test_var_config_file('OPTIONS', 'Nb_proc', int, logger=logger)
             logger.debug('OK - Nb_proc = ' + str(self.cfg.get('OPTIONS', 'Nb_proc')))
-            # To delete temporary swath LakeSP shapefiles (=True, default) or not (=False)
-            self.cfg.test_var_config_file('OPTIONS', 'Delete temporary shp', bool, val_default=True, logger=logger)
-            logger.debug('OK - Delete temporary shp = ' + str(self.cfg.get('OPTIONS', 'Delete temporary shp')))
+            # To delete temporary files (=True, default) or not (=False)
+            self.cfg.test_var_config_file('OPTIONS', 'Delete temporary files', bool, val_default=True, logger=logger)
+            logger.debug('OK - Delete temporary files = ' + str(self.cfg.get('OPTIONS', 'Delete temporary files')))
             
             # 5 - FILE_INFORMATION section
             # Name of producing agency
@@ -431,7 +484,7 @@ class PGELakeSP():
         """
         logger = logging.getLogger(self.__class__.__name__)
 
-        # 0 - Compute lake DB filename if directory is given
+        # 0.1 - Compute lake DB filename if directory is given
         lake_db_file = self.cfg.get("DATABASES", "LAKE_DB")
         if (lake_db_file is not None) and os.path.isdir(lake_db_file):
             obj_lakedb_filenames = locnes_filenames.PldFilenames("SP", 
@@ -439,6 +492,14 @@ class PGELakeSP():
                                                                  cycle_num=self.cycle_num, 
                                                                  pass_num=self.pass_num)
             lake_db_file = obj_lakedb_filenames.filename
+        # 0.2 - Compute MLS filename if directory is given
+        mls_file = self.cfg.get("DATABASES", "MLS")
+        if (mls_file is not None) and os.path.isdir(mls_file):
+            obj_mls_filenames = locnes_filenames.MlsFilenames("SP", 
+                                                              mls_file, 
+                                                              cycle_num=self.cycle_num, 
+                                                              pass_num=self.pass_num)
+            mls_file = obj_mls_filenames.filename
 
         # 1 - List all files in LakeTile_shp directory
         tmp_list_laketile_files = os.listdir(self.laketile_dir)
@@ -519,6 +580,7 @@ class PGELakeSP():
                         locnes_products_shapefile.set_config_from_xml(metadata)
                         locnes_products_shapefile.check_lake_db(metadata, lake_db_file)
                         locnes_products_shapefile.check_lake_db_id(metadata)
+                        locnes_products_shapefile.check_mls(metadata, mls_file)
                     except:
                         message = "ERROR: problem with LakeTile_Obs XML file: " + cur_laketile_obs_path + ".xml"
                         raise service_error.ProcessingError(message, logger)
@@ -578,6 +640,7 @@ class PGELakeSP():
 
                     # Parameter file from LakeTile processing
                     self.proc_metadata["source"] = metadata.xpath("//swot_product/global_metadata/source")[0].text
+                    self.proc_metadata["xref_ice_model_file"] = metadata.xpath("//swot_product/global_metadata/xref_ice_model_file")[0].text
                     self.proc_metadata["xref_param_l2_hr_laketile_file"] = metadata.xpath("//swot_product/global_metadata/xref_param_l2_hr_laketile_file")[0].text
 
         # Parameters specific to swath and global
@@ -586,7 +649,8 @@ class PGELakeSP():
             self.proc_metadata_specific[key] = dict()  # Init
             
             # basin_code list
-            self.proc_metadata_specific[key]["basin_code"] = my_var.SEP_ATT.join(sorted(list_basin_code[key]))
+            basin_code_to_keep = [basin_code for basin_code in list_basin_code[key] if basin_code != ""]
+            self.proc_metadata_specific[key]["basin_code"] = my_var.SEP_ATT.join(sorted(basin_code_to_keep))
 
             # PIXC filenames
             self.proc_metadata_specific[key]["xref_l2_hr_pixc_files"] = my_var.SEP_FILES.join(sorted(list_pixc_files[key]))
@@ -625,7 +689,7 @@ class PGELakeSP():
                                                                       self.output_dir,
                                                                       flag_inc=self.flag_inc_file_counter)
 
-    def _read_lake_db(self, in_continent_id, in_poly, in_swath):
+    def _read_lake_db(self, in_continent_id, in_poly, in_swath, in_date):
         """
         This method prepares Lake DB class, and init with Lake DB data
         
@@ -635,6 +699,8 @@ class PGELakeSP():
         :type in_poly: OGRPolygon
         :param in_swath: "R" or "L" for Right ou Left swath
         :type in_swath: String
+        :param in_date: date of lake product acquisition
+        :type in_date: datetime.datetime
 
         :return: out_obj_lake_db = subset of the PLD 
         :rtype: cnes.common.lib_lake.lake_db.<LakeDb|LakeDbShp|LakeDbSqlite>
@@ -644,8 +710,6 @@ class PGELakeSP():
             - in_tile_poly=not None, others=None => LakeSP processing with user lake DB
         """
         logger = logging.getLogger(self.__class__.__name__)
-        timer = my_timer.Timer()
-        timer.start()
 
         lake_db_file = self.cfg.get("DATABASES", "LAKE_DB")
         
@@ -668,11 +732,11 @@ class PGELakeSP():
                     logger.debug("Use of operational Prior Lake Database (specific filename given)")
                     out_obj_lake_db = lake_db.LakeDbSqlite(lake_db_file, 
                                                            in_continent_id=continent_code,
-                                                           in_swath=in_swath)
+                                                           in_swath=in_swath, in_date=in_date)
                 else:
                     logger.debug("Use of personal user lake database in SQLite format")
                     out_obj_lake_db = lake_db.LakeDbSqlite(lake_db_file, 
-                                                           in_poly=in_poly)
+                                                           in_poly=in_poly, in_date=in_date)
                     
             elif os.path.isdir(lake_db_file):  # Directory of operational Prior Lake Database (PLD)
                 logger.debug("Use of operational Prior Lake Database (upper directory given)")
@@ -685,20 +749,77 @@ class PGELakeSP():
                 if os.path.exists(lakedb_filenames.filename):
                     out_obj_lake_db = lake_db.LakeDbSqlite(lakedb_filenames.filename, 
                                                            in_continent_id=continent_code,
-                                                           in_swath=in_swath)
+                                                           in_swath=in_swath, in_date=in_date)
                     self.proc_metadata["xref_prior_lake_db_file"] = lakedb_filenames.filename
                 else:
                     logger.warning("NO related operational Prior Lake Database file found -> NO database specified")
-                    self.obj_lake_db = lake_db.LakeDb()
+                    out_obj_lake_db = lake_db.LakeDb()
                     
             else:
                 message = "Prior Lake Database format (%s) is unknown: must be .shp or .sqlite => set to None" % type_db
                 logger.warning(message)
                 out_obj_lake_db = lake_db.LakeDb()
 
-        logger.debug(timer.stop("PLD opening time: "))
-
         return out_obj_lake_db
+    
+    def _read_mls_data(self, in_obj_lake_db):
+        """
+        This method prepares MeanLakeSurface class, and init with MLS data
+
+        :param in_obj_lake_db: subset of the PLD 
+        :type in_obj_lake_db: cnes.common.lib_lake.lake_db.<LakeDb|LakeDbShp|LakeDbSqlite>
+
+        :return: out_obj_mls = Mean Lake Surface data
+        :rtype: cnes.common.lib_lake.proc_mls.MeanLakeSurface
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        
+        mls_file = self.cfg.get("DATABASES", "MLS")
+        mls_filename = ""
+        out_obj_mls = proc_mls.MeanLakeSurface()
+        
+        if (mls_file == "") or (mls_file is None):  # No MLS
+            logger.warning("NO mean lake surface database specified -> NO correction of geoid for large lakes applied")
+        else:  # Init MLS object wrt to file type
+            
+            type_db = mls_file.split('.')[-1]  # File type
+            
+            if type_db == "tar":  # Operational MLS TAR file
+                if os.path.basename(mls_file).startswith(locnes_filenames.MLS_PREFIX_BASE):  # Operationnal MLS filename
+                    logger.debug("Use of operational Mean Lake Surfaces (specific filename given)")
+                    mls_filename = mls_file
+                else:
+                    logger.debug("Filename UNKNOWN -> NO correction of geoid for large lakes")
+                
+            elif os.path.isdir(mls_file):  # Directory of operational Mean Lake Surfaces (MLS)
+                logger.debug("Use of operational Mean Lake Surfaces (upper directory given)")
+                # Compute MLS filename
+                mls_filenames = locnes_filenames.MlsFilenames("SP", 
+                                                              mls_file, 
+                                                              cycle_num=self.cycle_num,
+                                                              pass_num=self.pass_num)
+                # Init MLS object
+                if os.path.exists(mls_filenames.filename):
+                    mls_filename = mls_filenames.filename
+                    self.proc_metadata["xref_mls_file"] = mls_filename
+                else:
+                    logger.warning("NO related operational Mean Lake Surface file found -> NO database specified")
+                
+            else:
+                message = "Mean Lake Surface file format (%s) is unknown: must be .tar => set to None" % type_db
+                logger.warning(message)
+            
+            if mls_filename != "":
+                # Compute list of lake_id of big lakes over the pass
+                list_lakeid = in_obj_lake_db.get_lakeid_with_mls()
+                # Load MLS
+                if len(list_lakeid) == 0:
+                    logger.debug("NO PLD lake has a Mean Lake Surface attached")
+                else:
+                    logger.debug("{} PLD lakes have a Mean Lake Surface attached => correction to geoid model will be applied for them = {}".format(len(list_lakeid), list_lakeid))
+                    out_obj_mls.load_data(mls_filename, list_lakeid=list_lakeid)
+
+        return out_obj_mls
         
     # -------------------------------------------
 
@@ -710,35 +831,82 @@ class PGELakeSP():
         timer = my_timer.Timer()
         timer.start()
 
-        # 1 - Write LakeSP shapefiles
+        # Write LakeSP shapefiles
         logger.info("> Combining LakeSP temporary swath shapefiles to unique LakeSP shapefiles...")
-        # 1.1 - Obs-oriented shapefile
+        
+        # 1 - Obs-oriented shapefile
         logger.info(". Obs-oriented shapefile = %s" % self.lake_sp_filenames.lake_sp_file_obs)
         proc_lake.write_lakesp_file(self.list_tmp_lakesp_shp["obs"], 
                                     self.list_laketile_obs,
                                     self.lake_sp_filenames.lake_sp_file_obs, 
                                     {**self.proc_metadata, **self.proc_metadata_specific["all"]},
                                     continent_id=self.continent_id,
-                                    flag_del_tmp_shp=self.flag_del_tmp_shp)
-        # 1.2 - Shapefile of prior water features
+                                    flag_del_tmp_shp=self.flag_del_tmp)
+        
+        # 2 - Shapefile of prior water features
         logger.info(". PLD-oriented shapefile = %s" % self.lake_sp_filenames.lake_sp_file_prior)
         proc_lake.write_lakesp_file(self.list_tmp_lakesp_shp["prior"], 
                                     self.list_laketile_prior,
                                     self.lake_sp_filenames.lake_sp_file_prior,
                                     {**self.proc_metadata, **self.proc_metadata_specific["all"]},
                                     continent_id=self.continent_id,
-                                    flag_del_tmp_shp=self.flag_del_tmp_shp,
+                                    flag_del_tmp_shp=self.flag_del_tmp,
                                     flag_add_nogeom_feat=True)
-        # 1.3 - Shapefile of unassigned water features
+        
+        # 3 - Shapefile of unassigned water features
         logger.info(". Shapefile of unassigned water features = %s" % self.lake_sp_filenames.lake_sp_file_unknown)
         proc_lake.write_lakesp_file(self.list_tmp_lakesp_shp["unknown"], 
                                     self.list_laketile_unknown,
                                     self.lake_sp_filenames.lake_sp_file_unknown,
                                     {**self.proc_metadata, **self.proc_metadata_specific["all"]},
-                                    flag_del_tmp_shp=self.flag_del_tmp_shp,
+                                    flag_del_tmp_shp=self.flag_del_tmp,
                                     continent_id=self.continent_id)
-        logger.debug(timer.stop("LakeSP file writing time: "))
+        
+        logger.debug(timer.stop("LakeSP files writing time: "))
         logger.info("")
+
+    def _write_output_data_when_error(self):
+        """
+        This method converts the input LakeTile_PIXCVec files to output PIXCVec products
+        when the LakeSP processor crashes so that the raster processor can use them 
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        
+        logger.warning("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        logger.warning("!!! ACTIVATION OF ERROR MODE: copy LakeTile_PIXCVec files to PIXCVec products !!!")
+        logger.warning("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        logger.info("")
+        
+        for swath_side, list_laketile_pixcvec_swath in self.list_laketile_pixcvec.items():
+            logger.info(">>> Handle swath side %s <<<" % swath_side)
+            logger.info("")
+            
+            if self.update_pixcvec_ok[swath_side]:
+                logger.info("Update of LakeTile_PIXCVec OK for this swath => NOTHING TO DO")
+                logger.info("")
+                continue
+            
+            if len(list_laketile_pixcvec_swath) == 0:
+                logger.info("NO LakeTile_PIXCVec to process")
+                logger.info("")
+                continue
+        
+            # 1 - Init PIXCVec_SP
+            logger.info("> 1 - Init PIXCVec_SP object")
+            obj_pixcvec_sp = proc_pixc_vec_sp.PixCVecSwath(list_laketile_pixcvec_swath,
+                                                           None,
+                                                           self.continent_id)
+            logger.info("")
+            
+            # 2 - Copy LakeTile_PIXCVec files to L2_HR_PIXCVec products
+            logger.info("> 2 - Copy LakeTile_PIXCVec files to L2_HR_PIXCVec products...")
+            obj_pixcvec_sp.update_pixcvec(self.output_dir,
+                                          in_write_to_shp=self.flag_prod_shp,
+                                          in_proc_metadata=self.proc_metadata)
+            logger.info("")
+        
+            # 3 - Free memory
+            del obj_pixcvec_sp
 
     # -------------------------------------------
     
@@ -754,6 +922,9 @@ class PGELakeSP():
         :return: out_list_tmp_lakesp_shp = list of temporary output LakeSP shapefiles (key = obs | prior | unknown); 
                     there is a one-to-one correspondance with the swath sides above
         :rtype: out_list_tmp_lakesp_shp = dict
+        :return: out_update_pixcvec_ok = For each swath: =True if the LakeTile_PIXCVec files have been updated to become the PIXCVec products; =False otherwise
+                                        NB: used in addition to self.update_pixcvec_ok to handle both mono and multiprocessing
+        :rtype: out_update_pixcvec_ok = dict
         """
         logger = logging.getLogger(self.__class__.__name__)
         
@@ -762,6 +933,7 @@ class PGELakeSP():
         out_list_tmp_lakesp_shp["obs"] = list()
         out_list_tmp_lakesp_shp["prior"] = list()
         out_list_tmp_lakesp_shp["unknown"] = list()
+        out_update_pixcvec_ok = dict()
 
         for cur_swath in in_list_laketile_edge.keys():
             timer = my_timer.Timer()
@@ -772,6 +944,9 @@ class PGELakeSP():
             logger.info("=============================")
             logger.info("")
             
+            # 0.2 - Init flag indicating correct PIXCVec update for current swath
+            out_update_pixcvec_ok[cur_swath] = False
+            
             # 1 - Init and populate PixCEdgeSwath object
             
             # 1.1 - Init PixCEdgeSwath object
@@ -781,7 +956,7 @@ class PGELakeSP():
                                                      self.continent_id,
                                                      cur_swath)
             logger.info("")
-            
+
             # 1.2 - Populate PixCEdgeSwath object with LakeTile_Edge file information
             logger.info("> 1.2 - Fill PixCEdgeSwath object with LakeTile_Edge file information")
             obj_pixc_sp.set_from_laketile_edge_file(in_list_laketile_edge[cur_swath])
@@ -795,95 +970,127 @@ class PGELakeSP():
                                                            self.continent_id)
             logger.info("")
             
+            # 2 - Init obj_pixc_sp.date if it's still None (in case there is no LakeTile for this swath)
+            if obj_pixc_sp.date is None:
+                for cur_swath2 in in_list_laketile_edge.keys():
+                    if len(in_list_laketile_edge[cur_swath2]) != 0:
+                        tmp_basename = os.path.basename(in_list_laketile_edge[cur_swath2][0])
+                        tmp_date = tmp_basename.split("_")[locnes_filenames.LAKE_TILE_PATTERN_IND["start_date"]]
+                        obj_pixc_sp.date = datetime.datetime.strptime(tmp_date, "%Y%m%dT%H%M%S")
+                        continue
+            
+            # 3 - Read lake DB
+            logger.info("> 2 - Init and read lake DB object...")
+            obj_lakedb = self._read_lake_db(self.continent_id, obj_pixc_sp.tile_poly, cur_swath, obj_pixc_sp.date)
+            logger.info("")
+            
+            # 4 - Read MLS
+            logger.info("> 3 - Init and read Mean Lake Surface object...")
+            obj_mls = self._read_mls_data(obj_lakedb)
+            logger.info("")
+            
+            logger.debug(timer.stop("Swath %s - Loading of LakeTile_Edge, LakeTile_PIXCVec, PLD and MLS in: " % cur_swath))
+            timer.start()
+            
             # Processing only if there are edge pixels to manage
             if obj_pixc_sp.nb_pixels > 0:
             
-                # 2 - Read lake DB
-                logger.info("> 2 - Init and read lake DB object...")
-                obj_lakedb = self._read_lake_db(self.continent_id, obj_pixc_sp.tile_poly, cur_swath)
-                logger.info("")
-                
-                # 3 - Initialize LakeSP object
-                logger.info("> 3 - Initialize LakeSP object...")
+                # 5 - Initialize LakeSP object
+                logger.info("> 4 - Initialize LakeSP object...")
                 obj_lake_sp = proc_lake.LakeProduct("SP",
                                                     obj_pixc_sp,
                                                     obj_pixcvec_sp,
                                                     obj_lakedb,
-                                                    os.path.basename(self.lake_sp_filenames.lake_sp_file_obs).split(".")[0])
-                logger.info("")
-                
-                # 4 - Process swath
-                
-                # 4.1 - Gather edge pixels in separate entities for all the tiles of this swath
-                logger.info("4.1 - Gathering edge pixels in separate entities for all the tiles...")
-                obj_pixc_sp.swath_global_relabeling()
+                                                    obj_mls,
+                                                    os.path.basename(self.lake_sp_filenames.lake_sp_file_obs).split(".")[0],
+                                                    in_swath_side=cur_swath)
                 logger.info("")
 
-                # 4.2 - Compute LakeSP product for this swath
-                logger.info("4.2 - Computing LakeSP features at along-track edges...")
-                obj_lake_sp.compute_lake_features(np.unique(obj_pixc_sp.labels))
+                # 6 - Process swath
+                
+                # 6.1 - Gather edge pixels in separate water regions for all the tiles of this swath
+                logger.info("5.1 - Gathering edge pixels in separate water regions for all the tiles...")
+                obj_pixc_sp.swath_global_relabeling()
                 logger.info("")
                 
-                # 5 - Close lake database
-                logger.info("> 5 - Closing lake database...")
+                logger.debug(timer.stop("Swath %s - swath_global_relabeling in: " % cur_swath))
+                timer.start()
+
+                # 6.2 - Compute LakeSP product for this swath
+                logger.info("5.2 - Computing LakeSP features at along-track edges...")
+                obj_lake_sp.compute_lake_features(obj_pixc_sp.labels_to_process, 
+                                                  labels_biglakes=obj_pixc_sp.labels_biglakes, 
+                                                  lakeid_biglakes=obj_pixc_sp.big_lakeid)
+                logger.info("")
+
+                logger.debug(timer.stop("Swath %s - compute_lake_features in: " % cur_swath))
+                timer.start()
+
+                # 7 - Close lake database
+                logger.info("> 6 - Closing lake database...")
                 obj_lakedb.close_db()
                 
             else:
                 
-                # 3 - Initialize LakeSP object
-                logger.info("> 3 - Initialize EMPTY LakeSP object...")
+                # 5 - Initialize LakeSP object
+                logger.info("> 4 - Initialize EMPTY LakeSP object...")
                 obj_lake_sp = proc_lake.LakeProduct("SP",
                                                     obj_pixc_sp,
                                                     None,
-                                                    None,
-                                                    os.path.basename(self.lake_sp_filenames.lake_sp_file_obs).split(".")[0])
-                logger.info("")
+                                                    obj_lakedb,
+                                                    obj_mls,
+                                                    os.path.basename(self.lake_sp_filenames.lake_sp_file_obs).split(".")[0], in_swath_side=cur_swath)
+            logger.info("")
+            timer.start()
             
-            # 6 - Write temporary output shapefiles
-            logger.info("> 6 - Writing LakeSP temporary shapefiles...")
+            # 8 - Write temporary output shapefiles
+            logger.info("> 7 - Writing LakeSP temporary shapefiles...")
             
-            # 6.1 - Obs-oriented shapefile
-            # 6.1.1 - Compute filename
+            # 8.1 - Obs-oriented shapefile
+            # 8.1.1 - Compute filename
             tmp_filename_obs = os.path.join(self.output_dir, "%s_%s.shp" % (os.path.splitext(os.path.basename(self.lake_sp_filenames.lake_sp_file_obs))[0], cur_swath))
             out_list_tmp_lakesp_shp["obs"].append(tmp_filename_obs)
-            # 6.1.2 - Write shapefile
+            # 8.1.2 - Write shapefile
             logger.info(". Obs-oriented shapefile = %s" % tmp_filename_obs)
             obj_lake_sp.write_obs_file(tmp_filename_obs, {**self.proc_metadata, **self.proc_metadata_specific[cur_swath]})
             
-            # 6.2 - Shapefile of prior water features
-            # 6.2.1 - Compute filename
+            # 8.2 - Shapefile of prior water features
+            # 8.2.1 - Compute filename
             tmp_filename_prior = os.path.join(self.output_dir, "%s_%s.shp" % (os.path.splitext(os.path.basename(self.lake_sp_filenames.lake_sp_file_prior))[0], cur_swath))
             out_list_tmp_lakesp_shp["prior"].append(tmp_filename_prior)
-            # 6.2.2 - Write shapefile
+            # 8.2.2 - Write shapefile
             logger.info(". PLD-oriented shapefile = %s" % tmp_filename_prior)
             obj_lake_sp.write_prior_file(tmp_filename_prior, {**self.proc_metadata, **self.proc_metadata_specific[cur_swath]})
             
-            # 6.3 - Shapefile of unassigned water features
-            # 6.3.1 - Compute filename
+            # 8.3 - Shapefile of unassigned water features
+            # 8.3.1 - Compute filename
             tmp_filename_unknown = os.path.join(self.output_dir, "%s_%s.shp" % (os.path.splitext(os.path.basename(self.lake_sp_filenames.lake_sp_file_unknown))[0], cur_swath))
             out_list_tmp_lakesp_shp["unknown"].append(tmp_filename_unknown)
-            # 6.3.2 - Write shapefile
+            # 8.3.2 - Write shapefile
             logger.info(". Shapefile of unassigned water features = %s" % tmp_filename_unknown)
             obj_lake_sp.write_unknown_file(tmp_filename_unknown, {**self.proc_metadata, **self.proc_metadata_specific[cur_swath]})
             logger.info("")
             
-            # 7 - Update PIXCVec files
-            logger.info("> 7 - Updating L2_HR_PIXCVec files...")
+            # 9 - Update PIXCVec files
+            logger.info("> 8 - Updating L2_HR_PIXCVec files...")
             obj_pixcvec_sp.update_pixcvec(self.output_dir,
                                           in_write_to_shp=self.flag_prod_shp,
                                           in_proc_metadata=self.proc_metadata)
+            out_update_pixcvec_ok[cur_swath] = True
+            self.update_pixcvec_ok[cur_swath] = True
             logger.info("")
-                
-            # 8 - Free memory
+            logger.debug(timer.stop("Swath %s - Writing LakeSP and Update PIXCVec in: " % cur_swath))
+            
+            # 10 - Free memory
             del obj_pixc_sp
             del obj_pixcvec_sp
             obj_lake_sp.free_memory()
             del obj_lake_sp
 
-            logger.debug(timer.stop("%s swath computation time: " %cur_swath))
+            logger.debug(timer.stop("Swath %s - Total execution time in" %cur_swath))
             logger.info("")
 
-        return out_list_tmp_lakesp_shp
+        return out_list_tmp_lakesp_shp, out_update_pixcvec_ok
 
     def start(self):
         """
@@ -924,18 +1131,18 @@ class PGELakeSP():
 
             # 2 - Run main process
             try:
-                list_tmp_lakesp_shp = self.main_process(in_list_laketile_edge, in_list_laketile_pixcvec)
-                queue.put(list_tmp_lakesp_shp)
+                list_tmp_lakesp_shp, tmp_update_pixcvec_ok = self.main_process(in_list_laketile_edge, in_list_laketile_pixcvec)
                 logger.info("STOP process")
+                queue.put([list_tmp_lakesp_shp, tmp_update_pixcvec_ok])
                 
             except:
                 proc_pid = multiprocessing.current_process().pid
                 proc_name = multiprocessing.current_process().name
                 logger.error("Process " + proc_name + " with pid " + str(proc_pid) + " failed", exc_info=True)
-                queue.put(None)
+                queue.put([None, None])
                 raise
 
-            # 3 - Close log file for each  swath if a single swath is processed
+            # 3 - Close log file for each swath if a single swath is processed
             if len(in_list_laketile_edge) == 1:
                 swath = next(iter(in_list_laketile_edge))
                 logger.debug("Closing temporary log file %s" % self.logfile_swath[swath])
@@ -965,12 +1172,12 @@ class PGELakeSP():
                 logger.info("")
                 
             else:
-
+                
                 if self.nb_proc == 1:
                     # 2 - Run main process directly
                     logger.info("> Step 2 - Main processing using ONLY 1 processor")
                     logger.info("")
-                    self.list_tmp_lakesp_shp = self.main_process(self.list_laketile_edge, self.list_laketile_pixcvec)
+                    self.list_tmp_lakesp_shp, self.update_pixcvec_ok = self.main_process(self.list_laketile_edge, self.list_laketile_pixcvec)
                     
                 else:
                     # 2 - Run main process after spreading over available processors
@@ -1016,20 +1223,20 @@ class PGELakeSP():
                     logger.info("> 2.2 - Launch processes")
                     proc_i = 0
     
-                    # 2.3.0 - Write log to file before running multiprocessing
+                    # 2.2.1 - Write log to file before running multiprocessing
                     logger.debug("Closing temporary log %s to write a log for each swath" % self.logfile_begin)
                     instance_logger = service_logger.get_instance()
                     if instance_logger is not None:
                         instance_logger.flush_log()
                         instance_logger.close()
     
-                    # 2.3.1 - Run subproc
+                    # 2.2.2 - Run subproc
                     for p in list_process:
                         logger.debug("Start process " + str(proc_i))
                         proc_i = proc_i + 1
                         p.start()
     
-                    # 2.3.2 -  Reopen principal log file
+                    # 2.2.3 -  Reopen principal log file
                     self.cfg.set("LOGGING", "logFile", self.logfile_end)
                     service_logger.ServiceLogger()
                     logger = logging.getLogger(self.__class__.__name__)
@@ -1038,16 +1245,19 @@ class PGELakeSP():
         
                     # 2.4 - Get results from processes
                     logger.info("> 2.3 - Get results")
+                    flag_job_nok = False
                     for q in list_queue:
-                        list_tmp_lakesp_shp = q.get()
-                        if list_tmp_lakesp_shp is not None:
+                        list_tmp_lakesp_shp, tmp_update_pixcvec_ok = q.get()
+                        if list_tmp_lakesp_shp is None:
+                            flag_job_nok = True
+                        else:
                             for key in self.list_tmp_lakesp_shp.keys():
                                 if key in list_tmp_lakesp_shp.keys():
                                     self.list_tmp_lakesp_shp[key] = [*self.list_tmp_lakesp_shp[key], *list_tmp_lakesp_shp[key]]
-                        else:
-                            message = "Fatal Error in one subProcess ! Stop PGE !"
-                            #logger.error(message, exc_info=True)
-                            raise Exception(message)
+                            self.update_pixcvec_ok = { **self.update_pixcvec_ok, **tmp_update_pixcvec_ok }
+                    if flag_job_nok:
+                        message = "Fatal Error in one subProcess ! Stop PGE !"
+                        raise Exception(message)
                     logger.info("")
         
                     logger.debug("Wait until process finish")
@@ -1069,7 +1279,6 @@ class PGELakeSP():
             raise
             
         except Exception:
-            message = "Fatal error catch in PGE LakeSP"
             logger.error(message, exc_info=True)
             raise
         
@@ -1079,6 +1288,9 @@ class PGELakeSP():
         Close all services
         """
         logger = logging.getLogger(self.__class__.__name__)
+        
+        if (False in self.update_pixcvec_ok.values()) and self.flag_generate_pixcvec:
+            self._write_output_data_when_error()
 
         logger.info("")
         logger.info("******************************")
@@ -1110,7 +1322,7 @@ class PGELakeSP():
                     with open(fname) as infile:
                         for line in infile:
                             out_logfile.write(line)
-                    if self.flag_del_tmp_shp:
+                    if self.flag_del_tmp:
                         os.remove(fname)
     
 

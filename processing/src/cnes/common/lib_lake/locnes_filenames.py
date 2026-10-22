@@ -12,6 +12,14 @@
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # VERSION:3.2.0:DM:#91:2021/10/27:Poursuite industrialisation
 # VERSION:4.0.0:DM:#91:2022/05/05:Poursuite industrialisation
+# VERSION:5.0.0:DM:#91:2022/12/08:Poursuite industrialisation
+# VERSION:5.0.1:DM:#91:2023/02/24:Poursuite industrialisation
+# VERSION:5.2.1:DM:#91:2023/07/24:Poursuite industrialisation
+# VERSION:5.3.0:DM:#91:2023/10/04:Poursuite industrialisation
+# VERSION:6.1.0:DM:#91:2024/09/20:Poursuite industrialisation
+# VERSION:6.2.6:DM:#900:2026/07/06: [PGE] [LAKES] Ajout d'une interface niveau moyen des lacs
+# VERSION:6.2.6:DM:#900:2026/07/06:SSALTO-565 [PGE] [LAKES] Ajout d'une interface coeff NN pour calcul ice_dyn_f
+# VERSION:6.2.7:DM:#906:2026/07/28:SSALTO-872 [PGE][LAKES] Gestion des erreurs/warning GDAL
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -55,6 +63,7 @@ PIXCVEC_RIVER_PATTERN_PRINT = PIXCVEC_RIVER_PREFIX \
                               + "<CycleID>_<PassID>_<TileID>[L/R]_<RangeBeginDateTime>_<RangeEndingDateTime>_<CRID>_<ProductCounter>.nc"
 # Indices when PIXCVEC_RIVER_PATTERN.split("_"); None if value not in filename
 PIXCVEC_RIVER_PATTERN_IND = {"cycle": 4, "pass": 5, "tile_ref": 6, "start_date": 7, "stop_date": 8, "crid": 9, "counter": 10}
+PIXCVEC_RIVER_SUFFIX = ".nc"
 
 # 3 - LakeTile
 LAKE_TILE_PREFIX_BASE = "SWOT_L2_HR_LakeTile_"
@@ -113,7 +122,7 @@ LAKE_AVG_SUFFIX = ".shp"
 # LakeAvg filename with %03d=cycle number %s=continent %s=basin idenfier %s=begin date %s=end date %s=CRID %s=counter
 LAKE_AVG_PATTERN = LAKE_AVG_PREFIX + "%03d_%s_%s_%s_%s_%s_%02d" + LAKE_AVG_SUFFIX
 
-# 7 - Operationnal Prior Lake Database (PLD)
+# 7 - Operational Prior Lake Database (PLD)
 PLD_PREFIX_BASE = "SWOT_LakeDatabase_"
 PLD_SUFFIX = ".sqlite"
 # Distinguish each file
@@ -131,6 +140,19 @@ for key, value in PLD_PREFIX.items():
     else:
         # PLD filename with %03d=pass number %s=begin date %s=end date %file creation date %03d=version number (Vvv)
         PLD_PATTERN_START[key] = value + "%03d"
+        
+# 8 - Operational Mean Lake Surface (MLS)
+MLS_PREFIX_BASE = "SWOT_MeanLakeSurface_"
+MLS_SUFFIX = ".tar"
+# Distinguish each file
+MLS_PREFIX = {}
+MLS_PREFIX["calval"] = MLS_PREFIX_BASE + "Cal_"
+MLS_PREFIX["science"] = MLS_PREFIX_BASE + "Nom_"
+# MLS filenames
+MLS_PATTERN_START = {}
+for key, value in MLS_PREFIX.items():
+    # MLS filename with %03d=pass number %s=begin date %s=end date %file creation date %03d=version number (Vvv)
+    MLS_PATTERN_START[key] = value + "%03d"
 
 
 #######################################
@@ -267,7 +289,6 @@ class LakeTileFilenames(object):
             - lake_tile_pixcvec_file / str: LakeTile_PIXCVec full path
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("- start -")
         cfg = service_config_file.get_instance()  # Get config file
 
         # 1 - Init variables
@@ -275,7 +296,8 @@ class LakeTileFilenames(object):
         self.pixcvec_river_file = in_pixcvec_river_file  # PIXCVecRiver full path
         self.out_dir = in_out_dir  # Output directory
         self.flag_inc_file_counter = flag_inc  # Flag to increment file counter
-        self.product_counter = 1  # Product counter
+        self.product_counter = int(cfg.get("FILE_INFORMATION", "PRODUCT_COUNTER"))
+
         # Get CRID from configuration file
         try:
             self.crid_laketile = cfg.get("FILE_INFORMATION", "CRID")
@@ -470,7 +492,7 @@ class LakeSPFilenames(object):
             - lake_sp_file_unknown / str: full path of file of unassigned water features
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("- start -")
+        #logger.debug("- start -")
         # Get config file
         cfg = service_config_file.get_instance()
 
@@ -478,7 +500,7 @@ class LakeSPFilenames(object):
         self.lake_tile_file_list = in_lake_tile_file_list  # List of LakeTile_shp files full path
         self.out_dir = in_out_dir  # Output directory
         self.flag_inc_file_counter = flag_inc  # Flag to increment file counter
-        self.product_counter = 1  # Product counter
+        self.product_counter = int(cfg.get("FILE_INFORMATION", "PRODUCT_COUNTER"))
         # Get CRID from configuration file
         self.crid_lakesp = cfg.get("FILE_INFORMATION", "CRID_LAKESP")
 
@@ -555,7 +577,7 @@ class LakeSPFilenames(object):
         """
 
         # 1 - Full path of obs-oriented product
-        if self.continent_id is "":
+        if self.continent_id == "":
             filename = LAKE_SP_PATTERN_NO_CONT["obs"] % (self.cycle_num, self.pass_num, self.start_date, self.stop_date, self.crid_lakesp, \
                                                           self.product_counter)
         else:
@@ -567,7 +589,7 @@ class LakeSPFilenames(object):
         if self.flag_inc_file_counter:
             while os.path.exists(self.lake_sp_file_obs):
                 self.product_counter += 1
-                if self.continent_id is "":
+                if self.continent_id == "":
                     filename = LAKE_SP_PATTERN_NO_CONT["obs"] % (self.cycle_num, self.pass_num, self.start_date, self.stop_date, self.crid_lakesp, \
                                                                   self.product_counter)
                 else:
@@ -601,7 +623,7 @@ def compute_pixcvec_filename(in_laketile_pixcvec_filename, in_output_dir):
     cfg = service_config_file.get_instance()
     
     # Init variables
-    product_counter = 1
+    product_counter = int(cfg.get("FILE_INFORMATION", "PRODUCT_COUNTER"))
     # Build filename pattern
     pixcvec_pattern = PIXCVEC_PATTERN
     pixcvec_prefix = PIXCVEC_PREFIX
@@ -652,7 +674,7 @@ def compute_lakeavg_filename(in_output_dir, in_cycle_number, in_continent_id, in
     cfg = service_config_file.get_instance()
     
     # Init variables
-    product_counter = 1
+    product_counter = int(cfg.get("FILE_INFORMATION", "PRODUCT_COUNTER"))
     # Build filename pattern
     lakeavg_pattern = LAKE_AVG_PATTERN
     lakeavg_prefix = LAKE_AVG_PREFIX
@@ -714,7 +736,6 @@ class PldFilenames(object):
             - filename / str: full path of the selected PLD file
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("- start -")
         
         # Init variables
         self.root_dir = in_root_dir
@@ -791,4 +812,81 @@ class PldFilenames(object):
             
         if self.filename is None:
             logger.warning("PLD file starting with %s has not been found" % filename_pattern)
+
+
+#######################################
+    
+
+class MlsFilenames(object):
+    """
+    class MlsFilenames
+    Manage operational Mean Lake Surfaces filenames
+    """
+    
+    def __init__(self, in_proc_type, in_root_dir, cycle_num=None, pass_num=None):
+        """
+        Constructor of PLD filenames
+
+        :param in_proc_type: processor type, among "TILE"=LakeTile or "SP"=LakeSP
+        :type in_proc_type: string
+        :param in_root_dir: full path of the MLS root directory
+        :type in_root_dir: string
+        :param cycle_num: cycle number
+        :type cycle_num: int
+        :param pass_num: (used for in_proc_type="SP" only) pass number
+        :type pass_num: int
+
+        Variables of the object:
+            - root_dir / str: full path of the MSL root directory
+            - orbit_phase / str: orbit phase, among "calval" and "science", depending on cycle number
+            - pass_num / int: pass number
+            - filename / str: full path of the selected MLS file
+        """
+        logger = logging.getLogger(self.__class__.__name__)
         
+        # Init variables
+        self.root_dir = in_root_dir
+        self.filename = None
+        # Orbit phase
+        self.orbit_phase = "science"
+        if cycle_num is not None:
+            self.orbit_phase = my_tools.swot_orbit_phase(cycle_num)
+
+        # Filename depends on processing type
+        if (in_proc_type == "TILE") or (in_proc_type == "SP"):
+            self.pass_num = pass_num
+            self.compute_mls_filename_pass()
+            
+        else:
+            message = "Processor type %s should be TILE or SP" % in_proc_type
+            raise service_error.ProcessingError(message, logger)
+
+    #----------------------------------
+
+    def compute_mls_filename_pass(self):
+        """
+        Compute MLS full path to be used for LakeTile or LakeSP processing
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        
+        # 1 - Filename pattern
+        filename_pattern = MLS_PATTERN_START[self.orbit_phase] % self.pass_num
+        
+        # 2 - Directory
+        if self.orbit_phase == "science":
+            mls_dir = os.path.join(self.root_dir, "Nom")
+        else:
+            mls_dir = os.path.join(self.root_dir, "Cal")
+        
+        # 3 - Full path
+        # 3.1 - List of MLS files in directory
+        tmp_list = os.listdir(mls_dir)
+        # 3.2 - Retrieve PLD file corresponding to filename pattern
+        for cur_file in tmp_list:
+            # Test if file meets the condition
+            if cur_file.startswith(filename_pattern) and cur_file.endswith(MLS_SUFFIX):
+                self.filename = os.path.join(mls_dir, cur_file)
+                break
+            
+        if self.filename is None:
+            logger.warning("MLS file starting with %s has not been found" % filename_pattern)        

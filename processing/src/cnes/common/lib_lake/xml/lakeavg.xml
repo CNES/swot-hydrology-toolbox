@@ -24,10 +24,10 @@
         <annotation description="SWOT"/>
       </string>
       <string name="references">
-        <annotation description="SWOT-TN-CDM-0673-CNES_Product_Description_L2_HR_LakeAvg - Revision A - 20220531"/>
+        <annotation description="SWOT-DD-CDM-0674-CNES_SAS_Design_L2_HR_LakeAvg - Revision B (draft) - 20221124"/>
       </string>
       <string name="reference_document">
-        <annotation description="SWOT-DD-CDM-0674-CNES_SAS_Design_L2_HR_LakeAvg - Revision A - 20220531"/>
+        <annotation description="SWOT-TN-CDM-0676-CNES_Product_Description_L2_HR_LakeAvg - Revision B (draft) - 20221004"/>
       </string>
       <string name="product_version">
         <annotation description="Version identifier of this data file"/>

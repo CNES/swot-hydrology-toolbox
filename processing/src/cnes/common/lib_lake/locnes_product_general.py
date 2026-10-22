@@ -9,6 +9,7 @@
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.2.0:DM:#91:2021/10/27:Poursuite industrialisation
 # VERSION:4.0.0:DM:#91:2022/05/05:Poursuite industrialisation
+# VERSION:5.0.0:DM:#91:2022/12/08:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -110,20 +111,22 @@ class LocnesProduct(object):
         :param in_metadata: metadata stored as a dictionary with key=metadata key and value=metadata value
         :type in_metadata: dict
         """
-        logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("- start -")
+        #log logger = logging.getLogger(self.__class__.__name__)
+        #log logger.debug("- start -")
         
         metadata_keys = self.global_metadata.keys()
         
         for key, value in in_metadata.items():
             if key in metadata_keys:
                 if value in ["", "None", None]:
-                    #self.global_metadata[key]["value"] = "None"
+                    # code commente self.global_metadata[key]["value"] = "None"
                     self.global_metadata[key]["value"] = ""
                 else:
                     self.global_metadata[key]["value"] = value
+            """
             else:
                 logger.debug("%s key is not used as metadata" % key)
+            """
                             
     #----------------------------------------
     

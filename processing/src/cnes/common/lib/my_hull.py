@@ -10,6 +10,14 @@
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
+# VERSION:5.0.0:DM:#91:2022/12/08:Poursuite industrialisation
+# VERSION:5.1.0:DM:#91:2023/03/31:Poursuite industrialisation
+# VERSION:6.2.0:DM:#91:2024/11/29:Poursuite industrialisation
+# VERSION:6.2.3:FA:#839:2025/11/10:[LAKE_TILE] L2_HR_LAKETILE fails on C032P429T305R with message ValueError: list.remove(x): x not in list
+# VERSION:6.2.4:FA:#831:2026/02/26:SSALTO-330 [PGE][SAS LAKES] Mise à jour des TU (SSALPGE-14313)
+# VERSION:6.2.6:DM:#900:2026/07/06: [PGE] [LAKES] Ajout d'une interface niveau moyen des lacs
+# VERSION:6.2.6:DM:#900:2026/07/06:SSALTO-565 [PGE] [LAKES] Ajout d'une interface coeff NN pour calcul ice_dyn_f
+# VERSION:6.2.7:DM:#906:2026/07/28:SSALTO-872 [PGE][LAKES] Gestion des erreurs/warning GDAL
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -35,7 +43,7 @@ from osgeo import ogr
 import pandas as pd
 from random import randint
 from scipy.spatial import distance, Delaunay
-from scipy.ndimage.morphology import binary_erosion
+from scipy.ndimage.morphology import binary_erosion, binary_dilation
 import shapely.geometry as geometry
 from shapely.geometry import Point, LineString, MultiPoint, MultiLineString, Polygon, MultiPolygon, LinearRing, GeometryCollection
 from shapely.ops import cascaded_union
@@ -46,6 +54,7 @@ import cnes.common.service_config_file as service_config_file
 import cnes.common.service_error as service_error
 
 import cnes.common.lib.my_tools as my_tools
+import cnes.common.lib.my_segmentation as my_segmentation
 
 
 def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix_range, in_swath_side, in_pass_num):
@@ -64,44 +73,111 @@ def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix
     :type in_nb_pix_range: int
     :param in_swath_side: 1-letter swath side; R=right or L=left
     :type in_swath_side: string
-    :param in_pass_num: orbit pass number.
+    :param in_pass_num: orbit pass number
     :type in_pass_num: int
 
     :return the hull of the input set of points
     :rtype: OGRMultiPolygon
     """
+
+    logger = logging.getLogger("my_hull")
+    logger.debug("Computing lake boundaries over %d pixels" % (len(in_v_long)))
+
+    # if current waterbody crosses -180/180 longitude, hull is computed separately for twp parts and jointed at the end of the processing
+    if does_longitude_crosses_180_degrees(in_v_long):
+        idx1 = np.where(in_v_long <= 0)
+        idx2 = np.where(in_v_long > 0)
+        retour = compute_lake_boundaries(in_v_long[idx1], in_v_lat[idx1], in_range[idx1], in_azimuth[idx1], in_nb_pix_range, in_swath_side, \
+                                         in_pass_num).Union(compute_lake_boundaries(in_v_long[idx2], in_v_lat[idx2], in_range[idx2], \
+                                         in_azimuth[idx2], in_nb_pix_range, in_swath_side, in_pass_num))
+    else :
+        retour = ogr.Geometry(ogr.wkbMultiPolygon)
+
+        # Waterbody pixels can be discontinuous due to flags taken in account. Compute labels of continuous water area within current waterbody.
+        labels = compute_separate_water_area(in_range, in_azimuth)
+
+        # Process hull for all continuous water area
+        for label in np.unique(labels):
+
+            idx_label = np.where(labels == label)
+
+            cur_range = in_range[idx_label]
+            cur_azimuth = in_azimuth[idx_label]
+            cur_lon = in_v_long[idx_label]
+            cur_lat = in_v_lat[idx_label]
+
+            cur_geom = compute_lake_boundaries_over_water_area(cur_lon, cur_lat, cur_range, cur_azimuth, in_nb_pix_range, in_swath_side, in_pass_num)
+
+            if cur_geom.GetGeometryName() == "MULTIPOLYGON":
+                for geom in cur_geom:
+                    retour.AddGeometry(geom)
+            else:
+                retour.AddGeometry(cur_geom)
+
+        # Join all separate hulls into a multipolygon
+        if not retour.IsEmpty():
+            retour = retour.UnionCascaded()
+        else :
+            logger.debug("WARNING Current hull is empty")
+
+    return retour
+	
+def compute_lake_boundaries_over_water_area(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix_range, in_swath_side, in_pass_num):
+    """
+    Compute the hull of a set of points determined by their coordinates given in input parameters. Input set of points corresponds to a continuous water area
+
+    :param in_v_long: longitudes of points for which to compute the hull
+    :type in_v_long: 1D-array of float
+    :param in_v_lat: latitudes of points for which to compute the hull
+    :type in_v_lat: 1D-array of float
+    :param in_range: range of points for which to compute the hull
+    :type in_range: 1D-array of int
+    :param in_azimuth: azimuth of points for which to compute the hull
+    :type in_azimuth: 1D-array of int
+    :param in_nb_pix_range: maximal number of pixel in range
+    :type in_nb_pix_range: int
+    :param in_swath_side: 1-letter swath side; R=right or L=left
+    :type in_swath_side: string
+    :param in_pass_num: orbit pass number
+    :type in_pass_num: int
+
+    :return the hull of the input set of points
+    :rtype: OGRMultiPolygon
+    """
+    logger = logging.getLogger("my_hull")
+
     # Get instance of service config file
     cfg = service_config_file.get_instance()
-    logger = logging.getLogger("my_hull")
-    logger.debug("Computing lake boundaries over %d pixels" %(len(in_v_long)))
-
     hull_method = cfg.getfloat("CONFIG_PARAMS", "HULL_METHOD")
+
     if len(in_v_long) < 4:
-        logger.debug("Hull computation method : Convex hull because less than 4 pixels")
+        # logger.debug("Hull computation method : Convex hull because less than 4 pixels")
         retour = get_convex_hull(in_v_long, in_v_lat)
 
     elif hull_method == 0:  # 0 - CONVEX HULL
-        logger.debug("Hull computation method : Convex hull")
+        # logger.debug("Hull computation method : Convex hull")
         retour = get_convex_hull(in_v_long, in_v_lat)
-        
+
     elif hull_method == 1.0:  # 1.0 : CONCAV HULL - Delaunay triangulation with CGAL
-        logger.debug("Hull computation method : Concav hull computed in ground geometry, based on Delaunay triangulation - using CGAL library")
+        # logger.debug("Hull computation method : Concav hull computed in ground geometry, based on Delaunay triangulation - using CGAL library")
         retour = get_concave_hull_from_cgal_triangulation(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix_range)
-        
-    elif hull_method == 1.1:  # 1.1 - CONCAV HULL - Delaunay triangulation 
-        logger.debug("Hull computation method : Delauney triangulation")
+
+    elif hull_method == 1.1:  # 1.1 - CONCAV HULL - Delaunay triangulation
+        # logger.debug("Hull computation method : Delauney triangulation")
         retour = get_concave_hull_from_basic_triangulation(in_v_long, in_v_lat)
 
     elif hull_method == 1.2:  # 1.2 - CONCAV HULL - Delaunay triangulation with alpha parameter varying along range
-        logger.debug("Hull computation method : Delauney triangulation with alpha parameter varying along range")
+        # logger.debug("Hull computation method : Delauney triangulation with alpha parameter varying along range")
         retour = get_concave_hull_from_triangulation_enhanced(in_v_long, in_v_lat, in_range, in_nb_pix_range)
 
     elif hull_method == 2.0:  # 2.0 - CONCAV HULL - Radar vectorisation method - reorder lon lat
-        logger.debug("Hull computation method : radar vectorization with reordered lon lat (default)")
-        range, long, lat = reorder_lon_lat(in_range, in_azimuth, in_v_long, in_v_lat, in_swath_side, in_pass_num)
-        retour = get_concave_hull_from_radar_vectorisation(range, in_azimuth, long, lat, hull_method)
+            range_reordered, lon_reordered, lat_reordered = reorder_lon_lat(in_range, in_azimuth, in_v_long, in_v_lat,
+                                                                            in_swath_side, in_pass_num)
+            retour = get_concave_hull_from_radar_vectorisation(range_reordered, in_azimuth, lon_reordered, lat_reordered,
+                                                                 hull_method)
+
     elif hull_method == 2.1:  # 2.1 - CONCAV HULL - Radar vectorisation method - check segments
-        logger.debug("Hull computation method : radar vectorization check segments building polygon")
+        # logger.debug("Hull computation method : radar vectorization check segments building polygon")
         retour = get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, in_v_lat, hull_method)
 
     else:
@@ -112,8 +188,63 @@ def compute_lake_boundaries(in_v_long, in_v_lat, in_range, in_azimuth, in_nb_pix
         retour = ogr.Geometry(ogr.wkbPolygon)
     elif retour.GetGeometryName() not in ["POLYGON", "MULTIPOLYGON"]:
         retour = ogr.Geometry(ogr.wkbPolygon)
+
     return retour
-	
+
+
+def compute_separate_water_area(in_range, in_azimuth):
+    """
+    Compute separate water area labels from input range and azimuth. A binary erosion and binary dilation is processed to avoid pixels 8-connexion.
+
+    :param in_range: range of points for which to compute the hull
+    :type in_range: 1D-array of int
+    :param in_azimuth: azimuth of points for which to compute the hull
+    :type in_azimuth: 1D-array of int
+
+
+    :return labels of continuous water area inside waterbody
+    :rtype: 1D-array of int
+    """
+    
+    if in_range.size > 0:
+        
+        # 1 - Create the water mask
+        tmp_rg = in_range - np.min(in_range)
+        tmp_az = in_azimuth - np.min(in_azimuth)
+        water_mask = my_tools.compute_bin_mat(np.max(tmp_rg)+1, np.max(tmp_az)+1, tmp_rg, tmp_az, verbose=False)
+
+        # 2 - Process erosion and dilatation to retrieve compact water area
+        water_mask_erosion = binary_erosion(water_mask, structure=np.ones((2, 2))).astype(water_mask.dtype)
+        water_mask_erosion_dilat = binary_dilation(water_mask_erosion, structure=np.ones((2, 2))).astype(water_mask.dtype)
+
+        # 3 - Identify all separate entities in a 2D binary mask
+        sep_entities, nb_obj = my_tools.label_region(water_mask_erosion_dilat, verbose=False)
+
+        if nb_obj > 1:
+            sep_entities_bis = sep_entities.copy()
+            # 3.1 - Identify isolated pixels
+            isolated_pixels = water_mask - water_mask_erosion_dilat
+            isolated_pixels_idx = np.where(isolated_pixels == 1)
+            isolated_labels = []
+            for x, y in zip(isolated_pixels_idx[0], isolated_pixels_idx[1]):
+                isolated_labels.append(np.max(sep_entities_bis) + 1)
+                sep_entities_bis[x,y] = np.max(sep_entities_bis) + 1
+
+            # 3.2 - Replace isolated pixels by neighbor label
+            for label in isolated_labels:
+                sep_entities_bis = my_segmentation.replace_label_with_maj_neighbor_value(sep_entities_bis, label)
+
+            # 3.3 - Retrieve new labels
+            out_labels = my_tools.convert_2d_mat_in_1d_vec(tmp_rg, tmp_az, sep_entities_bis)
+
+        else:
+            out_labels = np.ones((in_range.size))
+
+    else :
+        out_labels = []
+
+    return out_labels
+
 
 #######################################
 
@@ -328,6 +459,7 @@ def get_max_segment(pa, pb, pc):
 
 #######################################
 
+
 def get_concave_hull_from_triangulation_enhanced(in_v_long, in_v_lat, in_range, in_nb_pix_range):
     """
     Compute the concave hull of a set of points using classifcal Delauney triangulation, taking in account the position in range in alpha parameter
@@ -363,7 +495,7 @@ def get_concave_hull_from_triangulation_enhanced(in_v_long, in_v_lat, in_range, 
         in_range = in_range[id_selected]
         alpha_ratio = nb_pix_max_delauney / nb_pix
         nb_pix = in_v_long.size
-        logger.debug("alpha_ratio : " + str(alpha_ratio))
+        # logger.debug("alpha_ratio : " + str(alpha_ratio))
     else:
         alpha_ratio = 1.
 
@@ -478,7 +610,7 @@ def get_circum_ratio(pa, pb, pc):
 
 def split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max=1e4):
     """
-    Split input image into list of sub-images, with 10 000 pixel maximum.
+    Split input image into list of subimages, with 10 000 pixels maximum.
 
     :param in_range: range of points
     :type in_range: 1D-array of int
@@ -488,9 +620,11 @@ def split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max=1e4):
     :type in_v_long: 1D-array of float
     :param in_v_lat: latitude of points
     :type in_v_lat: 1D-array of float
+    :param nb_pix_max: maximum number of pixels to keep in a subimage
+    :type nb_pix_max: int
 
-    :return: list of tuple of splitted image in sub images
-    :rtype: list of tulple(in_range, in_azimuth, in_v_long, in_v_lat)
+    :return: list of tuples related to resulting subimages
+    :rtype: list of tuples (in_range, in_azimuth, in_v_long, in_v_lat)
     """
 
     if len(in_range) > nb_pix_max:
@@ -508,6 +642,7 @@ def split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max=1e4):
     else:
         retour = [(in_range, in_azimuth, in_v_long, in_v_lat)]
     return retour
+
 
 def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, in_v_lat, in_hull_method):
     """
@@ -527,22 +662,22 @@ def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, i
     :return: the hull of the input set of points
     :rtype: OGRMultiPolygon
     """
-
     logger = logging.getLogger("my_hull")
 
     nb_pix_max = 5e4
     # Split lake sar image in sub_images
     list_sub_img_to_process = split_lake_image(in_range, in_azimuth, in_v_long, in_v_lat, nb_pix_max)
     if len(list_sub_img_to_process) > 1:
-        logger.debug("Lake image with %d pixels is splitted in %d sub images of less than %d pixels" % (len(in_range),
-                                                                                                       len(list_sub_img_to_process), nb_pix_max))
+        logger.debug("Lake image with %d pixels is split in %d subimages of less than %d pixels" % (len(in_range),
+                                                                                                    len(list_sub_img_to_process), 
+                                                                                                    nb_pix_max))
 
     multi_poly = ogr.Geometry(ogr.wkbMultiPolygon)
 
     for i, (sub_range, sub_azimuth, sub_v_long, sub_v_lat) in enumerate(list_sub_img_to_process):
-        if i%100 == 0:
-            logger.debug("%d over %d sub-image already processed" % ( i+1, len(list_sub_img_to_process)))
+
         sub_poly = get_polygon_from_binar_image(sub_range, sub_azimuth, sub_v_long, sub_v_lat, in_hull_method)
+        
         if sub_poly.GetGeometryName() == "MULTIPOLYGON":
             for geom in sub_poly:
                 multi_poly.AddGeometry(geom)
@@ -556,6 +691,7 @@ def get_concave_hull_from_radar_vectorisation(in_range, in_azimuth, in_v_long, i
 
     return poly
 
+
 def compute_contour_from_range_azimuth(in_x, in_y):
     """
     Compute contour of object with coordinates in_x and in_y
@@ -566,23 +702,24 @@ def compute_contour_from_range_azimuth(in_x, in_y):
     :type in_y: 1D-array of int
 
     :return: geometry object coordinates
-    :rtype: list of list of tuple of int
+    :rtype: list of lists of tuples of int
     """
     # Get instance of service config file
     logger = logging.getLogger("my_hull")
 
     # 1 - Get image (1 pixel around lake)
     lake_img = my_tools.compute_bin_mat(np.max(in_x) + 2, np.max(in_y) + 2, in_x, in_y, verbose=False)
-    logger.debug("Processing image with size %d x %d, with %d water pixels" % (
-    lake_img.shape[0], lake_img.shape[1], np.sum(lake_img)))
+    #logger.debug("Processing image with size %d x %d, with %d water pixels" % (
+    #        lake_img.shape[0], lake_img.shape[1], np.sum(lake_img)))
 
     # 2 - Filter isolated pixels
     # Make a erosion to check that a contour can be computed
     lake_erosion = binary_erosion(lake_img, structure=np.ones((2, 2))).astype(lake_img.dtype)
+    lake_img = binary_dilation(lake_erosion, structure=np.ones((2, 2))).astype(lake_img.dtype)
 
     # 3 - Compute boundaries (there might be more than one if there are islands in lake)
     if np.sum(lake_erosion) == 0:
-        logger.warning("Current lake pixc no not contain a valid polygon")
+        logger.debug("WARNING Current lake pixels do not form a valid polygon")
         lake_contours = []
     else:
         lake_contours = find_contours(lake_img, 0.99999999999)
@@ -601,7 +738,8 @@ def compute_contour_from_range_azimuth(in_x, in_y):
 
     return lake_contour_int
 
-def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat, in_hull_method):
+
+def get_polygon_from_binar_image(in_range, in_azimuth, in_v_long, in_v_lat, in_hull_method):
     """
     Compute the concave hull of a set of points using radar vectorisation
 
@@ -619,7 +757,6 @@ def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat, in_
     :return: the hull of the input set of points
     :rtype: OGRMultiPolygon
     """
-    # Get instance of service config file
     logger = logging.getLogger("my_hull")
 
     # 1 - Get relative range and azimuth (1st pixel = 1)
@@ -630,7 +767,7 @@ def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat, in_
     lake_contour_int = compute_contour_from_range_azimuth(lake_x, lake_y)
 
     # 3 - Convert (azimuth, range) contour into polygon
-    logger.debug("Inital polygon contains 1 external ring and %d holes rings " % (len(lake_contour_int) - 1))
+    #logger.debug("Inital polygon contains 1 external ring and %d holes rings" % (len(lake_contour_int) - 1))
 
     # 4 - Convert contours in lon lat
     # multi_ring_list contains every ring composing the polygon, the first ring contains exterior coordinates, 
@@ -638,12 +775,13 @@ def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat, in_
     multi_list_of_points = []
     for contour in lake_contour_int:  # Loop over contours
         if len(contour) < 3:
-            logger.debug("Current contour contains only %d points ... skip" % (len(contour)))
+            # logger.debug("Current contour contains only %d points ... skip" % (len(contour)))
             continue
         elif len(contour) > 8000:
-            logger.warning("Current contour contains %d points ... can be time consuming" % len(contour))
+            logger.debug("Current contour contains %d points ... can be time consuming" % len(contour))
         else:
-            logger.debug("Building new ring with %d points " % len(contour))
+            #logger.debug("Building new ring with %d points" % len(contour))
+            pass
 
         list_of_points = []
 
@@ -671,15 +809,13 @@ def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat, in_
                         else:
                             list_of_points = add_new_point_to_list_of_point(new_point, list_of_points)
 
-            else:
-                logger.debug("Point of coordinates %d, %d not found -> Point removed" % (y, x))
-
         if not list_of_points:
-            logger.debug("Ring contains 0 points => Discarded")
+            logger.warning("Ring contains 0 points => Discarded")
             continue
 
         if in_hull_method == 2.0:
             multi_list_of_points.append(list_of_points)
+            
         else:
             # Add first point to the end of list
             ring = build_ring_from_list_of_points(list_of_points)
@@ -693,9 +829,9 @@ def get_polygon_from_binar_image( in_range, in_azimuth, in_v_long, in_v_lat, in_
 
     # 5 - Build ogr geometry
     lake_poly = get_ogr_polygon_from_list_of_list_of_points(multi_list_of_points)
-
+        
     if not lake_poly.IsValid():
-        logger.warning("Polygon is invalid -> Polygon is downgraded into a valid geometry")
+        logger.debug("WARNING Polygon is invalid -> Polygon is downgraded into a valid geometry")
         lake_poly = lake_poly.Buffer(0)
 
     return lake_poly
@@ -766,7 +902,7 @@ def get_closest_point_from_list_of_ring(point, list_of_ring):
     :return: intersection point coordinates
     :rtype: tuple of floats
     """
-    logger = logging.getLogger("my_hull")
+    # log logger = logging.getLogger("my_hull")
     min_dist = 100000
     for i, ring in enumerate(list_of_ring):
         if np.min(distance.cdist(point, ring)) < min_dist and len(ring) > 4:
@@ -775,7 +911,7 @@ def get_closest_point_from_list_of_ring(point, list_of_ring):
             min_ring_id = i
 
     min_point_coord = list_of_ring[min_ring_id][min_point_id]
-    logger.debug("Removing point %f, %f" % (min_point_coord[0], min_point_coord[1]))
+    # logger.debug("Removing point %f, %f" % (min_point_coord[0], min_point_coord[1]))
     list_of_ring[min_ring_id].remove(min_point_coord)
 
     return list_of_ring
@@ -811,7 +947,7 @@ def build_ring_from_list_of_points(list_of_points):
     :return:  list of point composing the contour, with same first and last point
     :rtype: list of tuple of 2 floats
     """
-    logger = logging.getLogger("my_hull")
+    # log logger = logging.getLogger("my_hull")
 
     if len(list_of_points) > 3:
 
@@ -823,7 +959,7 @@ def build_ring_from_list_of_points(list_of_points):
         while inter_list and len(list_of_points) > 3:
 
             p = get_closest_point_from_list_of_point(inter_list, list_of_points[:2] + list_of_points[-2:])
-            logger.debug("Removing point %f, %f" % (p[0], p[1]))
+            # logger.debug("Removing point %f, %f" % (p[0], p[1]))
 
             list_of_points.remove(p)
 
@@ -850,7 +986,7 @@ def add_new_point_to_list_of_point(new_point, point_list):
     :return: list of point with new point
     :rtype: list of tuple of 2 floats
     """
-    logger = logging.getLogger("my_hull")
+    # log logger = logging.getLogger("my_hull")
 
     # 1. Add new point to the list
     point_list.append(new_point)
@@ -864,7 +1000,7 @@ def add_new_point_to_list_of_point(new_point, point_list):
     while inter:
         if inter:
             p = get_closest_point_from_list_of_point(inter, point_list[-4:])
-            logger.debug("Removing point %f, %f" % (p[0], p[1]))
+            # logger.debug("Removing point %f, %f" % (p[0], p[1]))
             point_list.remove(p)
 
         # list of point cannot be smaller than 3 points
@@ -892,8 +1028,7 @@ def build_ring_without_integrity_issues_multi_ring(new_ring, multi_ring):
     :return: ring without intersection with multi_ring
     :rtype: list of tuple of 2 floats
     """
-
-    logger = logging.getLogger("my_hull")
+    # log logger = logging.getLogger("my_hull")
 
     s1 = LineString(new_ring)
     s2 = MultiLineString(multi_ring)
@@ -903,7 +1038,7 @@ def build_ring_without_integrity_issues_multi_ring(new_ring, multi_ring):
     while inter_list and len(new_ring) > 3:
 
         p = get_closest_point_from_list_of_point(inter_list, new_ring)
-        logger.debug("Removing point %f, %f" % (p[0], p[1]))
+        # logger.debug("Removing point %f, %f" % (p[0], p[1]))
         new_ring.remove(p)
 
         if p == new_ring[-1]:
@@ -928,7 +1063,7 @@ def get_ogr_polygon_from_list_of_list_of_points(list_list_of_points):
     :return: lake polygon
     :rtype: OGRPolygon
     """
-    logger = logging.getLogger("my_hull")
+    # log logger = logging.getLogger("my_hull")
 
     # 1. build a list of ogr geometry "polygon" and "linear ring"
     list_of_ogr_poly = []
@@ -958,9 +1093,21 @@ def get_ogr_polygon_from_list_of_list_of_points(list_list_of_points):
                 is_i_inner = True
         if is_i_inner == False:
             list_of_outer_ring.append(i)
+    #logger.debug("Current geoemety contains %d inner rings" %len(list_of_outer_ring))
 
-    logger.debug("Current geoemety contains %d inner rings" %len(list_of_outer_ring))
-    # 3. Build out geometry multipolygon, with outer / inner rings in the right order.
+    # 3. check if geometries are nested and build multipolygon if needed (lake within hole in lake)
+    for i, (i_out, i_in) in enumerate(list_of_inner_ring.copy()) :
+        for j, (j_out, j_in) in enumerate(list_of_inner_ring[i+1:].copy()) :
+            if i_in == j_in :
+                try:
+                    list_of_inner_ring.remove((i_out, i_in))
+                    list_of_inner_ring.remove((j_out, j_in))
+                except:
+                    pass
+                list_of_outer_ring.remove(j_out)
+                list_of_outer_ring.append(i_in)
+
+    # 4. Build out geometry multipolygon, with outer / inner rings in the right order.
     multi_poly_geom = ogr.Geometry(ogr.wkbMultiPolygon)
     for i in list_of_outer_ring:
         poly_geom = list_of_ogr_poly[i][0]
@@ -1242,7 +1389,6 @@ def find_polygons(rings):
     :param rings: List of rings
     :return: polygons
     """
-
     logger = logging.getLogger("my_hull")
 
     try:
@@ -1294,7 +1440,6 @@ def alpha_shape_with_cgal(coords, alpha):
     Too large, and you lose everything!
     :return: Shapely.MultiPolygons which is the hull of the input set of points
     """
-
     logger = logging.getLogger("my_hull")
 
     try:
@@ -1331,9 +1476,10 @@ def alpha_shape_with_cgal(coords, alpha):
 
     return poly_shp
 
+
 def reorder_lon_lat(in_range, in_azimuth, in_v_long, in_v_lat, in_swath_side, in_pass_num):
     """
-    For each line, range and lonitude / latitude are reorganized to increase together. It depends on swath side and pass number.
+    For each line, range and longitude / latitude are reorganized to increase together. It depends on swath side and pass number.
 
     :param in_range: range of points
     :type in_range: 1D-array of int
@@ -1345,7 +1491,7 @@ def reorder_lon_lat(in_range, in_azimuth, in_v_long, in_v_lat, in_swath_side, in
     :type in_v_lat: 1D-array of float
     :param in_swath_side: 1-letter swath side; R=right or L=left
     :type in_swath_side: string
-    :param in_pass_num: orbit pass number.
+    :param in_pass_num: orbit pass number
     :type in_pass_num: int
 
     :return: (in_range, in_v_long, in_v_lat) reordered.
@@ -1369,7 +1515,6 @@ def reorder_lon_lat(in_range, in_azimuth, in_v_long, in_v_lat, in_swath_side, in
         elif in_pass_num % 2 == 1 and in_swath_side == "L":
             idx_range_increase = np.argsort(in_range[idx])[::-1]
 
-
         out_range[idx] = in_range[idx][idx_range_increase]
 
         lon = in_v_long[idx][idx_range_increase]
@@ -1379,3 +1524,21 @@ def reorder_lon_lat(in_range, in_azimuth, in_v_long, in_v_lat, in_swath_side, in
         out_lat[idx] = in_v_lat[idx][idx_range_increase][new_idx_lon]
 
     return out_range, out_lon, out_lat
+
+
+def does_longitude_crosses_180_degrees(in_v_long):
+    """
+        Test in_v_long to determine if water body crosses line -180 ; +180 line.
+
+        :param in_v_long: longitude of points
+        :type in_v_long: 1D-array of float
+
+        :return: True or False
+        :rtype: boolean
+        """
+
+    retour = False
+    if np.logical_and(in_v_long[in_v_long<-179].size > 0,  in_v_long[in_v_long>179].size > 0):
+        retour = True
+
+    return retour
