@@ -12,6 +12,13 @@
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # VERSION:3.2.0:DM:#91:2021/10/27:Poursuite industrialisation
+# VERSION:5.0.1:DM:#91:2023/02/24:Poursuite industrialisation
+# VERSION:5.1.0:DM:#91:2023/05/23:Poursuite industrialisation
+# VERSION:5.3.0:DM:#91:2024/09/20:Poursuite industrialisation
+# VERSION:6.2.0:DM:#91:2024/11/29:Poursuite industrialisation
+# VERSION:6.2.3:DM:#900:2026/07/06: [PGE] [LAKES] Ajout d'une interface niveau moyen des lacs
+# VERSION:6.2.3:DM:#900:2026/07/06:SSALTO-565 [PGE] [LAKES] Ajout d'une interface coeff NN pour calcul ice_dyn_f
+# VERSION:6.2.3:DM:#906:2026/07/28:SSALTO-872 [PGE][LAKES] Gestion des erreurs/warning GDAL
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -32,6 +39,7 @@ import argparse
 import configparser as cfg
 import datetime
 import os
+import glob
 import sys
 import multiprocessing as mp
 
@@ -62,17 +70,26 @@ class MultiLakeTile(object):
         self.pixcvec_river_dir = in_params["pixcvec_river_dir"]  # PIXCVecRiver files directory
         self.output_dir = in_params["output_dir"]  # Output directory
 
-        # BDLac and basins file
+        # PLD file
         self.lake_db = in_params["LAKE_DB"]
         self.lake_db_id = in_params["LAKE_DB_ID"]
+        # MLS file
+        self.mls = in_params["MLS"]
+
+        # Ice model file
+        self.ice_model = in_params["ICE_MODEL"]
 
         # Tiles info
         self.cycle_num = in_params["cycle_num"]  # Cycle number
         self.pass_num = in_params["pass_num"]  # Pass number
         self.tile_ref = in_params["tile_ref"]  # Tile id
 
+        # Flag to indicate that input PIXC and PIXCVecRiver files are simulated data or not
+        self.flag_simu = in_params["flag_simu"]
         # Flag to produce LakeTile_Edge and LakeTile_PIXCVec shapefiles
         self.flag_prod_shp = in_params["flag_prod_shp"]
+        # Flag to save intermediate data for detailed investigation
+        self.flag_save_inter = in_params["flag_save_inter"]
         # Flag to increment output file counter
         self.flag_inc_file_counter = in_params["flag_inc_file_counter"]
         # Flag to write full path in global attributes
@@ -93,8 +110,8 @@ class MultiLakeTile(object):
         self.contact = in_params["contact"]
 
         # List of input files
-        self.list_pixc = []  # PIXC files
-        self.list_pixcvec_river = []  # PIXCVecRiver
+        self.list_pixc = {}  # PIXC files
+        self.list_pixcvec_river = {}  # PIXCVecRiver
         self.nb_input = 0  # Nb of input files
         self.cmd_file_path_list = [] # list of command files
 
@@ -124,51 +141,83 @@ class MultiLakeTile(object):
         # 2 - Get input files
         print("[multiLakeTileProcessing] > 2 - Retrieving input files...")
 
-        # 2.1 - Compute file prefix regarding cycle / pass / tile conditions
+        # 2.1 - Compute tile conditions regarding cycle / pass / tile conditions
         pixc_prefix = locnes_filenames.PIXC_PREFIX
         pixc_suffix = locnes_filenames.PIXC_SUFFIX
         pixcvec_river_prefix = locnes_filenames.PIXCVEC_RIVER_PREFIX
-        cond_prefix = pixc_prefix  # Deal with all PixC files in self.pixc_dir 
+        pixcvec_river_suffix = locnes_filenames.PIXCVEC_RIVER_SUFFIX
+        tile_cond = ""
 
         if (self.cycle_num is None) or (self.cycle_num == "-1"):
             print("[multiLakeTileProcessing]   All PixC files in the input directory")
         else:  # Deal with PixC files with cycle = self.cycle_num
-            cond_prefix += "%03d" % self.cycle_num
+            tile_cond += "%03d" % self.cycle_num
             if (self.pass_num is None) or (self.pass_num == "-1"):
                 print("[multiLakeTileProcessing]   PixC files with cycle=%03d" % self.cycle_num)
             else:  # Deal with PixC files with cycle = self.cycle_num and pass = self.pass_num
-                cond_prefix += "_%03d" % self.pass_num
+                tile_cond += "_%03d" % self.pass_num
                 if self.tile_ref is not None:  # Deal with PixC files with cycle = self.cycle_num, pass = self.pass_num and tile id = self.tile_ref
                     print("[multiLakeTileProcessing]   PixC files with cycle=%03d , pass=%03d , tile=%s" % (self.cycle_num, self.pass_num, self.tile_ref))
-                    cond_prefix += "_%s" % self.tile_ref
+                    tile_cond += "_%s" % self.tile_ref
                 else:
                     print("[multiLakeTileProcessing]   PixC files with cycle=%03d and pass=%03d" % (self.cycle_num, self.pass_num))
 
-        # 2.2 - List all files in self.pixc_dir
-        tmp_list = os.listdir(self.pixc_dir)
+        # 2.2 - Select PIXC matching with tile conditions.
+        #If several PIXC are available for the same tile, the last processing version is kept
+        self.list_pixc = {}
+        for pixc_file in glob.glob(os.path.join(self.pixc_dir, "%s*%s*%s" % (pixc_prefix, tile_cond, pixc_suffix))):
+            pixc_info = locnes_filenames.get_info_from_filename(pixc_file, "PIXC")
+            tile_name = "%s_%s_%s" %(pixc_info["cycle"], pixc_info["pass"], pixc_info["tile_ref"])
 
-        # 2.3 - For each listed file, get related PIXCVecRiver files if they exist
-        cur_pixcvec_river = None
-        for cur_item in tmp_list:
+            if tile_name in self.list_pixc.keys():
+                # Retrieve CRID and counter for two tiles
+                crid_counter = "%s_%s" % (pixc_info["crid"], pixc_info["counter"])
+                existing_pixc_info = locnes_filenames.get_info_from_filename( self.list_pixc[tile_name], "PIXC")
+                existing_crid_counter = "%s_%s" % (existing_pixc_info["crid"], existing_pixc_info["counter"])
+                if crid_counter > existing_crid_counter:
+                    self.list_pixc[tile_name] = pixc_file
+            else :
+                self.list_pixc[tile_name] = pixc_file
 
-            # Test if file meets the condition
-            if cur_item.startswith(cond_prefix) and cur_item.endswith(pixc_suffix):  # Test if it's a wanted PIXC file
+        # 2.3 - Select PIXCVecRiver matching with tile conditions
+        # If several PIXCVecRiver are available for the same tile, the last processing version is kept
+        self.list_pixcvec_river = {}
+        for pixcvec_river_file in glob.glob(os.path.join(self.pixcvec_river_dir, "%s*%s*%s")
+                                            % (pixcvec_river_prefix, tile_cond, pixcvec_river_suffix)):
+            pixcvec_river_info = locnes_filenames.get_info_from_filename(pixcvec_river_file, "PIXCVecRiver")
+            tile_name = "%s_%s_%s" % (pixcvec_river_info["cycle"], pixcvec_river_info["pass"], pixcvec_river_info["tile_ref"])
 
-                # Associated PIXCVecRiver file name
-                cur_pixcvec_river = cur_item.replace(pixc_prefix, pixcvec_river_prefix)
+            if tile_name in self.list_pixcvec_river.keys():
+                # Retrieve CRID and counter for two tiles
+                crid_counter = "%s_%s" %(pixcvec_river_info["crid"], pixcvec_river_info["counter"])
+                existing_pixcvec_river_info = locnes_filenames.get_info_from_filename(self.list_pixcvec_river[tile_name], "PIXCVecRiver")
+                existing_crid_counter = "%s_%s" %(existing_pixcvec_river_info["crid"], existing_pixcvec_river_info["counter"])
+                if crid_counter > existing_crid_counter:
+                    self.list_pixcvec_river[tile_name] = pixcvec_river_file
+            else :
+                self.list_pixcvec_river[tile_name] = pixcvec_river_file
 
-                # If associated PIXCVecRiver file exists, add pair of filenames
-                if os.path.exists(os.path.join(self.pixcvec_river_dir, cur_pixcvec_river)):
-                    self.list_pixc.append(cur_item)
-                    self.list_pixcvec_river.append(cur_pixcvec_river)
-                    self.nb_input += 1
+        # 2.4 - Fill with "None" PIXCVecRiver list when no PIXCVecRiver file corresponds to PIXC file for the same tile
+        for tile_name in self.list_pixc.keys():
+            if tile_name not in self.list_pixcvec_river.keys():
+                self.list_pixcvec_river[tile_name] = None
+
+        self.nb_input = len(self.list_pixc)
+        for (tile_name, pixc), (tile_name, pixcvec_river) in zip(self.list_pixc.items(), self.list_pixcvec_river.items()):
+            if pixcvec_river is None:
+                print("[multiLakeTileProcessing] Tile %s process with PIXC %s and NO related PIXCVecRiver"
+                  % (tile_name, os.path.basename(pixc)))
+            else:
+                print("[multiLakeTileProcessing] Tile %s process with PIXC %s and PIXCVecRiver %s"
+                      % (tile_name, os.path.basename(pixc), os.path.basename(pixcvec_river)))
 
         print("[multiLakeTileProcessing]   --> %d tile(s) to deal with" % self.nb_input)
         print("")
 
-        for indf in range(self.nb_input):  # Deal with all selected files
-            print("[multiLakeTileProcessing]  Writing command files %d / %d" % (indf+1, self.nb_input))
-            cmd_file_path = self.create_cmd_file(indf)
+        # 2.5 - Create config file for each pair of PIXC and PIXCVec_River
+        for indf, tile_name in enumerate(self.list_pixc.keys()):  # Deal with all selected files
+            print("[multiLakeTileProcessing]  Writing command file for tile %s (%d/%d)" % (tile_name, indf+1, len(self.list_pixc.keys())))
+            cmd_file_path = self.create_cmd_file(tile_name)
             self.cmd_file_path_list.append(cmd_file_path)
             print("")
 
@@ -245,19 +294,19 @@ class MultiLakeTile(object):
             pool.close()
             pool.join()
 
-    def create_cmd_file(self, indf):
+    def create_cmd_file(self, tile_name):
         """
         Create command file for PGE_L2_HR_LakeTile for each input tile
         
-        :param indf: index of current input PIXC file within the list of PIXC files
-        :type indf: int
+        :param tile_name: tile name  of current input PIXC file
+        :type tile_name: str
         
         :return: out_cmd_file = command file full path
         :rtype: string
         """
 
         # 1 - Get PIXC file full path
-        pixc_file = os.path.join(self.pixc_dir, self.list_pixc[indf])
+        pixc_file = self.list_pixc[tile_name]
         
         # 2 - Retrieve tile info from the PIXC filename
         information = locnes_filenames.get_info_from_filename(pixc_file, "PIXC")
@@ -299,7 +348,8 @@ class MultiLakeTile(object):
             writer_command_file.write("param_file = " + os.path.join(sys.path[0], "lake_tile_param.cfg") + "\n")
 
         writer_command_file.write("PIXC file = " + pixc_file + "\n")
-        writer_command_file.write("PIXCVecRiver file = " + os.path.join(self.pixcvec_river_dir, self.list_pixcvec_river[indf]) + "\n")
+        if self.list_pixcvec_river[tile_name] is not None:
+            writer_command_file.write("PIXCVecRiver file = " + self.list_pixcvec_river[tile_name] + "\n")
         writer_command_file.write("Output directory = " + self.output_dir + "\n\n")
         
         # 5.2 - Fill DATABASES section
@@ -308,16 +358,26 @@ class MultiLakeTile(object):
             writer_command_file.write("LAKE_DB = " + self.lake_db + "\n")
         if self.lake_db_id is not None:
             writer_command_file.write("LAKE_DB_ID = " + self.lake_db_id + "\n")
+        if self.mls is not None:
+            writer_command_file.write("MLS = " + self.mls + "\n")
         writer_command_file.write("\n")
         
-        # 5.3 - Fill OPTIONS section
+        # 5.3 - Fill UDES_ICE section
+        writer_command_file.write("[UDES_ICE]\n")
+        if self.ice_model is not None:
+            writer_command_file.write("ICE_MODEL = " + self.ice_model + "\n")
+        writer_command_file.write("\n")
+        
+        # 5.4 - Fill OPTIONS section
         writer_command_file.write("[OPTIONS]\n")
+        writer_command_file.write("Simulated data = " + str(self.flag_simu) + "\n")
         writer_command_file.write("Produce shp = " + str(self.flag_prod_shp) + "\n")
+        writer_command_file.write("Save intermediate data = " + str(self.flag_save_inter) + "\n")
         writer_command_file.write("Increment file counter = " + str(self.flag_inc_file_counter) + "\n")
         writer_command_file.write("Write full path = " + str(self.flag_write_full_path) + "\n")
         writer_command_file.write("\n")
         
-        # 5.4 - Fill LOGGING section
+        # 5.5 - Fill LOGGING section
         writer_command_file.write("[LOGGING]\n")
         writer_command_file.write("errorFile = " + error_file + "\n")
         writer_command_file.write("logFile = " + log_file + "\n")
@@ -361,10 +421,14 @@ def read_command_file(in_filename):
     out_params["param_file"] = None
     out_params["LAKE_DB"] = None
     out_params["LAKE_DB_ID"] = None
+    out_params["MLS"] = None
+    out_params["ICE_MODEL"] = None
     out_params["cycle_num"] = None
     out_params["pass_num"] = None
     out_params["tile_ref"] = None
+    out_params["flag_simu"] = False
     out_params["flag_prod_shp"] = False
+    out_params["flag_save_inter"] = False
     out_params["flag_inc_file_counter"] = True
     out_params["flag_write_full_path"] = False
     out_params["errorFile"] = None
@@ -398,7 +462,18 @@ def read_command_file(in_filename):
             out_params["LAKE_DB"] = config.get("DATABASES", "LAKE_DB")
         if "lake_db_id" in list_db:
             out_params["LAKE_DB_ID"] = config.get("DATABASES", "LAKE_DB_ID")
-    # 4 - Retrieve TILES_INFOS
+        # Mean Lake Surfaces database
+        if "mls" in list_db:
+            out_params["MLS"] = config.get("DATABASES", "MLS")
+    
+    # 4 - Retrieve UDES_ICE
+    if "UDES_ICE" in config.sections():
+        list_ice = config.options("UDES_ICE")
+        # Ice model
+        if "ice_model" in list_ice:
+            out_params["ICE_MODEL"] = config.get("UDES_ICE", "ICE_MODEL")
+            
+    # 5 - Retrieve TILES_INFOS
     if "TILES_INFOS" in config.sections():
         list_options = config.options("TILES_INFOS")
         # Cycle number
@@ -411,20 +486,26 @@ def read_command_file(in_filename):
         if "tile ref" in list_options:
             out_params["tile_ref"] = config.get("TILES_INFOS", "Tile ref")
 
-    # 5 - Retrieve OPTIONS
+    # 6 - Retrieve OPTIONS
     if "OPTIONS" in config.sections():
         list_options = config.options("OPTIONS")
+        # Flag to indicate that input PIXC and PIXCVecRiver files are simulated data or not (default)
+        if "simulated data" in list_options:
+            out_params["flag_simu"] = config.getboolean("OPTIONS", "simulated data")
         # Flag to also produce LakeTile_Edge and LakeTile_PIXCVec as shapefiles (=True); else=False (default)
         if "produce shp" in list_options:
             out_params["flag_prod_shp"] = config.getboolean("OPTIONS", "Produce shp")
+        # Flag to save intermediate data for detailed investigation or not (default)
+        if "save intermediate data" in list_options:
+            out_params["flag_save_inter"] = config.getboolean("OPTIONS", "Save intermediate data")
         # Flag to increment the file counter in the output filenames (=True, default); else=False
         if "increment file counter" in list_options:
-            out_params["flag_inc_file_counter"] = config.get("OPTIONS", "Increment file counter")
+            out_params["flag_inc_file_counter"] = config.getboolean("OPTIONS", "Increment file counter")
         # To write full path in global attributes (=True); to write only basename=False
         if "write full path" in list_options:
-            out_params["flag_write_full_path"] = config.get("OPTIONS", "Write full path")
+            out_params["flag_write_full_path"] = config.getboolean("OPTIONS", "Write full path")
 
-    # 6 - Retrieve LOGGING
+    # 7 - Retrieve LOGGING
     if "LOGGING" in config.sections():
         list_options = config.options("LOGGING")
         if "errorFile" in list_options:
@@ -442,7 +523,7 @@ def read_command_file(in_filename):
         if "logconsolelevel" in list_options:
             out_params["logconsolelevel"] = config.get("LOGGING", "logconsolelevel")
             
-    # 7 - Retrieve FILE_INFORMATION
+    # 8 - Retrieve FILE_INFORMATION
     if "FILE_INFORMATION" in config.sections():
         list_options = config.options("FILE_INFORMATION")
         if "institution" in list_options:

@@ -97,9 +97,11 @@ class Timer(object):
 
         # 2 - Retourne la duree au format hh:mm:ss
         if message:
-            return "[Timer-INFO] %s %s" % (message, self.print_delay(int(total_time)))
+            retour = "[Timer-INFO] %s %s" % (message, self.print_delay(int(total_time)))
         else:
-            return "[Timer-INFO] Total execution time in %s" % self.print_delay(int(total_time))
+            retour = "[Timer-INFO] Total execution time in %s" % self.print_delay(int(total_time))
+
+        return retour
 
     # ----------------------------------------
 

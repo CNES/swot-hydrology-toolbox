@@ -10,6 +10,7 @@
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.3.0:DM:#91:2024/09/20:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 '''
@@ -287,7 +288,7 @@ class GeolocRiver(object):
                                                                                                              ri, self.new_height,
                                                                                                              recompute_doppler=True,
                                                                                                              recompute_range=True, verbose=False,
-                                                                                                             max_iter_grad=1, height_goal=1.e-3)
+                                                                                                             max_iter_grad=1, height_goal=1.e-3, swath = self.pixcvec.swath_side)
 
         self.out_lat_corr, self.out_lon_corr, self.out_height_corr = np.transpose(p_final_llh)
 

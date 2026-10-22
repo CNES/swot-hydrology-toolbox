@@ -12,6 +12,10 @@
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # VERSION:3.2.0:DM:#91:2021/10/27:Poursuite industrialisation
+# VERSION:5.0.0:DM:#91:2022/12/08:Poursuite industrialisation
+# VERSION:6.2.0:DM:#91:2024/11/29:Poursuite industrialisation
+# VERSION:6.2.3:DM:#900:2026/07/06: [PGE] [LAKES] Ajout d'une interface niveau moyen des lacs
+# VERSION:6.2.3:DM:#900:2026/07/06:SSALTO-565 [PGE] [LAKES] Ajout d'une interface coeff NN pour calcul ice_dyn_f
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -63,9 +67,11 @@ class MultiLakeSP(object):
         self.laketile_dir = in_params["laketile_dir"]  # LakeTile files directory
         self.output_dir = in_params["output_dir"]  # Output directory
 
-        # BDLac and basins file
+        # PLD file
         self.lake_db = in_params["LAKE_DB"]
         self.lake_db_id = in_params["LAKE_DB_ID"]
+        # MLS file
+        self.mls = in_params["MLS"]
 
         # Tiles info
         self.cycle_num = in_params["cycle_num"]  # Cycle number
@@ -73,16 +79,20 @@ class MultiLakeSP(object):
         self.continent_id = in_params["continent_id"]  # Continent identifier
         self.cycle_pass_set = set()
 
+        # Flag to force PIXCVec generation in case LakeSP processing crashes
+        self.flag_generate_pixcvec = in_params["flag_generate_pixcvec"]
         # Flag to produce LakeTile_Edge and LakeTile_PIXCVec shapefiles
         self.flag_prod_shp = in_params["flag_prod_shp"]
+        # Flag to save intermediate data
+        self.flag_save_inter = in_params["flag_save_inter"]
         # Flag to increment output file counter
         self.flag_inc_file_counter = in_params["flag_inc_file_counter"]
         # Flag to write full path in global attributes
         self.flag_write_full_path = in_params["flag_write_full_path"]
         # Number of processors to use
         self.nb_proc = in_params["nb_proc"]
-        # Flag to delete temporary swath LakeSP shapefiles
-        self.flag_del_tmp_shp = in_params["flag_del_tmp_shp"]
+        # Flag to delete temporary files
+        self.flag_del_tmp = in_params["flag_del_tmp"]
         
         # Log level
         self.error_file = in_params["errorFile"]
@@ -146,6 +156,7 @@ class MultiLakeSP(object):
                 cond_prefix += "_%03d" % self.pass_num
 
         # 2.3 - For each listed laketile shp file, get related laketile edge and pixcvec files if they exist
+        continent_to_process = set()
         for cur_item in tmp_list:
 
             # Test if file meets the condition of laketile shp file
@@ -165,6 +176,13 @@ class MultiLakeSP(object):
                     for continent_id in cur_continent_id_txt.split(";"):
                         if not self.continent_id or cur_continent_id_txt == self.continent_id :
                             self.cycle_pass_set.add((cycle_num, pass_num, continent_id))
+                            continent_to_process.add(continent_id)
+
+        # if a continent_id is found in LakeTile files, then ocean passes can be removed from cycle_pass_set
+        if len(continent_to_process) > 0:
+            for cycle_num, pass_num, continent_id in self.cycle_pass_set.copy():
+                if continent_id == "":
+                    self.cycle_pass_set.remove((cycle_num, pass_num, continent_id))
 
         print("[multiLakeSPProcessing]   --> %d cycle and continental pass to deal with" % len(self.cycle_pass_set))
         for (cycle_num, pass_num, continent_id) in self.cycle_pass_set:
@@ -308,6 +326,8 @@ class MultiLakeSP(object):
             writer_command_file.write("LAKE_DB = " + self.lake_db + "\n")
         if self.lake_db_id is not None:
             writer_command_file.write("LAKE_DB_ID = " + self.lake_db_id + "\n")
+        if self.mls is not None:
+            writer_command_file.write("MLS = " + self.mls + "\n")
         writer_command_file.write("\n")
 
         # 3.3 - Fill TILE_INFOS section
@@ -320,11 +340,13 @@ class MultiLakeSP(object):
         
         # 3.4 - Fill OPTIONS section
         writer_command_file.write("[OPTIONS]\n")
+        writer_command_file.write("Force PIXCVec generation = " + str(self.flag_generate_pixcvec) + "\n")
         writer_command_file.write("Produce shp = " + str(self.flag_prod_shp) + "\n")
+        writer_command_file.write("Save intermediate data = " + str(self.flag_save_inter) + "\n")
         writer_command_file.write("Increment file counter = " + str(self.flag_inc_file_counter) + "\n")
         writer_command_file.write("Write full path = " + str(self.flag_write_full_path) + "\n")
         writer_command_file.write("Nb_proc = " + str(self.nb_proc) + "\n")
-        writer_command_file.write("Delete temporary shp = " + str(self.flag_del_tmp_shp) + "\n")
+        writer_command_file.write("Delete temporary files = " + str(self.flag_del_tmp) + "\n")
         writer_command_file.write("\n")
         
         # 3.5 - Fill LOGGING section
@@ -374,14 +396,17 @@ def read_command_file(in_filename):
     out_params["output_dir"] = None
     out_params["LAKE_DB"] = None
     out_params["LAKE_DB_ID"] = None
+    out_params["MLS"] = None
     out_params["cycle_num"] = None
     out_params["pass_num"] = None
     out_params["continent_id"] = None
+    out_params["flag_generate_pixcvec"] = False
     out_params["flag_prod_shp"] = False
+    out_params["flag_save_inter"] = False
     out_params["flag_inc_file_counter"] = True
     out_params["flag_write_full_path"] = False
     out_params["nb_proc"] = 1
-    out_params["flag_del_tmp_shp"] = True
+    out_params["flag_del_tmp"] = True
     out_params["errorFile"] = None
     out_params["logFile"] = None
     out_params["logfilelevel"] = "DEBUG"
@@ -410,6 +435,9 @@ def read_command_file(in_filename):
             out_params["LAKE_DB"] = config.get("DATABASES", "LAKE_DB")
         if "lake_db_id" in list_db:
             out_params["LAKE_DB_ID"] = config.get("DATABASES", "LAKE_DB_ID")
+        # Mean Lake Surfaces database
+        if "mls" in list_db:
+            out_params["MLS"] = config.get("DATABASES", "MLS")
 
     # 4 - Retrieve TILES_INFOS
     if "TILES_INFOS" in config.sections():
@@ -427,23 +455,29 @@ def read_command_file(in_filename):
     # 5 - Retrieve OPTIONS
     if "OPTIONS" in config.sections():
         list_options = config.options("OPTIONS")
+        # Flag to force PIXCVec generation (=True) or not (=False, default) in case LakeSP processing crashes
+        if "force pixcvec generation" in list_options:
+            out_params["flag_generate_pixcvec"] = config.getboolean("OPTIONS", "Force PIXCVec generation")
         # Flag to also produce PIXCVEC nc files as shapefiles (=True); else=False (default)
         if "produce shp" in list_options:
             out_params["flag_prod_shp"] = config.getboolean("OPTIONS", "Produce shp")
+        # Flag to save intermediate data for detailed investigation or not (default)
+        if "save intermediate data" in list_options:
+            out_params["flag_save_inter"] = config.getboolean("OPTIONS", "Save intermediate data")
         # Flag to increment the file counter in the output filenames (=True, default); else=False
         if "increment file counter" in list_options:
-            out_params["flag_inc_file_counter"] = config.get("OPTIONS", "Increment file counter")
+            out_params["flag_inc_file_counter"] = config.getboolean("OPTIONS", "Increment file counter")
         # To write full path in global attributes (=True); to write only basename=False
         if "write full path" in list_options:
-            out_params["flag_write_full_path"] = config.get("OPTIONS", "Write full path")
+            out_params["flag_write_full_path"] = config.getboolean("OPTIONS", "Write full path")
         # Number of processors to use (default=1)
         if "nb_proc" in list_options:
             out_params["nb_proc"] = config.getint("OPTIONS", "Nb_proc")
             if out_params["nb_proc"] > 2:
                 out_params["nb_proc"] = 2
-        # Flag to delete temporary swath LakeSP shapefiles (=True, default) or not (=False)
-        if "delete temporary shp" in list_options:
-            out_params["flag_del_tmp_shp"] = config.get("OPTIONS", "Delete temporary shp")
+        # Flag to delete temporary files (=True, default) or not (=False)
+        if "delete temporary files" in list_options:
+            out_params["flag_del_tmp"] = config.getboolean("OPTIONS", "Delete temporary files")
             
     # 6 - Retrieve LOGGING
     if "LOGGING" in config.sections():

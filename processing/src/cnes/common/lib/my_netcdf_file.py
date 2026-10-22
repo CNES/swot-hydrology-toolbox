@@ -11,6 +11,11 @@
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # VERSION:3.2.0:DM:#91:2021/10/27:Poursuite industrialisation
+# VERSION:5.0.0:DM:#91:2022/12/08:Poursuite industrialisation
+# VERSION:6.1.0:DM:#91:2024/09/20:Poursuite industrialisation
+# VERSION:6.2.6:DM:#900:2026/07/06: [PGE] [LAKES] Ajout d'une interface niveau moyen des lacs
+# VERSION:6.2.6:DM:#900:2026/07/06:SSALTO-565 [PGE] [LAKES] Ajout d'une interface coeff NN pour calcul ice_dyn_f
+# VERSION:6.2.7:DM:#906:2026/07/28:SSALTO-872 [PGE][LAKES] Gestion des erreurs/warning GDAL
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -223,7 +228,8 @@ class MyNcReader(object):
             out_data = numpy.copy(variable_obj[:])
         except KeyError:
             message = "Variable %s does not exist in NetCDF file" % in_name
-            raise service_error.ProcessingError(message, logger)
+            #raise service_error.ProcessingError(message, logger)
+            logger.debug("WARNING %s" % message)
         
         # 2 - !!! SHOULD NOT OCCUR => IN CASE _FillValue != my_var.FV_NETCDF
         # Replace FillValue from NetCDF file with FillValue from my_variables
@@ -241,7 +247,7 @@ class MyNcReader(object):
                     flag_nok = True
             # Replace if needed
             if flag_nok:
-                logger.warning("FillValue for type %s from NetCDF file is different from my_variable.FV_NETCDF: %s w.r.t. %s " \
+                logger.debug("WARNING FillValue for type %s from NetCDF file is different from my_variable.FV_NETCDF: %s w.r.t. %s " \
                                    %(type_out_data, str(cur_content.variables[in_name]._FillValue), str(my_var.FV_NETCDF[type_out_data])))
                 out_data[numpy.where(out_data == cur_content.variables[in_name]._FillValue)] = my_var.FV_NETCDF[type_out_data]
         except:
@@ -254,16 +260,17 @@ class MyNcReader(object):
             fillvalue_idx = numpy.where(out_data > 1e30)[0]
             nb_fillvalue = len(fillvalue_idx)
             if nb_fillvalue > 0:
-                logger.warning("{} _FillValue in variable {} => replaced by numpy.nan".format(nb_fillvalue, in_name))
+                logger.debug("WARNING {} _FillValue in variable {} => replaced by numpy.nan".format(nb_fillvalue, in_name))
                 out_data[fillvalue_idx] = numpy.nan
                 
         # 4 - Multiplication by the scale factor if it exists
         try:
             scale_factor = cur_content.variables[in_name].scale_factor
-            logger.debug("Apply scale_factor={} for variable {}" % (scale_factor, in_name))
+            #logger.debug("Apply scale_factor={} for variable {}" % (scale_factor, in_name))
             out_data *= scale_factor
         except:
-            logger.debug("No scale_factor for variable %s" % in_name)
+            #logger.debug("No scale_factor for variable %s" % in_name)
+            pass
             
         # 5 - Replace invalid values with numpy.nan
         if type_out_data.startswith("float") or type_out_data.startswith("double"):
@@ -271,24 +278,28 @@ class MyNcReader(object):
             # 5.1 - Values < valid_min
             try:
                 valid_min = getattr(variable_obj, "valid_min")
-                idx_inf_min = numpy.where(out_data < valid_min)[0]
+                idx_valid = numpy.where(numpy.isfinite(out_data))[0]
+                idx_inf_min = numpy.where(out_data[idx_valid] < valid_min)[0]
                 nb_inf_min = len(idx_inf_min)
                 if nb_inf_min > 0:
-                    logger.warning("{} values < valid_min = {} in variable {} => replaced by numpy.nan".format(nb_inf_min, valid_min, in_name))
-                    out_data[idx_inf_min] = numpy.nan
+                    logger.debug("WARNING {} values < valid_min = {} in variable {} => replaced by numpy.nan".format(nb_inf_min, valid_min, in_name))
+                    out_data[idx_valid[idx_inf_min]] = numpy.nan
             except:
-                logger.warning("No valid_min for variable {}".format(in_name))
+                #logger.debug("WARNING No valid_min for variable {}".format(in_name))
+                pass
             
             # 5.2 - Values > valid_max
             try:
                 valid_max = getattr(variable_obj, "valid_max")
-                idx_inf_max = numpy.where(out_data > valid_max)[0]
+                idx_valid = numpy.where(numpy.isfinite(out_data))[0]
+                idx_inf_max = numpy.where(out_data[idx_valid] > valid_max)[0]
                 nb_inf_max = len(idx_inf_max)
                 if nb_inf_max > 0:
-                    logger.warning("{} values > valid_max = {} in variable {} => replaced by numpy.nan".format(nb_inf_max, valid_max, in_name))
-                    out_data[idx_inf_max] = numpy.nan
+                    logger.debug("WARNING {} values > valid_max = {} in variable {} => replaced by numpy.nan".format(nb_inf_max, valid_max, in_name))
+                    out_data[idx_valid[idx_inf_max]] = numpy.nan
             except:
-                logger.warning("No valid_max for variable {}".format(in_name))
+                #logger.debug("WARNING No valid_max for variable {}".format(in_name))
+                pass
 
         return out_data
     
@@ -406,7 +417,7 @@ class MyNcWriter(object):
 
     #----------------------------------------
         
-    def add_variable(self, in_name, in_datatype, in_dimensions, in_group=None, in_attributes=None, in_compress=True):
+    def add_variable(self, in_name, in_datatype, in_dimensions, in_group=None, in_attributes=None, in_compress='zlib'):
         """
         Add the data content of the variable
         
@@ -420,8 +431,8 @@ class MyNcWriter(object):
         :type in_group: netCDF4.Group
         :param in_attributes: variable attributes stored as a dictionary key=attribute name value=attribute value
         :type in_attributes: dict
-        :param in_compress: true to compress the content of the variable (save disk space), else false
-        :type in_compress: boolean
+        :param in_compress: 'zlib' by default to compress the content of the variable (save disk space). Can be None
+        :type in_compress: string
         """
         logger = logging.getLogger(self.__class__.__name__)
         
@@ -433,9 +444,9 @@ class MyNcWriter(object):
             
         # Create variable depending on its type
         if numpy.dtype(in_datatype).char == 'S' or numpy.dtype(in_datatype).char == 'U' or numpy.dtype(in_datatype).char == 'c':
-            cur_content.createVariable(in_name, 'c', in_dimensions, in_compress, 2)
+            cur_content.createVariable(in_name, 'c', in_dimensions, in_compress, complevel=my_var.GEN_NETCDF_COMPLEVEL)
         elif numpy.dtype(in_datatype).name in my_var.FV_NETCDF:
-            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, 2, \
+            cur_content.createVariable(in_name, in_datatype, in_dimensions, in_compress, complevel=my_var.GEN_NETCDF_COMPLEVEL, \
                                        fill_value=my_var.FV_NETCDF[numpy.dtype(in_datatype).name])
         else:
             # datatype not recognized !
@@ -510,11 +521,11 @@ class MyNcWriter(object):
                 nb_nan = len(nan_idx)
                 if nb_nan > 0:
                     try:
-                        logger.warning("{} NaN values remaining in {} variable => replaced by {}".format(nb_nan, in_name, \
+                        logger.debug("WARNING {} NaN values remaining in {} variable => replaced by {}".format(nb_nan, in_name, \
                                                                                                          cur_content.variables[in_name]._FillValue))
                         in_data[nan_idx] = cur_content.variables[in_name]._FillValue
                     except AttributeError:
-                        logger.warning("{} NaN values remaining in {} variable => replaced by {} (_FillValue unknown)".format(nb_nan, in_name, \
+                        logger.debug("WARNING {} NaN values remaining in {} variable => replaced by {} (_FillValue unknown)".format(nb_nan, in_name, \
                                                                                                                          my_var.FV_NETCDF[data_type]))
                         in_data[nan_idx] = my_var.FV_NETCDF[data_type]
             
@@ -523,7 +534,13 @@ class MyNcWriter(object):
                 # Data needs to be converted before being written in NetCDF file
                 cur_content.variables[in_name][:] = netCDF4.stringtochar(in_data.astype('S'))
             elif len(in_data.shape) == 2:
-                cur_content.variables[in_name][:,:] = in_data
+                # TODO To handle interferogram variable both in PIXC versions D0 and D2 => remove in next version
+                try:
+                    cur_content.variables[in_name][:,:] = in_data
+                except:
+                    logger.debug("WARNING Transpose 2D matrix for variable {}".format(in_name))
+                    cur_content.variables[in_name][:,:] = in_data.T
+                # TODO-end
             else:
                 cur_content.variables[in_name][:] = in_data
                 

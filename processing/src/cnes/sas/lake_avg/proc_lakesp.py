@@ -8,10 +8,11 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2021/10/27:Version initiale
 # VERSION:2.0.0:DM:#91:2022/05/05:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2022/12/08:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
-.. module:: proc_lakeavg.py
+.. module:: proc_lakesp.py
     :synopsis: Deals with LakeAvg shapefile product
      Created on 2021/04/23
 
@@ -113,29 +114,32 @@ class LakeSPProduct(object):
                     
                     # 4.2 - Retrieve lake_id
                     lake_id = cur_lake.GetField(str("lake_id"))
-                        
-                    # 4.3 - Create dict for lake_id if it doesn't exist
-                    if lake_id not in self.lakesp_archive.keys():
-                        self.lakesp_archive[lake_id] = dict()
-                        self.lakesp_archive[lake_id]["pass"] = list()
-                        self.lakesp_archive[lake_id]["geom"] = list()
-                        for cur_att in self.list_att:
-                            self.lakesp_archive[lake_id][cur_att] = list()
                     
-                    # 4.4 - Update the lists
-                    # TODO: delete if loop when LakeSP Issue #265 is corrected
-                    # Issue #265 = [LakeSP] Certains lake_id sont en doublon dans le fichier _Prior
-                    if tmp_dict["pass"] not in self.lakesp_archive[lake_id]["pass"]:
+                    # 4.3 - Retrieve geom
+                    cur_geom = cur_lake.GetGeometryRef()
+                    
+                    if cur_geom is not None:
+                        
+                        # 4.3 - Create dict for lake_id if it doesn't exist
+                        if lake_id not in self.lakesp_archive.keys():
+                            self.lakesp_archive[lake_id] = dict()
+                            self.lakesp_archive[lake_id]["pass"] = list()
+                            self.lakesp_archive[lake_id]["geom"] = list()
+                            for cur_att in self.list_att:
+                                self.lakesp_archive[lake_id][cur_att] = list()
+                        
+                        # 4.4 - Update the lists
                         self.lakesp_archive[lake_id]["pass"].append(tmp_dict["pass"])
-                        cur_geom = cur_lake.GetGeometryRef()
                         self.lakesp_archive[lake_id]["geom"].append(cur_geom.Clone())
                         for cur_att_name in self.list_att:
                             cur_att_value = cur_lake.GetField(str(cur_att_name))
                             if (cur_att_value == float) and (cur_att_value < -1e10):
                                 cur_att_value = np.nan
                             self.lakesp_archive[lake_id][cur_att_name].append(cur_att_value)
+                            
                     else:
-                        logger.warning("ISSUE in LakeSP product: more than 1 feature for PLD lake %s in the current LakeSP product" % lake_id)
+                        logger.warning("lake_id=%s: geometry incorrect for pass=%s => LakeSP feature not included in LakeAvg product"
+                                       % (lake_id, tmp_dict["pass"]))
 
             # 5 - Close shapefile
             lakesp_ds.Destroy()

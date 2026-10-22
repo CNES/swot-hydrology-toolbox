@@ -12,6 +12,14 @@
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # VERSION:3.2.0:DM:#91:2021/10/27:Poursuite industrialisation
+# VERSION:5.0.0:DM:#91:2022/12/08:Poursuite industrialisation
+# VERSION:5.0.1:DM:#91:2023/02/24:Poursuite industrialisation
+# VERSION:5.1.0:DM:#91:2023/05/23:Poursuite industrialisation
+# VERSION:5.3.0:DM:#91:2024/09/20:Poursuite industrialisation
+# VERSION:6.2.0:DM:#91:2024/11/29:Poursuite industrialisation
+# VERSION:6.2.3:DM:#900:2026/07/06: [PGE] [LAKES] Ajout d'une interface niveau moyen des lacs
+# VERSION:6.2.3:DM:#900:2026/07/06:SSALTO-565 [PGE] [LAKES] Ajout d'une interface coeff NN pour calcul ice_dyn_f
+# VERSION:6.2.3:DM:#906:2026/07/28:SSALTO-872 [PGE][LAKES] Gestion des erreurs/warning GDAL
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -46,10 +54,13 @@ import cnes.common.lib.my_tools as my_tools
 import cnes.common.lib_lake.lake_db as lake_db
 import cnes.common.lib_lake.locnes_filenames as locnes_filenames
 import cnes.common.lib_lake.proc_lake as proc_lake
+import cnes.common.lib_lake.proc_mls as proc_mls
+import cnes.common.lib_lake.proc_pixc as proc_pixc
 import cnes.common.lib_lake.proc_pixc_vec as proc_pixc_vec
 
 import cnes.sas.lake_tile.sas_lake_tile as sas_lake_tile
-import cnes.sas.lake_tile.proc_pixc as proc_pixc
+
+import udes.pixel_ice as pixel_ice
 
 
 #######################################
@@ -93,7 +104,9 @@ class PGELakeTile():
         # 3 - Put command parameter inside cfg
         self._put_cmd_value(my_params)
         # Retrieve options which are optionnal
+        self.flag_simu = self.cfg.getboolean("OPTIONS", "Simulated data")
         self.flag_prod_shp = self.cfg.getboolean("OPTIONS", "Produce shp")
+        self.flag_save_inter = self.cfg.getboolean("OPTIONS", "Save intermediate data")
         self.flag_inc_file_counter = self.cfg.getboolean("OPTIONS", "Increment file counter")
         self.flag_write_full_path = self.cfg.getboolean("OPTIONS", "Write full path")
         
@@ -101,6 +114,7 @@ class PGELakeTile():
         self.obj_pixcvec = None
         self.obj_pixc = None
         self.obj_lake_db = None
+        self.obj_mls = None
         self.obj_lake = None
         self.lake_tile_filenames = None
 
@@ -128,11 +142,19 @@ class PGELakeTile():
 
         # 8 - Form processing metadata dictionary
         self.proc_metadata = {}
-        self.proc_metadata["history"] = "%sZ: Creation" % my_tools.swot_timeformat(datetime.datetime.utcnow(), in_format=3)
+        self.proc_metadata["history"] = "%sZ: Creation" % my_tools.swot_timeformat(datetime.datetime.now(datetime.UTC), in_format=3)
         if self.cfg.get("DATABASES", "LAKE_DB") is not None:
             self.proc_metadata["xref_prior_lake_db_file"] = self.cfg.get("DATABASES", "LAKE_DB")
         else:
             self.proc_metadata["xref_prior_lake_db_file"] = ""
+        if self.cfg.get("DATABASES", "MLS") is not None:
+            self.proc_metadata["xref_mls_file"] = self.cfg.get("DATABASES", "MLS")
+        else:
+            self.proc_metadata["xref_mls_file"] = ""
+        if self.cfg.get("UDES_ICE", "ICE_MODEL") is not None:
+            self.proc_metadata["xref_ice_model_file"] = self.cfg.get("UDES_ICE", "ICE_MODEL")
+        else:
+            self.proc_metadata["xref_ice_model_file"] = ""
         self.proc_metadata["xref_l2_hr_pixc_file"] = self.pixc_file
         self.proc_metadata["xref_l2_hr_pixcvecriver_file"] = self.pixcvec_river_file
         self.proc_metadata["xref_param_l2_hr_laketile_file"] = file_config
@@ -152,7 +174,9 @@ class PGELakeTile():
         # 0 - Init output dictionary
         out_params = {}
         # Default values
+        out_params["flag_simu"] = "False"
         out_params["flag_prod_shp"] = "False"
+        out_params["flag_save_inter"] = "False"
         out_params["flag_inc_file_counter"] = "True"
         out_params["flag_write_full_path"] = "False"
 
@@ -177,21 +201,38 @@ class PGELakeTile():
         # 3 - Retrieve DATABASES
         out_params["LAKE_DB"] = None
         out_params["LAKE_DB_ID"] = None
+        out_params["MLS"] = None
         # TODO : None in filename if no lake DATABASES or basins file
         if "DATABASES" in config.sections():
             list_db = config.options("DATABASES")
-            # Prior lake database
+            # 3.1 - Prior lake database
             if "lake_db" in list_db:
                 out_params["LAKE_DB"] = config.get("DATABASES", "LAKE_DB")
             if "lake_db_id" in list_db:
                 out_params["LAKE_DB_ID"] = config.get("DATABASES", "LAKE_DB_ID")
+            # 3.2 - Mean lake surfaces database
+            if "mls" in list_db:
+                out_params["MLS"] = config.get("DATABASES", "MLS")
+                
+        # 4 - Retrieve UDES_ICE
+        out_params["ICE_MODEL"] = None
+        if "UDES_ICE" in config.sections():
+            list_sub = config.options("UDES_ICE")
+            if "ice_model" in list_sub:
+                out_params["ICE_MODEL"] = config.get("UDES_ICE", "ICE_MODEL")
 
-        # 4 - Retrieve OPTIONS
+        # 5 - Retrieve OPTIONS
         if "OPTIONS" in config.sections():
             list_options = config.options("OPTIONS")
+            # Flag to indicate that input PIXC and PIXCVecRiver files are simulated data or not (default)
+            if "simulated data" in list_options:
+                out_params["flag_simu"] = config.get("OPTIONS", "Simulated data")
             # Flag to also produce LakeTile_Edge and LakeTile_PIXCVec as shapefiles (=True); else=False (default)
             if "produce shp" in list_options:
                 out_params["flag_prod_shp"] = config.get("OPTIONS", "Produce shp")
+            # Flag to save intermediate data for detailed investigation or not (default)
+            if "save intermediate data" in list_options:
+                out_params["flag_save_inter"] = config.get("OPTIONS", "Save intermediate data")
             # Flag to increment the file counter in the output filenames (=True, default); else=False
             if "increment file counter" in list_options:
                 out_params["flag_inc_file_counter"] = config.get("OPTIONS", "Increment file counter")
@@ -199,7 +240,7 @@ class PGELakeTile():
             if "write full path" in list_options:
                 out_params["flag_write_full_path"] = config.get("OPTIONS", "Write full path")
 
-        # 5 - Retrieve LOGGING
+        # 6 - Retrieve LOGGING
         error_file = config.get("LOGGING", "errorFile")
         out_params["errorFile"] = os.path.splitext(error_file)[0] + "_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + os.path.splitext(error_file)[1]
         log_file = config.get("LOGGING", "logFile")
@@ -208,7 +249,7 @@ class PGELakeTile():
         out_params["logConsole"] = config.get("LOGGING", "logConsole")
         out_params["logconsolelevel"] = config.get("LOGGING", "logconsolelevel")
         
-        # 6 - Retrieve FILE_INFORMATION
+        # 7 - Retrieve FILE_INFORMATION
         # Name of producing agency
         out_params["INSTITUTION"] = config.get("FILE_INFORMATION", "INSTITUTION")
         # Product version
@@ -255,11 +296,19 @@ class PGELakeTile():
             self.cfg.add_section(section)
             self.cfg.set(section, "LAKE_DB", param_list["LAKE_DB"])
             self.cfg.set(section, "LAKE_DB_ID", param_list["LAKE_DB_ID"])
+            self.cfg.set(section, "MLS", param_list["MLS"])
+            
+            # Add UDES_ICE section and parameters
+            section = "UDES_ICE"
+            self.cfg.add_section(section)
+            self.cfg.set(section, "ICE_MODEL", param_list["ICE_MODEL"])
 
             # Add OPTIONS section and parameters
             section = "OPTIONS"
             self.cfg.add_section(section)
+            self.cfg.set(section, "Simulated data", param_list["flag_simu"])
             self.cfg.set(section, "Produce shp", param_list["flag_prod_shp"])
+            self.cfg.set(section, "Save intermediate data", param_list["flag_save_inter"])
             self.cfg.set(section, "Increment file counter", param_list["flag_inc_file_counter"])
             self.cfg.set(section, "Write full path", param_list["flag_write_full_path"])
             
@@ -271,6 +320,7 @@ class PGELakeTile():
             self.cfg.set(section, "CRID", param_list["CRID"])
             self.cfg.set(section, "PGE_VERSION", param_list["PGE_VERSION"])
             self.cfg.set(section, "CONTACT", param_list["CONTACT"])
+            self.cfg.set(section, "PRODUCT_COUNTER", "01")
 
         except Exception:
             print("Something wrong happened in _put_cmd_value !")
@@ -297,7 +347,7 @@ class PGELakeTile():
             logger.debug('OK - PIXC file = ' + str(self.cfg.get('PATHS', 'PIXC file')))
             # PIXCVecRiver file
             list_paths = self.cfg.options('PATHS')
-            if ('PIXCVecRiver file' in list_paths) and (self.cfg.get('PATHS', 'PIXCVecRiver file') != ""):
+            if ('pixcvecriver file' in list_paths) and (self.cfg.get('PATHS', 'PIXCVecRiver file') != ""):
                 self.cfg.test_var_config_file('PATHS', 'PIXCVecRiver file', str, logger=logger)
                 my_tools.test_file(self.cfg.get('PATHS', 'PIXCVecRiver file'))
                 logger.debug('OK - PIXCVecRiver file = ' + str(self.cfg.get('PATHS', 'PIXCVecRiver file')))
@@ -331,12 +381,36 @@ class PGELakeTile():
                 my_tools.test_dir(self.cfg.get('DATABASES', 'LAKE_DB'))
                 logger.debug('OK - LAKE_DB directory = ' + str(self.cfg.get('DATABASES', 'LAKE_DB')))
             else:
-                logger.debug('WARNING - Unknown LAKE_DB file format for file: %s => LakeTile product not linked to a lake database' % self.cfg.get('DATABASES', 'LAKE_DB'))
+                logger.debug('WARNING - Unknown LAKE_DB file format for: %s => LakeTile product not linked to a lake database' % self.cfg.get('DATABASES', 'LAKE_DB'))
+            # Mean lake surfaces database full path
+            if self.cfg.get('DATABASES', 'MLS') is None:
+                logger.debug('WARNING - MLS not filled => LakeTile produced without correction of geoid for large lakes')
+            elif self.cfg.get('DATABASES', 'MLS').endswith(".tar"):
+                self.cfg.test_var_config_file('DATABASES', 'MLS', str, logger=logger)
+                my_tools.test_file(self.cfg.get('DATABASES', 'MLS'))
+                logger.debug('OK - MLS = ' + str(self.cfg.get('DATABASES', 'MLS')))
+            elif os.path.isdir(self.cfg.get('DATABASES', 'MLS')):
+                self.cfg.test_var_config_file('DATABASES', 'MLS', str, logger=logger)
+                my_tools.test_dir(self.cfg.get('DATABASES', 'MLS'))
+                logger.debug('OK - MLS directory = ' + str(self.cfg.get('DATABASES', 'MLS')))
+            else:
+                logger.debug('WARNING - Unknown MLS file format for: %s => LakeTile produced without correction of geoid for large lakes' % self.cfg.get('DATABASES', 'MLS'))
                 
-            # 1.3 - OPTIONS section
+            # 1.3 - UDES_ICE section
+            # Pre-trained ice classification model used to compute ice_dyn_f
+            self.cfg.test_var_config_file('UDES_ICE', 'ICE_MODEL', str, logger=logger)
+            logger.debug('OK - ICE_MODEL = ' + str(self.cfg.get('UDES_ICE', 'ICE_MODEL')))
+            
+            # 1.4 - OPTIONS section
+            # Input PIXC and PIXCVecRiver files are simulated data or not
+            self.cfg.test_var_config_file('OPTIONS', 'Simulated data', bool, logger=logger)
+            logger.debug('OK - Simulated data = ' + str(self.cfg.get('OPTIONS', 'Simulated data')))
             # Shapefile production
             self.cfg.test_var_config_file('OPTIONS', 'Produce shp', bool, logger=logger)
             logger.debug('OK - Produce shp = ' + str(self.cfg.get('OPTIONS', 'Produce shp')))
+            # Save intermediate data
+            self.cfg.test_var_config_file('OPTIONS', 'Save intermediate data', bool, logger=logger)
+            logger.debug('OK - Save intermediate data = ' + str(self.cfg.get('OPTIONS', 'Save intermediate data')))
             # Increment output file counter
             self.cfg.test_var_config_file('OPTIONS', 'Increment file counter', bool, logger=logger)
             logger.debug('OK - Increment file counter = ' + str(self.cfg.get('OPTIONS', 'Increment file counter')))
@@ -344,7 +418,7 @@ class PGELakeTile():
             self.cfg.test_var_config_file('OPTIONS', 'Write full path', bool, logger=logger)
             logger.debug('OK - Write full path = ' + str(self.cfg.get('OPTIONS', 'Write full path')))
             
-            # 1.4 - FILE_INFORMATION section
+            # 1.5 - FILE_INFORMATION section
             # Name of producing agency
             self.cfg.test_var_config_file('FILE_INFORMATION', 'INSTITUTION', str, logger=logger)
             logger.debug('OK - INSTITUTION = ' + str(self.cfg.get('FILE_INFORMATION', 'INSTITUTION')))
@@ -365,34 +439,44 @@ class PGELakeTile():
 
             # 2.1 - CONFIG_PARAMS section
             
-            # List of classif flags to keep for processing: 2=land_near_water  3=water_near_land   4=open_water  5=dark_water 
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_LIST', str, val_default="2;3;4;5", logger=logger)
+            # List of classif flags to keep for processing: 2=land_near_water  3=water_near_land   4=open_water  5=dark_water
+            # 6=low_coh_water_near_land   7=open_low_coh_water
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_LIST', str, val_default="3;4;5;6;7", logger=logger)
             logger.debug('OK - CLASSIF_LIST = ' + str(self.cfg.get('CONFIG_PARAMS', 'CLASSIF_LIST')))
+            # List of classif flags a lake feature must contain at least
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_MANDATORY', str, val_default="3;4", logger=logger)
+            logger.debug('OK - CLASSIF_MANDATORY = ' + str(self.cfg.get('CONFIG_PARAMS', 'CLASSIF_MANDATORY')))
             # True/False list of classif flags which contain observed water (1-to-1 correspondance with CLASSIF_LIST)
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_WATER', str, val_default="True;True;True;False", logger=logger)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_WATER', str, val_default="True;True;False;True;True", logger=logger)
             logger.debug('OK - CLASSIF_WATER = ' + str(self.cfg.get('CONFIG_PARAMS', 'CLASSIF_WATER')))
             # True/False list of classif flags to use for lake boundary construction (1-to-1 correspondance with CLASSIF_LIST)
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_4HULL', str, val_default="True;True;True;True", logger=logger)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_4HULL', str, val_default="True;True;True;True;True", logger=logger)
             logger.debug('OK - CLASSIF_4HULL = ' + str(self.cfg.get('CONFIG_PARAMS', 'CLASSIF_4HULL')))
+            # If CLASSIF_LIST contains 3: =True to remove 1 pixel in top/bottom azimuth to build the lake boundary; =False to keep all pixels (default)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'DEL_1PIX_IN_AZ_4HULL', bool, val_default=False, logger=logger)
+            logger.debug('OK - DEL_1PIX_IN_AZ_4HULL = ' + str(self.cfg.get('CONFIG_PARAMS', 'DEL_1PIX_IN_AZ_4HULL')))
             # True/False list of classif flags to use for WSE computation (1-to-1 correspondance with CLASSIF_LIST)
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_4WSE', str, val_default="False;False;True;False", logger=logger)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_4WSE', str, val_default="False;True;False;False;False", logger=logger)
             logger.debug('OK - CLASSIF_4WSE = ' + str(self.cfg.get('CONFIG_PARAMS', 'CLASSIF_4WSE')))
             # True/False list of classif flags to use for lake area computation (1-to-1 correspondance with CLASSIF_LIST)
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_4AREA', str, val_default="True;True;True;True", logger=logger)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'CLASSIF_4AREA', str, val_default="True;True;True;True;True", logger=logger)
             logger.debug('OK - CLASSIF_4AREA = ' + str(self.cfg.get('CONFIG_PARAMS', 'CLASSIF_4AREA')))
+            # If CLASSIF_LIST contains 3: =True to remove 1 pixel in top/bottom azimuth to compute lake area; =False to keep all pixels (default)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'DEL_1PIX_IN_AZ_4AREA', bool, val_default=False, logger=logger)
+            logger.debug('OK - DEL_1PIX_IN_AZ_4AREA = ' + str(self.cfg.get('CONFIG_PARAMS', 'DEL_1PIX_IN_AZ_4AREA')))
             # True/False list of classif flags to use water fraction for inundated computation (1-to-1 correspondance with CLASSIF_LIST)
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'USE_FRACTIONAL_INUNDATION', str, val_default="True;True;False;False", logger=logger)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'USE_FRACTIONAL_INUNDATION', str, val_default="True;False;False;True;False", logger=logger)
             logger.debug('OK - USE_FRACTIONAL_INUNDATION = ' + str(self.cfg.get('CONFIG_PARAMS', 'USE_FRACTIONAL_INUNDATION')))
             
-            # List of quality flags to consider for PixC selection
+            # List of quality flags to consider for PixC selection (default = empty)
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'PIXC_QUAL_LIST', str, 
-                                          val_default="interferogram_qual;classification_qual;geolocation_qual", logger=logger)
+                                          val_default="", logger=logger)
             logger.debug('OK - PIXC_QUAL_LIST = ' + str(self.cfg.get('CONFIG_PARAMS', 'PIXC_QUAL_LIST')))
             # Mask of quality flags to use for PixC selection (1-to-1 correspondance with PIXC_QUAL_LIST)
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'PIXC_QUAL_MASK', str, val_default="0;0;0", logger=logger)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'PIXC_QUAL_MASK', str, val_default="", logger=logger)
             logger.debug('OK - PIXC_QUAL_MASK = ' + str(self.cfg.get('CONFIG_PARAMS', 'PIXC_QUAL_MASK')))
-            # To exclude PixC having bright_land_flag=1 (=True) or not (=False, default)
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'EXCLUDE_BRIGHT_LAND', bool, val_default=False, logger=logger)
+            # To exclude PixC having bright_land_flag=1 (=True, default) or not (=False)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'EXCLUDE_BRIGHT_LAND', bool, val_default=True, logger=logger)
             logger.debug('OK - EXCLUDE_BRIGHT_LAND = ' + str(self.cfg.get('CONFIG_PARAMS', 'EXCLUDE_BRIGHT_LAND')))
             
             # Min cross-track distance to select PixC
@@ -402,12 +486,21 @@ class PGELakeTile():
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'MAX_XTRACK', float, val_default=-1.0, logger=logger)
             logger.debug('OK - MAX_XTRACK = ' + str(self.cfg.get('CONFIG_PARAMS', 'MAX_XTRACK')))
             
+            # Minimum number of pixels for a water feature to start being processed
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'MIN_NB_PIXC', int, val_default=5, logger=logger)
+            logger.debug('OK - MIN_NB_PIXC = ' + str(self.cfg.get('CONFIG_PARAMS', 'MIN_NB_PIXC')))
             # Min size for a lake to generate a lake product (=polygon + attributes) for it
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'MIN_SIZE', float, val_default=0.01, logger=logger)
             logger.debug('OK - MIN_SIZE = ' + str(self.cfg.get('CONFIG_PARAMS', 'MIN_SIZE')))
             # Maximum number of azimuth tiles fully covered by a lake processed in LakeSP; -1 to disable (default)
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'MAX_NB_TILES_FULL_AZ', int, val_default=-1, logger=logger)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'MAX_NB_TILES_FULL_AZ', float, val_default=-1, logger=logger)
             logger.debug('OK - MAX_NB_TILES_FULL_AZ = ' + str(self.cfg.get('CONFIG_PARAMS', 'MAX_NB_TILES_FULL_AZ')))
+            # To exclude PixC related to coastal zones from LakeTile processing (=True) or not (=False, default)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'EXCLUDE_COASTAL_ZONES', bool, val_default=False, logger=logger)
+            logger.debug('OK - EXCLUDE_COASTAL_ZONES = ' + str(self.cfg.get('CONFIG_PARAMS', 'EXCLUDE_COASTAL_ZONES')))
+            # PLD layer used to assign pixels to a PLD lake. Can be lake_influence or lake_catchment
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'ASSIGNMENT_LAYER', str, val_default="lake_catchment", logger=logger)
+            logger.debug('OK - ASSIGNMENT_LAYER = ' + self.cfg.get('CONFIG_PARAMS', 'ASSIGNMENT_LAYER'))
             # Min percentage of overlapping area to consider PLD lake linked to an observed feature
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'MIN_OVERLAP', float, val_default=1.0, logger=logger)
             logger.debug('OK - MIN_OVERLAP = ' + str(self.cfg.get('CONFIG_PARAMS', 'MIN_OVERLAP')))
@@ -429,6 +522,9 @@ class PGELakeTile():
             # To improve PixC geolocation (=True) or not (=False)
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'IMP_GEOLOC', bool, val_default=True, logger=logger)
             logger.debug('OK - IMP_GEOLOC = ' + str(self.cfg.get('CONFIG_PARAMS', 'IMP_GEOLOC')))
+            # Maximum tolerated difference (m) between improved height and initial height
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'MAX_DIFF_HEIGHT_GEOLOC', float, val_default=50.0, logger=logger)
+            logger.debug('OK - MAX_DIFF_HEIGHT_GEOLOC = ' + str(self.cfg.get('CONFIG_PARAMS', 'MAX_DIFF_HEIGHT_GEOLOC')))
             # Method to compute lake boundary or polygon hull
             # 0 = convex hull 
             # 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library
@@ -443,7 +539,7 @@ class PGELakeTile():
             logger.debug('OK - NB_PIX_MAX_DELAUNEY = ' + str(self.cfg.get('CONFIG_PARAMS', 'NB_PIX_MAX_DELAUNEY')))
 
             # Big lakes parameters for improved geoloc
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'BIGLAKE_MODEL', str, valeurs=["polynomial", "no"], val_default="polynomial", logger=logger)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'BIGLAKE_MODEL', str, valeurs=["polynomial", "grid", "no"], val_default="polynomial", logger=logger)
             logger.debug('OK - BIGLAKE_MODEL = ' + str(self.cfg.get('CONFIG_PARAMS', 'BIGLAKE_MODEL')))
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'BIGLAKE_MIN_SIZE', float, val_default=50.0, logger=logger)
             logger.debug('OK - BIGLAKE_MIN_SIZE = ' + str(self.cfg.get('CONFIG_PARAMS', 'BIGLAKE_MIN_SIZE')))
@@ -456,9 +552,13 @@ class PGELakeTile():
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'STOCC_INPUT', str, val_default="pld", logger=logger)
             logger.debug('OK - STOCC_INPUT = ' + str(self.cfg.get('CONFIG_PARAMS', 'STOCC_INPUT')))
             
-            # Threshold of good pixels within a lake to set quality_f
-            self.cfg.test_var_config_file('CONFIG_PARAMS', 'THRESHOLD_4NOMINAL', float, val_default=0.7, logger=logger)
-            logger.debug('OK - THRESHOLD_4NOMINAL = ' + str(self.cfg.get('CONFIG_PARAMS', 'THRESHOLD_4NOMINAL')))
+            # Input data for ice_dyn_f computation
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'WINDOW_4_ICE_CLIM', int, val_default="30", logger=logger)
+            logger.debug('OK - WINDOW_4_ICE_CLIM = ' + str(self.cfg.get('CONFIG_PARAMS', 'WINDOW_4_ICE_CLIM')))
+            
+            # To add not-observed PLD lakes as empty features to the LakeSP_Prior shapefile (=True, default) or not (=False)
+            self.cfg.test_var_config_file('CONFIG_PARAMS', 'ADD_ALL', bool, val_default=True, logger=logger)
+            logger.debug('OK - ADD_ALL = ' + str(self.cfg.get('CONFIG_PARAMS', 'ADD_ALL')))
             # Nb digits for counter of lakes in a tile or pass
             self.cfg.test_var_config_file('CONFIG_PARAMS', 'NB_DIGITS', str, val_default=6, logger=logger)
             logger.debug('OK - NB_DIGITS = ' + str(self.cfg.get('CONFIG_PARAMS', 'NB_DIGITS')))
@@ -493,20 +593,23 @@ class PGELakeTile():
             logger.warning("NO PIXVecRiver file specified => ALL pixels of PIXC file are considered as part of a lake or an unassigned feature")
         logger.info("")
 
-        # 2 - Init PIXC object by retrieving needed data from the pixel cloud
-        logger.info("> 1.2 - Retrieving needed data from the pixel cloud...")
+        # 2.1 - Load pre-trained classification model for ice_dyn_f
+        logger.info("> 1.2 - Loading pre-trained classification model for ice_dyn_f...")
+        ice_model = self._read_ice_model_data()
+        # 2.2 - Init PIXC object by retrieving needed data from the pixel cloud
+        logger.info("> 1.3 - Retrieving needed data from the pixel cloud...")
         self.obj_pixc = proc_pixc.PixelCloud()
-        self.obj_pixc.set_from_pixc_file(self.pixc_file, self.obj_pixcvec.reject_index)
+        self.obj_pixc.extract_from_pixc(self.pixc_file, self.obj_pixcvec.reject_index, flag_simu=self.flag_simu, ice_model=ice_model)
         logger.info("")
         
         # 3 - Retrieve orbit info from PIXC filename and compute output filenames
-        logger.info("> 1.3 - Retrieving tile infos from PIXC filename...")
+        logger.info("> 1.4 - Retrieving tile infos from PIXC filename...")
         self.lake_tile_filenames = locnes_filenames.LakeTileFilenames(self.pixc_file, 
                                                                       self.pixcvec_river_file, 
                                                                       self.output_dir, 
                                                                       flag_inc=self.flag_inc_file_counter)
 
-    def _read_lake_db(self):
+    def _read_lake_db(self, in_date):
         """
         This method prepares Lake DB class, and init with Lake DB data
         
@@ -514,6 +617,8 @@ class PGELakeTile():
             - in_tile_ref=not None, others=None => LakeTile processing with operational PLD
             - in_tile_poly=not None, others=None
                 - with in_az_0_line=not None, in_az_max_line=not None => LakeTile processing with user lake DB
+        :param in_date: date of lake product acquisition
+        :type in_date: datetime.datetime
         """
         logger = logging.getLogger(self.__class__.__name__)
         
@@ -538,13 +643,15 @@ class PGELakeTile():
                 if os.path.basename(lake_db_file).startswith(locnes_filenames.PLD_PREFIX_BASE):  # Operationnal PLD filename
                     logger.debug("Use of operational Prior Lake Database (specific filename given)")
                     self.obj_lake_db = lake_db.LakeDbSqlite(lake_db_file, 
-                                                            in_tile_ref=self.lake_tile_filenames.tile_ref)
+                                                            in_tile_ref=self.lake_tile_filenames.tile_ref,
+                                                            in_date=in_date)
                 else:
                     logger.debug("Use of personal user lake database in SQLite format")
                     self.obj_lake_db = lake_db.LakeDbSqlite(lake_db_file, 
                                                             in_poly=self.obj_pixc.tile_poly, 
                                                             in_az_0_line=self.obj_pixc.az_0_line, 
-                                                            in_az_max_line=self.obj_pixc.az_max_line)
+                                                            in_az_max_line=self.obj_pixc.az_max_line,
+                                                            in_date=in_date)
                 
             elif os.path.isdir(lake_db_file):  # Directory of operational Prior Lake Database (PLD)
                 logger.debug("Use of operational Prior Lake Database (upper directory given)")
@@ -554,9 +661,10 @@ class PGELakeTile():
                                                                  cycle_num=self.lake_tile_filenames.cycle_num,
                                                                  pass_num=self.lake_tile_filenames.pass_num)
                 # Init PLD object
-                if os.path.exists(lakedb_filenames.filename):
+                if (lakedb_filenames.filename is not None) and os.path.exists(lakedb_filenames.filename):
                     self.obj_lake_db = lake_db.LakeDbSqlite(lakedb_filenames.filename, 
-                                                            in_tile_ref=self.lake_tile_filenames.tile_ref)
+                                                            in_tile_ref=self.lake_tile_filenames.tile_ref,
+                                                            in_date=in_date)
                     self.proc_metadata["xref_prior_lake_db_file"] = lakedb_filenames.filename
                 else:
                     logger.warning("NO related operational Prior Lake Database file found -> NO database specified")
@@ -566,6 +674,74 @@ class PGELakeTile():
                 message = "Prior Lake Database format (%s) is unknown: must be .shp or .sqlite => set to None" % type_db
                 logger.warning(message)
                 self.obj_lake_db = lake_db.LakeDb()
+
+    def _read_mls_data(self):
+        """
+        This method prepares MeanLakeSurface class, and init with MLS data
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        
+        mls_file = self.cfg.get("DATABASES", "MLS")
+        mls_filename = ""
+        self.obj_mls = proc_mls.MeanLakeSurface()
+        
+        if (mls_file == "") or (mls_file is None):  # No MLS
+            logger.warning("NO mean lake surface database specified -> NO correction of geoid for large lakes applied")
+        else:  # Init MLS object wrt to file type
+            
+            type_db = mls_file.split('.')[-1]  # File type
+            
+            if type_db == "tar":  # Operational MLS TAR file
+                if os.path.basename(mls_file).startswith(locnes_filenames.MLS_PREFIX_BASE):  # Operationnal MLS filename
+                    logger.debug("Use of operational Mean Lake Surfaces (specific filename given)")
+                    mls_filename = mls_file
+                else:
+                    logger.debug("Filename UNKNOWN -> NO correction of geoid for large lakes")
+                
+            elif os.path.isdir(mls_file):  # Directory of operational Mean Lake Surfaces (MLS)
+                logger.debug("Use of operational Mean Lake Surfaces (upper directory given)")
+                # Compute MLS filename
+                mls_filenames = locnes_filenames.MlsFilenames("TILE", 
+                                                              mls_file, 
+                                                              cycle_num=self.lake_tile_filenames.cycle_num,
+                                                              pass_num=self.lake_tile_filenames.pass_num)
+                # Init MLS object
+                if (mls_filenames.filename is not None) and os.path.exists(mls_filenames.filename):
+                    mls_filename = mls_filenames.filename
+                    self.proc_metadata["xref_mls_file"] = mls_filename
+                else:
+                    logger.warning("NO related operational Mean Lake Surface file found -> NO database specified")
+                
+            else:
+                message = "Mean Lake Surface file format (%s) is unknown: must be .tar => set to None" % type_db
+                logger.warning(message)
+                
+            if mls_filename != "":
+                # Compute list of lake_id of big lakes over the tile
+                list_lakeid = self.obj_lake_db.get_lakeid_with_mls()
+                # Load MLS
+                if len(list_lakeid) == 0:
+                    logger.debug("NO PLD lake has a Mean Lake Surface attached")
+                else:
+                    logger.debug("{} PLD lakes have a Mean Lake Surface attached => correction to geoid model will be applied for them = {}".format(len(list_lakeid), list_lakeid))
+                    self.obj_mls.load_data(mls_filename, list_lakeid=list_lakeid)
+
+    def _read_ice_model_data(self):
+        """
+        This method reads the pre-trained ice classification model used to compute ice_dyn_f
+        """
+        logger = logging.getLogger(self.__class__.__name__)
+        
+        ice_model_file = self.cfg.get("UDES_ICE", "ICE_MODEL")
+        
+        out_ice_model = None
+        if (ice_model_file == "") or (ice_model_file is None):  # No ice model to use to compute ice_dyn_f
+            logger.warning("NO pre-trained ice classification model specified -> ice_dyn_f won't be computed")
+            
+        else:
+            out_ice_model = pixel_ice.load_data(ice_model_file)
+            
+        return out_ice_model
         
     # -------------------------------------------
 
@@ -581,6 +757,7 @@ class PGELakeTile():
                                               self.obj_pixc,
                                               self.obj_pixcvec,
                                               self.obj_lake_db,
+                                              self.obj_mls,
                                               os.path.basename(self.lake_tile_filenames.lake_tile_shp_file_obs).split(".")[0])
 
     def _write_output_data(self):
@@ -625,6 +802,17 @@ class PGELakeTile():
                 self.obj_pixc.write_edge_file_as_shp(self.lake_tile_filenames.lake_tile_edge_file.replace(".nc", ".shp"))
         logger.info("")
         
+        # 4 - Optionally write shapefile with combined PIXC and PIXCVec information over lake pixels
+        if self.flag_save_inter:
+            logger.info("> 8.4.1 - Writing combined PIXC/PIXCVec shapefile with PIXCVec coordinates...")
+            out_file = os.path.join(self.cfg.get("PATHS", "Output directory"), 
+                                    "INTER_PIXC_PIXCVec_%s.shp" % '_'.join(os.path.basename(self.lake_tile_filenames.lake_tile_pixcvec_file).split("_")[5:8]))
+            self.obj_pixc.write_obj_pixc_pixcvec_as_shp(out_file, self.obj_pixcvec)
+            logger.info("> 8.4.2 - Writing combined PIXC/PIXCVec shapefile with PIXC coordinates...")
+            out_file = out_file.replace(".shp", "_pixc-coords.shp")
+            self.obj_pixc.write_obj_pixc_pixcvec_as_shp(out_file, self.obj_pixcvec, flag_vectorproc=False)
+            logger.info("")
+        
     # -------------------------------------------
 
     def start(self):
@@ -647,11 +835,16 @@ class PGELakeTile():
             
             # 2 - Read lake db
             logger.info("> 2 - Init and read lake DB object...")
-            self._read_lake_db()
+            self._read_lake_db(self.obj_pixc.date)
             logger.info("")
-
-            # 3 - Prepare output data
-            logger.info("> 3 - Prepare output objects...")
+            
+            # 3 - Read MLS
+            logger.info("> 3 - Init and read Mean Lake Surface object...")
+            self._read_mls_data()
+            logger.info("")
+            
+            # 4 - Prepare output data
+            logger.info("> 4 - Prepare output objects...")
             self._prepare_output_data()
             logger.info("")
             
@@ -666,27 +859,31 @@ class PGELakeTile():
                 logger.info("***** Run SAS LakeTile *****")
                 logger.info("****************************")
                 
-                # 4 - Initialization
-                logger.info("> 4 - Initialization of SASLakeTile class")
+                # 5 - Initialization
+                logger.info("> 5 - Initialization of SASLakeTile class")
                 my_lake_tile = sas_lake_tile.SASLakeTile(self.obj_pixc, self.obj_pixcvec, self.obj_lake_db, self.obj_lake)
+                logger.info("")         
                 logger.info(self.timer.info(0)) 
                 logger.info("")         
                 
-                # 5 - Run pre-processing
-                logger.info("> 5 - Run SASpre-processing")
+                # 6 - Run pre-processing
+                logger.info("> 6 - Run SASpre-processing")
                 my_lake_tile.run_preprocessing()
+                logger.info("")         
                 logger.info(self.timer.info(0))
                 logger.info("")
                 
-                # 6 - Run processing
-                logger.info("> 6 - Run SASprocessing")
+                # 7 - Run processing
+                logger.info("> 7 - Run SASprocessing")
                 my_lake_tile.run_processing()
+                logger.info("")         
                 logger.info(self.timer.info(0))
                 logger.info("")
         
-                # 7 - Run post-processing
-                logger.info("> 7 - Run SASpost-processing")
+                # 8 - Run post-processing
+                logger.info("> 8 - Run SASpost-processing")
                 my_lake_tile.run_postprocessing()
+                logger.info("")         
                 logger.info(self.timer.info(0))
                 logger.info("")
             
@@ -694,8 +891,8 @@ class PGELakeTile():
             logger.info("***** Write output data *****")
             logger.info("*****************************")
             
-            # 8 - Write output data
-            logger.info("> 8 - Write output data")
+            # 9 - Write output data
+            logger.info("> 9 - Write output data")
             self._write_output_data()
             
         except service_error.SwotError:
@@ -720,8 +917,9 @@ class PGELakeTile():
         logger.info("")
         
         # 1 - Close lake database
-        logger.info("> 1 - Closing lake database...")
-        self.obj_lake_db.close_db()
+        if self.obj_lake_db is not None:
+            logger.info("> 1 - Closing lake database...")
+            self.obj_lake_db.close_db()
 
         logger.info("")
         logger.info(self.timer.stop())

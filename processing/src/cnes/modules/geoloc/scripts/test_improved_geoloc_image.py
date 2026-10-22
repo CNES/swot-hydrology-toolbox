@@ -8,6 +8,7 @@
 # ======================================================
 # HISTORIQUE
 # VERSION:1.0.0:::2019/05/17:version initiale.
+# VERSION:3.3.0:DM:#91:2024/09/20:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 '''
