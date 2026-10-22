@@ -10,6 +10,8 @@
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
+# VERSION:5.0.0:DM:#91:2022/12/08:Poursuite industrialisation
+# VERSION:6.2.0:DM:#91:2024/11/29:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -132,9 +134,9 @@ class ServiceConfigFile(RawConfigParser):
                 self.set(section, variable, val_default)
                 tmp_var = val_default
                 if (logger != None):
-                    message = "Parameter" + str(variable) + " in section " + str(section) + " not found ! Default value (" +\
+                    message = "WARNING Parameter " + str(variable) + " in section " + str(section) + " not found ! Default value (" +\
                     str(val_default) + ") used !"
-                    logger.warning(message)
+                    logger.debug(message)
             else:
                 # Error variable not exist
                 message = "mandatory variable '" + str(variable) +\

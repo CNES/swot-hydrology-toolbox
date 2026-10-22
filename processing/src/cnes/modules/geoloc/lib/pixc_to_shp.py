@@ -11,6 +11,7 @@
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
+# VERSION:3.2.1:DM:#91:2023/02/24:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 '''
@@ -37,31 +38,31 @@ import cnes.common.lib.my_tools as my_tools
 
 def get_valid_variable(var_name, var_data):
     try:
-        var_data = ma.filled(var_data, fill_value=-9999.0).astype(np.float)
+        var_data = ma.filled(var_data, fill_value=-9999.0).astype(np.float64)
     except:
         if var_name == "node_id":
             tmp_id = nc.chartostring(var_data)
             var_data = np.char.asarray(tmp_id, itemsize=14)
-            var_data_array = np.ones(var_data.shape, dtype=np.float) * -9999.0
-            var_data_array[var_data != ''] = np.asarray(var_data[var_data != ''], dtype=np.float)
+            var_data_array = np.ones(var_data.shape, dtype=np.float64) * -9999.0
+            var_data_array[var_data != ''] = np.asarray(var_data[var_data != ''], dtype=np.float64)
             var_data = var_data_array
         elif var_name == "reach_id":
             tmp_id = nc.chartostring(var_data)
             var_data = np.char.asarray(tmp_id, itemsize=11)
-            var_data_array = np.ones(var_data.shape, dtype=np.float) * -9999.0
-            var_data_array[var_data != ''] = np.asarray(var_data[var_data != ''], dtype=np.float)
+            var_data_array = np.ones(var_data.shape, dtype=np.float64) * -9999.0
+            var_data_array[var_data != ''] = np.asarray(var_data[var_data != ''], dtype=np.float64)
             var_data = var_data_array
         elif var_name == "lake_id":
             tmp_id = nc.chartostring(var_data)
             var_data = np.char.asarray(tmp_id, itemsize=10)
-            var_data_array = np.ones(var_data.shape, dtype=np.float) * -9999.0
-            var_data_array[var_data != ''] = np.asarray(var_data[var_data != ''], dtype=np.float)
+            var_data_array = np.ones(var_data.shape, dtype=np.float64) * -9999.0
+            var_data_array[var_data != ''] = np.asarray(var_data[var_data != ''], dtype=np.float64)
             var_data = var_data_array
         elif var_name == "obs_id":
             tmp_id = nc.chartostring(var_data)
             var_data = np.char.asarray(tmp_id, itemsize=13)
-            var_data_array = np.ones(var_data.shape, dtype=np.float) * -9999.0
-            var_data_array[var_data != ''] = np.asarray(var_data[var_data != ''], dtype=np.float)
+            var_data_array = np.ones(var_data.shape, dtype=np.float64) * -9999.0
+            var_data_array[var_data != ''] = np.asarray(var_data[var_data != ''], dtype=np.float64)
             var_data = var_data_array
 
     return var_data
@@ -111,7 +112,7 @@ def pixc_to_shp(input_name, output_name, lat_name, lon_name, var_names, group_na
             variables[var_name] = get_valid_variable(var_name, pixc.groups[group_name].variables[var_name][:])
 
     if wateronly:
-        idx = np.where(np.logical_and(np.logical_and(variables["classification"] != 1, variables["classification"] != 2), variables["classification"] != 22))
+        idx = np.where(variables["classification"] != 1)
         latitude = latitude[idx]
         longitude = longitude[idx]
         for var_name in var_names:

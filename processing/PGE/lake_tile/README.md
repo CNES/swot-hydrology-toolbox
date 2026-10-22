@@ -27,6 +27,9 @@ PIXCVecRiver file = <full_path_to_PIXCVecRiver_file>
 Output directory = <output_directory>
 
 [DATABASES]
+
+##### Lake database #####
+
 # OPTION 1: upper directory pointing to operational Prior Lake Database (PLD)
 LAKE_DB = /work/SWOT/swotdev/swotpub/BD/BD_lakes/PLD
 
@@ -43,9 +46,27 @@ LAKE_DB = /work/SWOT/swotdev/swotpub/BD/BD_lakes/PLD
 # Lake identifier attribute name in the prior lake database and influence_lake_db
 # LAKE_DB_ID = lake_id
 
+##### Mean lake surfaces database #####
+
+# OPTION 1: upper directory pointing to operational Mean Lake Surfaces (MLS)
+MLS = /work/SWOT/swotdev/swotpub/BD/MLS/MLS_v001
+
+# OPTION 2: MLS files stored in a TAR 
+# Filename should starts with SWOT_MeanLakeSurface_ = operational Mean Lake Surfaces (MLS)
+#MLS = /work/SWOT/swotdev/swotpub/BD/MLS/MLS_v001/Cal/SWOT_MeanLakeSurface_Cal_001_20000101T000000_20991231T235959_20261111T120000_v001.tar
+#MLS = /work/SWOT/swotdev/swotpub/BD/MLS/MLS_v001/Nom/SWOT_MeanLakeSurface_Nom_001_20000101T000000_20991231T235959_20261111T120000_v001.tar
+
+[UDES_ICE]
+# Pre-trained ice classification model used to compute ice_dyn_f
+ICE_MODEL = /work/SWOT/swotdev/swotpub/BD/UdeS_model_4ice/SWOT_IceDynF_Model_20000101T000000_20991231T235959_20260327T140000_v001.joblib
+
 [OPTIONS]
+# # Input PIXC and PIXCVecRiver files are simulated data or not (default)
+Simulated data = <True|False>
 # To also produce LakeTile_Edge and LakeTile_PIXCVec as shapefiles (=True); else=False (default)
 Produce shp = <True|False>
+# To save intermediate data for detailed investigation or not (default)
+Save intermediate data = <True|False>
 # To increment the file counter in the output filenames (=True, default); else=False
 Increment file counter = <True|False>
 # To write full path in global attributes (=True); to write only basename=False
@@ -81,18 +102,24 @@ If the __param_file__ key is not set in the command file, the software uses defa
 
 They are:
 * __CLASSIF_LIST__ is the list of classif flags to keep for processing (2=land_near_water  3=water_near_land   4=open_water  5=dark_water)
+* __CLASSIF_MANDATORY__ is the list of classif flags a lake feature must contain at least (default: 3;4)
 * __CLASSIF_WATER__ is the True/False list of classif flags which contain observed water (1-to-1 correspondance with CLASSIF_LIST)
 * __CLASSIF_4HULL__ is the True/False list of classif flags to use for lake boundary construction (1-to-1 correspondance with CLASSIF_LIST)
+* __DEL_1PIX_IN_AZ_4HULL__ is the flag to remove 1 pixel 3/6 in top/bottom azimuth to build the lake boundary (=True) or not (=False, default)
 * __CLASSIF_4WSE__ is the True/False list of classif flags to use for WSE computation (1-to-1 correspondance with CLASSIF_LIST)
 * __CLASSIF_4AREA__ is the True/False list of classif flags to use for lake area computation (1-to-1 correspondance with CLASSIF_LIST)
+* __DEL_1PIX_IN_AZ_4AREA__ is the flag to remove 1 pixel 3/6 in top/bottom azimuth to compute the lake area (=True) or not (=False, default)
 * __USE_FRACTIONAL_INUNDATION__ is the True/False list of classif flags to use water fraction for inundated computation (1-to-1 correspondance with CLASSIF_LIST)
 * __PIXC_QUAL_LIST__ is the list of quality flags to consider for PixC selection
 * __PIXC_QUAL_MASK__ is the list of mask of quality flags to use for PixC selection (1-to-1 correspondance with PIXC_QUAL_LIST)
-* __EXCLUDE_BRIGHT_LAND__ is the flag to exclude PixC having bright_land_flag=1 (=True) or not (=False)
+* __EXCLUDE_BRIGHT_LAND__ is the flag to exclude PixC having bright_land_flag=1 (=True) or not (=False, default)
 * __MIN_XTRACK__ is the minimum cross-track distance to select PixC (-1 to disable)
 * __MAX_XTRACK__ is the maximum cross-track distance to select PixC (-1 to disable)
+* __MIN_NB_PIXC__ is the minimum number of pixels for a water feature to start being processed
 * __MIN_SIZE__ is the minimum size for a lake to generate a lake product (=polygon + attributes) for it
 * __MAX_NB_TILES_FULL_AZ__ is the maximum number of azimuth tiles fully covered by a lake processed in LakeSP. If, in LakeDatabase, lake_table.nb_tiles_az*lake.swath_overlap > MAX_NB_TILES_FULL_AZ, then lake is partially processed in each LakeTile and then gathered in LakeSP, instead of fully processed in LakeSP (-1 to disable)
+* __EXCLUDE_COASTAL_ZONES__ is the flag to exclude PixC related to coastal zones from LakeTile processing (=True) or not (=False, default)
+* __ASSIGNMENT_LAYER__ is the PLD table to use to assign pixels to a PLD lake. lake_influence corresponds to polygons geometrically computed, using Voronoi triangulation. lake_catchment (default) corresponds to polygons hydrologically computed (TopoCat map computed from J. Wang et al.)
 * __MIN_OVERLAP__ is the minimum percentage of overlapping area to consider a PLD lake linked to an observed feature
 * __AREA_METHOD__ is the method to compute area_total attribute
   * polygon = area_total is the area of the polygon of the water region
@@ -107,6 +134,7 @@ They are:
   * 7 (default) = Otsu thresholding
   * 8 = MeanShift
 * __IMP_GEOLOC__ is the flag to improve PixC geolocation (=True) or not (=False)
+* __MAX_DIFF_HEIGHT_GEOLOC__ is the maximum tolerated difference (m) between improved height (resulting of the height-contrained geolocation algorithm) and initial height (from PIXC) for a pixel to be considered as part of a lake feature
 * __HULL_METHOD__ is the method to compute lake boundary (or polygon hull): 
   * 0 = convex hull 
   * 1.0 = concave hull computed in ground geometry, based on Delaunay triangulation - using CGAL library
@@ -119,7 +147,8 @@ They are:
 * __STOCC_INPUT__ is the choice of input data to compute storage change:
   * obs = use of WSE and area of all distinct observed-oriented features related to the PLD lake
   * pld = averaged WSE and total area of the prior feature (default)
-* __THRESHOLD_4NOMINAL__ is the threshold of good pixels within a lake to set lake feature quality flag
+* __WINDOW_4_ICE_CLIM__ is the time window (in days) around the climatological ice cover period (ie from t-N days until t+N days) to consider ice_dyn_f=2 possible (default=30)
+* __ADD_ALL__ is the flag to add not-observed PLD lakes as empty features to the LakeSP_Prior shapefile (=True) or not (=False)
 * __NB_DIGITS__ is the number of digits for a counter of lakes in a tile or pass, used in the obs_id identifier of each observed lake
 
 ### Input files
@@ -168,6 +197,16 @@ An alternative polygon shapefile may also be used. Each feature corresponds to a
 Furthermore, if there are 2 or 3 more attributes names *max_height* and *max_area*, and eventually *ref_ds*, in the a priori database, the storage change will be computed with regards to these reference values.
 
 NB: if the __LAKE_DB__ parameter is not set, output lake polygons are not linked to prior lakes and, therefore, the storage change is not computed.
+
+### Mean Lake Surfaces (MLS)
+If the __MLS__ parameter is set in the command file, large lakes will have the geoid corrected at their location to compute Water Surface Elevation (Yanez et al. 2026).
+
+The __MLS__ is the full path of the mean lake surfaces database.
+
+The operational database is a TAR per SWOT pass, containing a NetCDF file for each large lake covered by the pass.
+
+### Pre-trained ice classification model used to compute ice_dyn_f
+If the __ICE_MODEL__ parameter is set in the command file, a dynamic ice cover flag, computed from SWOT observations, will be computed at the pixel and the lake levels (variable ice_dyn_f)(Truel et al. 2026).
 
 ### Output files
 The LakeTile product is composed of the 5 files described hereafter.
@@ -231,7 +270,7 @@ In particular:
 	4. Retrieve data from PIXC and PIXCVecRiver input files, i.e. pixels not already processed by RiverTile processor
 	5. Init output structures, i.e. LakeTile_Obs_tmp and LakeTile_Prior memory layers, LakeTile_Edge and LakeTile_PIXCVec arrays
 2. Processing
-	1. Identify all separate entities in the water mask (radar geometry)
+	1. Identify all separate water regions in the water mask (radar geometry)
 	2. Get pixels corresponding to objects entirely inside the tile
 	3. Populate LakeTile_Obs_tmp shapefile for each observed feature entirely inside the tile: refine geolocation, build boundary, compute basic attributes, and eventually link to 1 or more lakes from a priori database
 	4. For each observed PLD lake, build boundary and compute basic attributes, compute storage change and update related _Obs features 

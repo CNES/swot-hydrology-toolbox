@@ -11,6 +11,12 @@
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # VERSION:4.0.0:DM:#91:2022/05/05:Poursuite industrialisation
+# VERSION:5.0.0:DM:#91:2022/12/08:Poursuite industrialisation
+# VERSION:5.3.0:DM:#91:2023/10/04:Poursuite industrialisation
+# VERSION:6.1.0:DM:#91:2024/09/20:Poursuite industrialisation
+# VERSION:6.2.6:DM:#900:2026/07/06: [PGE] [LAKES] Ajout d'une interface niveau moyen des lacs
+# VERSION:6.2.6:DM:#900:2026/07/06:SSALTO-565 [PGE] [LAKES] Ajout d'une interface coeff NN pour calcul ice_dyn_f
+# VERSION:6.2.7:DM:#906:2026/07/28:SSALTO-872 [PGE][LAKES] Gestion des erreurs/warning GDAL
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -32,6 +38,7 @@ import numpy as np
 import os
 
 import cnes.common.lib.my_netcdf_file as my_nc
+import cnes.common.lib.my_variables as my_var
 import cnes.common.lib_lake.locnes_product_general as my_prod
 
 
@@ -168,7 +175,7 @@ class NetcdfProduct(my_prod.LocnesProduct):
                 for key, value in annotation.items():
                     if key == "units":
                         try:
-                            self.attribute_metadata[cur_variable][key] = np.int(value)
+                            self.attribute_metadata[cur_variable][key] = np.int32(value)
                         except:
                             self.attribute_metadata[cur_variable][key] = value
                     elif key == "flag_values":
@@ -193,7 +200,7 @@ class NetcdfProduct(my_prod.LocnesProduct):
                             
     #----------------------------------------
         
-    def write_product(self, in_out_file, in_size, in_variables, in_compress=True):
+    def write_product(self, in_out_file, in_size, in_variables, in_compress='zlib'):
         """
         Write NetCDF product
         
@@ -205,7 +212,7 @@ class NetcdfProduct(my_prod.LocnesProduct):
         :type in_param: OrderedDict
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("- start -")
+        #logger.debug("- start -")
         
         # Remove file if already exists
         if os.path.exists(in_out_file):
@@ -232,8 +239,75 @@ class NetcdfProduct(my_prod.LocnesProduct):
         
         # Close file
         nc_writer.close()
-        
-    def write_variables(self, in_nc_writer, in_attributes_value, flag_fill=True, in_compress=True):
+
+    # ----------------------------------------
+
+    def check_validity_value(self, in_value, in_att_name):
+        """
+        Check values validity wrt to valid_min and valid_max,
+        and replace values by _FillValue if under valid_min ou over valid_max.
+
+        :param in_value: value
+        :type in_value: array of int, string, char.
+        :param in_att_name: name of attribute value
+        :type in_att_name: string
+
+        :return: out_value = array with valid values
+        :rtype: array of int, string, char.
+        """
+
+        # 0 - Init output array
+        out_value = in_value
+
+        ####################################################
+        # TODO: remove test over specific attribute names
+        # when corrected in PIXC (for dark_frac) or 
+        # LakeTile XML (for edge_index)
+        ####################################################
+        if in_att_name not in ['dark_frac', 'edge_index']:
+            
+            # 0.1 - Init array of index of valid data
+            valid_values_idx = None
+            # 0.2 - Retrieve type of data
+            if len(in_value.shape) == 1:
+                val_type = str(type(in_value[0])).split("'")[1]
+            elif len(in_value.shape) == 2:
+                val_type = str(type(in_value[0][0])).split("'")[1]
+            else:
+                val_type = "float"
+            if "." in val_type:
+                val_type = val_type.split(".")[1]
+            # 0.3 - Deduce related _FillValue
+            fill_value = my_var.FV_NETCDF[val_type]
+
+            # 1 - Test if a value valid_min exists in attribute_metadata
+            if "valid_min" in self.attribute_metadata[in_att_name] and self.attribute_metadata[in_att_name]["valid_min"] != "TBD":
+                valid_values_idx = np.where(in_value < fill_value)[0]
+                valid_min = float(self.attribute_metadata[in_att_name]["valid_min"])
+                # Replace values under valid_min by _FillValue
+                idx_nok = np.where(in_value[valid_values_idx] < valid_min)[0]
+                nb_nok = len(idx_nok)
+                if nb_nok > 0:
+                    logging.warning("%d values are under min value for attribute %s" % (nb_nok, in_att_name))
+                    out_value[valid_values_idx][idx_nok] = fill_value
+
+            # 2 - Test if a value valid_max exists in attribute_metadata
+            if "valid_max" in self.attribute_metadata[in_att_name] and self.attribute_metadata[in_att_name]["valid_max"] != "TBD":
+                if valid_values_idx is None:
+                    valid_values_idx = np.where(in_value < fill_value)[0]
+                valid_max = float(self.attribute_metadata[in_att_name]["valid_max"])
+                # Replace values over valid_max by _FillValue
+                idx_nok = np.where(in_value[valid_values_idx] > valid_max)[0]
+                nb_nok = len(idx_nok)
+                if nb_nok > 0:
+                    logging.warning("%d values are over max value for attribute %s" % (nb_nok, in_att_name))
+                    out_value[valid_values_idx][idx_nok] = fill_value
+
+        return out_value
+
+    # ----------------------------------------
+
+    def write_variables(self, in_nc_writer, in_attributes_value, flag_fill=True, in_compress='zlib'):
         """
         Write NetCDF variables listed in input
         
@@ -245,7 +319,7 @@ class NetcdfProduct(my_prod.LocnesProduct):
         :type flag_fill: boolean
         """
         logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("- start -")
+        #logger.debug("- start -")
         
         var_keys = self.attribute_metadata.keys()
         
@@ -265,6 +339,7 @@ class NetcdfProduct(my_prod.LocnesProduct):
                                           in_compress=in_compress)
                 # Fill variable
                 if flag_fill:
+                    value = self.check_validity_value(value, key)
                     in_nc_writer.fill_variable(key, value)
             else:
                 logger.debug("Variable %s key is not known in the product" % key)
@@ -276,8 +351,8 @@ class NetcdfProduct(my_prod.LocnesProduct):
         :param in_nc_writer: NetCDF file writer
         :type in_nc_writer: my_netcdf_file.MyNcWriter
         """          
-        logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("- start -")
+        #log logger = logging.getLogger(self.__class__.__name__)
+        #log logger.debug("- start -")
         
         for name, att_dict in self.global_metadata.items():
             
@@ -315,8 +390,6 @@ class LakeTilePixcvecProduct(NetcdfProduct):
         :param in_proc_metadata: metadata specific to LakeTile processing
         :type in_proc_metadata: dict
         """
-        logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("- start -")
         
         # 1 - Inheritance of NetcdfProduct
         super().__init__(os.path.join(os.path.dirname( __file__ ), "xml/laketile_pixcvec.xml"),
@@ -338,8 +411,6 @@ class LakeTileEdgeProduct(NetcdfProduct):
         :param in_proc_metadata: metadata specific to LakeTile processing
         :type in_proc_metadata: dict
         """
-        logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("- start -")
         
         # 1 - Inheritance of NetcdfProduct
         super().__init__(os.path.join(os.path.dirname( __file__ ), "xml/laketile_edge.xml"),
@@ -361,8 +432,6 @@ class PixcvecProduct(NetcdfProduct):
         :param in_proc_metadata: metadata specific to LakeTile processing
         :type in_proc_metadata: dict
         """
-        logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("- start -")
         
         # 1 - Inheritance of NetcdfProduct
         super().__init__(os.path.join(os.path.dirname( __file__ ), "xml/pixcvec.xml"),

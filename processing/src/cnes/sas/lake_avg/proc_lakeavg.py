@@ -8,6 +8,10 @@
 # HISTORIQUE
 # VERSION:1.0.0:::2021/10/27:Version initiale
 # VERSION:2.0.0:DM:#91:2022/05/05:Poursuite industrialisation
+# VERSION:3.0.0:DM:#91:2022/12/08:Poursuite industrialisation
+# VERSION:3.0.2:DM:#91:2023/07/24:Poursuite industrialisation
+# VERSION:3.1.0:DM:#91:2023/10/04:Poursuite industrialisation
+# VERSION:3.1.1:FA:#750:2024/07/19:Correction anomalie
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -73,7 +77,10 @@ class LakeAvgProduct(object):
         self.obj_lakesp = in_obj_lakesp
         
         # 2 - Initialize lake product content
-        self.content = shp_file.LakeAvgProduct(in_layer_name)        
+        self.content = shp_file.LakeAvgProduct(in_layer_name)  
+        # Init with all prior lakes over the granule if requested
+        if (self.obj_lakedb is not None) and (self.cfg.getboolean("CONFIG_PARAMS", "ADD_ALL")):
+            self.obj_lakedb.init_prior_layer(self.content)
         
     def free_memory(self):
         """
@@ -89,20 +96,14 @@ class LakeAvgProduct(object):
         """
         logger = logging.getLogger(self.__class__.__name__)
 
-        for cur_lakeid, cur_lakesp_archive in self.obj_lakesp.lakesp_archive.items():
-            logger.debug("===== Deal with PLD lake %s =====" % cur_lakeid)
-
-            if self.obj_lakedb.lake_layer is not None:
-                # 1 - Remove from the list of PLD located over the area
-                try:
-                    self.obj_lakedb.list_lakeid.remove(cur_lakeid)
-                except:
-                    msg = "STRANGE... PLD lake with lake_id=%s is not in the list => removed from LakeAvg product" % cur_lakeid
-                    logger.warning(msg)
-                    continue
+        for i, (cur_lakeid, cur_lakesp_archive) in enumerate(self.obj_lakesp.lakesp_archive.items()):
+            logger.debug("===== Deal with PLD lake %s (%d/%d) =====" % (cur_lakeid, i, len(self.obj_lakesp.lakesp_archive)))
             
             # 2.1 - Create prior lake object
             obj_plake = lake_db.PriorLake(self.obj_lakedb, cur_lakeid)
+            # TODO: Remove test as soon as possible : issue should be solved with PLD_V103 
+            if not obj_plake.geom:
+                continue
             # 2.2 - Format PLD attributes (i.e. convert None to required _FillValue if needed)
             pld_attributes = obj_plake.format_attributes()
             
@@ -115,17 +116,21 @@ class LakeAvgProduct(object):
                 direct_storage_change_values = self.compute_direct_storage_change(obj_plake, avg_attributes)  
                 # 4.2 - Compute averaged storage change with incremental approach
                 incremental_storage_change_values = self.compute_incremental_storage_change(obj_plake, avg_attributes)                   
-                # 4.3 - Add prior feature to _Prior layer
-                self.content.add_feature(avg_geom, {**avg_attributes, **pld_attributes, **direct_storage_change_values,\
-                                                    **incremental_storage_change_values})
+                # 4.3 - Add/update feature to/of layer
+                if self.obj_lakedb.flag_prior_init:
+                    self.content.update_feature(cur_lakeid, avg_geom, 
+                                                {**avg_attributes, **direct_storage_change_values,\
+                                                 **incremental_storage_change_values})
+                else:
+                    self.content.add_feature(avg_geom, {**avg_attributes, **pld_attributes, **direct_storage_change_values,\
+                                                        **incremental_storage_change_values})
             else:
                 logger.debug("Not able to compute averaged storage change")
-                # 4.3 - Add prior feature to _Prior layer
-                self.content.add_feature(avg_geom, {**avg_attributes, **pld_attributes})
-            
-        # 5 - Deal with PLD lakes which have been observed by SWOT during the cycle (if asked)
-        if self.cfg.getboolean("CONFIG_PARAMS", "ADD_ALL"):
-            self.add_pld_features_not_observed()
+                # 4.3 - Add/update prior feature to/of layer
+                if self.obj_lakedb.flag_prior_init:
+                    self.content.update_feature(cur_lakeid, avg_geom, avg_attributes)
+                else:
+                    self.content.add_feature(avg_geom, {**avg_attributes, **pld_attributes})  
         
     # ----------------------------------------
     # Functions specific to lake feature (i.e.
@@ -293,11 +298,15 @@ class LakeAvgProduct(object):
             
             # 1 - Compute geometry
             out_geom = None
-            for geom in in_lakesp_archive["geom"]:
+            for pass_number, geom in zip(in_lakesp_archive["pass"], in_lakesp_archive["geom"]):
                 if out_geom is None:
                     out_geom = geom
                 else:
+                    save_geom = out_geom.Clone()
                     out_geom = out_geom.Union(geom)
+                    if out_geom is None:
+                        logger.debug("WARNING Couldn't add geometry related to pass {} to build avg boundary".format(pass_number))
+                        out_geom = save_geom.Clone()
                     
             # 2 - Compute related attributes
             out_attributes["area_avg"] = my_tools.get_area(out_geom) / 10**6
@@ -307,7 +316,8 @@ class LakeAvgProduct(object):
             
             # 0 - Retrieve index of the LakeSP feature with the wse closest to wse_avg
             ind_mean = np.argmin(abs(in_lakesp_archive["wse"] - in_attributes_avg["wse_avg"]))
-            logger.debug("Pass {} with wse={:.3f} is the closest of mean wse={:.3f}".format(in_lakesp_archive["pass"][ind_mean], in_lakesp_archive["wse"][ind_mean], in_attributes_avg["wse_avg"]))
+            logger.debug("Pass {} with wse={:.3f} is the closest of mean wse={:.3f}".format(in_lakesp_archive["pass"][ind_mean], \
+                         in_lakesp_archive["wse"][ind_mean], in_attributes_avg["wse_avg"]))
             
             # 1 - Retrieve and store associated geometry
             out_geom = in_lakesp_archive["geom"][ind_mean]
@@ -317,37 +327,6 @@ class LakeAvgProduct(object):
             out_attributes["area_avg_u"] = in_lakesp_archive["area_tot_u"][ind_mean]
         
         return out_geom.Clone(), out_attributes
-    
-    # ------------------------------------
-    # Functions specific to PLD attributes
-    # ------------------------------------
-    
-    def add_pld_features_not_observed(self):
-        """
-        Add PLD lakes which were not observed
-        """
-        logger = logging.getLogger(self.__class__.__name__)
-        
-        nb_missing = len(self.obj_lakedb.list_lakeid)
-        
-        if nb_missing == 0:
-            logger.debug("ALL PLD lakes have been observed")
-            
-        else:
-            logger.debug("%d PLD lakes have NOT been observed" % nb_missing)
-            
-            for cur_lakeid in self.obj_lakedb.list_lakeid:
-                
-                # 1.1 - Create prior lake object
-                obj_plake = lake_db.PriorLake(self.obj_lakedb, cur_lakeid)
-                # 1.2 - Format PLD attributes (i.e. convert None to required _FillValue if needed)
-                pld_attributes = obj_plake.format_attributes()
-                
-                # 2 - Add lake_id
-                pld_attributes["lake_id"] = cur_lakeid
-                
-                # 3 - Add prior feature to _Prior layer
-                self.content.add_feature(None, pld_attributes)
 
     # ------------------------------------------------
     # Functions specific to storage change computation
@@ -540,7 +519,7 @@ def write_file(in_list_tmp_lakeavg_shp, in_filename, in_proc_metadata):
         if not cfg.getboolean("CONFIG_PARAMS", "ADD_ALL"):
             flag_add_nogeom_feat = False
         my_shp.merge_shp(in_filename, in_list_tmp_lakeavg_shp,
-                                                      flag_add_nogeom_feat=flag_add_nogeom_feat)
+                         flag_add_nogeom_feat=flag_add_nogeom_feat)
 
         # 2 - Delete temporary shapefiles if asked
         if cfg.getboolean("CONFIG_PARAMS", "DEL_TMP_SHP"):

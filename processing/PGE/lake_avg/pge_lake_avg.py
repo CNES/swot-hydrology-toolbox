@@ -8,6 +8,13 @@
 # ======================================================
 # HISTORIQUE
 # VERSION:3.2.0:DM:#91:2021/10/27:Poursuite industrialisation
+# VERSION:5.0.0:DM:#91:2022/12/08:Poursuite industrialisation
+# VERSION:5.0.1:DM:#91:2023/02/24:Poursuite industrialisation
+# VERSION:5.1.1:DM:#91:2023/07/24:Poursuite industrialisation
+# VERSION:5.2.0:DM:#91:2023/10/04:Poursuite industrialisation
+# VERSION:6.2.3:DM:#900:2026/07/06: [PGE] [LAKES] Ajout d'une interface niveau moyen des lacs
+# VERSION:6.2.3:DM:#900:2026/07/06:SSALTO-565 [PGE] [LAKES] Ajout d'une interface coeff NN pour calcul ice_dyn_f
+# VERSION:6.2.3:DM:#906:2026/07/28:SSALTO-872 [PGE][LAKES] Gestion des erreurs/warning GDAL
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -31,6 +38,7 @@ import datetime
 import logging
 from lxml import etree as ET
 import multiprocessing
+import numpy as np
 import os
 import sys
 
@@ -136,7 +144,7 @@ class PGELakeAvg():
 
         # 9 - Form processing metadata dictionary
         self.proc_metadata = {}
-        self.proc_metadata["history"] = "%sZ: Creation" % my_tools.swot_timeformat(datetime.datetime.utcnow(), in_format=3)
+        self.proc_metadata["history"] = "%sZ: Creation" % my_tools.swot_timeformat(datetime.datetime.now(datetime.UTC), in_format=3)
         self.proc_metadata["cycle_number"] = "%03d" % self.cycle_num
         self.proc_metadata["continent_id"] = self.continent_id
         self.proc_metadata["continent_code"] = lake_db.compute_continent_code(self.continent_id)
@@ -294,6 +302,7 @@ class PGELakeAvg():
             self.cfg.set(section, "CRID_LAKEAVG", param_list["CRID_LAKEAVG"])
             self.cfg.set(section, "PGE_VERSION", param_list["PGE_VERSION"])
             self.cfg.set(section, "CONTACT", param_list["CONTACT"])
+            self.cfg.set(section, "PRODUCT_COUNTER", "01")
 
         except Exception:
             print("Something wrong happened in _put_cmd_value !")
@@ -477,14 +486,6 @@ class PGELakeAvg():
                                 message = "ERROR bad source. In XML file: " + str(cur_source_txt) + " WHEREAS previously set at: " \
                                             + str(self.proc_metadata["source"])
                                 raise service_error.ProcessingError(message, logger)
-                        
-                        # Compare used database for input LakeSP_Prior file
-                        cur_lakedb_txt = metadata.xpath("//swot_product/global_metadata/xref_prior_lake_db_file")[0].text
-                        if cur_lakedb_txt != self.proc_metadata["xref_prior_lake_db_file"]:
-                            message = "ERROR bad xref_prior_lake_db_file. In XML file: " + str(cur_lakedb_txt) + " WHEREAS in LakeAvg command file: " \
-                                            + str(self.proc_metadata["xref_prior_lake_db_file"])
-                            logger.warning(message)
-                            #raise service_error.ProcessingError(message, logger)
                             
                         # Retrieve time_coverage_start and _end, and update values for current LakeAvg product
                         # Time start
@@ -520,16 +521,26 @@ class PGELakeAvg():
         list_files_ok_sorted = sorted(list_files_ok)
         self.proc_metadata["xref_l2_hr_lakesp_files"] = my_var.SEP_FILES.join(list_files_ok_sorted)
         
+        # 7 - Add non-observed basins
+        for ind in np.arange(9)+1:
+            subbasin_code = "%s%d" % (self.basin_code, ind)
+            if subbasin_code not in self.list_lakesp_prior:
+                self.list_lakesp_prior[subbasin_code] = set()
+        
         # Print some numbers
         logger.debug("Number of selected input files = %d" % cpt_input_files)
         logger.debug("Number of level-3 basins to process = %d" % len(self.list_lakesp_prior.keys()))
 
-    def _read_lake_db(self, in_basin_code):
+    def _read_lake_db(self, in_basin_code, in_start_time, in_stop_time):
         """
         This method prepares Lake DB class, and init with Lake DB data
         
         :param in_basin_code: basin code to select lakes from DB having lake_id starting with in_basin_code
         :type in_basin_code: string
+        :param in_start_time: beginning of the time period of interest to select the ice flags in DB
+        :type in_start_time: datetime.datetime
+        :param in_stop_time: end of the time period of interest to select the ice flags in DB
+        :type in_stop_time: datetime.datetime
         
         :return: out_obj_lake_db = subset of the PLD 
         :rtype: cnes.common.lib_lake.lake_db.<LakeDb|LakeDbShp|LakeDbSqlite>
@@ -556,7 +567,8 @@ class PGELakeAvg():
                 if os.path.basename(lake_db_file).startswith(locnes_filenames.PLD_PREFIX_BASE):  # Operationnal PLD filename
                     logger.debug("Use of operational Prior Lake Database (specific filename given)")
                     out_obj_lake_db = lake_db.LakeDbSqlite(lake_db_file, 
-                                                           in_basin_id=in_basin_code)
+                                                           in_basin_id=in_basin_code,
+                                                           in_date=[in_start_time, in_stop_time])
                 else:
                     logger.debug("Use of personal user lake database in SQLite format")
                     out_obj_lake_db = lake_db.LakeDbSqlite(lake_db_file)
@@ -571,7 +583,8 @@ class PGELakeAvg():
                 # Init PLD object
                 if os.path.exists(lakedb_filenames.filename):
                     out_obj_lake_db = lake_db.LakeDbSqlite(lakedb_filenames.filename, 
-                                                           in_basin_id=in_basin_code)
+                                                           in_basin_id=in_basin_code,
+                                                           in_date=[in_start_time, in_stop_time])
                     self.proc_metadata["xref_prior_lake_db_file"] = lakedb_filenames.filename
                 else:
                     logger.warning("NO related operational Prior Lake Database file found -> NO database specified")
@@ -629,59 +642,97 @@ class PGELakeAvg():
         # 0.1 - Init list of temporary LakeAvg shapefiles
         out_list_tmp_lakeavg_shp = list()
         
-        for cur_basin_code, cur_list_lakesp_files in in_list_lakesp_prior.items():            
+        # 0.2 - Compute time periode of the LakeAvg product
+        # == In pseudo_PGE ==
+        try:
+            start_time = datetime.datetime.strptime(self.proc_metadata["time_coverage_start"], "%Y-%m-%dT%H:%M:%S.%fZ")
+            stop_time = datetime.datetime.strptime(self.proc_metadata["time_coverage_end"], "%Y-%m-%dT%H:%M:%S.%fZ")
+        except:
+            start_time = datetime.datetime.now()
+            stop_time = datetime.datetime.now()
+        # !!! == IN OPERATIONNAL PGE ==
+        # start_time = datetime.datetime.strptime(self.proc_metadata["time_granule_start"], "%Y-%m-%dT%H:%M:%S.%fZ")
+        # stop_time = datetime.datetime.strptime(self.proc_metadata["time_granule_end"], "%Y-%m-%dT%H:%M:%S.%fZ")
+        # ==END
+        
+        for cur_basin_code in sorted(in_list_lakesp_prior.keys()):
             timer = my_timer.Timer()
             timer.start()
-
+            
             logger.info("==========================")
             logger.info("== Processing basin %03d ==" % int(cur_basin_code))
             logger.info("==========================")
             logger.info("")
+            
+            cur_list_lakesp_files = in_list_lakesp_prior[cur_basin_code]
         
-            # 0.2 - Compute temporary filename
+            # 1 - Read lake DB and filter over cur_basin_code
+            logger.debug("*** Looking for sub-basin %03d ***" % int(cur_basin_code))
+            try:
+                obj_lakedb = self._read_lake_db(cur_basin_code, start_time, stop_time)
+            except:  # Sub-basin doesn't exist
+                logger.debug("!!! Sub-basin %03d doesn't exist => NOTHING TO DO" % int(cur_basin_code))
+                logger.debug("")
+                continue
+            
+            logger.debug("")
+            logger.info("> 1 - Init and read lake DB object over basin and time period...")
+            logger.info(".. Start time = %s -> Stop time = %s" % (start_time.strftime("%Y%m%d"), stop_time.strftime("%Y%m%d")))
+            logger.debug("%d PLD lakes over basin" % obj_lakedb.lake_layer.GetFeatureCount())
+            logger.info("")
+            
+            # 2 - Compute temporary filename
             tmp_filename = os.path.join(self.output_dir, "%s_%s.shp" % (os.path.splitext(os.path.basename(self.lake_avg_filename))[0], cur_basin_code))
             out_list_tmp_lakeavg_shp.append(tmp_filename)
         
-            # 1 - Read lake DB and filter over cur_basin_code
-            logger.info("> 1 - Init and read lake DB object over basin...")
-            obj_lakedb = self._read_lake_db(in_basin_code=cur_basin_code)
-            if obj_lakedb.lake_layer is not None:
-                logger.debug("%d PLD lakes over basin" % obj_lakedb.lake_layer.GetFeatureCount())
-            logger.info("")
-        
-            # 2 - Read input LakeSP_Prior shapefiles
-            logger.info("> 2 - Read input files...")
-            obj_lakesp = proc_lakesp.LakeSPProduct(cur_basin_code)
-            obj_lakesp.set_from_lakesp_files(self.list_lakesp_prior[cur_basin_code])
-            logger.debug("%d PLD lakes observed during the cycle on this basin" % len(obj_lakesp.lakesp_archive.keys()))
-            logger.info("")
+            if len(cur_list_lakesp_files) > 0:
+                
+                # 3 - Read input LakeSP_Prior shapefiles
+                logger.info("> 2 - Read input files...")
+                obj_lakesp = proc_lakesp.LakeSPProduct(cur_basin_code)
+                obj_lakesp.set_from_lakesp_files(cur_list_lakesp_files)
+                logger.debug("%d PLD lakes observed during the cycle on this basin" % len(obj_lakesp.lakesp_archive.keys()))
+                logger.info("")
     
-            # 3 - Prepare output data
-            logger.info("> 3 - Initialize LakeAvg object......")
-            obj_lakeavg = proc_lakeavg.LakeAvgProduct(obj_lakedb, obj_lakesp,
-                                                  os.path.splitext(os.path.basename(tmp_filename))[0])
-            logger.info("")
+                # 4 - Prepare output data
+                logger.info("> 3 - Initialize LakeAvg object...")
+                obj_lakeavg = proc_lakeavg.LakeAvgProduct(obj_lakedb, obj_lakesp,
+                                                          os.path.splitext(os.path.basename(tmp_filename))[0])
+                logger.info("")
         
-            # 4 - Compute LakeAvg features
-            logger.info("> 4 - Compute LakeAvg features...")
-            obj_lakeavg.compute_lake_features()
-            logger.info("")
+                # 5 - Compute LakeAvg features
+                logger.info("> 4 - Compute LakeAvg features...")
+                obj_lakeavg.compute_lake_features()
+                logger.info("")
+                
+                # Free memory
+                del obj_lakesp
+                
+            else:
+                
+                # 4 - Prepare output data
+                logger.info("> 3 - Initialize LakeAvg object...")
+                obj_lakeavg = proc_lakeavg.LakeAvgProduct(obj_lakedb, None,
+                                                          os.path.splitext(os.path.basename(tmp_filename))[0])
+                logger.info("")
+                
+                logger.info("!!! LakeAvg for subbasin NOT POPULATED because NO input LakeSP file related to this subbasin")
+                logger.info("")
         
-            # 5 - Write temporary output file
+            # 6 - Write temporary output file
             logger.info("> 5 - Write temporary LakeAvg file...")
             obj_lakeavg.write_tmp_file(tmp_filename)
             logger.info("")
         
-            # 6 - Close lake database
-            logger.info("> 6 - Closing lake database...")
-            obj_lakedb.close_db()
-        
-            # 8 - Free memory
-            del obj_lakesp
+            # Free memory
             obj_lakeavg.free_memory()
             del obj_lakeavg
+        
+            # 7 - Close lake database
+            logger.info("> 6 - Closing lake database...")
+            obj_lakedb.close_db()
 
-            logger.debug(timer.stop("Sub basin %s computation time: " %cur_basin_code))
+            logger.debug(timer.stop("Sub basin %s computation time: " % cur_basin_code))
             logger.info("")
             
         return out_list_tmp_lakeavg_shp
@@ -746,30 +797,34 @@ class PGELakeAvg():
 
         try:
             
-            logger.info("*****************************")
-            logger.info("***** Select input data *****")
-            logger.info("*****************************")
+            logger.info("**************************************")
+            logger.info("***** STEP 1 - Select input data *****")
+            logger.info("**************************************")
             logger.info("")
             
             # 1 - Select input data
-            logger.info("> Step 1 - Select and classify input data per Level-3 basin identifier")
+            logger.info("> Select and classify input data per Level-3 basin identifier")
             self._select_input_data()
             logger.info("")
 
             if self.nb_proc == 1:
                 # 2 - Run main process directly
-                logger.info("> Step 2 - Main processing using ONLY 1 processor")
+                logger.info("***********************************************************")
+                logger.info("***** STEP 2 - Main processing using ONLY 1 processor *****")
+                logger.info("***********************************************************")
                 logger.info("")
                 self.list_tmp_lakeavg_shp = self.main_process(self.list_lakesp_prior)
                 
             else:
                 # 2 - Run main process after spreading over available processors
-                logger.info("> Step 2 - Main processing using %d processors" % self.nb_proc)
+                logger.info("*******************************************************")
+                logger.info("***** STEP 2 - Main processing using %d processors *****" % self.nb_proc)
+                logger.info("*******************************************************")
                 logger.info("")
                 
-                logger.info("*********************************************************")
-                logger.info("***** Spread list of basin_code to process per proc *****")
-                logger.info("*********************************************************")
+                logger.info("=========================================================")
+                logger.info("===== Spread list of basin_code to process per proc =====")
+                logger.info("=========================================================")
                 logger.info("")
                 
                 # 2.1 - Spread basin_code list per processor
@@ -837,9 +892,9 @@ class PGELakeAvg():
                     
                 logger.info("")
 
-                logger.info("****************************************")
-                logger.info("***** Prepare and launch processes *****")
-                logger.info("****************************************")
+                logger.info("========================================")
+                logger.info("===== Prepare and launch processes =====")
+                logger.info("========================================")
                 logger.info("")
      
                 list_process = []
@@ -906,13 +961,13 @@ class PGELakeAvg():
                     p.join()
                 
             logger.info("")
-            logger.info("*****************************")
-            logger.info("***** Write output data *****")
-            logger.info("*****************************")
+            logger.info("**************************************")
+            logger.info("***** STEP 3 - Write output data *****")
+            logger.info("**************************************")
             logger.info("")
             
             # 3 - Write output data
-            logger.info("> Step 3 - Merge temporary LakeAvg shapefiles into a single output LakeAvg shapefile")
+            logger.info("> Merge temporary LakeAvg shapefiles into a single output LakeAvg shapefile")
             self._write_output_data()
             
         except service_error.SwotError:

@@ -12,6 +12,10 @@
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # VERSION:4.0.0:DM:#91:2022/05/05:Poursuite industrialisation
+# VERSION:5.0.0:DM:#91:2022/12/08:Poursuite industrialisation
+# VERSION:5.1.0:DM:#91:2023/10/04:Poursuite industrialisation
+# VERSION:6.3.2:DM:#900:2026/07/06: [PGE] [LAKES] Ajout d'une interface niveau moyen des lacs
+# VERSION:6.3.2:DM:#900:2026/07/06:SSALTO-565 [PGE] [LAKES] Ajout d'une interface coeff NN pour calcul ice_dyn_f
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -54,8 +58,6 @@ class SASLakeTile(object):
         :param in_obj_lake: LakeTile product object
         :type in_obj_lake: lib_lake.proc_lake
         """
-        logger = logging.getLogger(self.__class__.__name__)
-        logger.debug("")
 
         # Objects
         self.obj_lake_db = in_obj_lake_db  # Lake DB object
@@ -102,24 +104,21 @@ class SASLakeTile(object):
             # Processing only if PixC pixels are selected
             if self.obj_pixc.nb_selected != 0:
 
-                # 2 - Identify all separate entities in the water mask
-                logger.debug("1 - Identifying all separate entities in the water mask...")
-                self.obj_pixc.compute_separate_entities()
+                # 2 - Identify all separate water regions in the water mask
+                logger.debug("1 - Identifying all separate water regions in the water mask...")
+                self.obj_pixc.compute_separate_regions()
                 logger.debug("" + timer_proc.info(0))
                 logger.debug("")
 
-
-                # 3 - Retrieve pixels corresponding to lakes and unknown entirely inside the tile
-                logger.debug("2 - Getting pixels corresponding to lakes and unknown entirely inside the tile...")
-                self.obj_pixc.compute_obj_inside_tile(self.obj_lake_db)
-
+                # 3 - Localize water regions wrt the tile
+                logger.debug("2 -Localizing water regions wrt tile...")
+                self.obj_pixc.localize_regions_wrt_tile(self.obj_lake_db)
                 logger.debug("" + timer_proc.info(0))
                 logger.debug("")
-
             
-                # 4 - Retrieve pixels indices and associated label of objects at the top/bottom edge of the tile
-                logger.debug("3 - Getting pixels corresponding to objects at the top/bottom edge of the tile...")
-                self.obj_pixc.compute_edge_indices_and_label()
+                # 4 - Retrieve pixels indices and associated label of water regions at the top and/or bottom edge(s) of the tile
+                logger.debug("3 - Getting pixels corresponding to water regions at the top and/or bottom edge(s) of the tile...")
+                self.obj_pixc.compute_edge_pixels()
                 logger.debug("" + timer_proc.info(0))
                 logger.debug("")
 

@@ -27,10 +27,10 @@
         <annotation description="SWOT"/>
       </string>
       <string name="references">
-        <annotation description="SWOT-TN-CDM-0673-CNES_Product_Description_L2_HR_LakeSP - Revision A - 20220531"/>
+        <annotation description="SWOT-DD-CDM-0565-CNES_SAS_Design_L2_HR_LakeSP - Revision D (draft) - 20260526"/>
       </string>
       <string name="reference_document">
-        <annotation description="SWOT-DD-CDM-0565-CNES_SAS_Design_L2_HR_LakeSP - Revision A - 20220531"/>
+        <annotation description="SWOT-TN-CDM-0673-CNES_Product_Description_L2_HR_LakeSP - Revision D (draft) - 20260526"/>
       </string>
       <string name="product_version">
         <annotation description="Version identifier of this data file"/>
@@ -119,6 +119,12 @@
       <string name="xref_prior_lake_db_file">
         <annotation description="Name of input prior lake database file."/>
       </string>
+      <string name="xref_mls_file">
+        <annotation description="Name of input mean lake surfaces file."/>
+      </string>
+      <string name="xref_ice_model_file">
+        <annotation description="Name of input ice model file used to compute ice_dyn_f attribute."/>
+      </string>
       <string name="xref_param_l2_hr_laketile_file">
         <annotation description="Name of input Level 2 high rate lake tile processor configuration parameters file."/>
       </string>
@@ -136,6 +142,12 @@
       <text name="time_str" width="20">
         <annotation fill_value="no_data" long_name="UTC time" standard_name="time" calendar="gregorian" tai_utc_difference="[value of TAI-UTC at time of first record]" leap_second="YYYY-MM-DD hh:mm:ss" tag_basic_expert="Basic" comment="Time string giving UTC time. The format is YYYY-MM-DDThh:mm:ssZ, where the Z suffix indicates UTC time."/>
       </text>
+      <float name="t_prv_xovr" width="17" precision="3">
+        <annotation _FillValue="-999999999999" long_name="time difference in seconds from the previous crossover" units="s" valid_min="-999999" valid_max="999999" comment="Time difference in seconds from the previous crossover-calibration location (nominally positive)."/>
+      </float>
+      <float name="t_nxt_xovr" width="17" precision="3">
+        <annotation _FillValue="-999999999999" long_name="time difference in seconds to the next crossover" units="s" valid_min="-999999" valid_max="999999" comment="Time difference in seconds to the next crossover-calibration location (nominally negative)."/>
+      </float>
       <float name="wse" width="17" precision="3">
         <annotation fill_value="-999999999999" long_name="lake-averaged water surface elevation with respect to the geoid" units="m" valid_min="-1000" valid_max="100000" tag_basic_expert="Basic" comment="Lake-averaged water surface elevation, relative to the provided model of the geoid (geoid_hght), with corrections for media delays (wet and dry troposphere, and ionosphere), crossover correction, and tidal effects (solid_tide, load_tidef, and pole_tide) applied."/>
       </float>
@@ -148,6 +160,9 @@
       <float name="wse_std" width="17" precision="3">
         <annotation fill_value="-999999999999" long_name="standard deviation of pixels wse" units="m" valid_min="-1000" valid_max="100000" tag_basic_expert="Basic" comment="Standard deviation of the water surface elevation of all the pixels composing the lake. Note that this value is therefore with respect to the provided model of the geoid (geoid_hght attribute) whereas the height of pixels is given with respect to the ellipsoid."/>
       </float>
+      <int9 name="n_wse">
+        <annotation fill_value="-99999999" long_name="number of pixels used to compute wse" units="1" valid_min="0" valid_max="999999999" tag_basic_expert="Expert" comment="Number of pixel cloud samples that have been involved in the computation of wse."/>
+      </int9>
       <float name="area_total" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="total water area with estimate of dark water" units="km^2" valid_min="0" valid_max="200000" tag_basic_expert="Basic" comment="Total estimated area, including dark water that was not detected as water in the SWOT observation but identified through the use of a prior water likelihood map."/>
       </float>
@@ -160,30 +175,57 @@
       <float name="area_det_u" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="uncertainty in area of detected water" units="km^2" valid_min="0" valid_max="200000" tag_basic_expert="Expert" comment="Total uncertainty (random and systematic) in the area of detected water pixels."/>
       </float>
+      <int9 name="n_area">
+        <annotation fill_value="-99999999" long_name="number of pixels used to compute area_total" units="1" valid_min="1" valid_max="999999999" tag_basic_expert="Expert" comment="Number of pixel cloud samples that have been assigned to the lake, and are therefore involved in the computation of area_total."/>
+      </int9>
       <float name="layovr_val" width="17" precision="3">
-        <annotation fill_value="-999999999999" long_name="metric of layover effect" units="TBD" valid_min="TBD" valid_max="TBD" tag_basic_expert="Expert" comment="Value indicating an estimate of the height error due to layover."/>
+        <annotation fill_value="-999999999999" long_name="metric of layover effect" units="m" valid_min="-999999" valid_max="999999" tag_basic_expert="Expert" comment="Value indicating an estimate of the height error due to layover."/>
       </float>
       <float name="xtrk_dist" width="17" precision="3">
         <annotation fill_value="-999999999999" long_name="distance of lake polygon centroid to the satellite ground track" units="m" valid_min="-75000" valid_max="75000" tag_basic_expert="Basic" comment="Distance of centroid of polygon delineating lake boundary to the satellite ground track. A negative value indicates the left side of the swath, relative to the spacecraft velocity vector. A positive value indicates the right side of the swath."/>
       </float>
       <int4 name="quality_f">
-        <annotation fill_value="-999" long_name="summary quality indicator for lake measurement" flag_meanings="good bad" flag_values="0 1" valid_min="0" valid_max="1" tag_basic_expert="Basic" comment="Summary quality flag for the lake measurement. Values of 0 and 1 indicate nominal and off-nominal measurements."/>
+        <annotation fill_value="-999" long_name="summary quality indicator for lake measurement" standard_name="status_flag" flag_meanings="good suspect degraded bad" flag_values="0 1 2 3" valid_min="0" valid_max="3" tag_basic_expert="Basic" comment="Summary quality flag for the lake measurement. A value of 0 indicates a nominal measurement, 1 indicates a suspect measurement, 2 indicates a degraded measurement, and 3 indicates a bad measurement."/>
       </int4>
+      <int9 name="qual_f_b">
+        <annotation fill_value="-99999999" long_name="bitwise quality indicator for the lake" standard_name="status_flag" flag_meanings="classification_qual_suspect geolocation_qual_suspect few_open_water_suspect wse_std_suspect diff_from_pld_area_suspect xovr_cal_suspect no_prior_suspect water_false_detection_rate_suspect classification_qual_degraded geolocation_qual_degraded low_coh_degraded specular_ringing_degraded low_coh_bad xovr_cal_bad specular_ringing_bad" flag_masks="1 2 8 32 64 256 1024 2048 32768 65536 262144 524288 8388608 16777216 67108864" valid_min="0" valid_max="268435456" tag_basic_expert="Expert" comment="Bitwise quality indicator for the lake measurements. If this attribute is interpreted as an unsigned integer, a value of 0 indicates good data, values greater than 0 but less than 16384 represent suspect data, values greater than or equal to 16384 but less than 4194304 represent degraded data, and values greater than or equal to 4194304 represent bad data."/>
+      </int9>
+      <float name="wse_frac" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="fractional area of pixels used to compute wse" units="1" valid_min="0" valid_max="1" tag_basic_expert="Expert" comment="Ratio of the area of the pixels used to compute wse to the lake area_total. This value is between 0 and 1, with 1 indicating 100% of pixels used."/>
+      </float>
+      <float name="edge_frac" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="fractional area of water-near-land pixels" units="1" valid_min="0" valid_max="1" tag_basic_expert="Expert" comment="Fraction of lake area_total covered by water-near-land pixels. This value is between 0 and 1, with 0 indicating no water-near-land pixels and 1 indicating 100% water-near-land pixels."/>
+      </float>
       <float name="dark_frac" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="fractional area of dark water" units="1" valid_min="0" valid_max="1" tag_basic_expert="Expert" comment="Fraction of lake area_total covered by dark water. The value is between 0 and 1."/>
       </float>
-      <int4 name="ice_clim_f">
-        <annotation fill_value="-999" long_name="climatological ice cover flag" standard_name="status_flag" source="Yang et al. (2020)" flag_meanings="no_ice_cover uncertain_ice_cover full_ice_cover" flag_values="0 1 2" valid_min="0" valid_max="2" tag_basic_expert="Basic" comment="Climatological ice cover flag indicating whether the lake is ice-covered on the day of the observation based on external climatological information (not the SWOT measurement). Values of 0, 1, and 2 indicate that the lake is likely not ice covered, may or may not be partially or fully ice covered, and likely fully ice covered, respectively."/>
-      </int4>
+      <float name="low_frac" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="fractional area of low-coherence pixels" units="1" valid_min="0" valid_max="1" tag_basic_expert="Expert" comment="Fraction of lake area_total covered by low-coherence pixels. The value is between 0 and 1."/>
+      </float>
+      <float name="spec_frac" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="fractional area of pixels with specular ringing" units="1" valid_min="0" valid_max="1" tag_basic_expert="Expert" comment="Fraction of lake area_total covered by pixels degraded by specular ringing. The value is between 0 and 1."/>
+      </float>
       <int4 name="ice_dyn_f">
-        <annotation fill_value="-999" long_name="dynamical ice cover flag" standard_name="status_flag" source="Yang et al. (2020)" flag_meanings="no_ice_cover partial_ice_cover full_ice_cover" flag_values="0 1 2" valid_min="0" valid_max="2" tag_basic_expert="Basic" comment="Dynamic ice cover flag indicating whether the lake is ice-covered on the day of the observation based on analysis of external optical satellite data. Values of 0, 1, and 2 indicate that the lake is not ice covered, partially ice covered, and fully ice covered, respectively."/>
+        <annotation fill_value="-999" long_name="dynamical ice cover flag" standard_name="status_flag" source="Trudel et al. (2026)" flag_meanings="no_ice_cover partial_ice_cover full_ice_cover" flag_values="0 1 2" valid_min="0" valid_max="2" tag_basic_expert="Basic" comment="Dynamic ice cover flag indicating whether the lake is ice-covered on the day of the observation, based on SWOT radar signal characteristics. Values of 0, 1, and 2 indicate that the lake is likely not ice-covered, likely partially ice-covered, and likely fully ice-covered, respectively. A value of -999 indicates that the method was unable to predict the lake’s ice condition."/>
       </int4>
       <int4 name="partial_f">
         <annotation fill_value="-999" long_name="partially covered lake flag" flag_meanings="covered partially_covered" flag_values="0 1" valid_min="0" valid_max="1" tag_basic_expert="Basic" comment="Flag that indicates only partial lake coverage.  0= Indicates that the observed lake is entirely covered by the swath. 1= Indicates that the observed lake is partially covered by the swath."/>
       </int4>
       <int4 name="xovr_cal_q">
-        <annotation fill_value="-999" long_name="quality of the cross-over calibrations" flag_meanings="TBD" flag_masks="TBD" flag_values="TBD" valid_min="0" valid_max="TBD" tag_basic_expert="Basic" comment="Quality of the cross-over calibration."/>
+        <annotation fill_value="-999" long_name="quality of the cross-over calibration" flag_meanings="good suspect bad" flag_values="0 1 2" valid_min="0" valid_max="2" tag_basic_expert="Basic" comment="Quality of the cross-over calibration. A value of 0 indicates a nominal measurement, 1 indicates a suspect measurement, and 2 indicates a bad measurement."/>
       </int4>
+      <float name="sig0" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="sigma0" tag_basic_expert="Expert" units="1" valid_min="-1000" valid_max="10000000" comment="Unweighted mean of the sigma0 of the pixels used to determine the lake wse. The value is provided as a linear power ratio, not a value in decibels. A decibel value may be obtained from: sig0_in_dB = 10*log10(sig0)."/>
+      </float>
+      <float name="sig0_u" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="uncertainty in sigma0" tag_basic_expert="Expert" units="1" valid_min="0" valid_max="1000" comment="Uncertainty of sig0.The value is provided in linear units.This value is a one-sigma additive (not multiplicative) uncertainty term, which can be added to or subtracted from sig0."/>
+      </float>
+      <float name="sig0_std" width="20" precision="6">
+        <annotation fill_value="-999999999999" long_name="standard deviation of sigma0" tag_basic_expert="Expert" units="1" valid_min="0" valid_max="1000" comment="Standard deviation of the sigma0 of the pixels used to compute lake wse. The value is provided in linear units."/>
+      </float>
+      <text name="pol" width="3">
+        <annotation fill_value="no_data" long_name="polarization of sigma0" tag_basic_expert="Expert" comment="Flag indicating whether the node is observed with a horizontal (H) or vertical (V) signal polarization. For large lakes covered by the whole swath, the flag is “H+V”."/>
+      </text>
       <float name="geoid_hght" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="geoid height" standard_name="geoid_height_above_reference_ellipsoid" source="EGM2008" institution="GSFC" units="m" valid_min="-150" valid_max="150" tag_basic_expert="Basic" comment="Lake-averaged geoid model height above the reference ellipsoid. The value is computed from the EGM2008 geoid model with a correction to refer the value to the mean tide system (i.e., includes the zero-frequency permanent tide)."/>
       </float>
@@ -191,7 +233,7 @@
         <annotation fill_value="-999999999999" long_name="solid Earth tide height" source="Cartwright and Taylor (1971) and Cartwright and Edden (1973)" units="m" valid_min="-1" valid_max="1" tag_basic_expert="Expert" comment="Solid-Earth (Body) tide height, averaged over the lake. The zero-frequency permanent tide component is not included."/>
       </float>
       <float name="load_tidef" width="20" precision="6">
-        <annotation fill_value="-999999999999" long_name="geocentric load tide height (FES)" source="FES2014b (Carrere et al., 2016)" institution="LEGOS/CNES" units="m" valid_min="-0.2" valid_max="0.2" tag_basic_expert="Expert" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth’s crust. This value is used to compute wse."/>
+        <annotation fill_value="-999999999999" long_name="geocentric load tide height (FES)" source="FES2022b" institution="LEGOS/CNES" units="m" valid_min="-0.2" valid_max="0.2" tag_basic_expert="Expert" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth’s crust. This value is used to compute wse."/>
       </float>
       <float name="load_tideg" width="20" precision="6">
         <annotation fill_value="-999999999999" long_name="geocentric load tide height (GOT)" source="GOT4.10c (Ray, 2013)" institution="GSFC" units="m" valid_min="-0.2" valid_max="0.2" tag_basic_expert="Expert" comment="Geocentric load tide height. The effect of the ocean tide loading of the Earth’s crust."/>

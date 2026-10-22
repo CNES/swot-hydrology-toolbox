@@ -40,8 +40,7 @@ def stocc_linear_basic(in_list_obs, in_ref_area, in_ref_area_u, in_ref_wse, in_r
                             - in_list_obs[obs_id]["area_u"] = uncertainty over area of observed lake obs_id
                             - in_list_obs[obs_id]["wse"] = water surface elevation of observed lake obs_id
                             - in_list_obs[obs_id]["wse_u"] = uncertainty over water surface elevation of observed lake obs_id
-                            - in_list_obs[obs_id]["alpha"] = proprotionnal coefficient related to area of observed lake wrt
-                                                                all observed lakes linked to the prior lake
+                            - in_list_obs[obs_id]["alpha"] = proprotionnal coefficient related to area of observed lake wrt all observed lakes linked to the prior lake
     :type in_list_obs: dict
     :param in_ref_area: reference area used for storage change computation (in km2)
     :type in_ref_area: float
@@ -120,8 +119,7 @@ def stocc_quadratic_basic(in_list_obs, in_ref_area, in_ref_area_u, in_ref_wse, i
                             - in_list_obs[obs_id]["area_u"] = uncertainty over area of observed lake obs_id
                             - in_list_obs[obs_id]["wse"] = water surface elevation of observed lake obs_id
                             - in_list_obs[obs_id]["wse_u"] = uncertainty over water surface elevation of observed lake obs_id
-                            - in_list_obs[obs_id]["alpha"] = proprotionnal coefficient related to area of observed lake wrt
-                                                                all observed lakes linked to the prior lake
+                            - in_list_obs[obs_id]["alpha"] = proprotionnal coefficient related to area of observed lake wrt all observed lakes linked to the prior lake
     :type in_list_obs: dict
     :param in_ref_area: reference area used for storage change computation (in km2)
     :type in_ref_area: float

@@ -10,6 +10,8 @@
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
+# VERSION:3.2.0:DM:#91:2022/12/08:Poursuite industrialisation
+# VERSION:3.3.0:DM:#91:2024/09/20:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 '''
@@ -29,9 +31,9 @@ from __future__ import division
 
 import numpy 
 import scipy.optimize as opt
-import pyproj as pyproj
 import logging
 from cnes.common.lib.my_variables import GEN_RAD_EARTH_EQ, GEN_RAD_EARTH_POLE
+from pyproj import Transformer
 
 
 def normalize_vect(a, axis=-1, order=2):
@@ -123,12 +125,20 @@ def project_array(coordinates, srcp='geocent', dstp='latlon'):
     :rtype: float
 
     """
+    
+    """
     input_proj = pyproj.Proj(proj=srcp, datum='WGS84')
     output_proj = pyproj.Proj(proj=dstp, datum='WGS84')
     fx, fy, fz = pyproj.transform(input_proj, output_proj, coordinates[:, 0], coordinates[:, 1], coordinates[:, 2])
     # Re-create (n,3) coordinates
     # Inversion of lat and lon !
     return numpy.dstack([fy, fx, fz])[0]
+    """
+    
+    transform = Transformer.from_crs({"proj":'geocent', "ellps":'WGS84', "datum":'WGS84'}, "EPSG:4326")
+    fx, fy, fz = transform.transform(coordinates[:, 0], coordinates[:, 1], coordinates[:, 2])
+    
+    return numpy.dstack([fx, fy, fz])[0]
 
 
 def p_of_mu_vect(mu, s, r_eq, delta, u_hat, v_hat, w_hat):
@@ -256,12 +266,19 @@ def herror2ofx(x, dmu_max, mu_0, s, w_hat, u_hat, v_hat, r_eq, delta, h_target):
     h_error_square_mu = (h_of_mu(mu, s, r_eq, delta, u_hat, v_hat, w_hat)[0] - h_target) ** 2
     return h_error_square_mu
 
+def compute_true_cross_track_wrt_swot_convention(p_noisy, s, vs):
+    s_hat = normalize_vect(s)
+    v_hat = normalize_vect(vs)  # points along track
+    u_hat = -1*normalize_vect(numpy.cross(s_hat, v_hat))  # s and v are almost ortho; no danger of colinear (points roughly cross track)   
+    return numpy.einsum('ij,ij->i', p_noisy-s, u_hat)
+
+    
 
 def pointcloud_height_geoloc_vect(p_noisy, h_noisy, s, vs, range_target, h_target,
                                   recompute_doppler=False,
                                   recompute_range=False,
                                   verbose=False,
-                                  max_iter_grad=1, height_goal=1.e-3):
+                                  max_iter_grad=1, height_goal=1.e-3, swath=None):
     """
     Compute the height of noisy point
 
@@ -297,7 +314,7 @@ def pointcloud_height_geoloc_vect(p_noisy, h_noisy, s, vs, range_target, h_targe
     """
     # 0 - Initiate logging service
     logger = logging.getLogger("pointcloud_height_geoloc_vect()")
-    logger.info("PROCESSING")
+    logger.debug("PROCESSING")
 
     # 1 define variable of problem
 
@@ -331,6 +348,13 @@ def pointcloud_height_geoloc_vect(p_noisy, h_noisy, s, vs, range_target, h_targe
     # 1.7 - initial guess for mu uses the input point as a first start
     mu_0 = numpy.arctan2(numpy.einsum('ij,ij->i', p_noisy - s, u_hat), numpy.einsum('ij,ij->i', p_noisy - s, w_hat))
 
+    crosstrack = compute_true_cross_track_wrt_swot_convention(p_noisy, s, vs)
+
+    if swath == "L":
+        ind_shifted = numpy.where(crosstrack > 0)
+    else:
+        ind_shifted = numpy.where(crosstrack < 0)
+
     # 1.8 - tweak the intial guess: move by dh in the w_hat direction, taking the spherical earth correction factor into account
     # 1.81 - crude approximation  (acceptable but we are computing an order 1 correction)
     r_sph_earth = (GEN_RAD_EARTH_EQ + GEN_RAD_EARTH_POLE) / 2.
@@ -345,6 +369,12 @@ def pointcloud_height_geoloc_vect(p_noisy, h_noisy, s, vs, range_target, h_targe
     # note that this can converge poorly if we aim too close to h=0
     iter_grad = 0
     mu = numpy.copy(mu_0)
+    
+    # check if point is in the "wrong" side of the swath due to the noise to choose the correct solution from ambiguous improved geoloc
+    if len(ind_shifted[0]) > 0 :
+        mu[ind_shifted] = -mu[ind_shifted]
+        mu_0[ind_shifted] = -mu_0[ind_shifted]
+            
     while iter_grad <= max_iter_grad:
         # 2 - resolution of G_tilde(mu) = A + d_mu*B = h_mu**2
 
@@ -425,7 +455,7 @@ def pointcloud_height_geoloc_vect(p_noisy, h_noisy, s, vs, range_target, h_targe
 
     # projection of geocentric coordinates into geographic coordinates
     p_final_llh = project_array(p_mu)
-    logger.info("ENDING")
+    logger.debug("ENDING")
 
     return p_mu, p_final_llh, h_mu, (iter_grad, nfev_minimize_scalar)
 

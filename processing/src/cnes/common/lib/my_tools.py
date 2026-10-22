@@ -11,6 +11,14 @@
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
 # VERSION:3.1.0:DM:#91:2021/05/21:Poursuite industrialisation
 # VERSION:4.0.0:DM:#91:2022/05/05:Poursuite industrialisation
+# VERSION:5.0.0:DM:#91:2022/12/08:Poursuite industrialisation
+# VERSION:5.1.0:DM:#91:2023/03/31:Poursuite industrialisation
+# VERSION:5.2.1:DM:#91:2023/07/24:Poursuite industrialisation
+# VERSION:5.3.0:DM:#91:2023/10/04:Poursuite industrialisation
+# VERSION:6.1.0:DM:#91:2024/09/20:Poursuite industrialisation
+# VERSION:6.2.6:DM:#900:2026/07/06: [PGE] [LAKES] Ajout d'une interface niveau moyen des lacs
+# VERSION:6.2.6:DM:#900:2026/07/06:SSALTO-565 [PGE] [LAKES] Ajout d'une interface coeff NN pour calcul ice_dyn_f
+# VERSION:6.2.7:DM:#906:2026/07/28:SSALTO-872 [PGE][LAKES] Gestion des erreurs/warning GDAL
 # FIN-HISTORIQUE
 # ======================================================
 """
@@ -42,6 +50,10 @@ from scipy.ndimage.measurements import label
 
 import cnes.common.service_error as service_error
 import cnes.common.lib.my_variables as my_var
+
+from pyproj import CRS, Transformer
+from pyproj.aoi import AreaOfInterest
+from pyproj.database import query_utm_crs_info
 
 
 def test_file(in_file, in_extent=None):
@@ -168,13 +180,17 @@ def convert_to_m180_180(in_long):
     """
 
     out_long = in_long
+    
     if np.iterable(in_long):
-        ind = np.where(in_long > 180.0)[0]
+        idx_isfinite = np.where(np.isfinite(in_long))[0]
+        ind = np.where(in_long[idx_isfinite] > 180.0)[0]
         if len(ind) > 0:
-            out_long[ind] -= 360.
+            out_long[idx_isfinite[ind]] -= 360.
+            
     else:
-        if in_long > 180.0:
+        if np.isfinite(in_long) and (in_long > 180.0):
             out_long -= 360
+            
     return out_long
 
 
@@ -190,13 +206,17 @@ def convert_to_0_360(in_long):
     """
 
     out_long = in_long
+    
     if np.iterable(in_long):
-        ind = np.where(in_long < 0.0)
+        idx_isfinite = np.where(np.isfinite(in_long))[0]
+        ind = np.where(in_long[idx_isfinite] < 0.0)
         if ind is not None:
-            out_long[ind] += 360.
+            out_long[idx_isfinite[ind]] += 360.
+            
     else:
-        if in_long < 0.0:
+        if np.isfinite(in_long) and (in_long < 0.0):
             out_long += 360.
+            
     return out_long
 
 
@@ -211,6 +231,7 @@ def swot_timeformat(in_datetime, in_format=0):
     :type in_datetime: datetime.datetime
     :param in_format: string format option 0 (default)="YYYY-MM-DD hh:mm:ss.ssssssZ" 1="YYYY-MM-DD hh:mm:ss"
                                             2="YYYY-MM-DDThh:mm:ss.ssssssZ" 3="YYYY-MM-DDThh:mm:ss"
+                                            4="YYYY-MM-DDThh:mm:ssZ"
     :type in_format: int
 
     :return: out_datetime: time value written as a string
@@ -225,6 +246,8 @@ def swot_timeformat(in_datetime, in_format=0):
         out_datetime = "%sZ" % in_datetime.strftime("%Y-%m-%dT%H:%M:%S.%f")
     elif in_format == 3:
         out_datetime = in_datetime.strftime("%Y-%m-%dT%H:%M:%S")
+    elif in_format == 4:
+        out_datetime = "%sZ" % in_datetime.strftime("%Y-%m-%dT%H:%M:%S")
     else:
         out_datetime = "%sZ" % in_datetime.strftime("%Y-%m-%d %H:%M:%S.%f")
 
@@ -250,14 +273,15 @@ def swot_orbit_phase(in_cycle_num):
     return out_phase
 
 
-def convert_utc_to_str(in_utc_time, in_format=3):
+def convert_utc_to_str(in_utc_time, in_format=4):
     """
     Convert UTC time to appropriate string format
 
     :param in_utc_time: date_time in seconds from 01/01/2000 00:00:00
     :type in_utc_time: float
-    :param in_format: string format option 0 (default)="YYYY-MM-DD hh:mm:ss.ssssssZ" 1="YYYY-MM-DD hh:mm:ss"
+    :param in_format: string format option 0 ="YYYY-MM-DD hh:mm:ss.ssssssZ" 1="YYYY-MM-DD hh:mm:ss"
                                             2="YYYY-MM-DDThh:mm:ss.ssssssZ" 3="YYYY-MM-DDThh:mm:ss"
+                                            4 (default)="YYYY-MM-DDThh:mm:ssZ"
     :type in_format: int
 
     :return: UTC time from 01/01/2000 00:00:00 as a string
@@ -354,8 +378,6 @@ def compute_bin_mat(in_size_x, in_size_y, in_x, in_y, verbose=True):
     :rtype: 2D binary matrix of int 0/1
     """
     logger = logging.getLogger("my_tools")
-    if verbose:
-        logger.debug("- start -")
 
     # 0 - Deal with exceptions
     # 0.1 - Input vectors size must be the same
@@ -389,24 +411,27 @@ def compute_bin_mat(in_size_x, in_size_y, in_x, in_y, verbose=True):
 #######################################
 
 
-def label_region(in_bin_mat):
+def label_region(in_bin_mat, verbose=True):
     """
     Identifies all separate regions in a 2D binary matrix
 
     :param in_bin_mat: 2D binary matrix
     :type in_bin_mat: 2D binary matrix of int 0/1
+    :param verbose: print log debug flag
+    :type verbose: bool
 
-    :return: a 2D matrix, in which each pixel has a unique value ranging from 0 to N (number of identified regions)
-    :rtype: 2D matrix of int
-    :return: the number of objects
-    :rtype: int
+    :return: out_m_label_regions = 2D matrix, in which each pixel has a unique value ranging from 0 (outside any region) to N (number of identified regions)
+    :rtype: out_m_label_regions = 2D matrix of int
+    :return: out_nb_obj = number of identified regions
+    :rtype: out_nb_obj = int
     """
-    logger = logging.getLogger("my_tools")
-    logger.debug("- start -")
 
     out_m_label_regions, out_nb_obj = label(in_bin_mat)
-    message = "> Number of detected objects = %d" % out_nb_obj
-    logger.debug(message)
+    
+    if verbose:
+        logger = logging.getLogger("my_tools")
+        message = "> Number of detected objects = %d" % out_nb_obj
+        logger.debug(message)
 
     return out_m_label_regions, out_nb_obj
 
@@ -473,8 +498,8 @@ def convert_2d_mat_in_1d_vec(in_x, in_y, in_mat):
     :return: a 1D vector, each value at "ind" being the value of in_mat[ in_x[ind], in_y[ind] ]
     :rtype: 2D matrix of values (int, float, ...)
     """
-    logger = logging.getLogger("my_tools")
-    logger.debug("- start -")
+    # log logger = logging.getLogger("my_tools")
+    # log logger.debug("- start -")
 
     # Number of pixels in in_x
     nb_pix = in_x.size
@@ -510,10 +535,10 @@ def compute_mean_2sigma(in_v_val, name=None):
     
     if len(not_nan_idx) == 0:
         if name is None:
-            msg = "No finite value in the input array => return NaN"
+            msg = "WARNING No finite value in the input array => return NaN"
         else:
-            msg = "No finite value in the input array [%s] => return NaN" % name
-        logger.warning(msg)
+            msg = "WARNING No finite value in the input array [%s] => return NaN" % name
+        logger.debug(msg)
         out_mean = np.nan
         
     else:
@@ -532,11 +557,14 @@ def compute_mean_2sigma(in_v_val, name=None):
         idx_higher = np.where(in_v_val[v_indices] > med+2*std)[0]
         v_indices = np.delete(v_indices, idx_higher)
 
+        """
+        log commenté
         if name is None:
             message = "%d / %d pixels used for mean computation (med=%.3f and std=%.3f)" % (v_indices.size, len(in_v_val), med, std)
         else:
             message = "%d / %d pixels used for mean computation of [%s] (med=%.3f and std=%.3f)" % (v_indices.size, len(in_v_val), name, med, std)
         logger.debug(message)
+        """
 
         # 3 - Compute the mean of clean array
         out_mean = np.mean(in_v_val[v_indices])
@@ -564,10 +592,10 @@ def compute_std_2sigma(in_v_val, name=None):
     
     if len(not_nan_idx) == 0:
         if name is None:
-            msg = "No finite value in the input array => return NaN"
+            msg = "WARNING No finite value in the input array => return NaN"
         else:
-            msg = "No finite value in the input array [%s] => return NaN" % name
-        logger.warning(msg)
+            msg = "WARNING No finite value in the input array [%s] => return NaN" % name
+        logger.debug(msg)
         out_std = np.nan
         
     else:
@@ -586,11 +614,14 @@ def compute_std_2sigma(in_v_val, name=None):
         idx_higher = np.where(in_v_val[v_indices] > med+2*std)[0]
         v_indices = np.delete(v_indices, idx_higher)
 
+        """
+        log commenté
         if name is None:
             message = "%d / %d pixels used for std computation (med=%.3f and std=%.3f)" % (v_indices.size, len(in_v_val), med, std)
         else:
             message = "%d / %d pixels used for std computation of [%s] (med=%.3f and std=%.3f)" % (v_indices.size, len(in_v_val), name, med, std)
         logger.debug(message)
+        """
 
         # 3 - Compute the mean of clean array
         out_std = np.std(in_v_val[v_indices])
@@ -685,14 +716,23 @@ def get_utm_coords(in_lon, in_lat):
     :return: UTM coordinates
     :type: float
     """
-    lat_mean = np.mean(in_lat)
-    lon_mean = np.mean(in_lon)
+    
+    utm_crs_list = query_utm_crs_info(
+    datum_name="WGS 84",
+    area_of_interest=AreaOfInterest(
+        west_lon_degree=np.nanmean(in_lon),
+        south_lat_degree=np.nanmean(in_lat),
+        east_lon_degree=np.nanmean(in_lon),
+        north_lat_degree=np.nanmean(in_lat),
+        ),
+    )
 
-    # code commenté x_c, y_c, zone_number, zone_lettre = utm.from_latlon(lat_mean, lon_mean)
-    latlon = pyproj.Proj(init="epsg:4326")
-    epsg=get_utm_epsg_code(lon_mean, lat_mean)
-    utm_proj = pyproj.Proj(init='epsg:' + epsg)
-    X, Y = pyproj.transform(latlon, utm_proj, in_lon, in_lat)
+    utm_crs = CRS.from_epsg(utm_crs_list[0].code)
+    crs_4326 = CRS.from_epsg(4326)
+
+    transform = Transformer.from_crs(crs_4326, utm_crs)
+    X, Y = transform.transform(in_lat, in_lon)
+    
     return (X,Y, )
 
 
@@ -723,7 +763,7 @@ def get_area(in_polygon, centroid=None):
     else:
         centroid_lon = centroid[0]
         centroid_lat = centroid[1]
-
+    
     epsg_code = get_utm_epsg_code(centroid_lon, centroid_lat)
 
     # 1 - Projection of tmp_poly into UTM
@@ -733,10 +773,15 @@ def get_area(in_polygon, centroid=None):
     src_target = osr.SpatialReference()
     src_target.ImportFromEPSG(int(epsg_code))
 
+    # Two migration lines needed since GDAL 3.0
+    # to switch the longitude, latitude order to honour the axis order mandated by the authority defining a CRS
+    src_source.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+    src_target.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+
     transform = osr.CoordinateTransformation(src_source, src_target)
-
+    
     tmp_poly.Transform(transform)
-
+    
     # 2 - Compute and return area
     return tmp_poly.GetArea()
 
@@ -756,18 +801,24 @@ def get_utm_coords_from_lonlat(in_long, in_lat, utm_epsg_code=None):
     :return: X coordinates, Y coordintes, UTM_epsg_code
     :rtype: tuple of (1D-array of float, 1D-array of float, int)
     """
+    
+    utm_crs_list = query_utm_crs_info(
+    datum_name="WGS 84",
+    area_of_interest=AreaOfInterest(
+        west_lon_degree=np.nanmean(in_long),
+        south_lat_degree=np.nanmean(in_lat),
+        east_lon_degree=np.nanmean(in_long),
+        north_lat_degree=np.nanmean(in_lat),
+        ),
+    )
 
-    if utm_epsg_code == None:
-        lat_mean = np.mean(in_lat)
-        lon_mean = np.mean(in_long)
-        utm_epsg_code = get_utm_epsg_code(lon_mean, lat_mean)
+    utm_crs = CRS.from_epsg(utm_crs_list[0].code)
+    crs_4326 = CRS.from_epsg(4326)
 
-    latlon_proj = pyproj.Proj(init="epsg:4326")
-    utm_proj = pyproj.Proj(init='epsg:' + utm_epsg_code)
-
-    X, Y = pyproj.transform(latlon_proj, utm_proj, in_long, in_lat)
-
-    return X, Y, utm_epsg_code
+    transform = Transformer.from_crs(crs_4326, utm_crs)
+    X, Y = transform.transform(in_lat, in_long)
+    
+    return X, Y, utm_crs_list[0].code
 
 
 def get_lon_lat_polygon_from_utm(in_utm_poly, in_utm_epsg_code):
@@ -904,9 +955,10 @@ def get_bounding_box(lat_min, lat_max, lon_min, lon_max):
     :param lon_min: longitude min
     :type lon_min: float
     :param lon_max: longitude max
-
+    :type lon_max: float
+    
     :return: Polygon with coordinates given in input
-    :type : OGR Geometry Polygon
+    :rtype: OGR Geometry Polygon
     """
     ring = ogr.Geometry(ogr.wkbLinearRing)
     ring.AddPoint(lon_min, lat_max)

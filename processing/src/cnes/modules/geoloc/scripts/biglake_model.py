@@ -9,6 +9,8 @@
 # VERSION:1.0.0:::2019/05/17:version initiale.
 # VERSION:2.0.0:DM:#91:2020/07/03:Poursuite industrialisation
 # VERSION:3.0.0:DM:#91:2021/03/12:Poursuite industrialisation
+# VERSION:3.2.0:DM:#91:2022/12/08:Poursuite industrialisation
+# VERSION:3.3.0:DM:#91:2024/09/20:Poursuite industrialisation
 # FIN-HISTORIQUE
 # ======================================================
 '''
@@ -26,6 +28,9 @@ import scipy.interpolate
 import utm
 import pyproj
 import os
+from pyproj import CRS, Transformer
+from pyproj.aoi import AreaOfInterest
+from pyproj.database import query_utm_crs_info
 
 
 class BigLakeModel(object):
@@ -170,24 +175,31 @@ class BigLakeModel(object):
 
         if ind is not None:
             longitude[ind]+= -360.
-        x_c, y_c, zone_number, zone_letter = utm.from_latlon(
-                np.nanmean(latitude),
-                np.nanmean(longitude))
-        
-        # Convert pixel cloud to UTM (zone of the centroid)
-        latlon = pyproj.Proj(init="epsg:4326")
-        utm_proj = pyproj.Proj("+proj=utm +zone={}{} +ellps=WGS84 +datum=WGS84 +units=m +no_defs".format(zone_number, zone_letter))
-        X, Y = pyproj.transform(latlon, utm_proj, longitude, latitude)
 
+        utm_crs_list = query_utm_crs_info(
+            datum_name="WGS 84",
+            area_of_interest=AreaOfInterest(
+                west_lon_degree=np.nanmean(longitude),
+                south_lat_degree=np.nanmean(latitude),
+                east_lon_degree=np.nanmean(longitude),
+                north_lat_degree=np.nanmean(latitude),
+            ),
+        )
+        
+        utm_crs = CRS.from_epsg(utm_crs_list[0].code)
+        crs_4326 = CRS.from_epsg(4326)
+            
+        transform = Transformer.from_crs(crs_4326, utm_crs)
+        X, Y = transform.transform(latitude, longitude)
+        
         # 2D polynomial fitting of heights on the ground grid 
         # For now, degre 2, may be change
-        A = np.array([X[good_ind]*0+1, X[good_ind], Y[good_ind], X[good_ind]**2, X[good_ind]**2*Y[good_ind], X[good_ind]**2*Y[good_ind]**2,
-                      Y[good_ind]**2, X[good_ind]*Y[good_ind]**2, X[good_ind]*Y[good_ind]]).T
+    
+        A = np.array([X[good_ind]*0+1, X[good_ind], Y[good_ind], X[good_ind]**2, Y[good_ind]**2, X[good_ind]*Y[good_ind]]).T
         B = Z[good_ind].flatten()-np.nanmean(Z)
-        coeff, r, rank, s = np.linalg.lstsq(A, B)
-        
-        res = coeff[0]*(X*0+1) + coeff[1]*X + coeff[2]*Y + coeff[3]*(X**2) + coeff[4]*(X**2*Y) + coeff[5]*(X**2*Y**2) + coeff[6]*(Y**2) + \
-              coeff[7]*(X*Y**2) + coeff[8]*(X*Y)+np.nanmean(Z)
+        coeff, r, rank, s = np.linalg.lstsq(A, B, rcond=None)
+        res = coeff[0]*(X*0+1) + coeff[1]*X + coeff[2]*Y + coeff[3]*(X**2)+ coeff[4]*(Y**2) + coeff[5]*(X*Y)+np.nanmean(Z)  
+                      
         
         return res
     
