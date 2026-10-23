@@ -33,18 +33,19 @@ develop branch
 
 ### Dependencies
 The dependencies of performances are:
-* pandas
-* matplotlib
-* numpy
-* notebook
-* shapely
-* geopandas
-
+- pandas
+- matplotlib
+- numpy
+- notebook
+- ipykernel
+- shapely
+- geopandas
 
 ### Example of environment.yml
 name: base
 channels:
   - defaults
+  - conda-forge
 dependencies:
   - python=3.13
   - conda=26.1.1
@@ -53,6 +54,8 @@ dependencies:
   - wheel
   - shapely
   - geopandas
+  - ipykernel
+  - jupyterlab
   - conda-anaconda-telemetry[version='>=0.3.0']
   - conda-anaconda-tos[version='>=0.2.2']
   - conda-content-trust
