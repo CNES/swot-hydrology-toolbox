@@ -10,6 +10,8 @@ dependencies:
   - wheel
   - shapely
   - geopandas
+  - ipykernel
+  - jupyterlab
   - conda-anaconda-telemetry[version='>=0.3.0']
   - conda-anaconda-tos[version='>=0.2.2']
   - conda-content-trust
