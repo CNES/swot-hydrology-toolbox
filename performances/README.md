@@ -102,7 +102,6 @@ conda deactivate
 After activating your Python environment, you have to set your PYTHONPATH variables:
 ```
 export PYTHONPATH=$SWOT_HYDROLOGY_TOOLBOX/performances/:$PYTHONPATH
-export PYTHONPATH=$SWOT_HYDROLOGY_TOOLBOX/performances/src/:$PYTHONPATH
 ```
 
 ## To run a lake performance assessment by using the notebook:
