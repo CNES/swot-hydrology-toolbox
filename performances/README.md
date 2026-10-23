@@ -69,9 +69,9 @@ To create a conda environment, execute:
 
 ```
 cd $SWOT_HYDROLOGY_TOOLBOX/performances
-conda create -n perfos_env python=3.10 pandas matplotlib numpy notebook shapely geopandas -y
+conda create -n perfos_env python=3.10 pandas matplotlib numpy shapely geopandas jupyterlab notebook ipykernel -y
 conda activate perfos_env
-python -c "import sys, datetime, os, pandas, logging, matplotlib, numpy, argparse, shapely, geopandas; print('OK')"
+python -c "import pandas, matplotlib, numpy, shapely, geopandas, ipykernel, notebook, jupyterlab; print('OK')"
 ```
 
 #### Creating a conda environment from a .yaml file
