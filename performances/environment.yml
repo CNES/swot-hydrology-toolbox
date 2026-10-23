@@ -1,12 +1,15 @@
 name: perfos_env_test 
 channels:
   - defaults
+  - conda-forge
 dependencies:
   - python=3.13
   - conda=26.1.1
   - setuptools
   - pip
   - wheel
+  - shapely
+  - geopandas
   - conda-anaconda-telemetry[version='>=0.3.0']
   - conda-anaconda-tos[version='>=0.2.2']
   - conda-content-trust

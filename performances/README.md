@@ -37,6 +37,8 @@ The dependencies of performances are:
 * matplotlib
 * numpy
 * notebook
+* shapely
+* geopandas
 
 
 ### Example of environment.yml
@@ -49,6 +51,8 @@ dependencies:
   - setuptools
   - pip
   - wheel
+  - shapely
+  - geopandas
   - conda-anaconda-telemetry[version='>=0.3.0']
   - conda-anaconda-tos[version='>=0.2.2']
   - conda-content-trust
@@ -65,9 +69,9 @@ To create a conda environment, execute:
 
 ```
 cd $SWOT_HYDROLOGY_TOOLBOX/performances
-conda create -n perfos_env python=3.10 pandas matplotlib numpy notebook -y
+conda create -n perfos_env python=3.10 pandas matplotlib numpy notebook shapely geopandas -y
 conda activate perfos_env
-python -c "import sys, datetime, os, pandas, logging, matplotlib, numpy, argparse; print('OK')"
+python -c "import sys, datetime, os, pandas, logging, matplotlib, numpy, argparse, shapely, geopandas; print('OK')"
 ```
 
 #### Creating a conda environment from a .yaml file
@@ -104,7 +108,7 @@ export PYTHONPATH=$SWOT_HYDROLOGY_TOOLBOX/performances/src/:$PYTHONPATH
 ```
 jupyter notebook examples/perfos_lakesp_with_filters.ipynb 
 ```
-### By executing python code:
+### (deprecated) By executing python code:
 
 #### Import libraries
 ```
