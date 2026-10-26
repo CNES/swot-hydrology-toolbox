@@ -25,7 +25,8 @@ Note that both algorithms and products are still under development and will be u
 * LOCNES: Generation of L2_HR_LakeTile, L2_HR_LakeSP and L2_HR_PIXCVec products 
 * Improved geolocation library (used by RiverObs and LOCNES)
 * Module to generate L2_HR_Raster products (under development, not yet included)
-* Flooplain DEM prototype
+* Flooplain DEM prototype has been removed from this repository, code is now under https://github.com/CNES/swot_floodplain_dem
+* Performances : scripts and data for Lake validation paper (manuscript 2026WR044426)
 * Overall script permitting to run all steps consecutively (with example dataset)
 * Tools for file format conversion etc.
 * Potentially other modules in the future 
