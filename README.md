@@ -32,7 +32,7 @@ Note that both algorithms and products are still under development and will be u
 * Potentially other modules in the future 
 
 ## Associated SHT version
-release_version_08_23_2022 branch
+release_version_26_10_2026 branch
 
 ## Associated RiverObs version
 develop branch
